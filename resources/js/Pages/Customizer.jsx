@@ -31,8 +31,9 @@ export default function Dashboard() {
         >
             <Head title="Customizer" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div className="py-16">
+                {/* sm:px-6 lg:px-8 */}
+                <div className="mx-auto max-w-7xl">
                     {/* p-6  */}
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lgtext-gray-900">
                         {/* <Button variant='contained' color='secondary'>Button</Button> */}
@@ -41,7 +42,7 @@ export default function Dashboard() {
                             layout={layout}
                             cols={12}
                             rowHeight={40}
-                            width={1215}
+                            width={1280}
                             compactType='none'
                         >
                             <div key="1" style={{ background: '#4CAF50' }}>Item 1</div>
