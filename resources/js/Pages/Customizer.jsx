@@ -93,10 +93,6 @@ export default function Dashboard() {
         })));
     }
 
-    const addNewWidgetHandler = () => {
-        addNewBlock();
-    }
-
     const handleDragEnd = (event) => {
         const { over, active } = event;
         if (over && over.id === 'right-panel') {
@@ -107,7 +103,6 @@ export default function Dashboard() {
                 y: 0,
                 w: 1,
                 h: 2,
-                name: active.data.current.name, // Add the widget name
             };
             setLayout([...layout, newBlock]);
             setBlockCount(blockCount + 1);
@@ -115,6 +110,23 @@ export default function Dashboard() {
     };
 
     let anyTabSelected = tabs.find(value => value.selected);
+
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDragStart = () => {
+        setIsDragging(true);
+    };
+
+    const handleDragStop = (newLayout) => {
+        setIsDragging(false);
+        setLayout(newLayout);
+    };
+
+    const handleClick = (block) => {
+        if (!isDragging) {
+            console.log(block);
+        }
+    };
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Customizer</h2>} >
@@ -169,7 +181,7 @@ export default function Dashboard() {
                                                 < Box sx={{ py: 3, textAlign: "center", display: "flex", flexWrap: "wrap" }}>
                                                     {widgets.map((value, index) => (
                                                         <Draggable key={index} id={`widget-${index}`} name={value.name}>
-                                                            <Box key={index} sx={{ cursor: "pointer", width: "96%", border: "2px solid #7bb6f0", borderRadius: "5px", m: 0.3, p: 1, py: 1.5 }} onClick={addNewWidgetHandler}>
+                                                            <Box key={index} sx={{ cursor: "pointer", width: "96%", border: "2px solid #7bb6f0", borderRadius: "5px", m: 0.3, p: 1, py: 1.5 }}>
                                                                 {value.icon}
                                                                 <Typography variant="subtitle2" sx={{ color: "#1677d7", mt: 0.5, fontSize: "12px" }}>
                                                                     {value.name}
@@ -196,14 +208,15 @@ export default function Dashboard() {
                                         rowHeight={32}
                                         width={anyTabSelected ? 1060 : 1360}
                                         compactType='none'
-                                        onDragStop={(e) => setLayout(e)}
                                         onLayoutChange={(e) => setLayout(e)}
                                         onResizeStop={(e) => setLayout(e)}
+                                        onDragStart={handleDragStart} // Detect drag start
+                                        onDragStop={handleDragStop} // Detect drag stop
                                     >
                                         {layout.map((block) => (
-                                            <div key={block.i} style={{ background: '#4CAF50' }}>
-                                                Item {block.i}
-                                            </div>
+                                            <Box key={block.i} style={{ background: '#4CAF50' }} onClick={() => handleClick(block)}>
+                                                Item {block.customProp}
+                                            </Box>
                                         ))}
                                     </GridLayout>
                                 </Droppable>
