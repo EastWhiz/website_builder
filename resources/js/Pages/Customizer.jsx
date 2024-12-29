@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
-import { Box, Typography } from '@mui/material';
+import { Box, TextField, Typography } from '@mui/material';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 
@@ -21,10 +21,10 @@ import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState } from 'react';
 
-function Draggable({ id, children, name }) {
+function Draggable({ id, children, type }) {
     const { attributes, listeners, setNodeRef, transform } = useDraggable({
         id,
-        data: { name }, // Pass additional data like the widget name
+        data: { type }, // Pass additional data like the widget name
     });
 
     // Apply a transform if present
@@ -65,6 +65,8 @@ export default function Dashboard() {
     const [layout, setLayout] = useState([]);
     const [blockCount, setBlockCount] = useState(0);
 
+    const [widgetProperties, setWidgetProperties] = useState([]);
+
     const [tabs, setTabs] = useState([
         { name: "Widgets", value: "widgets", selected: true, icon: <WidgetsIcon /> },
         { name: "Translate", value: "translate", selected: false, icon: <TranslateIcon /> },
@@ -94,6 +96,7 @@ export default function Dashboard() {
     }
 
     const handleDragEnd = (event) => {
+        // console.log(event);
         const { over, active } = event;
         if (over && over.id === 'right-panel') {
             // Add a new widget to the layout on drop
@@ -107,6 +110,10 @@ export default function Dashboard() {
             setLayout([...layout, newBlock]);
             setBlockCount(blockCount + 1);
         }
+
+        let temp = [...widgetProperties];
+        temp.push({ i: `${blockCount + 1}`, id: active.id, type: active.data.current.type, properties: [] });
+        setWidgetProperties(temp);
     };
 
     let anyTabSelected = tabs.find(value => value.selected);
@@ -124,9 +131,11 @@ export default function Dashboard() {
 
     const handleClick = (block) => {
         if (!isDragging) {
-            console.log(block);
+            // console.log(block);
         }
     };
+
+    console.log(widgetProperties);
 
     return (
         <AuthenticatedLayout header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Customizer</h2>} >
@@ -180,7 +189,7 @@ export default function Dashboard() {
                                             {anyTabSelected && anyTabSelected.value == "widgets" &&
                                                 < Box sx={{ py: 3, textAlign: "center", display: "flex", flexWrap: "wrap" }}>
                                                     {widgets.map((value, index) => (
-                                                        <Draggable key={index} id={`widget-${index}`} name={value.name}>
+                                                        <Draggable key={index} id={`widget-${index}`} type={value.value}>
                                                             <Box key={index} sx={{ cursor: "pointer", width: "96%", border: "2px solid #7bb6f0", borderRadius: "5px", m: 0.3, p: 1, py: 1.5 }}>
                                                                 {value.icon}
                                                                 <Typography variant="subtitle2" sx={{ color: "#1677d7", mt: 0.5, fontSize: "12px" }}>
@@ -208,14 +217,62 @@ export default function Dashboard() {
                                         rowHeight={32}
                                         width={anyTabSelected ? 1060 : 1360}
                                         compactType='none'
-                                        onLayoutChange={(e) => setLayout(e)}
+                                        onLayoutChange={(e) => {
+                                            // console.log(e);
+                                            setLayout(e);
+
+                                        }}
                                         onResizeStop={(e) => setLayout(e)}
                                         onDragStart={handleDragStart} // Detect drag start
                                         onDragStop={handleDragStop} // Detect drag stop
                                     >
                                         {layout.map((block) => (
-                                            <Box key={block.i} style={{ background: '#4CAF50' }} onClick={() => handleClick(block)}>
-                                                Item {block.customProp}
+                                            <Box key={block.i} style={{
+                                                margin: "0px",
+                                                padding: "0px",
+                                                height: "100%",
+                                                background: "grey",
+                                                display: "flex",
+                                                justifyContent: "center",
+                                                alignItems: "center",
+                                                width: "100%",
+                                                height: "100%",
+                                                border: "1px solid black",
+                                                borderRadius: "10px"
+                                            }} onClick={() => handleClick(block)}>
+                                                <TextField
+                                                    InputProps={{
+                                                        disableUnderline: true, // Removes underline
+                                                        width: "100%",
+                                                        height: "80%"
+                                                    }}
+                                                    sx={{
+                                                        margin: "20px",
+                                                        padding: "20px",
+                                                        background: 'white',
+                                                        width: "100%",
+                                                        height: "80%",
+                                                        border: "1px solid black",
+                                                        borderRadius: "10px",
+                                                        "& .MuiInputBase-input": {
+                                                            "--tw-ring-color": "transparent !important",
+                                                        }
+                                                    }}
+                                                    label="Size"
+                                                    id="outlined-size-small"
+                                                    defaultValue="Small"
+                                                    size="small"
+                                                    type='text'
+                                                    variant="filled"
+                                                    onChange={() => {
+                                                        // console.log(block);
+                                                        // console.log(layout);
+                                                        let temp = [...layout];
+                                                        // console.log(temp.filter(value => value.i != block.i))
+                                                        setLayout(temp.filter(value => value.i != block.i));
+                                                        setWidgetProperties(temp.filter(value => value.i != block.i))
+                                                    }}
+                                                />
                                             </Box>
                                         ))}
                                     </GridLayout>
