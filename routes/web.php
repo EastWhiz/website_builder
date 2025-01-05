@@ -17,6 +17,7 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('/dashboard', 'Dashboard')->name('dashboard');
     // Route::inertia('/customizer', 'Customizer')->name('customizer');
+      Route::inertia('/page-builder', 'PageBuilder')->name('pageBuilder');
 });
 
 Route::middleware('auth')->group(function () {
