@@ -15,13 +15,8 @@ Route::get('/', function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
-
-    Route::get('/customizer', function () {
-        return Inertia::render('Customizer');
-    })->name('customizer');
+    Route::inertia('/dashboard', 'Dashboard')->name('dashboard');
+    // Route::inertia('/customizer', 'Customizer')->name('customizer');
 });
 
 Route::middleware('auth')->group(function () {
