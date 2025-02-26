@@ -39,14 +39,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Page Builder
                                 </NavLink>
                             </div>
-                            {/* <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
-                                    href={route('customizer')}
-                                    active={route().current('customizer')}
+                                    href={route('templates')}
+                                    active={route().current('templates') || route().current('addTemplate')}
                                 >
-                                    Customizer
+                                    Templates
                                 </NavLink>
-                            </div> */}
+                            </div>
                         </div>
 
                         <div className="hidden sm:ms-6 sm:flex sm:items-center">
@@ -156,12 +156,12 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Page Builder
                         </ResponsiveNavLink>
-                        {/* <ResponsiveNavLink
-                            href={route('customizer')}
-                            active={route().current('customizer')}
+                        <ResponsiveNavLink
+                            href={route('templates')}
+                            active={route().current('templates') || route().current('addTemplate')}
                         >
-                            Customizer
-                        </ResponsiveNavLink> */}
+                            Templates
+                        </ResponsiveNavLink>
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">
