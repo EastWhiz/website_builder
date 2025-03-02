@@ -54,7 +54,7 @@ export default function Dashboard() {
         { label: 'Id', value: 'id desc', directionLabel: 'Descending' },
     ];
 
-    const [sortSelected, setSortSelected] = useState(['id desc']);
+    const [sortSelected, setSortSelected] = useState(['id asc']);
     const [queryValue, setQueryValue] = useState("");
     const { mode, setMode } = useSetIndexFiltersMode();
     const onHandleCancel = () => { };
