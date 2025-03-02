@@ -9,10 +9,11 @@ import {
     IndexTable,
     Pagination,
     Select as ShopifySelect,
-    useIndexResourceState, useSetIndexFiltersMode
+    useIndexResourceState, useSetIndexFiltersMode,
+    Text
 } from '@shopify/polaris';
 import "@shopify/polaris/build/esm/styles.css";
-import { EditIcon } from '@shopify/polaris-icons';
+import { EditIcon, ViewIcon } from '@shopify/polaris-icons';
 import { useCallback, useEffect, useState } from 'react';
 
 
@@ -153,10 +154,50 @@ export default function Dashboard() {
             position={index}
         >
             <IndexTable.Cell>
+                {`T${value.id}`}
+            </IndexTable.Cell>
+            <IndexTable.Cell>
                 {value.name}
+            </IndexTable.Cell>
+            <IndexTable.Cell >
+                <Text as="span" alignment="center">
+                    <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "#d50000", color: "white" }}>
+                        {value.contents.filter(iter => iter.type == "html").length}
+                    </Box>
+                </Text>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <Text as="span" alignment="center">
+                    <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "blue", color: "white" }}>
+                        {value.contents.filter(iter => iter.type == "css").length}
+                    </Box>
+                </Text>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <Text as="span" alignment="center">
+                    <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "green", color: "white" }}>
+                        {value.contents.filter(iter => iter.type == "js").length}
+                    </Box>
+                </Text>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <Text as="span" alignment="center">
+                    <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "purple", color: "white" }}>
+                        {value.contents.filter(iter => iter.type == "image").length}
+                    </Box>
+                </Text>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <Text as="span" alignment="center">
+                    <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "#e99600", color: "white" }}>
+                        {value.contents.filter(iter => iter.type == "font").length}
+                    </Box>
+                </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Button variant='plain' icon={EditIcon}></Button>
+                <span style={{ margin: "10px" }}></span>
+                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/templates/preview/${value.id}/`, "_blank")}></Button>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
@@ -223,9 +264,14 @@ export default function Dashboard() {
                                         }
                                         onSelectionChange={handleSelectionChange}
                                         headings={[
+                                            { title: 'ID' },
                                             { title: 'Title' },
+                                            { title: 'Body Count', alignment: 'center' },
+                                            { title: 'CSS Count', alignment: 'center' },
+                                            { title: 'JS Count', alignment: 'center' },
+                                            { title: 'Image Count', alignment: 'center' },
+                                            { title: 'Font Count', alignment: 'center' },
                                             { title: 'Action' },
-
                                         ]}
                                         hasMoreItems
                                         selectable={false}

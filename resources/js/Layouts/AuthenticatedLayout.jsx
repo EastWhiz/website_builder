@@ -33,14 +33,6 @@ export default function AuthenticatedLayout({ header, children }) {
                             </div>
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
-                                    href={route('pageBuilder')}
-                                    active={route().current('pageBuilder')}
-                                >
-                                    Page Builder
-                                </NavLink>
-                            </div>
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
                                     href={route('templates')}
                                     active={route().current('templates') || route().current('addTemplate')}
                                 >
@@ -149,12 +141,6 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('dashboard')}
                         >
                             Dashboard
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('pageBuilder')}
-                            active={route().current('pageBuilder')}
-                        >
-                            Page Builder
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('templates')}

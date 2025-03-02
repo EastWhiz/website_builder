@@ -1,35 +1,7 @@
-// import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-// import { Head } from '@inertiajs/react';
-
+import { Head, usePage } from '@inertiajs/react';
 import { useEffect, useState } from "react";
 
-// export default function Dashboard() {
-//     return (
-//         <AuthenticatedLayout
-//             header={
-//                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-//                     Dashboard
-//                 </h2>
-//             }
-//         >
-//             <Head title="Dashboard" />
-
-//             <div className="py-16">
-//                 {/* sm:px-6 lg:px-8 */}
-//                 <div className="mx-auto max-w-7xl">
-//                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-//                         {/* APPLICATION STARTED HERE */}
-//                         <div className="p-6 text-gray-900">
-//                             Page Builder
-//                         </div>
-//                     </div>
-//                 </div>
-//             </div>
-//         </AuthenticatedLayout>
-//     );
-// }
-
-const PageBuilder = () => {
+export default function Dashboard({ id }) {
 
     const [data, setData] = useState(false);
     const [mainHTML, setMainHTML] = useState('');
@@ -38,9 +10,15 @@ const PageBuilder = () => {
     useEffect(() => {
 
         async function getData() {
-            const url = route('pageBuilderContent');
+            const url = route('templates.previewContent');
+
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', },
+                    body: JSON.stringify({ template_id: id })
+                });
+
                 if (!response.ok) {
                     throw new Error(`Response status: ${response.status}`);
                 }
@@ -48,13 +26,14 @@ const PageBuilder = () => {
                 const json = await response.json();
                 console.log(json);
                 setData(json.data);
-                // console.log(json.data.template.index);
+
                 let updated = json.data.template.index.replace('<!--INTERNAL--BD1--EXTERNAL-->', json.data.body.content);
                 updated = updated.replace('<!--INTERNAL--BD2--EXTERNAL-->', json.data.body2.content);
                 updated = updated.replace('<!--INTERNAL--BD3--EXTERNAL-->', json.data.body3.content);
-                updated = updated.replace(/src="/g, `src="storage/templates/${json.data.template.uuid}/`);
+                updated = updated.replace(/src="/g, `src="../../storage/templates/${json.data.template.uuid}/`);
                 setMainHTML(updated);
-                let css = json.data.css.content.replace(/fonts\//g, `storage/templates/${json.data.template.uuid}/fonts/`);
+
+                let css = json.data.css.content.replace(/fonts\//g, `../../storage/templates/${json.data.template.uuid}/fonts/`);
                 setMainCSS(css);
 
             } catch (error) {
@@ -92,19 +71,21 @@ const PageBuilder = () => {
     }, [])
 
     return (
+
         <div>
-            {data &&
-                <div>
-                    <div dangerouslySetInnerHTML={{ __html: data.template.head }} />
-                    <style>
-                        {mainCSS}
-                    </style>
-                    {/* <pre>{mainHTML}</pre> */}
-                    <div dangerouslySetInnerHTML={{ __html: mainHTML }} />
-                </div>
-            }
+            <Head title={`Preview (${data && data.template.name})`} />
+            <div>
+                {data &&
+                    <div>
+                        <div dangerouslySetInnerHTML={{ __html: data.template.head }} />
+                        <style>
+                            {mainCSS}
+                        </style>
+                        {/* <pre>{mainHTML}</pre> */}
+                        <div dangerouslySetInnerHTML={{ __html: mainHTML }} />
+                    </div>
+                }
+            </div>
         </div>
     );
 }
-
-export default PageBuilder;

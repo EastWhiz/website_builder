@@ -9,6 +9,7 @@ import "@/Assets/styles.css";
 import { AppProvider } from '@shopify/polaris';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+window.appURL = import.meta.env.VITE_APP_URL;
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

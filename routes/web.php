@@ -5,6 +5,7 @@ use App\Http\Controllers\TemplateController;
 use App\Models\Template;
 use App\Models\TemplateContent;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -19,14 +20,16 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    // Route::inertia('/customizer', 'Customizer')->name('customizer');
-
     Route::inertia('/dashboard', 'Dashboard')->name('dashboard');
-    Route::inertia('/page-builder', 'PageBuilder')->name('pageBuilder');
-    Route::get('/page-builder-content', function () {
 
-        $thisTemplate = Template::first();
+    Route::inertia('/templates', 'Templates/Templates')->name('templates');
+    Route::inertia('/templates/add', 'Templates/AddTemplate')->name('addTemplate');
+    Route::get('/templates/preview/{id}', function ($id) {
+        return Inertia::render('Templates/PreviewTemplate', compact('id'));
+    })->name('previewTemplate');
 
+    Route::post('/templates/preview/contents', function (Request $request) {
+        $thisTemplate = Template::find($request->template_id);
         return response()->json([
             'message' => 'Data retrieved successfully',
             'data' => [
@@ -39,16 +42,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ],
             'status' => 200
         ]);
-    })->name('pageBuilderContent');
-
-    // Route::get('/page-builder', function(){
-    //     return \Str::uuid();
-    // })->name('pageBuilder');
-
-    Route::inertia('/templates', 'Templates/Templates')->name('templates');
-    Route::inertia('/templates/add', 'Templates/AddTemplate')->name('addTemplate');
-    Route::get('templates/list', [TemplateController::class, 'index'])->name('templates.list');
-    Route::post('templates/save', [TemplateController::class, 'saveProcess'])->name('templates.save');
+    })->name('templates.previewContent');
+    Route::get('/templates/list', [TemplateController::class, 'index'])->name('templates.list');
+    Route::post('/templates/save', [TemplateController::class, 'saveProcess'])->name('templates.save');
+    Route::get('/templates/preview/contents', function () {})->name('');
 });
 
 Route::middleware('auth')->group(function () {
