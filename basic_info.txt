@@ -1,0 +1,54 @@
+const htmlTagsWithProps = [
+    { name: 'div', props: ['class', 'id', 'style', 'data-*'] },
+    { name: 'span', props: ['class', 'id', 'style', 'data-*'] },
+    { name: 'a', props: ['href', 'target', 'rel', 'class', 'id', 'style'] },
+    { name: 'p', props: ['class', 'id', 'style'] },
+    { name: 'img', props: ['src', 'alt', 'width', 'height', 'class', 'style'] },
+    { name: 'h1', props: ['class', 'id', 'style'] },
+    { name: 'h2', props: ['class', 'id', 'style'] },
+    { name: 'h3', props: ['class', 'id', 'style'] },
+    { name: 'h4', props: ['class', 'id', 'style'] },
+    { name: 'h5', props: ['class', 'id', 'style'] },
+    { name: 'h6', props: ['class', 'id', 'style'] },
+    { name: 'ul', props: ['class', 'id', 'style'] },
+    { name: 'li', props: ['class', 'id', 'style'] },
+    { name: 'input', props: ['type', 'name', 'value', 'placeholder', 'disabled', 'readonly', 'required', 'class', 'style'] },
+    { name: 'form', props: ['action', 'method', 'enctype', 'class', 'id', 'style'] },
+    { name: 'button', props: ['type', 'disabled', 'class', 'id', 'style', 'onClick'] },
+    { name: 'label', props: ['for', 'class', 'id', 'style'] },
+    { name: 'table', props: ['class', 'id', 'style'] },
+    { name: 'tr', props: ['class', 'id', 'style'] },
+    { name: 'th', props: ['colspan', 'rowspan', 'scope', 'class', 'id', 'style'] },
+    { name: 'td', props: ['colspan', 'rowspan', 'class', 'id', 'style'] },
+    { name: 'section', props: ['class', 'id', 'style'] },
+    { name: 'header', props: ['class', 'id', 'style'] },
+    { name: 'footer', props: ['class', 'id', 'style'] },
+    { name: 'article', props: ['class', 'id', 'style'] },
+    { name: 'aside', props: ['class', 'id', 'style'] },
+    { name: 'thead', props: ['class', 'id', 'style'] },
+    { name: 'tbody', props: ['class', 'id', 'style'] }
+];
+
+const cssProperties = [
+    'display',         // Controls element type and layout (e.g., block, inline, flex)
+    'position',        // Controls positioning of the element
+    'width',           // Sets the width of an element
+    'height',          // Sets the height of an element
+    'margin',          // Controls outer spacing
+    'padding',         // Controls inner spacing
+    'color',           // Sets the text color
+    'background',      // Sets the background properties (color, image, position, etc.)
+    'border',          // Defines border style, width, and color
+    'font-size',       // Sets the size of the font
+    'font-family',     // Sets the font type
+    'text-align',      // Aligns text horizontally
+    'overflow',        // Controls how content is handled if it exceeds the container size
+    'z-index',         // Controls the stack order of elements
+    'flex',            // Defines how a flex item grows or shrinks
+    'align-items',     // Aligns flex items vertically
+    'justify-content', // Aligns flex items horizontally
+    'gap',             // Defines space between grid or flex items
+    'opacity',         // Sets the transparency of an element
+    'box-shadow',      // Adds shadow to an element
+    'visibility'       // Controls the visibility of an element
+];

@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import { Box } from '@mui/material';
 import Popover from '@mui/material/Popover';
 import Typography from '@mui/material/Typography';
 import * as React from 'react';
@@ -96,9 +97,9 @@ export default function Dashboard({ id }) {
                     horizontal: 'left',
                 }}
             >
-                <Typography sx={{ p: 2 }}>The content of the Popover.
+                <Box>
                     <div className='closeCheck' onClick={() => setAnchorEl(false)}>❌</div>
-                </Typography>
+                </Box>
             </Popover>
             <Head title={`Preview (${data && data.template.name})`} />
             <div>
