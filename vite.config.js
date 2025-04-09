@@ -4,10 +4,10 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
     server: {
-        host: 'site.diy', // use your local domain
-        port: 5173,        // keep or change if needed
+        host: '127.0.0.1', // or use 'localhost'
+        port: 5173,        // you can change this if needed
         hmr: {
-            host: 'site.diy',
+            host: 'localhost', // for HMR to work correctly on local
         },
     },
     plugins: [
