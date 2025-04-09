@@ -2,7 +2,7 @@
 import Doc1 from "@/Assets/document1.png";
 import Doc2 from "@/Assets/document2.png";
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import AddIcon from '@mui/icons-material/Add';
 import ClearIcon from '@mui/icons-material/Clear';
 import SortIcon from '@mui/icons-material/Sort';
@@ -14,12 +14,14 @@ import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import Stepper from '@mui/material/Stepper';
 import { AgGridReact } from "ag-grid-react";
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import Swal from "sweetalert2";
 
 export default function Dashboard() {
+
+    const page = usePage().props;
 
     function generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -28,7 +30,6 @@ export default function Dashboard() {
             return v.toString(16);
         });
     }
-
 
     const style = {
         position: 'absolute',
@@ -49,6 +50,7 @@ export default function Dashboard() {
     const handleOpen = () => setOpen(true);
     const handleClose = () => setOpen(false);
 
+    const [templateUUID, setTemplateUUID] = useState(false);
     const [template, setTemplate] = useState({
         name: '',
         head: '',
@@ -56,8 +58,8 @@ export default function Dashboard() {
         html: [{ name: '', content: '', }],
         css: [{ name: '', content: '', }],
         js: [{ name: '', content: '', }],
-        fonts: [{ name: "", size: "", file: "" }],
-        images: [{ name: "", size: "", file: "" }]
+        fonts: [{ alreadyUploaded: "", name: "", size: "", file: "" }],
+        images: [{ alreadyUploaded: "", name: "", size: "", file: "" }]
     });
 
     const [currentThing, setCurrentThing] = useState('');
@@ -79,6 +81,36 @@ export default function Dashboard() {
         setGridApi(params.api);
     }, []);
 
+    useEffect(() => {
+        if (page.template) {
+            let htmls = page.template.contents.filter(html => html.type == "html");
+            let csss = page.template.contents.filter(css => css.type == "css");
+            let jss = page.template.contents.filter(js => js.type == "js");
+            let fonts = page.template.contents.filter(js => js.type == "font");
+            let images = page.template.contents.filter(js => js.type == "image");
+            setTemplateUUID(page.template.uuid);
+            setTemplate({
+                name: page.template.name,
+                head: page.template.head,
+                body: page.template.index,
+                html: htmls.map((html, index) => {
+                    return ({ name: html.name, content: html.content })
+                }),
+                css: csss.map((css, index) => {
+                    return ({ name: css.name, content: css.content })
+                }),
+                js: jss.map((js, index) => {
+                    return ({ name: js.name, content: js.content })
+                }),
+                fonts: fonts.map((font, index) => {
+                    return ({ alreadyUploaded: font.name, name: "", size: "", file: "" })
+                }),
+                images: images.map((image, index) => {
+                    return ({ alreadyUploaded: image.name, name: "", size: "", file: "" })
+                })
+            });
+        }
+    }, []);
 
     const isStepSkipped = (step) => {
         return skipped.has(step);
@@ -119,9 +151,13 @@ export default function Dashboard() {
             });
 
             const uuid = generateUUID();
+            const assetUUID = generateUUID();
 
             const chunks = [...fontChunks, ...imageChunks];
-            for (const [chunkIndex, chunk] of [...fontChunks, ...imageChunks].entries()) {
+            if (chunks.length == 0)
+                chunks.push(1);
+
+            for (const [chunkIndex, chunk] of chunks.entries()) {
 
                 const isLastIteration = chunkIndex === chunks.length - 1 ? true : false;
 
@@ -133,20 +169,25 @@ export default function Dashboard() {
                 formData.append("css", JSON.stringify(template.css));
                 formData.append("js", JSON.stringify(template.js));
                 formData.append("last_iteration", isLastIteration);
-                formData.append("uuid", uuid);
-                formData.append("chunk_count", chunk.length);
+                formData.append("uuid", templateUUID ? templateUUID : uuid);
+                formData.append("chunk_count", chunk == 1 ? 0 : chunk.length);
+                formData.append("edit_template_uuid", templateUUID);
+                formData.append("asset_unique_uuid", assetUUID);
 
-                chunk.forEach((item, index) => {
-                    console.log(item);
-                    const isFont = template.fonts.includes(item);
-                    formData.append(`${isFont ? 'font' : 'image'}${index}`, item.file);
-                });
+                if (chunk != 1) {
+                    chunk.forEach((item, index) => {
+                        const isFont = template.fonts.includes(item);
+                        formData.append(`${isFont ? 'font' : 'image'}${index}`, item.file);
+                        if (item.alreadyUploaded)
+                            formData.append(`${isFont ? 'font' : 'image'}${index}Done`, item.alreadyUploaded);
+                    });
+                }
 
                 // Create a new AbortController for each chunk
                 abortController = new AbortController();
 
                 try {
-                    let response = await fetch(route('templates.save'), {
+                    let response = await fetch(route('templates.addEdit'), {
                         method: "POST",
                         body: formData,
                         signal: abortController.signal, // Attach abort signal
@@ -195,8 +236,6 @@ export default function Dashboard() {
 
     const handleNext = async () => {
         if (activeStep === steps.length - 1) {
-            // console.log(activeStep);
-
             Swal.fire({
                 title: 'Are you sure?',
                 text: "Your data is getting saved!",
@@ -741,7 +780,7 @@ export default function Dashboard() {
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
                                                                         let temp = { ...template };
-                                                                        temp.fonts.push({ name: "", size: "", file: "" });
+                                                                        temp.fonts.push({ alreadyUploaded: "", name: "", size: "", file: "" });
                                                                         setTemplate(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
@@ -767,6 +806,13 @@ export default function Dashboard() {
                                                                                             <Typography variant="body" color="#8B8B8B">
                                                                                                 {value.size.toFixed(2)} MB
                                                                                             </Typography>
+                                                                                        </Box> : value.alreadyUploaded ? <Box>
+                                                                                            <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", marginTop: "5px" }}>
+                                                                                                <Typography variant="body" >
+                                                                                                    Already Uploaded:
+                                                                                                </Typography>
+                                                                                                &nbsp;{value.alreadyUploaded}
+                                                                                            </Typography>
                                                                                         </Box> : <Box>
                                                                                             <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", textAlign: "center", marginTop: "5px" }}>
                                                                                                 <Typography variant="body" onClick={() => document.getElementById(`hiddenfont${index}`).click()} component="span" sx={{ textDecoration: "underline", color: "#323232", fontWeight: "500", marginTop: "30px", textAlign: "center", cursor: "pointer" }}>
@@ -779,11 +825,13 @@ export default function Dashboard() {
                                                                                                 Array.from(e.target.files).forEach((file, indexInside) => {
                                                                                                     const insideFile = e.target.files[indexInside];
                                                                                                     if (indexInside == 0) {
+                                                                                                        temp.fonts[index].alreadyUploaded = "";
                                                                                                         temp.fonts[index].file = insideFile;
                                                                                                         temp.fonts[index].name = insideFile.name;
                                                                                                         temp.fonts[index].size = insideFile.size / 1000000;
                                                                                                     } else if (indexInside > 0) {
                                                                                                         temp.fonts.push({
+                                                                                                            alreadyUploaded: "",
                                                                                                             file: insideFile,
                                                                                                             name: insideFile.name,
                                                                                                             size: insideFile.size / 1000000
@@ -815,7 +863,7 @@ export default function Dashboard() {
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
                                                                         let temp = { ...template };
-                                                                        temp.images.push({ name: "", size: "", file: "" });
+                                                                        temp.images.push({ alreadyUploaded: "", name: "", size: "", file: "" });
                                                                         setTemplate(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
@@ -842,6 +890,13 @@ export default function Dashboard() {
                                                                                             <Typography variant="body" color="#8B8B8B">
                                                                                                 {value.size.toFixed(2)} MB
                                                                                             </Typography>
+                                                                                        </Box> : value.alreadyUploaded ? <Box>
+                                                                                            <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", marginTop: "5px" }}>
+                                                                                                <Typography variant="body" >
+                                                                                                    Already Uploaded:
+                                                                                                </Typography>
+                                                                                                &nbsp;{value.alreadyUploaded}
+                                                                                            </Typography>
                                                                                         </Box> : <Box>
                                                                                             <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", textAlign: "center", marginTop: "5px" }}>
                                                                                                 <Typography variant="body" onClick={() => document.getElementById(`hiddenimage${index}`).click()} component="span" sx={{ textDecoration: "underline", color: "#323232", fontWeight: "500", marginTop: "30px", textAlign: "center", cursor: "pointer" }}>
@@ -854,11 +909,13 @@ export default function Dashboard() {
                                                                                                 Array.from(e.target.files).forEach((file, indexInside) => {
                                                                                                     const insideFile = e.target.files[indexInside];
                                                                                                     if (indexInside == 0) {
+                                                                                                        temp.images[index].alreadyUploaded = "";
                                                                                                         temp.images[index].file = insideFile;
                                                                                                         temp.images[index].name = insideFile.name;
                                                                                                         temp.images[index].size = insideFile.size / 1000000;
                                                                                                     } else if (indexInside > 0) {
                                                                                                         temp.images.push({
+                                                                                                            alreadyUploaded: "",
                                                                                                             file: insideFile,
                                                                                                             name: insideFile.name,
                                                                                                             size: insideFile.size / 1000000

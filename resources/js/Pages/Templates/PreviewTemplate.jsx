@@ -92,10 +92,10 @@ export default function Dashboard({ id }) {
                 let updated = json.data.template.index.replace('<!--INTERNAL--BD1--EXTERNAL-->', json.data.body.content);
                 updated = updated.replace('<!--INTERNAL--BD2--EXTERNAL-->', json.data.body2.content);
                 updated = updated.replace('<!--INTERNAL--BD3--EXTERNAL-->', json.data.body3.content);
-                updated = updated.replace(/src="/g, `src="../../storage/templates/${json.data.template.uuid}/`);
+                updated = updated.replace(/src="images\//g, `src="../../storage/templates/${json.data.template.uuid}/images/${json.data.template.asset_unique_uuid}-`);
                 setMainHTML([{ html: updated, status: true }]);
 
-                let css = json.data.css.content.replace(/fonts\//g, `../../storage/templates/${json.data.template.uuid}/fonts/`);
+                let css = json.data.css.content.replace(/fonts\//g, `../../storage/templates/${json.data.template.uuid}/fonts/${json.data.template.asset_unique_uuid}-`);
                 setMainCSS(css);
 
             } catch (error) {

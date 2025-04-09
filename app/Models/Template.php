@@ -9,6 +9,7 @@ class Template extends Model
     protected $fillable = [
         'name',
         'uuid',
+        'asset_unique_uuid',
         'head',
         'index',
     ];

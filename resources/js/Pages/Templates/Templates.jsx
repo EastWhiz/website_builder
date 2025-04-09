@@ -195,7 +195,7 @@ export default function Dashboard() {
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
-                <Button variant='plain' icon={EditIcon}></Button>
+                <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('addTemplate', value.id))}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/templates/preview/${value.id}/`, "_blank")}></Button>
             </IndexTable.Cell>

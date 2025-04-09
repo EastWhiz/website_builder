@@ -17,7 +17,6 @@ return new class extends Migration
             $table->enum('type', ['css', 'js', 'html', 'font', 'image']);
             $table->string('name');
             $table->longText('content')->nullable();
-            $table->unsignedBigInteger('sort')->nullable();
             $table->timestamps();
         });
     }

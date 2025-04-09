@@ -12,5 +12,6 @@ class TemplateContent extends Model
         'type',
         'content',
         'sort',
+        'can_be_deleted',
     ];
 }
