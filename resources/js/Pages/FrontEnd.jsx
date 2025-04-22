@@ -61,6 +61,31 @@ export default function Dashboard() {
         currentSource: false, // TEXT, CUSTOM_HTML
     });
 
+    const [openThree, setOpenThree] = useState(false);
+    const [chatGPT, setChatGPT] = useState({
+        query: "",
+        response: `<div class="comment">
+        <strong>Ali Raza</strong>: This product looks amazing! 🔥
+        </div>
+
+        <div class="comment">
+        <strong>Sara Khan</strong>: I’ve been using this for a month, worth it!
+        </div>
+
+        <div class="comment">
+        <strong>Hamza Sheikh</strong>: Where can I buy this?
+        </div>
+
+        <div class="comment">
+        <strong>Mehwish Aslam</strong>: Just ordered mine! Can’t wait 😍
+        </div>
+
+        <div class="comment">
+        <strong>Bilal Ahmed</strong>: Does it come in different sizes?
+        </div>`,
+    });
+
+
     return (
         <AuthenticatedLayout
             header={
@@ -352,6 +377,52 @@ export default function Dashboard() {
                 </Fade>
             </Modal>
 
+            {/* CHATGPT */}
+            <Modal
+                aria-labelledby="transition-modal-title"
+                aria-describedby="transition-modal-description"
+                open={openThree}
+                onClose={() => setOpenThree(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={openThree}>
+                    <Box sx={style}>
+                        <Box>
+                            <Box sx={{ mb: 1.5 }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', pt: 0.5, fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                    AI (Chat GPT)
+                                </Typography>
+                            </Box>
+                            <Box sx={{ pt: "5px", height: "255px", overflow: "auto" }}>
+                                <TextField
+                                    fullWidth
+                                    size='small'
+                                    placeholder='Enter Query'
+                                    value={chatGPT.query}
+                                    onChange={(e) => {
+                                        setChatGPT({ ...chatGPT, query: e.target.value })
+                                    }}
+                                />
+                                <Box sx={{ mt: 2, p: 1, borderRadius: "3px", border: "1px solid black", background: "#e5e5e5", fontSize: "12px" }}>
+                                    <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{chatGPT.response}</pre>
+                                </Box>
+                            </Box>
+                            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenThree(false)}>Cancel</Button>
+                                <Box component="span" sx={{ marginLeft: "20px" }} />
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpenThree(false)}>Add</Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
+
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
                 <div className="mx-auto max-w-7xl">
@@ -360,6 +431,8 @@ export default function Dashboard() {
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpen(true)}>Image</Button>
                             <Box component="span" sx={{ marginLeft: "10px" }} />
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenTwo(true)}>DeepL</Button>
+                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenThree(true)}>Chat GPT</Button>
                         </div>
                     </div>
                 </div>
