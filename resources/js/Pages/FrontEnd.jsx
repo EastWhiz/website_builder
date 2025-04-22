@@ -11,6 +11,7 @@ import { useState } from 'react';
 import Doc2 from "@/Assets/document2.png";
 import ClearIcon from '@mui/icons-material/Clear';
 import { HexColorPicker } from "react-colorful";
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 
 export default function Dashboard() {
 
@@ -41,9 +42,6 @@ export default function Dashboard() {
     };
 
     const [open, setOpen] = useState(false);
-    const handleOpen = () => setOpen(true);
-    const handleClose = () => setOpen(false);
-
     const [imageManagement, setImageManagement] = useState({
         via: "src",
         imageSrc: "",
@@ -51,6 +49,16 @@ export default function Dashboard() {
         border: false,
         borderWidth: "",
         borderColor: "",
+    });
+
+
+    const [openTwo, setOpenTwo] = useState(false);
+    const [translator, setTranslator] = useState({
+        fromLanguange: false,
+        toLanguage: false,
+        fromText: "",
+        toText: "",
+        currentSource: false, // TEXT, CUSTOM_HTML
     });
 
     return (
@@ -68,7 +76,7 @@ export default function Dashboard() {
                 aria-labelledby="transition-modal-title"
                 aria-describedby="transition-modal-description"
                 open={open}
-                onClose={handleClose}
+                onClose={() => setOpen(false)}
                 closeAfterTransition
                 slots={{ backdrop: Backdrop }}
                 slotProps={{
@@ -168,7 +176,7 @@ export default function Dashboard() {
                                         </Box>
                                     </Box>
                                 }
-                                <FormControl fullWidth sx={{ mt: 2 }}>
+                                <FormControl fullWidth sx={{ mt: 2.1 }}>
                                     <InputLabel id="demo-simple-select-label">Border</InputLabel>
                                     <Select
                                         // displayEmpty
@@ -235,12 +243,123 @@ export default function Dashboard() {
                 </Fade>
             </Modal>
 
+            {/* DEEPL TRANSLATOR */}
+            <Modal
+                aria-labelledby="transition-modal-title"
+                aria-describedby="transition-modal-description"
+                open={openTwo}
+                onClose={() => setOpenTwo(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={openTwo}>
+                    <Box sx={style}>
+                        <Box>
+                            <Box sx={{ mb: 1.5 }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', pt: 0.5, fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                    DeepL Translator
+                                </Typography>
+                            </Box>
+                            <Box sx={{ pt: "5px", height: "255px", overflow: "auto" }}>
+                                <Box sx={{ display: "flex", gap: "20px" }}>
+                                    <FormControl fullWidth>
+                                        <InputLabel id="demo-simple-select-label">Translate From</InputLabel>
+                                        <Select
+                                            // displayEmpty
+                                            renderValue={(value) => {
+                                                if (!value) {
+                                                    return <Typography color="grey">From Langugage</Typography>;
+                                                }
+                                                return <>{value}</>;
+                                            }}
+                                            placeholder='Select Border Style'
+                                            value={translator.fromLanguange}
+                                            label="Translate From"
+                                            size='small'
+                                            onChange={(e) => {
+                                                setTranslator({ ...translator, fromLanguange: e.target.value })
+                                            }}
+                                        >
+                                            <MenuItem value={"English"} sx={{ textTransform: 'capitalize' }}>English</MenuItem>
+                                            <MenuItem value={"German"} sx={{ textTransform: 'capitalize' }}>German</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <Box sx={{ mt: 0.5, cursor: "pointer" }}>
+                                        <SwapHorizIcon />
+                                    </Box>
+                                    <FormControl fullWidth>
+                                        <InputLabel id="demo-simple-select-label">Translate To</InputLabel>
+                                        <Select
+                                            // displayEmpty
+                                            renderValue={(value) => {
+                                                if (!value) {
+                                                    return <Typography color="grey">To Langugage</Typography>;
+                                                }
+                                                return <>{value}</>;
+                                            }}
+                                            placeholder='Select Border Style'
+                                            value={translator.toLanguage}
+                                            label="Translate To"
+                                            size='small'
+                                            onChange={(e) => {
+                                                setTranslator({ ...translator, toLanguage: e.target.value })
+                                            }}
+                                        >
+                                            <MenuItem value={"English"} sx={{ textTransform: 'capitalize' }}>English</MenuItem>
+                                            <MenuItem value={"German"} sx={{ textTransform: 'capitalize' }}>German</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                                <Box sx={{ mt: 2, display: "flex", gap: "20px" }}>
+                                    <TextField
+                                        className="multilineCss"
+                                        fullWidth
+                                        size='small'
+                                        placeholder='Enter Text'
+                                        value={translator.fromText}
+                                        multiline
+                                        rows={7.5} // You can adjust the number of rows as needed
+                                        onChange={(e) => {
+                                            setTranslator({ ...translator, fromText: e.target.value })
+                                        }}
+                                    />
+                                    <TextField
+                                        className="multilineCss"
+                                        fullWidth
+                                        size='small'
+                                        placeholder='Translation'
+                                        value={translator.toText}
+                                        multiline
+                                        rows={7.5} // You can adjust the number of rows as needed
+                                        onChange={(e) => {
+                                            setTranslator({ ...translator, toText: e.target.value })
+                                        }}
+                                    />
+                                </Box>
+                            </Box>
+                            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenTwo(false)}>Cancel</Button>
+                                <Box component="span" sx={{ marginLeft: "20px" }} />
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpenTwo(false)}>Translate</Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
+
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
                 <div className="mx-auto max-w-7xl">
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="p-6 text-gray-900">
-                            <Button variant='contained' color="primary" sx={{ textTransform: "capitalize" }} onClick={() => handleOpen()}>Image Management</Button>
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpen(true)}>Image</Button>
+                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenTwo(true)}>DeepL</Button>
                         </div>
                     </div>
                 </div>

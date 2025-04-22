@@ -8,3 +8,7 @@ input {
     padding: 5px !important;
     text-transform: capitalize !important;
 }
+
+.MuiOutlinedInput-input:focus {
+   --tw-ring-inset:0px
+}
