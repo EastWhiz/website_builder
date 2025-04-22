@@ -7,7 +7,6 @@ use App\Models\TemplateContent;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -30,7 +29,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return Inertia::render('Templates/AddEditTemplate', [
                 'template' => $existingTemplate,
             ]);
-        })->name('addEditTemplate');
+        })->name('editTemplate');
 
         Route::post('/templates/preview/contents', function (Request $request) {
             $thisTemplate = Template::find($request->template_id);
@@ -49,6 +48,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('templates.previewContent');
         Route::get('/templates/list', [TemplateController::class, 'index'])->name('templates.list');
         Route::post('/templates/add-edit', [TemplateController::class, 'addEditProcess'])->name('templates.addEdit');
+
+        Route::inertia('/frontend', 'FrontEnd')->name('frontend');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {

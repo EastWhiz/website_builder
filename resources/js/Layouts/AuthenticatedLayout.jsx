@@ -34,9 +34,17 @@ export default function AuthenticatedLayout({ header, children }) {
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
                                     href={route('templates')}
-                                    active={route().current('templates') || route().current('addTemplate')}
+                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
                                 >
                                     Templates
+                                </NavLink>
+                            </div>
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink
+                                    href={route('frontend')}
+                                    active={route().current('frontend')}
+                                >
+                                    Frontend
                                 </NavLink>
                             </div>
                         </div>
@@ -144,9 +152,15 @@ export default function AuthenticatedLayout({ header, children }) {
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('templates')}
-                            active={route().current('templates') || route().current('addTemplate')}
+                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
                         >
                             Templates
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('frontend')}
+                            active={route().current('frontend')}
+                        >
+                            Frontend
                         </ResponsiveNavLink>
                     </div>
 

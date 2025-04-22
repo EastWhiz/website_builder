@@ -1,0 +1,10 @@
+input {
+    outline: none !important;
+    outline-offset: none !important;
+    box-shadow: none !important;
+}
+
+.toggle_button {
+    padding: 5px !important;
+    text-transform: capitalize !important;
+}

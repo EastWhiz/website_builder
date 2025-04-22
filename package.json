@@ -26,10 +26,11 @@
         "@emotion/styled": "^11.13.0",
         "@mui/icons-material": "^6.1.6",
         "@mui/material": "^6.1.6",
+        "@shopify/polaris": "^13.9.0",
+        "@shopify/polaris-icons": "^9.3.0",
         "ag-grid-community": "^30.0.6",
         "ag-grid-react": "^30.0.6",
-        "sweetalert2": "^11.17.2",
-        "@shopify/polaris": "^13.9.0",
-        "@shopify/polaris-icons": "^9.3.0"
+        "react-colorful": "^5.6.1",
+        "sweetalert2": "^11.17.2"
     }
 }
