@@ -26,6 +26,16 @@ export default function Dashboard() {
         'outset',
     ];
 
+    const textAlignProperties = [
+        'left',       // Aligns text to the left
+        'right',      // Aligns text to the right
+        'center',     // Centers the text
+        'justify',    // Stretches the lines so that each line has equal width
+        'start',      // Aligns text to the start of the writing mode (LTR or RTL)
+        'end',        // Aligns text to the end of the writing mode (LTR or RTL)
+        'match-parent' // Inherits the alignment from the parent, but adjusts for direction
+    ];
+
     const style = {
         position: 'absolute',
         top: '50%',
@@ -83,6 +93,19 @@ export default function Dashboard() {
         <div class="comment">
         <strong>Bilal Ahmed</strong>: Does it come in different sizes?
         </div>`,
+    });
+
+    const [openFour, setOpenFour] = useState(false);
+    const [textManagement, setTextManagement] = useState({
+        textInput: "",
+        color: "",
+        backgroundColor: "",
+        fontSize: "12",
+        link: "",
+        border: false,
+        borderWidth: "",
+        borderColor: "",
+        textAlign: false,
     });
 
 
@@ -207,11 +230,10 @@ export default function Dashboard() {
                                         // displayEmpty
                                         renderValue={(value) => {
                                             if (!value) {
-                                                return <Typography color="grey"> Select Border Color</Typography>;
+                                                return <Typography color="grey"> Select Border</Typography>;
                                             }
                                             return <>{value}</>;
                                         }}
-                                        placeholder='Select Border Style'
                                         value={imageManagement.border}
                                         label="Border"
                                         size='small'
@@ -286,11 +308,11 @@ export default function Dashboard() {
                     <Box sx={style}>
                         <Box>
                             <Box sx={{ mb: 1.5 }}>
-                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', pt: 0.5, fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
                                     DeepL Translator
                                 </Typography>
                             </Box>
-                            <Box sx={{ pt: "5px", height: "255px", overflow: "auto" }}>
+                            <Box sx={{ pt: "5px", height: "260px", overflow: "auto" }}>
                                 <Box sx={{ display: "flex", gap: "20px" }}>
                                     <FormControl fullWidth>
                                         <InputLabel id="demo-simple-select-label">Translate From</InputLabel>
@@ -302,7 +324,6 @@ export default function Dashboard() {
                                                 }
                                                 return <>{value}</>;
                                             }}
-                                            placeholder='Select Border Style'
                                             value={translator.fromLanguange}
                                             label="Translate From"
                                             size='small'
@@ -327,7 +348,6 @@ export default function Dashboard() {
                                                 }
                                                 return <>{value}</>;
                                             }}
-                                            placeholder='Select Border Style'
                                             value={translator.toLanguage}
                                             label="Translate To"
                                             size='small'
@@ -395,11 +415,11 @@ export default function Dashboard() {
                     <Box sx={style}>
                         <Box>
                             <Box sx={{ mb: 1.5 }}>
-                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', pt: 0.5, fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
                                     AI (Chat GPT)
                                 </Typography>
                             </Box>
-                            <Box sx={{ pt: "5px", height: "255px", overflow: "auto" }}>
+                            <Box sx={{ pt: "5px", height: "260px", overflow: "auto" }}>
                                 <TextField
                                     fullWidth
                                     size='small'
@@ -423,6 +443,196 @@ export default function Dashboard() {
                 </Fade>
             </Modal>
 
+            {/* IMAGE MANAGEMENT MODAL */}
+            <Modal
+                aria-labelledby="transition-modal-title"
+                aria-describedby="transition-modal-description"
+                open={openFour}
+                onClose={() => setOpenFour(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={openFour}>
+                    <Box sx={style}>
+                        <Box>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                    Text Management
+                                </Typography>
+                                <Box>
+                                    <Button size="small" variant="contained" color="primary" >AI</Button>
+                                    <Box component="span" sx={{ marginLeft: "10px" }} />
+                                    <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }}>Translate</Button>
+                                </Box>
+                            </Box>
+                            <Box sx={{ padding: "5px 0px", height: "260px", overflow: "auto" }}>
+                                <Box sx={{ display: 'flex', gap: "15px" }}>
+                                    <Box sx={{ width: "50%" }}>
+                                        <TextField
+                                            className="multilineCss"
+                                            fullWidth
+                                            size='small'
+                                            placeholder='Enter Text'
+                                            value={textManagement.textInput}
+                                            multiline
+                                            rows={5}
+                                            onChange={(e) => {
+                                                setTextManagement({ ...textManagement, textInput: e.target.value })
+                                            }}
+                                        />
+                                        <TextField
+                                            sx={{ mt: 2 }}
+                                            className="multilineCss"
+                                            fullWidth
+                                            size='small'
+                                            placeholder='Enter Http:// Link'
+                                            value={textManagement.link}
+                                            multiline
+                                            rows={3.5}
+                                            label="Link"
+                                            slotProps={{
+                                                inputLabel: { shrink: true },
+                                                htmlInput: {
+                                                    min: 0,    // Minimum value allowed
+                                                    max: 72    // Maximum value allowed
+                                                }
+                                            }}
+                                            onChange={(e) => {
+                                                setTextManagement({ ...textManagement, link: e.target.value })
+                                            }}
+                                        />
+                                        <TextField
+                                            sx={{ mt: 2 }}
+                                            type='number'
+                                            fullWidth
+                                            size='small'
+                                            label="Font Size"
+                                            slotProps={{
+                                                inputLabel: { shrink: true },
+                                                htmlInput: {
+                                                    min: 0,    // Minimum value allowed
+                                                    max: 72    // Maximum value allowed
+                                                }
+                                            }}
+                                            placeholder='Enter Font Size'
+                                            value={textManagement.fontSize}
+                                            onChange={(e) => {
+                                                setTextManagement({ ...textManagement, fontSize: e.target.value })
+                                            }}
+                                        />
+                                    </Box>
+                                    <Box sx={{ width: "50%" }}>
+                                        <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
+                                            <Box sx={{ width: "50%" }}>
+                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                    Color
+                                                </Typography>
+                                                <HexColorPicker class color={textManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, color: e })} />
+                                            </Box>
+                                            <Box sx={{ width: "50%" }}>
+                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                    Background
+                                                </Typography>
+                                                <HexColorPicker color={textManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, backgroundColor: e })} />
+                                            </Box>
+                                        </Box>
+                                        <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                            <InputLabel id="demo-simple-select-label">Text Align</InputLabel>
+                                            <Select
+                                                // displayEmpty
+                                                renderValue={(value) => {
+                                                    if (!value) {
+                                                        return <Typography color="grey"> Select Text Alignment</Typography>;
+                                                    }
+                                                    return <>{value}</>;
+                                                }}
+                                                value={textManagement.textAlign}
+                                                label="Text Align"
+                                                size='small'
+                                                onChange={(e) => {
+                                                    setTextManagement({ ...textManagement, textAlign: e.target.value })
+                                                }}
+                                            >
+                                                {textAlignProperties.map((item, index) => (
+                                                    <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                            <InputLabel id="demo-simple-select-label">Border</InputLabel>
+                                            <Select
+                                                // displayEmpty
+                                                renderValue={(value) => {
+                                                    if (!value) {
+                                                        return <Typography color="grey"> Select Border</Typography>;
+                                                    }
+                                                    return <>{value}</>;
+                                                }}
+                                                value={textManagement.border}
+                                                label="Border"
+                                                size='small'
+                                                onChange={(e) => {
+                                                    setTextManagement({ ...textManagement, border: e.target.value })
+                                                }}
+                                            >
+                                                {borderStyles.map((item, index) => (
+                                                    <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        <TextField
+                                            sx={{ mt: 2 }}
+                                            type='number'
+                                            fullWidth
+                                            size='small'
+                                            label="Border Width"
+                                            slotProps={{
+                                                inputLabel: { shrink: true },
+                                                htmlInput: {
+                                                    min: 0,    // Minimum value allowed
+                                                    max: 10    // Maximum value allowed
+                                                }
+                                            }}
+                                            placeholder='Enter Border Width'
+                                            value={textManagement.borderWidth}
+                                            onChange={(e) => {
+                                                setTextManagement({ ...textManagement, borderWidth: e.target.value })
+                                            }}
+                                        />
+                                    </Box>
+                                </Box>
+                                <Box mt={1} sx={{ display: "flex" }}>
+                                    <Box sx={{ width: "28%" }} className="customPicker">
+                                        <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                            Border Color
+                                        </Typography>
+                                        <HexColorPicker color={textManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setTextManagement({ ...textManagement, borderColor: e })} />
+                                    </Box>
+                                    <Box sx={{ width: "72%" }}>
+                                        <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                            View
+                                        </Typography>
+                                        <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, background: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px` }}>
+                                            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textManagement.textInput == "" ? "No Text" : textManagement.textInput}</pre>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Box>
+                            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => handleClose()}>Cancel</Button>
+                                <Box component="span" sx={{ marginLeft: "20px" }} />
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => handleClose()}>Add</Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
+
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
                 <div className="mx-auto max-w-7xl">
@@ -433,6 +643,8 @@ export default function Dashboard() {
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenTwo(true)}>DeepL</Button>
                             <Box component="span" sx={{ marginLeft: "10px" }} />
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenThree(true)}>Chat GPT</Button>
+                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFour(true)}>Text</Button>
                         </div>
                     </div>
                 </div>

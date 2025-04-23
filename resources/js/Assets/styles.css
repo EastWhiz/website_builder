@@ -10,5 +10,23 @@ input {
 }
 
 .MuiOutlinedInput-input:focus {
-   --tw-ring-inset:0px
+    --tw-ring-inset: 0px
+}
+
+.customPicker .react-colorful {
+    height: 104px;
+}
+
+.customPicker .react-colorful__hue {
+    height: 15px;
+}
+
+.customPicker .react-colorful__hue-pointer {
+    width: 15px;
+    height: 15px
+}
+
+.customPicker .react-colorful__saturation-pointer {
+    width: 15px;
+    height: 15px
 }
