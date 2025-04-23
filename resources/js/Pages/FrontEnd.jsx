@@ -108,6 +108,16 @@ export default function Dashboard() {
         textAlign: false,
     });
 
+    const [openFive, setOpenFive] = useState(false);
+    const [spacerManagement, setSpacerManagement] = useState({
+        height: ""
+    });
+
+    const [openSix, setOpenSix] = useState(false);
+    const [customHTMLManagement, setCustomHTMLManagement] = useState({
+        input: "",
+    });
+
 
     return (
         <AuthenticatedLayout
@@ -281,9 +291,9 @@ export default function Dashboard() {
                                 </Box>
                             </Box>
                             <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
-                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => handleClose()}>Cancel</Button>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpen(false)}>Cancel</Button>
                                 <Box component="span" sx={{ marginLeft: "20px" }} />
-                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => handleClose()}>Add</Button>
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpen(false)}>Add</Button>
                             </Box>
                         </Box>
                     </Box>
@@ -443,7 +453,7 @@ export default function Dashboard() {
                 </Fade>
             </Modal>
 
-            {/* IMAGE MANAGEMENT MODAL */}
+            {/* TEXT MANAGEMENT MODAL */}
             <Modal
                 aria-labelledby="transition-modal-title"
                 aria-describedby="transition-modal-description"
@@ -624,9 +634,108 @@ export default function Dashboard() {
                                 </Box>
                             </Box>
                             <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
-                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => handleClose()}>Cancel</Button>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFour()}>Cancel</Button>
                                 <Box component="span" sx={{ marginLeft: "20px" }} />
-                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => handleClose()}>Add</Button>
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFour()}>Add</Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
+
+            {/* CHATGPT */}
+            <Modal
+                aria-labelledby="transition-modal-title"
+                aria-describedby="transition-modal-description"
+                open={openFive}
+                onClose={() => setOpenFive(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={openFive}>
+                    <Box sx={style}>
+                        <Box>
+                            <Box sx={{ mb: 1.5 }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                    Spacer
+                                </Typography>
+                            </Box>
+                            <Box sx={{ pt: "5px", height: "260px", overflow: "auto" }}>
+                                <TextField
+                                    fullWidth
+                                    type="number"
+                                    size='small'
+                                    label="Spacer Height"
+                                    slotProps={{
+                                        inputLabel: { shrink: true }
+                                    }}
+                                    placeholder='Enter Spacer Height'
+                                    value={spacerManagement.height}
+                                    onChange={(e) => {
+                                        setSpacerManagement({ ...spacerManagement, height: e.target.value })
+                                    }}
+                                />
+                            </Box>
+                            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFive(false)}>Cancel</Button>
+                                <Box component="span" sx={{ marginLeft: "20px" }} />
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFive(false)}>Add</Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
+
+            {/* CHATGPT */}
+            <Modal
+                aria-labelledby="transition-modal-title"
+                aria-describedby="transition-modal-description"
+                open={openSix}
+                onClose={() => setOpenSix(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={openSix}>
+                    <Box sx={style}>
+                        <Box>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                    Custom HMTL
+                                </Typography>
+                                <Box>
+                                    <Button size="small" variant="contained" color="primary" >AI</Button>
+                                    <Box component="span" sx={{ marginLeft: "10px" }} />
+                                    <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }}>Translate</Button>
+                                </Box>
+                            </Box>
+                            <Box sx={{ pt: "10px", height: "260px", overflow: "auto" }}>
+                                <TextField
+                                    className="multilineCss"
+                                    fullWidth
+                                    size='small'
+                                    placeholder='Enter Custom HTML'
+                                    value={customHTMLManagement.input}
+                                    multiline
+                                    rows={10} // You can adjust the number of rows as needed
+                                    onChange={(e) => {
+                                        setCustomHTMLManagement({ ...customHTMLManagement, input: e.target.value })
+                                    }}
+                                />
+                            </Box>
+                            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenSix(false)}>Cancel</Button>
+                                <Box component="span" sx={{ marginLeft: "20px" }} />
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpenSix(false)}>Add</Button>
                             </Box>
                         </Box>
                     </Box>
@@ -645,6 +754,10 @@ export default function Dashboard() {
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenThree(true)}>Chat GPT</Button>
                             <Box component="span" sx={{ marginLeft: "10px" }} />
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFour(true)}>Text</Button>
+                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFive(true)}>Spacer</Button>
+                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenSix(true)}>Custom HTML</Button>
                         </div>
                     </div>
                 </div>
