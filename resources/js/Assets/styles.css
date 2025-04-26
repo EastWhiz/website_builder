@@ -30,3 +30,21 @@ input {
     width: 15px;
     height: 15px
 }
+
+.customPickerTwo .react-colorful {
+    height: 70px;
+}
+
+.customPickerTwo .react-colorful__hue {
+    height: 15px;
+}
+
+.customPickerTwo .react-colorful__hue-pointer {
+    width: 15px;
+    height: 15px
+}
+
+.customPickerTwo .react-colorful__saturation-pointer {
+    width: 15px;
+    height: 15px
+}

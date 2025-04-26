@@ -1,17 +1,18 @@
+import Doc2 from "@/Assets/document2.png";
 import "@/Assets/styles.css";
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
-import { Button, Box, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material";
+import ClearIcon from '@mui/icons-material/Clear';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material";
 import Backdrop from '@mui/material/Backdrop';
 import Fade from '@mui/material/Fade';
 import Modal from '@mui/material/Modal';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { useState } from 'react';
-import Doc2 from "@/Assets/document2.png";
-import ClearIcon from '@mui/icons-material/Clear';
 import { HexColorPicker } from "react-colorful";
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 
 export default function Dashboard() {
 
@@ -34,6 +35,22 @@ export default function Dashboard() {
         'start',      // Aligns text to the start of the writing mode (LTR or RTL)
         'end',        // Aligns text to the end of the writing mode (LTR or RTL)
         'match-parent' // Inherits the alignment from the parent, but adjusts for direction
+    ];
+
+    const requireds = [
+        'required',
+        'not-required',
+    ];
+
+    const commonInputTypes = [
+        "text",
+        "email",
+        "password",
+        "number",
+        "checkbox",
+        "radio",
+        "file",
+        "submit"
     ];
 
     const style = {
@@ -116,6 +133,32 @@ export default function Dashboard() {
     const [openSix, setOpenSix] = useState(false);
     const [customHTMLManagement, setCustomHTMLManagement] = useState({
         input: "",
+    });
+
+    const [openSeven, setOpenSeven] = useState(false);
+    const [formManagement, setFormManagement] = useState({
+        submitText: "",
+        submitTextColor: "",
+        submitBackgroundColor: "",
+        inputs: [{
+            name: "",
+            required: false,
+            type: false,
+            sort: ""
+        }]
+    });
+
+    const [openEight, setOpenEight] = useState(false);
+    const [buttonManagement, setButtonManagement] = useState({
+        buttonText: "",
+        buttonTextColor: "",
+        buttonBackgroundColor: "",
+        buttonFontSize: "",
+        buttonMargin: "",
+        buttonPadding: "",
+        buttonBorder: false,
+        buttonBorderWidth: "",
+        buttonBorderColor: "",
     });
 
 
@@ -643,7 +686,7 @@ export default function Dashboard() {
                 </Fade>
             </Modal>
 
-            {/* CHATGPT */}
+            {/* SPACER */}
             <Modal
                 aria-labelledby="transition-modal-title"
                 aria-describedby="transition-modal-description"
@@ -691,7 +734,7 @@ export default function Dashboard() {
                 </Fade>
             </Modal>
 
-            {/* CHATGPT */}
+            {/* CUSTOM HTML */}
             <Modal
                 aria-labelledby="transition-modal-title"
                 aria-describedby="transition-modal-description"
@@ -742,6 +785,365 @@ export default function Dashboard() {
                 </Fade>
             </Modal>
 
+            {/* FORMS */}
+            <Modal
+                aria-labelledby="transition-modal-title"
+                aria-describedby="transition-modal-description"
+                open={openSeven}
+                onClose={() => setOpenSeven(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={openSeven}>
+                    <Box sx={style}>
+                        <Box>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                    Form Management
+                                </Typography>
+                            </Box>
+                            <Box sx={{ padding: "10px 0px", height: "270px", overflow: "auto" }}>
+                                <Box sx={{ display: 'flex', gap: "15px" }}>
+                                    <Box sx={{ width: "50%" }}>
+                                        <TextField
+                                            fullWidth
+                                            size='small'
+                                            label="Submit Button Text"
+                                            multiline
+                                            rows={3}
+                                            slotProps={{
+                                                inputLabel: { shrink: true }
+                                            }}
+                                            placeholder='Enter Button Text'
+                                            value={formManagement.submitText}
+                                            onChange={(e) => {
+                                                setFormManagement({ ...formManagement, submitText: e.target.value })
+                                            }}
+                                        />
+                                    </Box>
+                                    <Box mt={-1.6} sx={{ width: "50%" }}>
+                                        <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
+                                            <Box sx={{ width: "50%" }}>
+                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                    Color
+                                                </Typography>
+                                                <HexColorPicker class color={formManagement.submitTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitTextColor: e })} />
+                                            </Box>
+                                            <Box sx={{ width: "50%" }}>
+                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                    Background
+                                                </Typography>
+                                                <HexColorPicker color={formManagement.submitBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitBackgroundColor: e })} />
+                                            </Box>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                                <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
+                                    <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {
+                                        let temp = { ...formManagement };
+                                        temp.inputs.push({
+                                            name: "",
+                                            required: false,
+                                            type: false,
+                                            sort: ""
+                                        });
+                                        console.log(temp);
+                                        setFormManagement(temp);
+                                    }}>Add Input</Button>
+                                </Box>
+                                <Box mt={2} p={2} pt={0} sx={{ border: "2px dashed #a5a5a5", borderRadius: "2px" }}>
+                                    {formManagement && formManagement.inputs.map((value, index) => (
+                                        <Box key={index} sx={{ mt: 2, display: "flex" }}>
+                                            <TextField
+                                                sx={{ width: "150px" }}
+                                                size='small'
+                                                label="Input Name"
+                                                slotProps={{
+                                                    inputLabel: { shrink: true }
+                                                }}
+                                                placeholder='Enter Name'
+                                                value={value.name}
+                                                onChange={(e) => {
+                                                    let temp = { ...formManagement };
+                                                    temp.inputs[index] = { ...temp.inputs[index], name: e.target.value };
+                                                    setFormManagement(temp);
+                                                }}
+                                            />
+                                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                                            <FormControl>
+                                                <InputLabel id="demo-simple-select-label">Required</InputLabel>
+                                                <Select
+                                                    sx={{ width: "150px" }}
+                                                    // displayEmpty
+                                                    renderValue={(value) => {
+                                                        if (!value) {
+                                                            return <Typography color="grey"> Select...</Typography>;
+                                                        }
+                                                        return <>{value}</>;
+                                                    }}
+                                                    value={value.required}
+                                                    label="Required"
+                                                    size='small'
+                                                    onChange={(e) => {
+                                                        let temp = { ...formManagement };
+                                                        temp.inputs[index] = { ...temp.inputs[index], required: e.target.value };
+                                                        setFormManagement(temp);
+                                                    }}
+                                                >
+                                                    {requireds.map((item, index) => (
+                                                        <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                                            <FormControl>
+                                                <InputLabel id="demo-simple-select-label">Type</InputLabel>
+                                                <Select
+                                                    sx={{ width: "140px" }}
+                                                    // displayEmpty
+                                                    renderValue={(value) => {
+                                                        if (!value) {
+                                                            return <Typography color="grey"> Select...</Typography>;
+                                                        }
+                                                        return <>{value}</>;
+                                                    }}
+                                                    value={value.type}
+                                                    label="Type"
+                                                    size='small'
+                                                    onChange={(e) => {
+                                                        let temp = { ...formManagement };
+                                                        temp.inputs[index] = { ...temp.inputs[index], type: e.target.value };
+                                                        setFormManagement(temp);
+                                                    }}
+                                                >
+                                                    {commonInputTypes.map((item, index) => (
+                                                        <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                                            <TextField
+                                                sx={{ width: "60px" }}
+                                                size='small'
+                                                placeholder='Sort'
+                                                value={value.sort}
+                                                onChange={(e) => {
+                                                    let temp = { ...formManagement };
+                                                    temp.inputs[index] = { ...temp.inputs[index], sort: e.target.value };
+                                                    setFormManagement(temp);
+                                                }}
+                                            />
+                                            <Box component="span" sx={{ marginLeft: "11px" }} />
+                                            <Box mt={0.5}>
+                                                <RemoveCircleOutlineIcon sx={{ cursor: "pointer" }} onClick={() => {
+                                                    let temp = { ...formManagement };
+                                                    temp.inputs.splice(index, 1);
+                                                    setFormManagement(temp);
+                                                }} />
+                                            </Box>
+                                        </Box>
+                                    ))}
+                                </Box>
+                            </Box>
+                            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenSeven(false)}>Cancel</Button>
+                                <Box component="span" sx={{ marginLeft: "20px" }} />
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpenSeven(false)}>Add</Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
+
+            {/* BUTTON MANAGEMENT */}
+            <Modal
+                aria-labelledby="transition-modal-title"
+                aria-describedby="transition-modal-description"
+                open={openEight}
+                onClose={() => setOpenEight(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={openEight}>
+                    <Box sx={style}>
+                        <Box>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                                <Typography variant="body" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                                    Button Management
+                                </Typography>
+                            </Box>
+                            <Box sx={{ padding: "10px 0px", height: "270px", overflow: "auto" }}>
+                                <Box sx={{ display: 'flex', gap: "15px" }}>
+                                    <Box sx={{ width: "50%" }}>
+                                        <TextField
+                                            fullWidth
+                                            size='small'
+                                            label="Button Text"
+                                            multiline
+                                            rows={3}
+                                            slotProps={{
+                                                inputLabel: { shrink: true }
+                                            }}
+                                            placeholder='Enter Button Text'
+                                            value={buttonManagement.buttonText}
+                                            onChange={(e) => {
+                                                setButtonManagement({ ...buttonManagement, buttonText: e.target.value })
+                                            }}
+                                        />
+                                    </Box>
+                                    <Box mt={-1.6} sx={{ width: "50%" }}>
+                                        <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
+                                            <Box sx={{ width: "50%" }}>
+                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                    Color
+                                                </Typography>
+                                                <HexColorPicker class color={buttonManagement.buttonTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonTextColor: e })} />
+                                            </Box>
+                                            <Box sx={{ width: "50%" }}>
+                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                    Background
+                                                </Typography>
+                                                <HexColorPicker color={buttonManagement.buttonBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonBackgroundColor: e })} />
+                                            </Box>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <TextField
+                                        sx={{ mt: 2 }}
+                                        type='number'
+                                        fullWidth
+                                        size='small'
+                                        label="Font Size"
+                                        slotProps={{
+                                            inputLabel: { shrink: true },
+                                            htmlInput: {
+                                                min: 0,    // Minimum value allowed
+                                                max: 72    // Maximum value allowed
+                                            }
+                                        }}
+                                        placeholder='Enter Font Size'
+                                        value={buttonManagement.buttonFontSize}
+                                        onChange={(e) => {
+                                            setButtonManagement({ ...buttonManagement, buttonFontSize: e.target.value })
+                                        }}
+                                    />
+                                    <TextField
+                                        sx={{ mt: 2 }}
+                                        type='number'
+                                        fullWidth
+                                        size='small'
+                                        label="Margin"
+                                        slotProps={{
+                                            inputLabel: { shrink: true },
+                                            htmlInput: {
+                                                min: 0,    // Minimum value allowed
+                                                max: 72    // Maximum value allowed
+                                            }
+                                        }}
+                                        placeholder='Enter Margin'
+                                        value={buttonManagement.buttonMargin}
+                                        onChange={(e) => {
+                                            setButtonManagement({ ...buttonManagement, buttonMargin: e.target.value })
+                                        }}
+                                    />
+                                    <TextField
+                                        sx={{ mt: 2 }}
+                                        type='number'
+                                        fullWidth
+                                        size='small'
+                                        label="Padding"
+                                        slotProps={{
+                                            inputLabel: { shrink: true },
+                                            htmlInput: {
+                                                min: 0,    // Minimum value allowed
+                                                max: 72    // Maximum value allowed
+                                            }
+                                        }}
+                                        placeholder='Enter Padding'
+                                        value={buttonManagement.buttonPadding}
+                                        onChange={(e) => {
+                                            setButtonManagement({ ...buttonManagement, buttonPadding: e.target.value })
+                                        }}
+                                    />
+                                    <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                        <InputLabel id="demo-simple-select-label">Border</InputLabel>
+                                        <Select
+                                            // displayEmpty
+                                            renderValue={(value) => {
+                                                if (!value) {
+                                                    return <Typography color="grey"> Select Border</Typography>;
+                                                }
+                                                return <>{value}</>;
+                                            }}
+                                            value={buttonManagement.buttonBorder}
+                                            label="Border"
+                                            size='small'
+                                            onChange={(e) => {
+                                                setButtonManagement({ ...buttonManagement, buttonBorder: e.target.value })
+                                            }}
+                                        >
+                                            {borderStyles.map((item, index) => (
+                                                <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                    <TextField
+                                        sx={{ mt: 2 }}
+                                        type='number'
+                                        fullWidth
+                                        size='small'
+                                        label="Border Width"
+                                        slotProps={{
+                                            inputLabel: { shrink: true },
+                                            htmlInput: {
+                                                min: 0,    // Minimum value allowed
+                                                max: 10    // Maximum value allowed
+                                            }
+                                        }}
+                                        placeholder='Enter Border Width'
+                                        value={buttonManagement.buttonBorderWidth}
+                                        onChange={(e) => {
+                                            setButtonManagement({ ...buttonManagement, buttonBorderWidth: e.target.value })
+                                        }}
+                                    />
+                                    <Box mt={1} sx={{ display: "flex" }}>
+                                        <Box sx={{ width: "50%" }}>
+                                            <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                Border Color
+                                            </Typography>
+                                            <HexColorPicker color={buttonManagement.buttonBorderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonBorderColor: e })} />
+                                        </Box>
+                                        <Box sx={{ width: "50%" }}>
+                                            <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                View
+                                            </Typography>
+                                            <Box component={"button"} sx={{ color: `${buttonManagement.buttonTextColor}`, background: `${buttonManagement.buttonBackgroundColor}`, padding: `${buttonManagement.buttonPadding}px`, fontSize: `${buttonManagement.buttonFontSize}px`, margin: `${buttonManagement.buttonMargin}px`, textAlign: "center", border: `${buttonManagement.buttonBorderWidth}px ${buttonManagement.buttonBorder} ${buttonManagement.buttonBorderColor}` }}>{buttonManagement.buttonText}</Box>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                            </Box>
+
+                            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenEight(false)}>Cancel</Button>
+                                <Box component="span" sx={{ marginLeft: "20px" }} />
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={() => setOpenEight(false)}>Add</Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
+
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
                 <div className="mx-auto max-w-7xl">
@@ -758,6 +1160,10 @@ export default function Dashboard() {
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenFive(true)}>Spacer</Button>
                             <Box component="span" sx={{ marginLeft: "10px" }} />
                             <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenSix(true)}>Custom HTML</Button>
+                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenSeven(true)}>Form</Button>
+                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                            <Button variant='contained' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => setOpenEight(true)}>Button</Button>
                         </div>
                     </div>
                 </div>
