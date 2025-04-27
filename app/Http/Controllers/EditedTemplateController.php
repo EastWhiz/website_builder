@@ -47,7 +47,9 @@ class EditedTemplateController extends Controller
 
     public function downloadTemplate(Request $request)
     {
-        // $pageUrl = $request->path;
+        $decodedData = json_decode($request->data);
+        $pageUrl = $decodedData->url;
+        logger($pageUrl);
         $pageUrl = "https://www.google.com"; // Or manually set URL
 
         $htmlContent = Http::timeout(3600)->get($pageUrl)->body();
