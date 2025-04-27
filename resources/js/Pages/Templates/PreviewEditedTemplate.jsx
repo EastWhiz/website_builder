@@ -607,7 +607,7 @@ export default function Dashboard({ id }) {
                                                                 }}
                                                             >
                                                                 {borderStyles.map((item, index) => (
-                                                                    <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                 ))}
                                                             </Select>
                                                         </FormControl>
@@ -745,7 +745,7 @@ export default function Dashboard({ id }) {
                                                                         }}
                                                                     >
                                                                         {textAlignProperties.map((item, index) => (
-                                                                            <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                         ))}
                                                                     </Select>
                                                                 </FormControl>
@@ -767,7 +767,7 @@ export default function Dashboard({ id }) {
                                                                         }}
                                                                     >
                                                                         {borderStyles.map((item, index) => (
-                                                                            <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                         ))}
                                                                     </Select>
                                                                 </FormControl>
@@ -952,7 +952,7 @@ export default function Dashboard({ id }) {
                                                                     }}
                                                                 >
                                                                     {borderStyles.map((item, index) => (
-                                                                        <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                        <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
                                                                 </Select>
                                                             </FormControl>
@@ -1084,7 +1084,7 @@ export default function Dashboard({ id }) {
                                                                         }}
                                                                     >
                                                                         {requireds.map((item, index) => (
-                                                                            <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                         ))}
                                                                     </Select>
                                                                 </FormControl>
@@ -1110,7 +1110,7 @@ export default function Dashboard({ id }) {
                                                                         }}
                                                                     >
                                                                         {commonInputTypes.map((item, index) => (
-                                                                            <MenuItem value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                         ))}
                                                                     </Select>
                                                                 </FormControl>
