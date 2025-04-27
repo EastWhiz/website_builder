@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Swal from "sweetalert2";
+import convert from 'color-convert';
 
 export default function Dashboard({ id }) {
 
@@ -173,14 +174,14 @@ export default function Dashboard({ id }) {
     });
     const [buttonManagement, setButtonManagement] = useState({
         buttonText: "",
-        buttonTextColor: "",
-        buttonBackgroundColor: "",
-        buttonFontSize: "",
-        buttonMargin: "",
-        buttonPadding: "",
-        buttonBorder: false,
-        buttonBorderWidth: "",
-        buttonBorderColor: "",
+        color: "",
+        backgroundColor: "",
+        fontSize: "",
+        margin: "",
+        padding: "",
+        border: false,
+        borderWidth: "",
+        borderColor: "",
     });
 
     useEffect(() => {
@@ -229,9 +230,17 @@ export default function Dashboard({ id }) {
     useEffect(() => {
         // console.log(editing);
         if (editing && editing.actionType == "edit" && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) {
+            let computedStyles = window.getComputedStyle(editing.currentElement);
             setTextManagement(prev => ({
-                ...prev, // keep all previous values
-                textInput: editing.innerHTML, // only update the value you want
+                ...prev,
+                textInput: editing.innerHTML,
+                fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
+                color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
+                backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
+                textAlign: computedStyles.textAlign,
+                border: computedStyles.borderStyle,
+                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
+                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
             }));
         } else if (editing && editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) {
             setCustomHTMLManagement(prev => ({
@@ -239,17 +248,39 @@ export default function Dashboard({ id }) {
                 input: editing.innerHTML, // only update the value you want
             }));
         } else if (editing && editing.actionType == "edit" && ['img'].includes(editing.elementName)) {
+            let computedStyles = window.getComputedStyle(editing.currentElement);
             setImageManagement(prev => ({
                 ...prev, // keep all previous values
                 imageSrc: editing.imageSrc, // only update the value you want
+                border: computedStyles.borderStyle,
+                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
+                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
             }));
         } else if (editing && editing.actionType == "edit" && ['button'].includes(editing.elementName)) {
+            let computedStyles = window.getComputedStyle(editing.currentElement);
             setButtonManagement(prev => ({
                 ...prev, // keep all previous values
-                buttonText: editing.innerHTML, // only update the value you want
+                buttonText: editing.innerHTML, // only update the value you want\
+                color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
+                backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
+                fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
+                margin: removePxAndConvertToFloat(computedStyles.margin),
+                padding: removePxAndConvertToFloat(computedStyles.padding),
+                border: computedStyles.borderStyle,
+                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
+                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
             }));
         }
     }, [editing]);
+
+    function removePxAndConvertToFloat(value) {
+        return parseFloat(value.replace('px', ''));
+    }
+
+    function rgbToArray(rgb) {
+        const result = rgb.match(/^rgb\((\d+), (\d+), (\d+)\)$/);
+        return result ? result.slice(1).map(Number) : [0, 0, 0]; // Return black if not valid
+    }
 
     const generateRandomString = () => {
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -297,21 +328,56 @@ export default function Dashboard({ id }) {
     };
 
     const updateHTMLHandler = () => {
-        // if (editing.elementName == "img") {
-        //     document.querySelector(`.${editing.editID}`).src = editing.imageSrc;
-        // } else {
-        //     document.querySelector(`.${editing.editID}`).innerHTML = editing.innerHTML;
-        // }
+        let element = document.querySelector(`.${editing.editID}`);
 
         //FURTHER EDITING REMAINING
         if ((editing.actionType == "edit" && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
+            //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
+            const styles = {
+                color: textManagement.color,
+                background: textManagement.backgroundColor,
+                fontSize: `${textManagement.fontSize}`,
+                border: textManagement.border,
+                borderWidth: `${textManagement.borderWidth}px`,
+                borderColor: textManagement.borderColor,
+                textAlign: textManagement.textAlign
+            };
 
+            if (textManagement.link && element.localName !== "a") {
+                let newElement = document.createElement('a');
+                Object.assign(newElement.style, styles);
+                newElement.innerHTML = textManagement.textInput;
+                newElement.className = element.className;
+                newElement.setAttribute('href', textManagement.link);
+                element.parentNode.replaceChild(newElement, element);
+            } else {
+                Object.assign(element.style, styles);
+                element.innerHTML = textManagement.textInput;
+            }
         } else if ((editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "html")) {
             document.querySelector(`.${editing.editID}`).innerHTML = customHTMLManagement.input;
         } else if ((editing.actionType == "edit" && ['img'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "img")) {
-
+            const styles = {
+                border: imageManagement.border,
+                borderWidth: `${imageManagement.borderWidth}px`,
+                borderColor: imageManagement.borderColor,
+            };
+            Object.assign(element.style, styles);
+            element.src = imageManagement.imageSrc;
         } else if ((editing.actionType == "edit" && ['button'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "button")) {
-
+            const styles = {
+                color: buttonManagement.color,
+                background: buttonManagement.backgroundColor,
+                fontSize: `${buttonManagement.fontSize}px`,
+                margin: `${buttonManagement.margin}px`,
+                padding: `${buttonManagement.padding}px`,
+                border: buttonManagement.border,
+                borderWidth: `${buttonManagement.borderWidth}px`,
+                borderColor: buttonManagement.borderColor,
+            };
+            Object.assign(element.style, styles);
+            element.innerHTML = buttonManagement.buttonText;
+            console.log(buttonManagement);
         } else if (editing.actionType == "add" && editing.addElementType == "form") {
 
         } else if (editing.actionType == "add" && editing.addElementType == "br") {
@@ -579,7 +645,6 @@ export default function Dashboard({ id }) {
                                                                                     </Typography>
                                                                                     <input type="file" multiple style={{ display: "none" }} id={`hiddenFileUpload`} onChange={(e) => {
                                                                                         const insideFile = e.target.files[0];
-                                                                                        console.log(insideFile);
                                                                                         let temp = { ...imageManagement };
                                                                                         temp.imageFile.alreadyUploaded = "";
                                                                                         temp.imageFile.file = insideFile;
@@ -633,11 +698,7 @@ export default function Dashboard({ id }) {
                                                             size='small'
                                                             label="Border Width"
                                                             slotProps={{
-                                                                inputLabel: { shrink: true },
-                                                                htmlInput: {
-                                                                    min: 0,    // Minimum value allowed
-                                                                    max: 10    // Maximum value allowed
-                                                                }
+                                                                inputLabel: { shrink: true }
                                                             }}
                                                             placeholder='Enter Border Width'
                                                             value={imageManagement.borderWidth}
@@ -698,10 +759,6 @@ export default function Dashboard({ id }) {
                                                                     label="Link"
                                                                     slotProps={{
                                                                         inputLabel: { shrink: true },
-                                                                        htmlInput: {
-                                                                            min: 0,    // Minimum value allowed
-                                                                            max: 72    // Maximum value allowed
-                                                                        }
                                                                     }}
                                                                     onChange={(e) => {
                                                                         setTextManagement({ ...textManagement, link: e.target.value })
@@ -715,10 +772,6 @@ export default function Dashboard({ id }) {
                                                                     label="Font Size"
                                                                     slotProps={{
                                                                         inputLabel: { shrink: true },
-                                                                        htmlInput: {
-                                                                            min: 0,    // Minimum value allowed
-                                                                            max: 72    // Maximum value allowed
-                                                                        }
                                                                     }}
                                                                     placeholder='Enter Font Size'
                                                                     value={textManagement.fontSize}
@@ -793,11 +846,7 @@ export default function Dashboard({ id }) {
                                                                     size='small'
                                                                     label="Border Width"
                                                                     slotProps={{
-                                                                        inputLabel: { shrink: true },
-                                                                        htmlInput: {
-                                                                            min: 0,    // Minimum value allowed
-                                                                            max: 10    // Maximum value allowed
-                                                                        }
+                                                                        inputLabel: { shrink: true }
                                                                     }}
                                                                     placeholder='Enter Border Width'
                                                                     value={textManagement.borderWidth}
@@ -880,13 +929,13 @@ export default function Dashboard({ id }) {
                                                                         <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
                                                                             Color
                                                                         </Typography>
-                                                                        <HexColorPicker class color={buttonManagement.buttonTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonTextColor: e })} />
+                                                                        <HexColorPicker class color={buttonManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, color: e })} />
                                                                     </Box>
                                                                     <Box sx={{ width: "50%" }}>
                                                                         <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
                                                                             Background
                                                                         </Typography>
-                                                                        <HexColorPicker color={buttonManagement.buttonBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonBackgroundColor: e })} />
+                                                                        <HexColorPicker color={buttonManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, backgroundColor: e })} />
                                                                     </Box>
                                                                 </Box>
                                                             </Box>
@@ -900,15 +949,11 @@ export default function Dashboard({ id }) {
                                                                 label="Font Size"
                                                                 slotProps={{
                                                                     inputLabel: { shrink: true },
-                                                                    htmlInput: {
-                                                                        min: 0,    // Minimum value allowed
-                                                                        max: 72    // Maximum value allowed
-                                                                    }
                                                                 }}
                                                                 placeholder='Enter Font Size'
-                                                                value={buttonManagement.buttonFontSize}
+                                                                value={buttonManagement.fontSize}
                                                                 onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, buttonFontSize: e.target.value })
+                                                                    setButtonManagement({ ...buttonManagement, fontSize: e.target.value })
                                                                 }}
                                                             />
                                                             <TextField
@@ -919,15 +964,11 @@ export default function Dashboard({ id }) {
                                                                 label="Margin"
                                                                 slotProps={{
                                                                     inputLabel: { shrink: true },
-                                                                    htmlInput: {
-                                                                        min: 0,    // Minimum value allowed
-                                                                        max: 72    // Maximum value allowed
-                                                                    }
                                                                 }}
                                                                 placeholder='Enter Margin'
-                                                                value={buttonManagement.buttonMargin}
+                                                                value={buttonManagement.margin}
                                                                 onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, buttonMargin: e.target.value })
+                                                                    setButtonManagement({ ...buttonManagement, margin: e.target.value })
                                                                 }}
                                                             />
                                                             <TextField
@@ -938,15 +979,11 @@ export default function Dashboard({ id }) {
                                                                 label="Padding"
                                                                 slotProps={{
                                                                     inputLabel: { shrink: true },
-                                                                    htmlInput: {
-                                                                        min: 0,    // Minimum value allowed
-                                                                        max: 72    // Maximum value allowed
-                                                                    }
                                                                 }}
                                                                 placeholder='Enter Padding'
-                                                                value={buttonManagement.buttonPadding}
+                                                                value={buttonManagement.padding}
                                                                 onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, buttonPadding: e.target.value })
+                                                                    setButtonManagement({ ...buttonManagement, padding: e.target.value })
                                                                 }}
                                                             />
                                                             <FormControl fullWidth sx={{ mt: 2.1 }}>
@@ -959,11 +996,11 @@ export default function Dashboard({ id }) {
                                                                         }
                                                                         return <>{value}</>;
                                                                     }}
-                                                                    value={buttonManagement.buttonBorder}
+                                                                    value={buttonManagement.border}
                                                                     label="Border"
                                                                     size='small'
                                                                     onChange={(e) => {
-                                                                        setButtonManagement({ ...buttonManagement, buttonBorder: e.target.value })
+                                                                        setButtonManagement({ ...buttonManagement, border: e.target.value })
                                                                     }}
                                                                 >
                                                                     {borderStyles.map((item, index) => (
@@ -978,16 +1015,12 @@ export default function Dashboard({ id }) {
                                                                 size='small'
                                                                 label="Border Width"
                                                                 slotProps={{
-                                                                    inputLabel: { shrink: true },
-                                                                    htmlInput: {
-                                                                        min: 0,    // Minimum value allowed
-                                                                        max: 10    // Maximum value allowed
-                                                                    }
+                                                                    inputLabel: { shrink: true }
                                                                 }}
                                                                 placeholder='Enter Border Width'
-                                                                value={buttonManagement.buttonBorderWidth}
+                                                                value={buttonManagement.borderWidth}
                                                                 onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, buttonBorderWidth: e.target.value })
+                                                                    setButtonManagement({ ...buttonManagement, borderWidth: e.target.value })
                                                                 }}
                                                             />
                                                             <Box mt={1} sx={{ display: "flex" }} className="customPicker">
@@ -995,13 +1028,13 @@ export default function Dashboard({ id }) {
                                                                     <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
                                                                         Border Color
                                                                     </Typography>
-                                                                    <HexColorPicker color={buttonManagement.buttonBorderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonBorderColor: e })} />
+                                                                    <HexColorPicker color={buttonManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setButtonManagement({ ...buttonManagement, borderColor: e })} />
                                                                 </Box>
                                                                 <Box sx={{ width: "50%" }}>
                                                                     <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                         View
                                                                     </Typography>
-                                                                    <Box component={"button"} sx={{ color: `${buttonManagement.buttonTextColor}`, background: `${buttonManagement.buttonBackgroundColor}`, padding: `${buttonManagement.buttonPadding}px`, fontSize: `${buttonManagement.buttonFontSize}px`, margin: `${buttonManagement.buttonMargin}px`, textAlign: "center", border: `${buttonManagement.buttonBorderWidth}px ${buttonManagement.buttonBorder} ${buttonManagement.buttonBorderColor}` }}>{buttonManagement.buttonText}</Box>
+                                                                    <Box component={"button"} sx={{ color: `${buttonManagement.color}`, background: `${buttonManagement.backgroundColor}`, padding: `${buttonManagement.padding}px`, fontSize: `${buttonManagement.fontSize}px`, margin: `${buttonManagement.margin}px`, textAlign: "center", border: `${buttonManagement.borderWidth}px ${buttonManagement.border} ${buttonManagement.borderColor}` }}>{buttonManagement.buttonText}</Box>
                                                                 </Box>
                                                             </Box>
                                                         </Box>
@@ -1055,7 +1088,6 @@ export default function Dashboard({ id }) {
                                                                 type: false,
                                                                 sort: ""
                                                             });
-                                                            console.log(temp);
                                                             setFormManagement(temp);
                                                         }}>Add Input</Button>
                                                     </Box>
@@ -1370,6 +1402,6 @@ export default function Dashboard({ id }) {
                     </div>
                 }
             </div>
-        </div >
+        </div>
     );
 }
