@@ -48,3 +48,17 @@ input {
     width: 15px;
     height: 15px
 }
+
+.cptlz {
+    text-transform: capitalize !important;
+}
+
+.megaButton {
+    height: 105px !important;
+    font-size: 26px !important;
+}
+
+.megaButtonSquare {
+    height: 225px !important;
+    font-size: 32px !important;
+}
