@@ -392,7 +392,7 @@ export default function Dashboard({ id }) {
             } else {
                 let newElement = document.createElement('div');
                 newElement.classList.add('editableDiv');
-                newElement.innerHTML = textManagement.textInput;
+                newElement.innerHTML = customHTMLManagement.input;
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if ((editing.actionType == "edit" && ['img'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "img")) {
