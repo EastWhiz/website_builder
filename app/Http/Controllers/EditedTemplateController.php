@@ -11,8 +11,13 @@ class EditedTemplateController extends Controller
 {
     public function saveTemplate(Request $request)
     {
+        $nameRequired = "required";
+        if (isset($request->edit_id)) {
+            $nameRequired = "";
+        }
+
         $validator = Validator::make($request->all(), [
-            'name' => 'required',
+            'name' => $nameRequired,
             'main_html' => 'required',
         ], []);
 
@@ -25,10 +30,13 @@ class EditedTemplateController extends Controller
             $editedTemplate = new EditedTemplate;
         }
 
-        $editedTemplate->name = $request->name;
+        if (!isset($request->edit_id)) {
+            $editedTemplate->name = $request->name;
+            $editedTemplate->template_id = $request->template_id;
+            $editedTemplate->user_id = Auth::user()->id;
+        }
+
         $editedTemplate->main_html = $request->main_html;
-        $editedTemplate->template_id = $request->template_id;
-        $editedTemplate->user_id = Auth::user()->id;
         $editedTemplate->save();
 
         return sendResponse(true, "Edited Template Saved Successfully!");

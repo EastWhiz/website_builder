@@ -4,6 +4,7 @@ use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
+use App\Models\EditedTemplate;
 use App\Models\Template;
 use App\Models\TemplateContent;
 use Illuminate\Foundation\Application;
@@ -39,12 +40,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::inertia('/users', 'Users/Users')->name('users');
         Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');
-        Route::inertia('/users/{id}/themes', 'Users/UserThemes')->name('userThemes');
-        Route::get('/users/{id}/themes', function ($id) {
-            return Inertia::render('Users/UserThemes', [
-                'id' => $id,
-            ]);
-        })->name('userThemes');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {
@@ -74,17 +69,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 'status' => 200
             ]);
         })->name('templates.previewContent');
-        Route::post('/edited-templates/add', [EditedTemplateController::class, 'saveTemplate'])->name('editedTemplates.save');
+        Route::post('/edited-templates/save', [EditedTemplateController::class, 'saveTemplate'])->name('editedTemplates.save');
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
         Route::get('/users/{id}/themes/list', [UsersController::class, 'userThemesList'])->name('userThemes.list');
+        Route::get('/users/{id}/themes', function ($id) {
+            return Inertia::render('Users/UserThemes', [
+                'id' => $id,
+            ]);
+        })->name('userThemes');
 
         Route::get('/templates/edited-preview/{id}', function ($id) {
             return Inertia::render('Templates/PreviewEditedTemplate', compact('id'));
         })->name('previewEditedTemplate');
+        Route::post('/templates/edited-preview/contents', function (Request $request) {
+            $thisEditedTemplate = EditedTemplate::where('id', $request->edited_template_id)->with(['template', 'user'])->first();
+            return response()->json([
+                'message' => 'Data retrieved successfully',
+                'data' => [
+                    'editedTemplate' => $thisEditedTemplate,
+                    'template' => $thisEditedTemplate->template,
+                    'css' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'css')->first(),
+                    'js' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'js')->first(),
+                    'body' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'html')->where('name', "BD1")->first(),
+                    'body2' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'html')->where('name', "BD2")->first(),
+                    'body3' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'html')->where('name', "BD3")->first(),
+                ],
+                'status' => 200
+            ]);
+            return $request;
+        })->name('editedTemplates.previewContent');
     });
 });
 

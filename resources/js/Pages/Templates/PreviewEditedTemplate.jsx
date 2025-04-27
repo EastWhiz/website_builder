@@ -1,6 +1,6 @@
 import Doc2 from "@/Assets/document2.png";
 import "@/Assets/styles.css";
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import ClearIcon from '@mui/icons-material/Clear';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -90,9 +90,7 @@ export default function Dashboard({ id }) {
         overflow: "hidden"
     };
 
-    const [templateName, setTemplateName] = useState("");
     const [open, setOpen] = useState(false);
-    const [openTwo, setOpenTwo] = useState(false);
     const [data, setData] = useState(false);
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
     const [mainCSS, setMainCSS] = useState('');
@@ -186,13 +184,13 @@ export default function Dashboard({ id }) {
     useEffect(() => {
 
         async function getData() {
-            const url = route('templates.previewContent');
+            const url = route('editedTemplates.previewContent');
 
             try {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', },
-                    body: JSON.stringify({ template_id: id })
+                    body: JSON.stringify({ edited_template_id: id })
                 });
 
                 if (!response.ok) {
@@ -203,9 +201,7 @@ export default function Dashboard({ id }) {
                 console.log(json);
                 setData(json.data);
 
-                let updated = json.data.template.index.replace('<!--INTERNAL--BD1--EXTERNAL-->', json.data.body.content);
-                updated = updated.replace('<!--INTERNAL--BD2--EXTERNAL-->', json.data.body2.content);
-                updated = updated.replace('<!--INTERNAL--BD3--EXTERNAL-->', json.data.body3.content);
+                let updated = json.data.editedTemplate.main_html;
                 updated = updated.replace(/src="images\//g, `src="../../storage/templates/${json.data.template.uuid}/images/${json.data.template.asset_unique_uuid}-`);
                 setMainHTML([{ html: updated, status: true }]);
 
@@ -370,15 +366,13 @@ export default function Dashboard({ id }) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', },
                     body: JSON.stringify({
-                        template_id: id,
+                        edit_id: data.editedTemplate.id,
                         main_html: mainHTML.find(value => value.status).html,
-                        name: templateName
                     })
                 });
 
                 const result = await response.json();
                 if (result.success) {
-                    setOpenTwo(false)
                     Swal.fire({
                         title: 'Success',
                         text: result.message,
@@ -386,16 +380,8 @@ export default function Dashboard({ id }) {
                         timer: 1000,
                         showConfirmButton: false,
                     });
-                } else {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: result.message,
-                        icon: 'error',
-                        timer: 1000,
-                        showConfirmButton: false,
-                    });
+                    router.get(route('userThemes', { id: data.editedTemplate.user_id }))
                 }
-
             } catch (error) {
                 Swal.fire({
                     title: 'Error!',
@@ -1282,64 +1268,13 @@ export default function Dashboard({ id }) {
                     </Box>
                 </Fade>
             </Modal>
-            <Modal
-                aria-labelledby="transition-modal-title"
-                aria-describedby="transition-modal-description"
-                open={openTwo}
-                closeAfterTransition
-                slots={{ backdrop: Backdrop }}
-                slotProps={{
-                    backdrop: {
-                        timeout: 100,
-                    },
-                }}
-                className="popoverPlate"
-            >
-                <Fade in={openTwo}>
-                    <Box sx={{ ...style, height: '240px' }}>
-                        <Box>
-                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                <Box>
-                                    <Typography variant="body" component="span" sx={{ fontWeight: 'bold', pt: 0.5, fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
-                                        Save Template
-                                    </Typography>
-                                </Box>
-                                <div style={{ marginTop: "3px", cursor: "pointer", width: "18px", height: "18px", }} className='doNotAct' onClick={() => setOpenTwo(false)}>
-                                    <svg className='doNotAct' xmlns="http://www.w3.org/2000/svg" viewBox="50 50 412 412">
-                                        <polygon fill="var(--ci-primary-color, currentColor)" points="427.314 107.313 404.686 84.687 256 233.373 107.314 84.687 84.686 107.313 233.373 256 84.686 404.687 107.314 427.313 256 278.627 404.686 427.313 427.314 404.687 278.627 256 427.314 107.313" className="doNotAct" />
-                                    </svg>
-                                </div>
-                            </Box>
-                            <Box mt={1.5}>
-                                <TextField
-                                    className="multilineCss"
-                                    fullWidth
-                                    size='small'
-                                    placeholder='Enter Template Name'
-                                    value={templateName}
-                                    multiline
-                                    rows={3.5}
-                                    label="Template Name"
-                                    slotProps={{
-                                        inputLabel: { shrink: true },
-                                    }}
-                                    onChange={(e) => setTemplateName(e.target.value)}
-                                />
-                            </Box>
-                            <Box sx={{ mt: 2.5, display: "flex", justifyContent: "flex-end" }}>
-                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => setOpenTwo(false)}>Cancel</Button>
-                                <Box component="span" sx={{ marginLeft: "20px" }} />
-                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={updatedThemeSaveHandler}>Save</Button>
-                            </Box>
-                        </Box>
-                    </Box>
-                </Fade>
-            </Modal>
             <Head title={`Preview (${data && data.template.name})`} />
             <div>
                 <Box sx={{ background: "#c0c0c0", justifyContent: "space-between", display: "flex" }}>
                     <Box className="doNotAct" sx={{ mt: 0.3, ml: 0.5, fontWeight: "bold" }}>
-                        Editor ({data && data.template.name})
+                        <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('userThemes', { id: data.editedTemplate.user_id }))}>
+                            <path className='doNotAct' id="Vector" d="M12 15L15 12M15 12L12 9M15 12H4M4 7.24802V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2839 4.21799 18.9076C4 18.4798 4 17.9201 4 16.8V16.75" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
                     </Box>
                     <Box className="doNotAct" sx={{ display: "flex" }}>
                         <svg style={{ cursor: "pointer" }} className='doNotAct' width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" onClick={undoHandler}>
@@ -1350,7 +1285,7 @@ export default function Dashboard({ id }) {
                         </svg>
                     </Box>
                     <Box>
-                        <svg className="doNotAct" style={{ cursor: "pointer", marginTop: "5px", marginRight: "5px" }} width="20px" height="20px" xmlns="http://www.w3.org/2000/svg" fill="#000000" version="1.1" id="Capa_1" viewBox="0 0 407.096 407.096" xmlSpace="preserve" onClick={() => setOpenTwo(true)}>
+                        <svg className="doNotAct" style={{ cursor: "pointer", marginTop: "5px", marginRight: "5px" }} width="20px" height="20px" xmlns="http://www.w3.org/2000/svg" fill="#000000" version="1.1" id="Capa_1" viewBox="0 0 407.096 407.096" xmlSpace="preserve" onClick={updatedThemeSaveHandler}>
                             <path className="doNotAct" d="M402.115,84.008L323.088,4.981C319.899,1.792,315.574,0,311.063,0H17.005C7.613,0,0,7.614,0,17.005v373.086    c0,9.392,7.613,17.005,17.005,17.005h373.086c9.392,0,17.005-7.613,17.005-17.005V96.032    C407.096,91.523,405.305,87.197,402.115,84.008z M300.664,163.567H67.129V38.862h233.535V163.567z" />
                             <path className="doNotAct" d="M214.051,148.16h43.08c3.131,0,5.668-2.538,5.668-5.669V59.584c0-3.13-2.537-5.668-5.668-5.668h-43.08    c-3.131,0-5.668,2.538-5.668,5.668v82.907C208.383,145.622,210.92,148.16,214.051,148.16z" />
                         </svg>
