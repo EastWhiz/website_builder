@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DeepLControlller;
 use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
@@ -104,6 +105,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('editedTemplates.previewContent');
 
         Route::get('/download', [EditedTemplateController::class, 'downloadTemplate'])->name('download');
+        Route::get('/deepL', [DeepLControlller::class, 'deepL'])->name('deepL');
     });
 });
 
