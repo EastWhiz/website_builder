@@ -327,7 +327,24 @@ export default function Dashboard({ id }) {
         }
     };
 
-    const updateHTMLHandler = () => {
+    const addNewContentHandler = async (position, existingElement, newElement) => {
+
+        if (position == "bottom") {
+            existingElement.style.marginBottom = "5px";
+            existingElement.insertAdjacentElement('afterend', newElement);
+        } else if (position == "top") {
+            existingElement.style.marginTop = "5px";
+            existingElement.insertAdjacentElement('beforebegin', newElement);
+        } else if (position == "left") {
+            existingElement.style.marginLeft = "5px";
+            existingElement.parentNode.insertBefore(newElement, existingElement);
+        } else if (position == "right") {
+            existingElement.style.marginRight = "5px";
+            existingElement.parentNode.insertBefore(newElement, existingElement.nextSibling);
+        }
+    }
+
+    const updateHTMLHandler = async () => {
         let element = document.querySelector(`.${editing.editID}`);
 
         //FURTHER EDITING REMAINING
@@ -343,27 +360,56 @@ export default function Dashboard({ id }) {
                 textAlign: textManagement.textAlign
             };
 
-            if (textManagement.link && element.localName !== "a") {
-                let newElement = document.createElement('a');
-                Object.assign(newElement.style, styles);
-                newElement.innerHTML = textManagement.textInput;
-                newElement.className = element.className;
-                newElement.setAttribute('href', textManagement.link);
-                element.parentNode.replaceChild(newElement, element);
+            if (editing.actionType == "edit") {
+                if (textManagement.link && element.localName !== "a") {
+                    let newElement = document.createElement('a');
+                    Object.assign(newElement.style, styles);
+                    newElement.innerHTML = textManagement.textInput;
+                    newElement.className = element.className;
+                    newElement.setAttribute('href', textManagement.link);
+                    element.parentNode.replaceChild(newElement, element);
+                } else {
+                    Object.assign(element.style, styles);
+                    element.innerHTML = textManagement.textInput;
+                }
             } else {
-                Object.assign(element.style, styles);
-                element.innerHTML = textManagement.textInput;
+                let newElement = '';
+                if (textManagement.link) {
+                    newElement = document.createElement('a');
+                    Object.assign(newElement.style, styles);
+                    newElement.innerHTML = textManagement.textInput;
+                    newElement.setAttribute('href', textManagement.link);
+                } else {
+                    newElement = document.createElement('p');
+                    Object.assign(newElement.style, styles);
+                    newElement.innerHTML = textManagement.textInput;
+                }
+                await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if ((editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "html")) {
-            document.querySelector(`.${editing.editID}`).innerHTML = customHTMLManagement.input;
+            if (editing.actionType == "edit") {
+                document.querySelector(`.${editing.editID}`).innerHTML = customHTMLManagement.input;
+            } else {
+                let newElement = document.createElement('div');
+                newElement.classList.add('editableDiv');
+                newElement.innerHTML = textManagement.textInput;
+                await addNewContentHandler(editing.addElementPosition, element, newElement);
+            }
         } else if ((editing.actionType == "edit" && ['img'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "img")) {
             const styles = {
                 border: imageManagement.border,
                 borderWidth: `${imageManagement.borderWidth}px`,
                 borderColor: imageManagement.borderColor,
             };
-            Object.assign(element.style, styles);
-            element.src = imageManagement.imageSrc;
+            if (editing.actionType == "edit") {
+                Object.assign(element.style, styles);
+                element.src = imageManagement.imageSrc;
+            } else {
+                let newElement = document.createElement('img');
+                Object.assign(newElement.style, styles);
+                newElement.src = imageManagement.imageSrc;
+                await addNewContentHandler(editing.addElementPosition, element, newElement);
+            }
         } else if ((editing.actionType == "edit" && ['button'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "button")) {
             const styles = {
                 color: buttonManagement.color,
@@ -375,9 +421,16 @@ export default function Dashboard({ id }) {
                 borderWidth: `${buttonManagement.borderWidth}px`,
                 borderColor: buttonManagement.borderColor,
             };
-            Object.assign(element.style, styles);
-            element.innerHTML = buttonManagement.buttonText;
-            console.log(buttonManagement);
+
+            if (editing.actionType == "edit") {
+                Object.assign(element.style, styles);
+                element.innerHTML = buttonManagement.buttonText;
+            } else {
+                let newElement = document.createElement('button');
+                Object.assign(newElement.style, styles);
+                newElement.innerHTML = buttonManagement.buttonText;
+                await addNewContentHandler(editing.addElementPosition, element, newElement);
+            }
         } else if (editing.actionType == "add" && editing.addElementType == "form") {
 
         } else if (editing.actionType == "add" && editing.addElementType == "br") {
@@ -1373,7 +1426,7 @@ export default function Dashboard({ id }) {
                 <Box sx={{ background: "#c0c0c0", justifyContent: "space-between", display: "flex" }}>
                     <Box className="doNotAct" sx={{ mt: 0.3, ml: 0.5, fontWeight: "bold" }}>
                         <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('templates'))}>
-                            <path className='doNotAct' id="Vector" d="M12 15L15 12M15 12L12 9M15 12H4M4 7.24802V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2839 4.21799 18.9076C4 18.4798 4 17.9201 4 16.8V16.75" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path className='doNotAct' id="Vector" d="M12 15L15 12M15 12L12 9M15 12H4M4 7.24802V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2839 4.21799 18.9076C4 18.4798 4 17.9201 4 16.8V16.75" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </Box>
                     <Box className="doNotAct" sx={{ display: "flex" }}>
