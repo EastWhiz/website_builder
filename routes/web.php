@@ -102,6 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ]);
             return $request;
         })->name('editedTemplates.previewContent');
+
+        Route::get('/download', [EditedTemplateController::class, 'downloadTemplate'])->name('download');
     });
 });
 

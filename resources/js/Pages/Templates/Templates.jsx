@@ -13,7 +13,7 @@ import {
     Text
 } from '@shopify/polaris';
 import "@shopify/polaris/build/esm/styles.css";
-import { EditIcon, ViewIcon } from '@shopify/polaris-icons';
+import { EditIcon, ViewIcon, PageDownIcon } from '@shopify/polaris-icons';
 import { useCallback, useEffect, useState } from 'react';
 
 
@@ -195,6 +195,11 @@ export default function Dashboard() {
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
+                <Button variant='plain' icon={PageDownIcon} onClick={() => {
+                    let data = JSON.stringify({ url: `${window.appURL}/templates/preview/${value.id}` })
+                    window.open(`${window.appURL}/download?data=${data}`, "_blank");
+                }}></Button>
+                <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editTemplate', value.id))}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/templates/preview/${value.id}/`, "_blank")}></Button>

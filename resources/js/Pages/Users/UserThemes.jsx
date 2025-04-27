@@ -14,8 +14,7 @@ import {
 } from '@shopify/polaris';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import { EditIcon, ViewIcon } from '@shopify/polaris-icons';
+import { EditIcon, ViewIcon, PageDownIcon } from '@shopify/polaris-icons';
 
 export default function Dashboard() {
 
@@ -180,6 +179,11 @@ export default function Dashboard() {
                 {convertISOToYMD(value.created_at)}
             </IndexTable.Cell>
             <IndexTable.Cell>
+                <Button variant='plain' icon={PageDownIcon} onClick={() => {
+                    let data = JSON.stringify({ url: `${window.appURL}/templates/edited-preview/${value.id}` })
+                    window.open(`${window.appURL}/download?data=${data}`, "_blank");
+                }}></Button>
+                <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={EditIcon} onClick={() => window.open(`${window.appURL}/templates/edited-preview/${value.id}/`, "_blank")}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/templates/edited-preview/${value.id}/`, "_blank")}></Button>
