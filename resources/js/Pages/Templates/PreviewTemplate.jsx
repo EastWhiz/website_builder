@@ -229,7 +229,7 @@ export default function Dashboard({ id }) {
 
     useEffect(() => {
         // console.log(editing);
-        if (editing && editing.actionType == "edit" && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) {
+        if (editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
             setTextManagement(prev => ({
                 ...prev,
@@ -311,7 +311,7 @@ export default function Dashboard({ id }) {
         // console.log(event.target.outerHTML);
         if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !event.target.outerHTML.includes("doNotAct")) {
             let randString = generateRandomString();
-            if (editableElements.includes(event.target.localName)) {
+            if (editableElements.includes(event.target.localName) || event.target.classList.contains('editableDiv')) {
                 event.target.classList.add(randString);
                 setOpen(true);
                 setEditing({
@@ -348,7 +348,7 @@ export default function Dashboard({ id }) {
         let element = document.querySelector(`.${editing.editID}`);
 
         //FURTHER EDITING REMAINING
-        if ((editing.actionType == "edit" && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
+        if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
             //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
             const styles = {
                 color: textManagement.color,
@@ -380,7 +380,8 @@ export default function Dashboard({ id }) {
                     newElement.innerHTML = textManagement.textInput;
                     newElement.setAttribute('href', textManagement.link);
                 } else {
-                    newElement = document.createElement('p');
+                    newElement = document.createElement('div');
+                    newElement.classList.add('editableDiv');
                     Object.assign(newElement.style, styles);
                     newElement.innerHTML = textManagement.textInput;
                 }
@@ -434,7 +435,10 @@ export default function Dashboard({ id }) {
         } else if (editing.actionType == "add" && editing.addElementType == "form") {
 
         } else if (editing.actionType == "add" && editing.addElementType == "br") {
-
+            let newElement = document.createElement('div');
+            newElement.classList.add('editableDiv');
+            newElement.style.height = `${spacerManagement.height}px`;
+            await addNewContentHandler(editing.addElementPosition, element, newElement);
         }
 
         let elementInside = document.querySelector(`.${editing.editID}`)
@@ -777,7 +781,7 @@ export default function Dashboard({ id }) {
                                                 )}
 
                                             {/* TEXT MANAGEMENT MODAL */}
-                                            {(editing && editing.actionType == "edit" && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName) ||
+                                            {(editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName) ||
                                                 (editing && editing.actionType === "add" && editing.addElementType == "p")
                                             ) && (
                                                     <Box>
