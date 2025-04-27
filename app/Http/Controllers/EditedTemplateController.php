@@ -97,7 +97,7 @@ class EditedTemplateController extends Controller
         }
 
         // Create Zip
-        $zipFile = storage_path('app/page.zip');
+        $zipFile = storage_path('app/template.zip');
         $zip = new ZipArchive;
         if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($folderPath));
