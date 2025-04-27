@@ -23,30 +23,61 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </Link>
                             </div>
 
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
-                                    Dashboard
-                                </NavLink>
-                            </div>
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('templates')}
-                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                                >
-                                    Templates
-                                </NavLink>
-                            </div>
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('users')}
-                                    active={route().current('users') || route().current('userThemes')}
-                                >
-                                    Users
-                                </NavLink>
-                            </div>
+                            {user && user.role.name == "admin" ?
+                                <>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
+                                            href={route('dashboard')}
+                                            active={route().current('dashboard')}
+                                        >
+                                            Dashboard
+                                        </NavLink>
+                                    </div>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
+                                            href={route('templates')}
+                                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                                        >
+                                            Templates
+                                        </NavLink>
+                                    </div>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
+                                            href={route('users')}
+                                            active={route().current('users') || route().current('userThemes')}
+                                        >
+                                            Users
+                                        </NavLink>
+                                    </div>
+                                </> : <>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
+                                            href={route('memberDashboard')}
+                                            active={route().current('memberDashboard')}
+                                        >
+                                            Dashboard
+                                        </NavLink>
+                                    </div>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
+                                            href={route('templates')}
+                                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                                        >
+                                            Templates
+                                        </NavLink>
+                                    </div>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
+                                            href={route('userThemes', { id: user.id })}
+                                            active={route().current('userThemes')}
+                                        >
+                                            My Templates
+                                        </NavLink>
+                                    </div>
+                                </>
+                            }
+
+
                         </div>
 
                         <div className="hidden sm:ms-6 sm:flex sm:items-center">
@@ -144,24 +175,47 @@ export default function AuthenticatedLayout({ header, children }) {
                     }
                 >
                     <div className="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            href={route('dashboard')}
-                            active={route().current('dashboard')}
-                        >
-                            Dashboard
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('templates')}
-                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                        >
-                            Templates
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('users')}
-                            active={route().current('users') || route().current('userThemes')}
-                        >
-                            Users
-                        </ResponsiveNavLink>
+                        {user && user.role.name == "admin" ?
+                            <>
+                                <ResponsiveNavLink
+                                    href={route('dashboard')}
+                                    active={route().current('dashboard')}
+                                >
+                                    Dashboard
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('templates')}
+                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                                >
+                                    Templates
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('users')}
+                                    active={route().current('users') || route().current('userThemes')}
+                                >
+                                    Users
+                                </ResponsiveNavLink>
+                            </> : <>
+                                <ResponsiveNavLink
+                                    href={route('memberDashboard')}
+                                    active={route().current('memberDashboard')}
+                                >
+                                    Dashboard
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('templates')}
+                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                                >
+                                    Templates
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('userThemes', { id: user.id })}
+                                    active={route().current('userThemes')}
+                                >
+                                    Users
+                                </ResponsiveNavLink>
+                            </>
+                        }
                     </div>
 
                     <div className="border-t border-gray-200 pb-1 pt-4">

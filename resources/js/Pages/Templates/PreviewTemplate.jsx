@@ -386,6 +386,7 @@ export default function Dashboard({ id }) {
                         timer: 1000,
                         showConfirmButton: false,
                     });
+                    router.get(route('templates'));
                 } else {
                     Swal.fire({
                         title: 'Error!',

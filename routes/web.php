@@ -75,12 +75,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-        Route::get('/users/{id}/themes/list', [UsersController::class, 'userThemesList'])->name('userThemes.list');
         Route::get('/users/{id}/themes', function ($id) {
             return Inertia::render('Users/UserThemes', [
                 'id' => $id,
             ]);
         })->name('userThemes');
+        Route::get('/users/{id}/themes/list', [UsersController::class, 'userThemesList'])->name('userThemes.list');
 
         Route::get('/templates/edited-preview/{id}', function ($id) {
             return Inertia::render('Templates/PreviewEditedTemplate', compact('id'));
