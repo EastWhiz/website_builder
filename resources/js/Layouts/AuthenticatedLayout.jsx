@@ -41,10 +41,10 @@ export default function AuthenticatedLayout({ header, children }) {
                             </div>
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
-                                    href={route('frontend')}
-                                    active={route().current('frontend')}
+                                    href={route('users')}
+                                    active={route().current('users') || route().current('userThemes')}
                                 >
-                                    Frontend
+                                    Users
                                 </NavLink>
                             </div>
                         </div>
@@ -157,10 +157,10 @@ export default function AuthenticatedLayout({ header, children }) {
                             Templates
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
-                            href={route('frontend')}
-                            active={route().current('frontend')}
+                            href={route('users')}
+                            active={route().current('users') || route().current('userThemes')}
                         >
-                            Frontend
+                            Users
                         </ResponsiveNavLink>
                     </div>
 

@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\UsersController;
 use App\Models\Template;
 use App\Models\TemplateContent;
 use Illuminate\Foundation\Application;
@@ -22,8 +24,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::inertia('/dashboard', 'Dashboard')->name('dashboard');
-        Route::inertia('/templates', 'Templates/Templates')->name('templates');
         Route::inertia('/templates/add', 'Templates/AddEditTemplate')->name('addTemplate');
+
         Route::get('/templates/edit/{id}', function ($id) {
             $existingTemplate = Template::where('id', $id)->with('contents')->first();
             return Inertia::render('Templates/AddEditTemplate', [
@@ -31,6 +33,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ]);
         })->name('editTemplate');
 
+        Route::post('/templates/add-edit', [TemplateController::class, 'addEditProcess'])->name('templates.addEdit');
+
+        // Route::inertia('/frontend', 'FrontEnd')->name('frontend');
+
+        Route::inertia('/users', 'Users/Users')->name('users');
+        Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');
+        Route::inertia('/users/{id}/themes', 'Users/UserThemes')->name('userThemes');
+        Route::get('/users/{id}/themes', function ($id) {
+            return Inertia::render('Users/UserThemes', [
+                'id' => $id,
+            ]);
+        })->name('userThemes');
+    });
+
+    Route::middleware('role:member')->prefix('member')->group(function () {
+        Route::inertia('/dashboard', 'Dashboard')->name('memberDashboard');
+    });
+
+    Route::middleware('role:admin,member')->group(function () {
+
+        Route::inertia('/templates', 'Templates/Templates')->name('templates');
+        Route::get('/templates/list', [TemplateController::class, 'index'])->name('templates.list');
+
+        Route::get('/templates/preview/{id}', function ($id) {
+            return Inertia::render('Templates/PreviewTemplate', compact('id'));
+        })->name('previewTemplate');
         Route::post('/templates/preview/contents', function (Request $request) {
             $thisTemplate = Template::find($request->template_id);
             return response()->json([
@@ -46,23 +74,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 'status' => 200
             ]);
         })->name('templates.previewContent');
-        Route::get('/templates/list', [TemplateController::class, 'index'])->name('templates.list');
-        Route::post('/templates/add-edit', [TemplateController::class, 'addEditProcess'])->name('templates.addEdit');
+        Route::post('/edited-templates/add', [EditedTemplateController::class, 'saveTemplate'])->name('editedTemplates.save');
 
-        Route::inertia('/frontend', 'FrontEnd')->name('frontend');
-    });
-
-    Route::middleware('role:member')->prefix('member')->group(function () {
-        Route::inertia('/dashboard', 'Dashboard')->name('memberDashboard');
-    });
-
-    Route::middleware('role:admin,member')->group(function () {
-        Route::get('/templates/preview/{id}', function ($id) {
-            return Inertia::render('Templates/PreviewTemplate', compact('id'));
-        })->name('previewTemplate');
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        Route::get('/users/{id}/themes/list', [UsersController::class, 'userThemesList'])->name('userThemes.list');
+
+        Route::get('/templates/edited-preview/{id}', function ($id) {
+            return Inertia::render('Templates/PreviewEditedTemplate', compact('id'));
+        })->name('previewEditedTemplate');
     });
 });
 
