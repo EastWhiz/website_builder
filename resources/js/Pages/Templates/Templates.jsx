@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Box, Button as MuiButton } from '@mui/material';
 
 import {
@@ -18,6 +18,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 
 export default function Dashboard() {
+
+    const page = usePage().props;
 
     const [selected, setSelected] = useState(0);
 
@@ -231,8 +233,12 @@ export default function Dashboard() {
                                         value={pageCount}
                                         onChange={handlePageCount}
                                     />
-                                    <span style={{ marginRight: "10px" }}></span>
-                                    <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addTemplate'))}>Add</MuiButton>
+                                    {page && page.auth.user.role.name == "admin" &&
+                                        <>
+                                            <span style={{ marginRight: "10px" }}></span>
+                                            <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addTemplate'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
+                                        </>
+                                    }
                                 </div>
                                 <Card>
                                     <div>
