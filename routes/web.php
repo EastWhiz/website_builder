@@ -105,7 +105,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('editedTemplates.previewContent');
 
         Route::get('/download', [EditedTemplateController::class, 'downloadTemplate'])->name('download');
-        Route::get('/deepL', [DeepLControlller::class, 'deepL'])->name('deepL');
+        Route::post('/deepL', [DeepLControlller::class, 'deepL'])->name('deepL');
     });
 });
 

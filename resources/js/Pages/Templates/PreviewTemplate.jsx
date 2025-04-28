@@ -18,6 +18,45 @@ import convert from 'color-convert';
 
 export default function Dashboard({ id }) {
 
+    const languages = [
+        { value: 'AR', label: 'Arabic' },
+        { value: 'BG', label: 'Bulgarian' },
+        { value: 'CS', label: 'Czech' },
+        { value: 'DA', label: 'Danish' },
+        { value: 'DE', label: 'German' },
+        { value: 'EL', label: 'Greek' },
+        { value: 'EN', label: 'English (all English variants)' },
+        { value: 'EN-GB', label: 'English (British)' },
+        { value: 'EN-US', label: 'English (American)' },
+        { value: 'ES', label: 'Spanish' },
+        { value: 'ET', label: 'Estonian' },
+        { value: 'FI', label: 'Finnish' },
+        { value: 'FR', label: 'French' },
+        { value: 'HU', label: 'Hungarian' },
+        { value: 'ID', label: 'Indonesian' },
+        { value: 'IT', label: 'Italian' },
+        { value: 'JA', label: 'Japanese' },
+        { value: 'KO', label: 'Korean' },
+        { value: 'LT', label: 'Lithuanian' },
+        { value: 'LV', label: 'Latvian' },
+        { value: 'NB', label: 'Norwegian Bokmål' },
+        { value: 'NL', label: 'Dutch' },
+        { value: 'PL', label: 'Polish' },
+        { value: 'PT', label: 'Portuguese (all Portuguese variants)' },
+        { value: 'PT-BR', label: 'Portuguese (Brazilian)' },
+        { value: 'PT-PT', label: 'Portuguese (all Portuguese variants excluding Brazilian Portuguese)' },
+        { value: 'RO', label: 'Romanian' },
+        { value: 'RU', label: 'Russian' },
+        { value: 'SK', label: 'Slovak' },
+        { value: 'SL', label: 'Slovenian' },
+        { value: 'SV', label: 'Swedish' },
+        { value: 'TR', label: 'Turkish' },
+        { value: 'UK', label: 'Ukrainian' },
+        { value: 'ZH', label: 'Chinese (all Chinese variants)' },
+        { value: 'ZH-HANS', label: 'Chinese (simplified)' },
+        { value: 'ZH-HANT', label: 'Chinese (traditional)' }
+    ];
+
     const borderStyles = [
         'solid',
         'dashed',
@@ -201,7 +240,7 @@ export default function Dashboard({ id }) {
                 }
 
                 const json = await response.json();
-                console.log(json);
+                // console.log(json);
                 setData(json.data);
 
                 let updated = json.data.template.index.replace('<!--INTERNAL--BD1--EXTERNAL-->', json.data.body.content);
@@ -345,6 +384,29 @@ export default function Dashboard({ id }) {
     }
 
     const updateHTMLHandler = async () => {
+
+        if (translator.currentSource) {
+            if (translator.currentSource == "text_management") {
+                setTextManagement(prev => ({
+                    ...prev,
+                    textInput: translator.toText,
+                }));
+            } else if (translator.currentSource == "custom_html") {
+                setCustomHTMLManagement(prev => ({
+                    ...prev,
+                    input: translator.toText,
+                }));
+            }
+            setTranslator({
+                fromLanguange: false,
+                toLanguage: false,
+                fromText: "",
+                toText: "",
+                currentSource: false, // TEXT, CUSTOM_HTML
+            });
+            return;
+        }
+
         let element = document.querySelector(`.${editing.editID}`);
 
         //FURTHER EDITING REMAINING
@@ -533,6 +595,59 @@ export default function Dashboard({ id }) {
         getData();
     }
 
+    const translateOpenHandler = (source) => {
+        if (source == "text_management") {
+            setTranslator(prev => ({
+                ...prev, // keep all previous values
+                fromText: textManagement.textInput, // only update the value you want
+                currentSource: "text_management"
+            }));
+        } else if (source == "custom_html") {
+            setTranslator(prev => ({
+                ...prev, // keep all previous values
+                fromText: customHTMLManagement.input, // only update the value you want
+                currentSource: "custom_html"
+            }));
+        }
+    }
+
+    const translateHandler = () => {
+        async function getData() {
+            const url = route('deepL');
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json", // <---- MISSING BEFORE
+                        "Accept": "application/json",       // (optional but good)
+                    },
+                    body: JSON.stringify({
+                        text: translator.fromText,
+                        language: translator.toLanguage,
+                        source_language: translator.fromLanguange,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Response status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                // console.log(result);
+
+                if (result.success) {
+                    setTranslator(prev => ({
+                        ...prev,
+                        toText: result.data,
+                    }));
+                }
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+        getData();
+    }
+
     const mainHTMLActive = mainHTML.find(html => html.status == true)
 
     return (
@@ -560,7 +675,15 @@ export default function Dashboard({ id }) {
                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                 <Box>
                                     <ArrowBackIcon sx={{ marginTop: '-4px', marginRight: "10px", cursor: "pointer" }} onClick={() => {
-                                        if (editing.addElementType) {
+                                        if (translator.currentSource) {
+                                            setTranslator({
+                                                fromLanguange: false,
+                                                toLanguage: false,
+                                                fromText: "",
+                                                toText: "",
+                                                currentSource: false, // TEXT, CUSTOM_HTML
+                                            });
+                                        } else if (editing.addElementType) {
                                             setEditing(prev => ({
                                                 ...prev, // keep all previous values
                                                 addElementType: false, // only update the value you want
@@ -592,52 +715,134 @@ export default function Dashboard({ id }) {
                                 </div>
                             </Box>
                             <Box mt={1.5} sx={{ height: "265px", overflow: "auto" }}>
-                                {editing && !editing.actionType &&
-                                    <Box mt={2} sx={{ display: "flex", gap: 1 }}>
-                                        <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
-                                        <Box component="div" sx={{ marginTop: "15px" }} />
-                                        <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
-                                    </Box>
+                                {!translator.currentSource &&
+                                    <>
+                                        {editing && !editing.actionType &&
+                                            <Box mt={2} sx={{ display: "flex", gap: 1 }}>
+                                                <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
+                                                <Box component="div" sx={{ marginTop: "15px" }} />
+                                                <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
+                                            </Box>
+                                        }
+                                        {editing && editing.actionType == "add" && !editing.addElementPosition &&
+                                            <Box mt={2} sx={{ display: "flex", gap: 2, height: "100px" }}>
+                                                <Box sx={{ width: "50%", height: "100px" }}>
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("addElementPosition", "top")}>Top Side</Button>
+                                                    <Box component="div" sx={{ marginTop: "15px" }} />
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("addElementPosition", "left")}>Left Side</Button>
+                                                </Box>
+                                                <Box sx={{ width: "50%" }}>
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="secondary" variant='outlined' onClick={() => handleChange("addElementPosition", "right")}>Right Side</Button>
+                                                    <Box component="div" sx={{ marginTop: "15px" }} />
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("addElementPosition", "bottom")}>Bottom Side</Button>
+                                                </Box>
+                                            </Box>
+                                        }
+                                        {((editing?.actionType === "add" && editing?.addElementPosition)) && !editing.addElementType && (
+                                            <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="warning" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "img")}>Image</Button>
+                                                <Box component="span" sx={{ marginTop: "10px" }} />
+                                                {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>DeepL</Button> */}
+                                                {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
+                                                {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>Chat GPT</Button> */}
+                                                {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
+                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="success" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "p")}>Text</Button>
+                                                <Box component="span" sx={{ marginTop: "10px" }} />
+                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "br")}>Spacer</Button>
+                                                <Box component="span" sx={{ marginTop: "10px" }} />
+                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="primary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "html")}>Custom HTML</Button>
+                                                <Box component="span" sx={{ marginTop: "10px" }} />
+                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "form")}>Form</Button>
+                                                <Box component="span" sx={{ marginTop: "10px" }} />
+                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="error" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "button")}>Button</Button>
+                                            </Box>
+                                        )}
+                                    </>
                                 }
-                                {editing && editing.actionType == "add" && !editing.addElementPosition &&
-                                    <Box mt={2} sx={{ display: "flex", gap: 2, height: "100px" }}>
-                                        <Box sx={{ width: "50%", height: "100px" }}>
-                                            <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("addElementPosition", "top")}>Top Side</Button>
-                                            <Box component="div" sx={{ marginTop: "15px" }} />
-                                            <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("addElementPosition", "left")}>Left Side</Button>
-                                        </Box>
-                                        <Box sx={{ width: "50%" }}>
-                                            <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="secondary" variant='outlined' onClick={() => handleChange("addElementPosition", "right")}>Right Side</Button>
-                                            <Box component="div" sx={{ marginTop: "15px" }} />
-                                            <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("addElementPosition", "bottom")}>Bottom Side</Button>
-                                        </Box>
-                                    </Box>
-                                }
-                                {((editing?.actionType === "add" && editing?.addElementPosition)) && !editing.addElementType && (
-                                    <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                                        <Button className="doNotAct cptlz megaButton" variant='outlined' color="warning" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "img")}>Image</Button>
-                                        <Box component="span" sx={{ marginTop: "10px" }} />
-                                        {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>DeepL</Button> */}
-                                        {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
-                                        {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>Chat GPT</Button> */}
-                                        {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
-                                        <Button className="doNotAct cptlz megaButton" variant='outlined' color="success" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "p")}>Text</Button>
-                                        <Box component="span" sx={{ marginTop: "10px" }} />
-                                        <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "br")}>Spacer</Button>
-                                        <Box component="span" sx={{ marginTop: "10px" }} />
-                                        <Button className="doNotAct cptlz megaButton" variant='outlined' color="primary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "html")}>Custom HTML</Button>
-                                        <Box component="span" sx={{ marginTop: "10px" }} />
-                                        <Button className="doNotAct cptlz megaButton" variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "form")}>Form</Button>
-                                        <Box component="span" sx={{ marginTop: "10px" }} />
-                                        <Button className="doNotAct cptlz megaButton" variant='outlined' color="error" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "button")}>Button</Button>
-                                    </Box>
-                                )}
 
-                                {/* ALL EDITORS */}
-                                {(
-                                    (editing?.actionType === "add" && editing?.addElementPosition && editing.addElementType) ||
-                                    (editing?.actionType === "edit")
-                                ) && (
+                                {translator.currentSource ?
+                                    <Box sx={{ pt: "5px" }}>
+                                        {/* DEEPL TRANSLATOR */}
+                                        <Box sx={{ display: "flex", gap: "20px" }}>
+                                            <FormControl fullWidth>
+                                                <InputLabel id="demo-simple-select-label">Translate From</InputLabel>
+                                                <Select
+                                                    // displayEmpty
+                                                    renderValue={(value) => {
+                                                        if (!value) {
+                                                            return <Typography color="grey">From Langugage</Typography>;
+                                                        }
+                                                        return <>{value}</>;
+                                                    }}
+                                                    value={translator.fromLanguange}
+                                                    label="Translate From"
+                                                    size='small'
+                                                    onChange={(e) => {
+                                                        setTranslator({ ...translator, fromLanguange: e.target.value })
+                                                    }}
+                                                >
+                                                    {languages.map((item, index) => (
+                                                        <MenuItem className="doNotAct" value={item.value} sx={{ textTransform: 'capitalize' }}>{item.label}</MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                            <Box sx={{ mt: 0.5, cursor: "pointer" }}>
+                                                <SwapHorizIcon />
+                                            </Box>
+                                            <FormControl fullWidth>
+                                                <InputLabel id="demo-simple-select-label">Translate To</InputLabel>
+                                                <Select
+                                                    // displayEmpty
+                                                    renderValue={(value) => {
+                                                        if (!value) {
+                                                            return <Typography color="grey">To Langugage</Typography>;
+                                                        }
+                                                        return <>{value}</>;
+                                                    }}
+                                                    value={translator.toLanguage}
+                                                    label="Translate To"
+                                                    size='small'
+                                                    onChange={(e) => {
+                                                        setTranslator({ ...translator, toLanguage: e.target.value })
+                                                    }}
+                                                >
+                                                    {languages.map((item, index) => (
+                                                        <MenuItem className="doNotAct" value={item.value} sx={{ textTransform: 'capitalize' }}>{item.label}</MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
+                                            <Button variant="contained" className="doNotAct cptlz" sx={{ width: "200px" }} onClick={translateHandler}>Translate</Button>
+                                        </Box>
+                                        <Box sx={{ mt: 2, display: "flex", gap: "20px" }}>
+                                            <TextField
+                                                className="multilineCss"
+                                                fullWidth
+                                                size='small'
+                                                placeholder='Enter Text'
+                                                value={translator.fromText}
+                                                multiline
+                                                rows={7.5} // You can adjust the number of rows as needed
+                                                onChange={(e) => {
+                                                    setTranslator({ ...translator, fromText: e.target.value })
+                                                }}
+                                            />
+                                            <TextField
+                                                className="multilineCss"
+                                                fullWidth
+                                                size='small'
+                                                placeholder='Translation'
+                                                value={translator.toText}
+                                                multiline
+                                                rows={7.5} // You can adjust the number of rows as needed
+                                                onChange={(e) => {
+                                                    setTranslator({ ...translator, toText: e.target.value })
+                                                }}
+                                            />
+                                        </Box>
+                                    </Box> : (
+                                        (editing?.actionType === "add" && editing?.addElementPosition && editing.addElementType) ||
+                                        (editing?.actionType === "edit")
+                                    ) ? (
                                         <Box>
                                             {/* IMAGE MANAGEMENT MODAL */}
                                             {(editing && editing.actionType == "edit" && ['img'].includes(editing.elementName) ||
@@ -786,9 +991,9 @@ export default function Dashboard({ id }) {
                                             ) && (
                                                     <Box>
                                                         <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                                                            <Button size="small" variant="contained" color="primary" >AI</Button>
+                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" >AI</Button>
                                                             <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                            <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }}>Translate</Button>
+                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => translateOpenHandler("text_management")}>Translate</Button>
                                                         </Box>
                                                         <Box sx={{ display: 'flex', gap: "15px" }}>
                                                             <Box sx={{ width: "50%" }}>
@@ -938,9 +1143,9 @@ export default function Dashboard({ id }) {
                                             ) && (
                                                     <Box>
                                                         <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                                                            <Button size="small" variant="contained" color="primary" >AI</Button>
+                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" >AI</Button>
                                                             <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                            <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }}>Translate</Button>
+                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => translateOpenHandler("custom_html")}>Translate</Button>
                                                         </Box>
                                                         <TextField
                                                             className="multilineCss"
@@ -1264,83 +1469,6 @@ export default function Dashboard({ id }) {
                                                 </Box>
                                             }
 
-                                            {/* DEEPL TRANSLATOR */}
-                                            {/* <Box sx={{ pt: "5px" }}>
-                                                <Box sx={{ display: "flex", gap: "20px" }}>
-                                                    <FormControl fullWidth>
-                                                        <InputLabel id="demo-simple-select-label">Translate From</InputLabel>
-                                                        <Select
-                                                            // displayEmpty
-                                                            renderValue={(value) => {
-                                                                if (!value) {
-                                                                    return <Typography color="grey">From Langugage</Typography>;
-                                                                }
-                                                                return <>{value}</>;
-                                                            }}
-                                                            value={translator.fromLanguange}
-                                                            label="Translate From"
-                                                            size='small'
-                                                            onChange={(e) => {
-                                                                setTranslator({ ...translator, fromLanguange: e.target.value })
-                                                            }}
-                                                        >
-                                                            <MenuItem value={"English"} sx={{ textTransform: 'capitalize' }}>English</MenuItem>
-                                                            <MenuItem value={"German"} sx={{ textTransform: 'capitalize' }}>German</MenuItem>
-                                                        </Select>
-                                                    </FormControl>
-                                                    <Box sx={{ mt: 0.5, cursor: "pointer" }}>
-                                                        <SwapHorizIcon />
-                                                    </Box>
-                                                    <FormControl fullWidth>
-                                                        <InputLabel id="demo-simple-select-label">Translate To</InputLabel>
-                                                        <Select
-                                                            // displayEmpty
-                                                            renderValue={(value) => {
-                                                                if (!value) {
-                                                                    return <Typography color="grey">To Langugage</Typography>;
-                                                                }
-                                                                return <>{value}</>;
-                                                            }}
-                                                            value={translator.toLanguage}
-                                                            label="Translate To"
-                                                            size='small'
-                                                            onChange={(e) => {
-                                                                setTranslator({ ...translator, toLanguage: e.target.value })
-                                                            }}
-                                                        >
-                                                            <MenuItem value={"English"} sx={{ textTransform: 'capitalize' }}>English</MenuItem>
-                                                            <MenuItem value={"German"} sx={{ textTransform: 'capitalize' }}>German</MenuItem>
-                                                        </Select>
-                                                    </FormControl>
-                                                </Box>
-                                                <Box sx={{ mt: 2, display: "flex", gap: "20px" }}>
-                                                    <TextField
-                                                        className="multilineCss"
-                                                        fullWidth
-                                                        size='small'
-                                                        placeholder='Enter Text'
-                                                        value={translator.fromText}
-                                                        multiline
-                                                        rows={7.5} // You can adjust the number of rows as needed
-                                                        onChange={(e) => {
-                                                            setTranslator({ ...translator, fromText: e.target.value })
-                                                        }}
-                                                    />
-                                                    <TextField
-                                                        className="multilineCss"
-                                                        fullWidth
-                                                        size='small'
-                                                        placeholder='Translation'
-                                                        value={translator.toText}
-                                                        multiline
-                                                        rows={7.5} // You can adjust the number of rows as needed
-                                                        onChange={(e) => {
-                                                            setTranslator({ ...translator, toText: e.target.value })
-                                                        }}
-                                                    />
-                                                </Box>
-                                            </Box> */}
-
                                             {/* CHATGPT */}
                                             {/* <Box sx={{ pt: "5px" }}>
                                                 <TextField
@@ -1357,7 +1485,7 @@ export default function Dashboard({ id }) {
                                                 </Box>
                                             </Box> */}
                                         </Box>
-                                    )}
+                                    ) : null}
                             </Box>
                             <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
                                 <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => {
@@ -1459,6 +1587,6 @@ export default function Dashboard({ id }) {
                     </div>
                 }
             </div>
-        </div>
+        </div >
     );
 }
