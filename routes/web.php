@@ -66,7 +66,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/templates/list', [TemplateController::class, 'index'])->name('templates.list');
 
         // ANGLES ROUTES
-        Route::inertia('/angles', 'Templates/Templates')->name('angles');
+        Route::inertia('/angles', 'Angles/Angles')->name('angles');
         Route::get('/angles/list', [AngleController::class, 'index'])->name('angles.list');
 
         Route::get('/templates/preview/{id}', function ($id) {
