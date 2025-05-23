@@ -43,6 +43,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </div>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                         <NavLink
+                                            href={route('angles')}
+                                            active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                                        >
+                                            Angles
+                                        </NavLink>
+                                    </div>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
                                             href={route('users')}
                                             active={route().current('users') || route().current('userThemes')}
                                         >
@@ -64,6 +72,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                             active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
                                         >
                                             Templates
+                                        </NavLink>
+                                    </div>
+                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                        <NavLink
+                                            href={route('angles')}
+                                            active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                                        >
+                                            Angles
                                         </NavLink>
                                     </div>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
@@ -190,6 +206,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Templates
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
+                                    href={route('angles')}
+                                    active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                                >
+                                    Angles
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
                                     href={route('users')}
                                     active={route().current('users') || route().current('userThemes')}
                                 >
@@ -207,6 +229,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                     active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
                                 >
                                     Templates
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('angles')}
+                                    active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                                >
+                                    Angles
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
                                     href={route('userThemes', { id: user.id })}

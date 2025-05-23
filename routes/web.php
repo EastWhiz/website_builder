@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\AngleController;
 use App\Http\Controllers\DeepLControlller;
 use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
+use App\Models\Angle;
 use App\Models\EditedTemplate;
 use App\Models\Template;
 use App\Models\TemplateContent;
@@ -26,16 +28,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::inertia('/dashboard', 'Dashboard')->name('dashboard');
-        Route::inertia('/templates/add', 'Templates/AddEditTemplate')->name('addTemplate');
 
+        // TEMPLATES ROUTES
+        Route::inertia('/templates/add', 'Templates/AddEditTemplate')->name('addTemplate');
         Route::get('/templates/edit/{id}', function ($id) {
             $existingTemplate = Template::where('id', $id)->with('contents')->first();
             return Inertia::render('Templates/AddEditTemplate', [
                 'template' => $existingTemplate,
             ]);
         })->name('editTemplate');
-
         Route::post('/templates/add-edit', [TemplateController::class, 'addEditProcess'])->name('templates.addEdit');
+
+        // ANGLES ROUTES
+        Route::inertia('/angles/add', 'Angles/AddEditAngle')->name('addAngle');
+        Route::get('/angles/edit/{id}', function ($id) {
+            $existingAngle = Angle::where('id', $id)->with('contents')->first();
+            return Inertia::render('Angles/AddEditAngle', [
+                'angle' => $existingAngle,
+            ]);
+        })->name('editAngle');
+        Route::post('/angles/add-edit', [AngleController::class, 'addEditProcess'])->name('angles.addEdit');
 
         // Route::inertia('/frontend', 'FrontEnd')->name('frontend');
 
@@ -49,8 +61,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('role:admin,member')->group(function () {
 
+        // TEMPLATES ROUTES
         Route::inertia('/templates', 'Templates/Templates')->name('templates');
         Route::get('/templates/list', [TemplateController::class, 'index'])->name('templates.list');
+
+        // ANGLES ROUTES
+        Route::inertia('/angles', 'Templates/Templates')->name('angles');
+        Route::get('/angles/list', [AngleController::class, 'index'])->name('angles.list');
 
         Route::get('/templates/preview/{id}', function ($id) {
             return Inertia::render('Templates/PreviewTemplate', compact('id'));
