@@ -26,8 +26,8 @@ export default function Dashboard() {
     let timeout = null;
 
     const resourceName = {
-        singular: 'Template',
-        plural: 'Templates',
+        singular: 'Angle',
+        plural: 'Angles',
     };
 
     const pageOptions = [
@@ -62,7 +62,7 @@ export default function Dashboard() {
     const onHandleCancel = () => { };
 
     const [pagination, setPagination] = useState({
-        path: route("templates.list"),
+        path: route("angles.list"),
         next_cursor: null,
         next_page_url: null,
         prev_cursor: null,
@@ -156,7 +156,7 @@ export default function Dashboard() {
             position={index}
         >
             <IndexTable.Cell>
-                {`T${value.id}`}
+                {`A${value.id}`}
             </IndexTable.Cell>
             <IndexTable.Cell>
                 {value.name}
@@ -197,14 +197,7 @@ export default function Dashboard() {
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
-                <Button variant='plain' icon={PageDownIcon} onClick={() => {
-                    let data = JSON.stringify({ url: `${window.appURL}/templates/preview/${value.id}` })
-                    window.open(`${window.appURL}/download?data=${data}`, "_blank");
-                }}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editTemplate', value.id))}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/templates/preview/${value.id}/`, "_blank")}></Button>
+                <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
@@ -213,11 +206,11 @@ export default function Dashboard() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Templates
+                    Angles
                 </h2>
             }
         >
-            <Head title="Templates" />
+            <Head title="Angles" />
 
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
@@ -236,7 +229,7 @@ export default function Dashboard() {
                                     {page && page.auth.user.role.name == "admin" &&
                                         <>
                                             <span style={{ marginRight: "10px" }}></span>
-                                            <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addTemplate'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
+                                            <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addAngle'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
                                         </>
                                     }
                                 </div>
@@ -246,7 +239,7 @@ export default function Dashboard() {
                                             sortOptions={sortOptions}
                                             sortSelected={sortSelected}
                                             queryValue={queryValue}
-                                            queryPlaceholder="Session Color Families..."
+                                            queryPlaceholder="Search Angles..."
                                             onQueryChange={handleFiltersQueryChange}
                                             onQueryClear={handleQueryValueRemove}
                                             onSort={setSortSelected}

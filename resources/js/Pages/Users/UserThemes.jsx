@@ -222,7 +222,7 @@ export default function Dashboard() {
                                             sortOptions={sortOptions}
                                             sortSelected={sortSelected}
                                             queryValue={queryValue}
-                                            queryPlaceholder="Session Color Families..."
+                                            queryPlaceholder="Search User Themes..."
                                             onQueryChange={handleFiltersQueryChange}
                                             onQueryClear={handleQueryValueRemove}
                                             onSort={setSortSelected}

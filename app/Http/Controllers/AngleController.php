@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Template;
-use App\Models\TemplateContent;
+use App\Models\Angle;
+use App\Models\AngleContent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -16,14 +16,14 @@ class AngleController extends Controller
      */
     public function index(Request $request)
     {
-        $templates = Template::with('contents')->when($request->get('q'), function ($q) use ($request) {
+        $angles = Angle::with('contents')->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
                 $q->orWhere('name', 'LIKE', '%' . $request->q . '%');
             });
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
         })->cursorPaginate($request->page_count);
-        return sendResponse(true, 'Templates retrieved successfully!', $templates);
+        return sendResponse(true, 'Angles retrieved successfully!', $angles);
     }
 
     /**
@@ -43,8 +43,6 @@ class AngleController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'required',
-            'head' => 'required',
-            'index' => 'required',
             'uuid' => 'required',
             'last_iteration' => 'required'
         ], []);
@@ -85,15 +83,15 @@ class AngleController extends Controller
             $fontFileDone = $request->input('font' . $i . "Done");
             $imageFileDone = $request->input('image' . $i . "Done");
             if (!$fontFile && !$imageFile && !$fontFileDone && !$imageFileDone) {
-                $existing_templates = TemplateContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('template_uuid', $request->uuid)->where('can_be_deleted', true)->get();
-                foreach ($existing_templates as $key => $exContent) {
+                $existing_angles = AngleContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_uuid', $request->uuid)->where('can_be_deleted', true)->get();
+                foreach ($existing_angles as $key => $exContent) {
                     if ($exContent->type == "image") {
                         Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
                     } else  if ($exContent->type == "font") {
                         Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
                     }
                 }
-                TemplateContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('template_uuid', $request->uuid)->where('can_be_deleted', true)->delete();
+                AngleContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_uuid', $request->uuid)->where('can_be_deleted', true)->delete();
                 return sendResponse(false, 'File not uploaded correctly!');
             }
         }
@@ -101,9 +99,9 @@ class AngleController extends Controller
         try {
 
 
-            $templateId = $request->uuid; // Generate a unique ID for template storage
-            $assetUUID = $request->asset_unique_uuid; // Generate a unique ID for template storage
-            $basePath = "templates/$templateId";
+            $angleId = $request->uuid; // Generate a unique ID for angle storage
+            $assetUUID = $request->asset_unique_uuid; // Generate a unique ID for angle storage
+            $basePath = "angles/$angleId";
 
             // Store fonts
             $fonts = [];
@@ -118,9 +116,9 @@ class AngleController extends Controller
                 }
             }
 
-            $fonts = collect($fonts)->transform(function ($item) use ($templateId) {
+            $fonts = collect($fonts)->transform(function ($item) use ($angleId) {
                 return [
-                    "template_uuid" => $templateId,
+                    "angle_uuid" => $angleId,
                     "type" => "font",
                     'name' => $item
                 ];
@@ -130,14 +128,14 @@ class AngleController extends Controller
             foreach ($request->all() as $key => $value) {
                 if (Str::startsWith($key, 'font') && str_contains($key, 'Done')) {
                     $doneFonts[] = [
-                        "template_uuid" => $templateId,
+                        "angle_uuid" => $angleId,
                         "type" => "font",
                         'name' => $value,
                     ];
                 }
             }
 
-            TemplateContent::upsert(array_merge($fonts->toArray(), $doneFonts), ['id']);
+            AngleContent::upsert(array_merge($fonts->toArray(), $doneFonts), ['id']);
 
             // Store images
             $images = [];
@@ -152,9 +150,9 @@ class AngleController extends Controller
                 }
             }
 
-            $images = collect($images)->transform(function ($item) use ($templateId) {
+            $images = collect($images)->transform(function ($item) use ($angleId) {
                 return [
-                    "template_uuid" => $templateId,
+                    "angle_uuid" => $angleId,
                     "type" => "image",
                     'name' => $item
                 ];
@@ -164,22 +162,22 @@ class AngleController extends Controller
             foreach ($request->all() as $key => $value) {
                 if (Str::startsWith($key, 'image') && str_contains($key, 'Done')) {
                     $doneImages[] = [
-                        "template_uuid" => $templateId,
+                        "angle_uuid" => $angleId,
                         "type" => "image",
                         'name' => $value,
                     ];
                 }
             }
 
-            TemplateContent::upsert(array_merge($images->toArray(), $doneImages), ['id']);
+            AngleContent::upsert(array_merge($images->toArray(), $doneImages), ['id']);
 
             // NOW SAVING DATA TO DATABASE
 
             if ($request->last_iteration == "true") {
 
-                $html = collect($html)->transform(function ($item) use ($templateId) {
+                $html = collect($html)->transform(function ($item) use ($angleId) {
                     return [
-                        "template_uuid" => $templateId,
+                        "angle_uuid" => $angleId,
                         "type" => "html",
                         'name' => $item['name'],
                         'content' => $item['content'],
@@ -187,9 +185,9 @@ class AngleController extends Controller
                     ];
                 });
 
-                $css = collect($css)->transform(function ($item) use ($templateId) {
+                $css = collect($css)->transform(function ($item) use ($angleId) {
                     return [
-                        "template_uuid" => $templateId,
+                        "angle_uuid" => $angleId,
                         "type" => "css",
                         'name' => $item['name'],
                         'content' => $item['content'],
@@ -197,9 +195,9 @@ class AngleController extends Controller
                     ];
                 });
 
-                $js = collect($js)->transform(function ($item) use ($templateId) {
+                $js = collect($js)->transform(function ($item) use ($angleId) {
                     return [
-                        "template_uuid" => $templateId,
+                        "angle_uuid" => $angleId,
                         "type" => "js",
                         'name' => $item['name'],
                         'content' => $item['content'],
@@ -208,27 +206,25 @@ class AngleController extends Controller
                 });
 
 
-                if ($request->edit_template_uuid != "false") {
-                    $generatedTemplate = Template::where('uuid', $request->uuid);
-                    $generatedTemplate->update([
+                if ($request->edit_angle_uuid != "false") {
+                    $generatedAngle = Angle::where('uuid', $request->uuid);
+                    $generatedAngle->update([
                         "uuid" => $request->uuid,
                         "asset_unique_uuid" => $request->asset_unique_uuid,
                         "name" => $request->name,
-                        "head" => $request->head,
-                        "index" => $request->index,
                     ]);
                 } else {
-                    $generatedTemplate = Template::create($request->all());
+                    $generatedAngle = Angle::create($request->all());
                 }
 
-                TemplateContent::where('template_uuid', $request->uuid)->whereIn('type', ['html', 'css', 'js'])->delete();
-                TemplateContent::upsert($html->toArray(), ['id']);
-                TemplateContent::upsert($css->toArray(), ['id']);
-                TemplateContent::upsert($js->toArray(), ['id']);
+                AngleContent::where('angle_uuid', $request->uuid)->whereIn('type', ['html', 'css', 'js'])->delete();
+                AngleContent::upsert($html->toArray(), ['id']);
+                AngleContent::upsert($css->toArray(), ['id']);
+                AngleContent::upsert($js->toArray(), ['id']);
 
-                $new_contents = TemplateContent::where('can_be_deleted', true)->where('template_uuid', $request->uuid)->whereIn('type', ['font', 'image'])->get();
+                $new_contents = AngleContent::where('can_be_deleted', true)->where('angle_uuid', $request->uuid)->whereIn('type', ['font', 'image'])->get();
                 $existingImages = $new_contents->pluck('name')->toArray();
-                $old_contents = TemplateContent::where('can_be_deleted', false)->where('template_uuid', $request->uuid)->whereIn('type', ['font', 'image'])->whereNotIn('name', $existingImages)->get();
+                $old_contents = AngleContent::where('can_be_deleted', false)->where('angle_uuid', $request->uuid)->whereIn('type', ['font', 'image'])->whereNotIn('name', $existingImages)->get();
                 foreach ($old_contents as $key => $exContent) {
                     if ($exContent->type == "image") {
                         Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
@@ -236,7 +232,7 @@ class AngleController extends Controller
                         Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
                     }
                 }
-                TemplateContent::where('can_be_deleted', false)->where('template_uuid', $request->uuid)->whereIn('type', ['font', 'image'])->delete();
+                AngleContent::where('can_be_deleted', false)->where('angle_uuid', $request->uuid)->whereIn('type', ['font', 'image'])->delete();
 
                 foreach ($new_contents as $key => $content) {
 

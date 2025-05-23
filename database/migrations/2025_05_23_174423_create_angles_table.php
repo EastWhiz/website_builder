@@ -13,6 +13,9 @@ return new class extends Migration
     {
         Schema::create('angles', function (Blueprint $table) {
             $table->id();
+            $table->uuid();
+            $table->longText('name');
+            $table->uuid('asset_unique_uuid');
             $table->timestamps();
         });
     }

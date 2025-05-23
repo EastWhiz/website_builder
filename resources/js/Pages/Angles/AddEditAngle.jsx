@@ -50,11 +50,9 @@ export default function Dashboard() {
     const handleOpen = () => setOpen(true);
     const handleClose = () => setOpen(false);
 
-    const [templateUUID, setTemplateUUID] = useState(false);
-    // const [template, setTemplate] = useState({
+    const [angleUUID, setAngleUUID] = useState(false);
+    // const [angle, setAngle] = useState({
     //     name: '',
-    //     head: '',
-    //     body: '',
     //     html: [{ name: '', content: '', }],
     //     css: [{ name: '', content: '', }],
     //     js: [{ name: '', content: '', }],
@@ -62,10 +60,8 @@ export default function Dashboard() {
     //     images: [{ alreadyUploaded: "", name: "", size: "", file: "" }]
     // });
 
-    const [template, setTemplate] = useState({
+    const [angle, setAngle] = useState({
         name: '',
-        head: '',
-        body: '',
         html: [],
         css: [],
         js: [],
@@ -75,7 +71,7 @@ export default function Dashboard() {
 
     const [currentThing, setCurrentThing] = useState('');
 
-    const steps = ['Template', 'Contents', 'Files'];
+    const steps = ['Angle', 'Contents', 'Files'];
 
     const [activeStep, setActiveStep] = useState(0);
     const [skipped, setSkipped] = useState(new Set());
@@ -93,17 +89,15 @@ export default function Dashboard() {
     }, []);
 
     useEffect(() => {
-        if (page.template) {
-            let htmls = page.template.contents.filter(html => html.type == "html");
-            let csss = page.template.contents.filter(css => css.type == "css");
-            let jss = page.template.contents.filter(js => js.type == "js");
-            let fonts = page.template.contents.filter(js => js.type == "font");
-            let images = page.template.contents.filter(js => js.type == "image");
-            setTemplateUUID(page.template.uuid);
-            setTemplate({
-                name: page.template.name,
-                head: page.template.head,
-                body: page.template.index,
+        if (page.angle) {
+            let htmls = page.angle.contents.filter(html => html.type == "html");
+            let csss = page.angle.contents.filter(css => css.type == "css");
+            let jss = page.angle.contents.filter(js => js.type == "js");
+            let fonts = page.angle.contents.filter(js => js.type == "font");
+            let images = page.angle.contents.filter(js => js.type == "image");
+            setAngleUUID(page.angle.uuid);
+            setAngle({
+                name: page.angle.name,
                 html: htmls.map((html, index) => {
                     return ({ name: html.name, content: html.content })
                 }),
@@ -137,14 +131,14 @@ export default function Dashboard() {
 
     let abortController = null;
 
-    const submitTemplateHandler = async () => {
+    const submitAngleHandler = async () => {
         try {
             const CHUNK_SIZE = 10; // Adjust chunk size as needed
-            const fontChunks = chunkArray(template.fonts, CHUNK_SIZE);
-            const imageChunks = chunkArray(template.images, CHUNK_SIZE);
+            const fontChunks = chunkArray(angle.fonts, CHUNK_SIZE);
+            const imageChunks = chunkArray(angle.images, CHUNK_SIZE);
 
             let uploadedFiles = 0;
-            const totalFiles = template.fonts.length + template.images.length;
+            const totalFiles = angle.fonts.length + angle.images.length;
 
             Swal.fire({
                 title: 'Uploading...',
@@ -173,21 +167,19 @@ export default function Dashboard() {
                 const isLastIteration = chunkIndex === chunks.length - 1 ? true : false;
 
                 const formData = new FormData();
-                formData.append("name", template.name);
-                formData.append("head", template.head);
-                formData.append("index", template.body);
-                formData.append("html", JSON.stringify(template.html));
-                formData.append("css", JSON.stringify(template.css));
-                formData.append("js", JSON.stringify(template.js));
+                formData.append("name", angle.name);
+                formData.append("html", JSON.stringify(angle.html));
+                formData.append("css", JSON.stringify(angle.css));
+                formData.append("js", JSON.stringify(angle.js));
                 formData.append("last_iteration", isLastIteration);
-                formData.append("uuid", templateUUID ? templateUUID : uuid);
+                formData.append("uuid", angleUUID ? angleUUID : uuid);
                 formData.append("chunk_count", chunk == 1 ? 0 : chunk.length);
-                formData.append("edit_template_uuid", templateUUID);
+                formData.append("edit_angle_uuid", angleUUID);
                 formData.append("asset_unique_uuid", assetUUID);
 
                 if (chunk != 1) {
                     chunk.forEach((item, index) => {
-                        const isFont = template.fonts.includes(item);
+                        const isFont = angle.fonts.includes(item);
                         formData.append(`${isFont ? 'font' : 'image'}${index}`, item.file);
                         if (item.alreadyUploaded)
                             formData.append(`${isFont ? 'font' : 'image'}${index}Done`, item.alreadyUploaded);
@@ -198,7 +190,7 @@ export default function Dashboard() {
                 abortController = new AbortController();
 
                 try {
-                    let response = await fetch(route('templates.addEdit'), {
+                    let response = await fetch(route('angles.addEdit'), {
                         method: "POST",
                         body: formData,
                         signal: abortController.signal, // Attach abort signal
@@ -232,7 +224,7 @@ export default function Dashboard() {
             }
 
             Swal.fire("Success!", "All files uploaded successfully!", "success");
-            router.get(route('templates'))
+            router.get(route('angles'))
 
         } catch (error) {
             if (error.name === 'AbortError') {
@@ -257,7 +249,7 @@ export default function Dashboard() {
                 // reverseButtons: true
             }).then((result) => {
                 if (result.isConfirmed) {
-                    submitTemplateHandler();
+                    submitAngleHandler();
                 }
             })
         }
@@ -305,11 +297,11 @@ export default function Dashboard() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Templates
+                    Angles
                 </h2>
             }
         >
-            <Head title="Templates" />
+            <Head title="Angles" />
 
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
@@ -340,7 +332,7 @@ export default function Dashboard() {
                                                     const rows = [];
                                                     gridApi.forEachNodeAfterFilterAndSort((node) => rows.push(node.data));
                                                     // console.log(rows);
-                                                    let temp = { ...template };
+                                                    let temp = { ...angle };
                                                     if (currentThing == "html") {
                                                         temp.html = rows;
                                                     } else if (currentThing == "css") {
@@ -352,7 +344,7 @@ export default function Dashboard() {
                                                     } else if (currentThing == "images") {
                                                         temp.images = rows;
                                                     }
-                                                    setTemplate(temp);
+                                                    setAngle(temp);
                                                     handleClose();
                                                 }}>Sort</Button>
                                             </Box>
@@ -415,17 +407,17 @@ export default function Dashboard() {
                                             <Box sx={{ mb: 0, background: "#707070", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                                 <Box mt={3} mb={2}><img src={Doc1}></img></Box>
                                                 <Typography variant="h3" component="div" color="white" mb={1} sx={{ fontSize: { xs: '30px', sm: '30px', md: '40px', lg: '40px', xl: '40px' } }}>
-                                                    Insert Template
+                                                    Insert Angle
                                                 </Typography>
                                                 <Typography variant="body" color="white" mb={3}>
-                                                    Insert head, body content below
+                                                    Insert Angle in this Process
                                                 </Typography>
                                             </Box>
                                             <Card sx={{ minWidth: 275 }}>
                                                 <CardContent>
                                                     <Box>
                                                         <Typography variant="h5" component="div" mt={2} sx={{ fontSize: { xs: '18px', sm: '18px', md: '20px', lg: '24px', xl: '24px' }, textAlign: "center" }}>
-                                                            Insert the Head and Index code below
+                                                            Name the Angle
                                                         </Typography>
                                                         <Box sx={{
                                                             marginTop: "40px",
@@ -443,54 +435,14 @@ export default function Dashboard() {
 
                                                                 }}
                                                                 fullWidth
-                                                                placeholder="Enter Template Name..."
+                                                                placeholder="Enter Angle Name..."
                                                                 size="small"
-                                                                value={template.name}
+                                                                value={angle.name}
                                                                 onChange={(e) => {
-                                                                    let temp = { ...template };
+                                                                    let temp = { ...angle };
                                                                     temp.name = e.target.value;
-                                                                    setTemplate(temp);
+                                                                    setAngle(temp);
                                                                 }}
-                                                            />
-                                                            <TextField
-                                                                fullWidth
-                                                                sx={{
-                                                                    "& .MuiInputBase-input:focus": {
-                                                                        outline: "none", // Remove input focus outline
-                                                                        boxShadow: "none", // Remove any remaining shadow
-                                                                    },
-
-                                                                }}
-                                                                multiline
-                                                                rows={6}
-                                                                placeholder="Enter <Head> content..."
-                                                                onChange={(e) => {
-                                                                    let temp = { ...template };
-                                                                    temp = { ...temp, head: e.target.value }
-                                                                    setTemplate(temp);
-                                                                }}
-                                                                value={template.head}
-                                                            />
-
-                                                            <TextField
-                                                                fullWidth
-                                                                sx={{
-                                                                    marginTop: 2,
-                                                                    "& .MuiInputBase-input:focus": {
-                                                                        outline: "none", // Remove input focus outline
-                                                                        boxShadow: "none", // Remove any remaining shadow
-                                                                    },
-
-                                                                }}
-                                                                multiline
-                                                                rows={6}
-                                                                placeholder="Enter <body> content..."
-                                                                onChange={(e) => {
-                                                                    let temp = { ...template };
-                                                                    temp = { ...temp, body: e.target.value }
-                                                                    setTemplate(temp);
-                                                                }}
-                                                                value={template.body}
                                                             />
                                                         </Box>
                                                     </Box>
@@ -520,7 +472,7 @@ export default function Dashboard() {
                                                 <CardContent>
                                                     <Box>
                                                         <Typography variant="h5" component="div" mt={2} sx={{ fontSize: { xs: '18px', sm: '18px', md: '20px', lg: '24px', xl: '24px' }, textAlign: "center" }}>
-                                                            Insert the HTML, JS, CSS Chunks available to connect them for any template
+                                                            Insert the HTML, JS, CSS Chunks available to connect them for any angle
                                                         </Typography>
                                                         <Box sx={{
                                                             marginTop: "40px",
@@ -533,12 +485,12 @@ export default function Dashboard() {
                                                                 </Typography>
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
-                                                                        let temp = { ...template };
+                                                                        let temp = { ...angle };
                                                                         temp.html.push({ name: '', content: '' });
-                                                                        setTemplate(temp);
+                                                                        setAngle(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
-                                                                        setRowData(template.html);
+                                                                        setRowData(angle.html);
                                                                         handleOpen();
                                                                         setCurrentThing("html");
                                                                     }} />
@@ -546,7 +498,7 @@ export default function Dashboard() {
                                                             </Box>
 
                                                             <Box sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "70px" }} p={3} pb={0}>
-                                                                {template.html.map((value, index) => {
+                                                                {angle.html.map((value, index) => {
                                                                     return (
                                                                         <Box key={index}>
                                                                             <Box sx={{ display: "flex", width: "100%" }}>
@@ -565,16 +517,16 @@ export default function Dashboard() {
                                                                                     size="small"
                                                                                     value={value.name}
                                                                                     onChange={(e) => {
-                                                                                        let temp = { ...template };
+                                                                                        let temp = { ...angle };
                                                                                         temp.html[index].name = e.target.value;
-                                                                                        setTemplate(temp);
+                                                                                        setAngle(temp);
                                                                                     }}
                                                                                 />
                                                                                 <ClearIcon sx={{ width: "38px", height: "38px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "dimgray", color: 'white' }} onClick={() => {
-                                                                                    // if (template.html.length > 1) {
-                                                                                    let temp = { ...template };
+                                                                                    // if (angle.html.length > 1) {
+                                                                                    let temp = { ...angle };
                                                                                     temp.html.splice(index, 1);
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                     // }
                                                                                 }} />
                                                                             </Box>
@@ -594,9 +546,9 @@ export default function Dashboard() {
                                                                                 placeholder="Enter <body> chunk..."
                                                                                 value={value.content}
                                                                                 onChange={(e) => {
-                                                                                    let temp = { ...template };
+                                                                                    let temp = { ...angle };
                                                                                     temp.html[index].content = e.target.value;
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                 }}
                                                                             />
                                                                         </Box>
@@ -609,19 +561,19 @@ export default function Dashboard() {
                                                                 </Typography>
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
-                                                                        let temp = { ...template };
+                                                                        let temp = { ...angle };
                                                                         temp.css.push({ name: '', content: '' });
-                                                                        setTemplate(temp);
+                                                                        setAngle(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
-                                                                        setRowData(template.css);
+                                                                        setRowData(angle.css);
                                                                         handleOpen();
                                                                         setCurrentThing("css");
                                                                     }} />
                                                                 </Box>
                                                             </Box>
                                                             <Box sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "70px" }} p={3} pb={0}>
-                                                                {template.css.map((value, index) => {
+                                                                {angle.css.map((value, index) => {
                                                                     return (
                                                                         <Box key={index}>
                                                                             <Box sx={{ display: "flex", width: "100%" }}>
@@ -640,15 +592,15 @@ export default function Dashboard() {
                                                                                     size="small"
                                                                                     value={value.name}
                                                                                     onChange={(e) => {
-                                                                                        let temp = { ...template };
+                                                                                        let temp = { ...angle };
                                                                                         temp.css[index].name = e.target.value;
-                                                                                        setTemplate(temp);
+                                                                                        setAngle(temp);
                                                                                     }}
                                                                                 />
                                                                                 <ClearIcon sx={{ width: "38px", height: "38px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "dimgray", color: 'white' }} onClick={() => {
-                                                                                    let temp = { ...template };
+                                                                                    let temp = { ...angle };
                                                                                     temp.css.splice(index, 1);
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                 }} />
                                                                             </Box>
                                                                             <TextField
@@ -667,9 +619,9 @@ export default function Dashboard() {
                                                                                 placeholder="Enter <style> chunk..."
                                                                                 value={value.content}
                                                                                 onChange={(e) => {
-                                                                                    let temp = { ...template };
+                                                                                    let temp = { ...angle };
                                                                                     temp.css[index].content = e.target.value;
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                 }}
                                                                             />
                                                                         </Box>
@@ -682,19 +634,19 @@ export default function Dashboard() {
                                                                 </Typography>
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
-                                                                        let temp = { ...template };
+                                                                        let temp = { ...angle };
                                                                         temp.js.push({ name: '', content: '' });
-                                                                        setTemplate(temp);
+                                                                        setAngle(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
-                                                                        setRowData(template.js);
+                                                                        setRowData(angle.js);
                                                                         handleOpen();
                                                                         setCurrentThing("js");
                                                                     }} />
                                                                 </Box>
                                                             </Box>
                                                             <Box sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "70px" }} p={3} pb={0}>
-                                                                {template.js.map((value, index) => {
+                                                                {angle.js.map((value, index) => {
                                                                     return (
                                                                         <Box key={index}>
                                                                             <Box sx={{ display: "flex", width: "100%" }}>
@@ -713,15 +665,15 @@ export default function Dashboard() {
                                                                                     size="small"
                                                                                     value={value.name}
                                                                                     onChange={(e) => {
-                                                                                        let temp = { ...template };
+                                                                                        let temp = { ...angle };
                                                                                         temp.js[index].name = e.target.value;
-                                                                                        setTemplate(temp);
+                                                                                        setAngle(temp);
                                                                                     }}
                                                                                 />
                                                                                 <ClearIcon sx={{ width: "38px", height: "38px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "dimgray", color: 'white' }} onClick={() => {
-                                                                                    let temp = { ...template };
+                                                                                    let temp = { ...angle };
                                                                                     temp.js.splice(index, 1);
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                 }} />
                                                                             </Box>
                                                                             <TextField
@@ -740,9 +692,9 @@ export default function Dashboard() {
                                                                                 placeholder="Enter <script> chunk..."
                                                                                 value={value.content}
                                                                                 onChange={(e) => {
-                                                                                    let temp = { ...template };
+                                                                                    let temp = { ...angle };
                                                                                     temp.js[index].content = e.target.value;
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                 }}
                                                                             />
                                                                         </Box>
@@ -777,7 +729,7 @@ export default function Dashboard() {
                                                 <CardContent>
                                                     <Box>
                                                         <Typography variant="h5" component="div" mt={2} sx={{ fontSize: { xs: '18px', sm: '18px', md: '20px', lg: '24px', xl: '24px' }, textAlign: "center" }}>
-                                                            Upload the Fonts, Images available to connect them for this template
+                                                            Upload the Fonts, Images available to connect them for this angle
                                                         </Typography>
                                                         <Box sx={{
                                                             marginTop: "40px",
@@ -790,18 +742,18 @@ export default function Dashboard() {
                                                                 </Typography>
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
-                                                                        let temp = { ...template };
+                                                                        let temp = { ...angle };
                                                                         temp.fonts.push({ alreadyUploaded: "", name: "", size: "", file: "" });
-                                                                        setTemplate(temp);
+                                                                        setAngle(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
-                                                                        setRowData(template.fonts);
+                                                                        setRowData(angle.fonts);
                                                                         handleOpen();
                                                                         setCurrentThing("fonts");
                                                                     }} />
                                                                 </Box>
                                                             </Box>
-                                                            {template.fonts.map((value, index) => {
+                                                            {angle.fonts.map((value, index) => {
 
                                                                 return (
                                                                     <Box key={index} sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "70px" }} p={2} pl={2} mb={2}>
@@ -832,7 +784,7 @@ export default function Dashboard() {
                                                                                                 &nbsp; to upload your file.
                                                                                             </Typography>
                                                                                             <input type="file" multiple style={{ display: "none" }} id={`hiddenfont${index}`} onChange={(e) => {
-                                                                                                let temp = { ...template };
+                                                                                                let temp = { ...angle };
                                                                                                 Array.from(e.target.files).forEach((file, indexInside) => {
                                                                                                     const insideFile = e.target.files[indexInside];
                                                                                                     if (indexInside == 0) {
@@ -849,7 +801,7 @@ export default function Dashboard() {
                                                                                                         });
                                                                                                     }
                                                                                                 });
-                                                                                                setTemplate(temp);
+                                                                                                setAngle(temp);
                                                                                             }} />
                                                                                         </Box>
                                                                                     }
@@ -857,9 +809,9 @@ export default function Dashboard() {
                                                                             </Box>
                                                                             <Box sx={{ marginTop: "-5px", cursor: "pointer" }}>
                                                                                 <ClearIcon sx={{ color: '#8B8B8B' }} onClick={() => {
-                                                                                    let temp = { ...template };
+                                                                                    let temp = { ...angle };
                                                                                     temp.fonts.splice(index, 1);
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                 }} />
                                                                             </Box>
                                                                         </Box>
@@ -873,19 +825,19 @@ export default function Dashboard() {
                                                                 </Typography>
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
-                                                                        let temp = { ...template };
+                                                                        let temp = { ...angle };
                                                                         temp.images.push({ alreadyUploaded: "", name: "", size: "", file: "" });
-                                                                        setTemplate(temp);
+                                                                        setAngle(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
-                                                                        setRowData(template.images);
+                                                                        setRowData(angle.images);
                                                                         handleOpen();
                                                                         setCurrentThing("images");
                                                                     }} />
                                                                 </Box>
                                                             </Box>
 
-                                                            {template.images.map((value, index) => {
+                                                            {angle.images.map((value, index) => {
 
                                                                 return (
                                                                     <Box key={index} sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "70px" }} p={2} pl={2} mb={2}>
@@ -916,7 +868,7 @@ export default function Dashboard() {
                                                                                                 &nbsp; to upload your file.
                                                                                             </Typography>
                                                                                             <input type="file" multiple style={{ display: "none" }} id={`hiddenimage${index}`} onChange={(e) => {
-                                                                                                let temp = { ...template };
+                                                                                                let temp = { ...angle };
                                                                                                 Array.from(e.target.files).forEach((file, indexInside) => {
                                                                                                     const insideFile = e.target.files[indexInside];
                                                                                                     if (indexInside == 0) {
@@ -933,7 +885,7 @@ export default function Dashboard() {
                                                                                                         });
                                                                                                     }
                                                                                                 });
-                                                                                                setTemplate(temp);
+                                                                                                setAngle(temp);
                                                                                             }} />
                                                                                         </Box>
                                                                                     }
@@ -941,9 +893,9 @@ export default function Dashboard() {
                                                                             </Box>
                                                                             <Box sx={{ marginTop: "-5px", cursor: "pointer" }}>
                                                                                 <ClearIcon sx={{ color: '#8B8B8B' }} onClick={() => {
-                                                                                    let temp = { ...template };
+                                                                                    let temp = { ...angle };
                                                                                     temp.images.splice(index, 1);
-                                                                                    setTemplate(temp);
+                                                                                    setAngle(temp);
                                                                                 }} />
                                                                             </Box>
                                                                         </Box>
