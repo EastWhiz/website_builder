@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Angle;
 use App\Models\AngleContent;
+use App\Models\AngleTemplate;
 use App\Models\Template;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -307,8 +308,24 @@ class AngleController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function deleteAngle(Request $request)
     {
-        //
+        $angle = Angle::find($request->angle_id);
+
+        if (!$angle) {
+            return sendResponse(false, "Angle Not Found");
+        }
+
+        $angleTemplates = AngleTemplate::where('angle_id', $angle->id)->get();
+        if (count($angleTemplates) > 0) {
+            return sendResponse(false, "Angle is assigned to different Sales Pages. Cannot delete it.");
+        }
+
+        Storage::disk('public')->deleteDirectory("angles/$angle->uuid");
+
+        AngleContent::where('angle_uuid', $angle->uuid)->delete();
+        $angle->delete();
+
+        return sendResponse(true, "Angle is deleted Successfully.");
     }
 }

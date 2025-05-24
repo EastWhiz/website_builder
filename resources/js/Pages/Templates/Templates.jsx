@@ -13,8 +13,9 @@ import {
     Text
 } from '@shopify/polaris';
 import "@shopify/polaris/build/esm/styles.css";
-import { EditIcon, ViewIcon, PageDownIcon } from '@shopify/polaris-icons';
+import { EditIcon, ViewIcon, PageDownIcon, DeleteIcon } from '@shopify/polaris-icons';
 import { useCallback, useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 
 
 export default function Dashboard() {
@@ -146,6 +147,41 @@ export default function Dashboard() {
         handleQueryValueRemove,
     ]);
 
+    const deleteTemplateHandler = (deleteId) => {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "You won't be able to revert this!",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#51a70a",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, delete it!"
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                fetch(route('delete.template'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        template_id: deleteId,
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // console.log(data);
+                        Swal.fire({
+                            title: data.success ? "Deleted!" : "Error!",
+                            text: data.message,
+                            icon: data.success ? "success" : "error"
+                        });
+                        setReload(!reload);
+                    })
+            }
+        });
+    }
+
     const filters = [];
 
     const appliedFilters = [];
@@ -201,6 +237,8 @@ export default function Dashboard() {
             {roleId == 1 &&
                 <IndexTable.Cell>
                     <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editTemplate', value.id))}></Button>
+                    <span style={{ marginLeft: "10px" }}></span>
+                    <Button variant='plain' icon={DeleteIcon} onClick={() => deleteTemplateHandler(value.id)}></Button>
                 </IndexTable.Cell>
             }
         </IndexTable.Row >

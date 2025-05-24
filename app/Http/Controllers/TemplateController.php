@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AngleTemplate;
 use App\Models\Template;
 use App\Models\TemplateContent;
 use Illuminate\Http\Request;
@@ -307,8 +308,24 @@ class TemplateController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function deleteTemplate(Request $request)
     {
-        //
+        $template = Template::find($request->template_id);
+
+        if (!$template) {
+            return sendResponse(false, "Publisher Not Found");
+        }
+
+        $angleTemplates = AngleTemplate::where('template_id', $template->id)->get();
+        if (count($angleTemplates) > 0) {
+            return sendResponse(false, "Publisher is assigned to different Sales Pages. Cannot delete it.");
+        }
+
+        Storage::disk('public')->deleteDirectory("templates/$template->uuid");
+
+        TemplateContent::where('template_uuid', $template->uuid)->delete();
+        $template->delete();
+
+        return sendResponse(true, "Publisher is deleted Successfully.");
     }
 }

@@ -205,4 +205,17 @@ class AngleTemplateController extends Controller
 
         return response()->download($zipPath)->deleteFileAfterSend(true);
     }
+
+    public function deleteAngleTemplate(Request $request)
+    {
+        $angleTemplate = AngleTemplate::find($request->angle_template_id);
+
+        if (!$angleTemplate) {
+            return sendResponse(false, "Sales Page Not Found");
+        }
+
+        $angleTemplate->delete();
+
+        return sendResponse(true, "Sales Page is deleted Successfully.");
+    }
 }

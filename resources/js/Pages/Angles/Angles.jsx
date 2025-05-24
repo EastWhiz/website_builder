@@ -13,7 +13,7 @@ import {
     Text,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { EditIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, EditIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
 import Select from 'react-select';
@@ -193,6 +193,41 @@ export default function Dashboard() {
         handleQueryValueRemove,
     ]);
 
+    const deleteAngleHandler = (deleteId) => {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "You won't be able to revert this!",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#51a70a",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, delete it!"
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                fetch(route('delete.angle'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        angle_id: deleteId,
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // console.log(data);
+                        Swal.fire({
+                            title: data.success ? "Deleted!" : "Error!",
+                            text: data.message,
+                            icon: data.success ? "success" : "error"
+                        });
+                        setReload(!reload);
+                    })
+            }
+        });
+    }
+
     const filters = [];
 
     const appliedFilters = [];
@@ -248,6 +283,8 @@ export default function Dashboard() {
             {roleId == 1 &&
                 <IndexTable.Cell>
                     <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
+                    <span style={{ marginLeft: "10px" }}></span>
+                    <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleHandler(value.id)}></Button>
                 </IndexTable.Cell>
             }
         </IndexTable.Row >

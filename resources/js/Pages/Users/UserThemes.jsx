@@ -11,9 +11,10 @@ import {
     Select as ShopifySelect,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { EditIcon, PageDownIcon, ViewIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, EditIcon, PageDownIcon, ViewIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 
 export default function Dashboard() {
 
@@ -157,6 +158,41 @@ export default function Dashboard() {
         handleQueryValueRemove,
     ]);
 
+    const deleteAngleTemplateHandler = (deleteId) => {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "You won't be able to revert this!",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#51a70a",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, delete it!"
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                fetch(route('delete.angleTemplate'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        angle_template_id: deleteId,
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // console.log(data);
+                        Swal.fire({
+                            title: data.success ? "Deleted!" : "Error!",
+                            text: data.message,
+                            icon: data.success ? "success" : "error"
+                        });
+                        setReload(!reload);
+                    })
+            }
+        });
+    }
+
     const filters = [];
 
     const appliedFilters = [];
@@ -185,6 +221,8 @@ export default function Dashboard() {
                 <Button variant='plain' icon={EditIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
+                <span style={{ margin: "10px" }}></span>
+                <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleTemplateHandler(value.id)}></Button>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));

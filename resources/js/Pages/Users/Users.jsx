@@ -35,8 +35,8 @@ export default function Dashboard() {
     let timeout = null;
 
     const resourceName = {
-        singular: 'Template',
-        plural: 'Templates',
+        singular: 'User',
+        plural: 'Users',
     };
 
     const pageOptions = [
@@ -185,11 +185,11 @@ export default function Dashboard() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Templates
+                    Users
                 </h2>
             }
         >
-            <Head title="Templates" />
+            <Head title="Users" />
 
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
