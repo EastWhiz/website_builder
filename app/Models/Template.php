@@ -18,4 +18,9 @@ class Template extends Model
     {
         return $this->hasMany(TemplateContent::class, 'template_uuid', 'uuid');
     }
+
+    public function angleTemplates()
+    {
+        return $this->hasMany(AngleTemplate::class, 'template_id', 'id');
+    }
 }

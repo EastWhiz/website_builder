@@ -209,7 +209,12 @@ class TemplateController extends Controller
 
 
                 if ($request->edit_template_uuid != "false") {
-                    $generatedTemplate = Template::where('uuid', $request->uuid);
+                    $generatedTemplate = Template::where('uuid', $request->uuid)->first();
+                    $generatedTemplate->angleTemplates()->get()->each(function ($item) use ($generatedTemplate, $request) {
+                        $item->main_html = str_replace($generatedTemplate->asset_unique_uuid, $request->asset_unique_uuid, $item->main_html);
+                        $item->main_css = str_replace($generatedTemplate->asset_unique_uuid, $request->asset_unique_uuid, $item->main_css);
+                        $item->save();
+                    });
                     $generatedTemplate->update([
                         "uuid" => $request->uuid,
                         "asset_unique_uuid" => $request->asset_unique_uuid,

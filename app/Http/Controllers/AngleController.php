@@ -211,7 +211,12 @@ class AngleController extends Controller
 
 
                 if ($request->edit_angle_uuid != "false") {
-                    $generatedAngle = Angle::where('uuid', $request->uuid);
+                    $generatedAngle = Angle::where('uuid', $request->uuid)->first();
+                    $generatedAngle->angleTemplates()->get()->each(function ($item) use ($generatedAngle, $request) {
+                        $item->main_html = str_replace($generatedAngle->asset_unique_uuid, $request->asset_unique_uuid, $item->main_html);
+                        $item->main_css = str_replace($generatedAngle->asset_unique_uuid, $request->asset_unique_uuid, $item->main_css);
+                        $item->save();
+                    });
                     $generatedAngle->update([
                         "uuid" => $request->uuid,
                         "asset_unique_uuid" => $request->asset_unique_uuid,
