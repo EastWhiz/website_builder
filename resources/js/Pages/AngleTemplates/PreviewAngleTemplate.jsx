@@ -244,15 +244,7 @@ export default function Dashboard({ id }) {
                 let updated = json.data.main_html;
                 setMainHTML([{ html: updated, status: true }]);
 
-                let totalCss = "";
-                let cssList = json.data.template.contents.filter(value => value.type == "css");
-                cssList.forEach(css => {
-                    totalCss += css.content.replace(
-                        /fonts\//g,
-                        `../../storage/templates/${json.data.template.uuid}/fonts/${json.data.template.asset_unique_uuid}-`
-                    );
-                });
-                setMainCSS(totalCss);
+                setMainCSS(json.data.main_css);
 
             } catch (error) {
                 console.error(error.message);

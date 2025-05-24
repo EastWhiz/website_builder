@@ -8,8 +8,6 @@ use App\Models\Template;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use ZipArchive;
 
@@ -49,6 +47,11 @@ class AngleTemplateController extends Controller
                     $allBodies = $currentAngle->contents()->where('type', 'html')->get();
                     $updatingIndex = $currentTemplate->index;
 
+                    $updatingCss = '';
+                    $currentTemplate->contents()->where('type', 'css')->get()->each(function ($item) use (&$updatingCss) {
+                        $updatingCss .= $item->content;
+                    });
+
                     foreach ($allBodies as $key => $body) {
                         $bodyKey = $key + 1;
                         $updatingIndex = str_replace("<!--INTERNAL--BD$bodyKey--EXTERNAL-->", $body->content, $updatingIndex);
@@ -68,12 +71,20 @@ class AngleTemplateController extends Controller
                         $updatingIndex
                     );
 
+                    // UPDATING CSS WITH FONT CHANGES
+                    $updatingCss = preg_replace(
+                        '/fonts\//',
+                        '../../storage/templates/' . $currentTemplate->uuid . '/fonts/' . $currentTemplate->asset_unique_uuid . '-',
+                        $updatingCss
+                    );
+
                     AngleTemplate::create([
                         'angle_id' => $currentAngle->id,
                         'template_id' => $currentTemplate->id,
                         'user_id' => Auth::user()->id,
                         'name' => "$currentTemplate->name ($currentAngle->name)",
                         'main_html' =>  $updatingIndex,
+                        'main_css' =>  $updatingCss,
                     ]);
                 }
             }
@@ -106,76 +117,92 @@ class AngleTemplateController extends Controller
 
     public function downloadTemplate(Request $request)
     {
-        $decodedData = json_decode($request->data);
-        $pageUrl = $decodedData->url;
-        // $pageUrl = "https://www.google.com"; // Or manually set URL
+        // return $request->all();
 
-        $htmlContent = Http::timeout(3600)->get($pageUrl)->body();
+        $angleTemplate = AngleTemplate::where('id', $request->angle_template_id)->first();
+        $template = $angleTemplate->template;
+        $angle = $angleTemplate->angle;
 
-        // Create a temporary folder
-        $folderPath = storage_path('app/temp_page');
-        File::deleteDirectory($folderPath);
-        File::makeDirectory($folderPath, 0777, true, true);
+        $templateImages = $template->contents()->where('type', 'image')->get()->pluck('name')->toArray();
+        $angleImages = $angle->contents()->where('type', 'image')->get()->pluck('name')->toArray();
 
-        // Save HTML
-        File::put($folderPath . '/index.html', $htmlContent);
+        $fontPaths = $template->contents()->where('type', 'font')->get()->pluck('name')->toArray();
+        $imagePaths = array_merge($templateImages, $angleImages);
 
-        // Parse and download assets
-        $dom = new \DOMDocument();
-        @$dom->loadHTML($htmlContent);
+        $zipFileName = 'SalesPage_' . $angleTemplate->name . '.zip';
+        $zipPath = storage_path('app/' . $zipFileName);
 
-        $tags = [
-            'img' => 'src',
-            'link' => 'href',
-            'script' => 'src',
-        ];
-
-        foreach ($tags as $tag => $attribute) {
-            $elements = $dom->getElementsByTagName($tag);
-            foreach ($elements as $element) {
-                $url = $element->getAttribute($attribute);
-                if (!$url || strpos($url, 'http') !== 0) continue; // Skip invalid links
-
-                try {
-                    $fileContent = Http::get($url)->body();
-                    $parsedUrl = parse_url($url);
-                    $filePath = ltrim($parsedUrl['path'], '/');
-
-                    $fullPath = $folderPath . '/' . $filePath;
-                    $dir = dirname($fullPath);
-
-                    if (!File::exists($dir)) {
-                        File::makeDirectory($dir, 0777, true, true);
-                    }
-
-                    File::put($fullPath, $fileContent);
-                } catch (\Exception $e) {
-                    // Ignore failed downloads
-                }
-            }
-        }
-
-        // Create Zip
-        $zipFile = storage_path('app/template.zip');
         $zip = new ZipArchive;
-        if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
-            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($folderPath));
-
-            foreach ($files as $name => $file) {
-                if (!$file->isDir()) {
-                    $filePath = $file->getRealPath();
-                    $relativePath = substr($filePath, strlen($folderPath) + 1);
-
-                    $zip->addFile($filePath, $relativePath);
-                }
-            }
-            $zip->close();
+        if ($zip->open($zipPath, ZipArchive::CREATE) !== TRUE) {
+            return response()->json(['error' => 'Could not create zip file.'], 500);
         }
 
-        // Delete temp folder
-        File::deleteDirectory($folderPath);
+        // Add image files under images/ folder
+        foreach ($imagePaths as $path) {
+            $relative = str_replace('/storage/', '', $path);
+            $fullPath = storage_path('app/public/' . $relative);
+            if (file_exists($fullPath)) {
+                $zip->addFile($fullPath, 'images/' . basename($fullPath));
+            }
+        }
 
-        // Download zip
-        return response()->download($zipFile)->deleteFileAfterSend(true);
+        // Add font files under fonts/ folder
+        foreach ($fontPaths as $path) {
+            $relative = str_replace('/storage/', '', $path);
+            $fullPath = storage_path('app/public/' . $relative);
+            if (file_exists($fullPath)) {
+                $zip->addFile($fullPath, 'fonts/' . basename($fullPath));
+            }
+        }
+
+        $angleImages = $angle->contents()->where('type', 'image')->get();
+
+        $updatingIndex = $angleTemplate->main_html;
+        $updatingCss = $angleTemplate->main_css;
+
+        // UPDATING INDEX WITH IMAGE CHANGES - ANGLES
+        $updatingIndex = str_replace(
+            'src="../../storage/angles/' . $angle->uuid . '/images/' . $angle->asset_unique_uuid . '-',
+            'src="images/' . $angle->asset_unique_uuid . '-',
+            $updatingIndex
+        );
+
+        // UPDATING INDEX WITH IMAGE CHANGES - TEMPLATES
+        $updatingIndex = str_replace(
+            'src="../../storage/templates/' . $template->uuid . '/images/' . $template->asset_unique_uuid . '-',
+            'src="images/' . $template->asset_unique_uuid . '-',
+            $updatingIndex
+        );
+
+        // UPDATING CSS WITH FONT CHANGES
+        $updatingCss = str_replace(
+            '../../storage/templates/' . $template->uuid . '/fonts/' . $template->asset_unique_uuid . '-',
+            'fonts/' . $template->asset_unique_uuid . '-',
+            $updatingCss
+        );
+
+        $fullHtml = <<<HTMLDOC
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{$angleTemplate->name}</title>
+            {$template->head}
+            <style>
+                {$updatingCss}
+            </style>
+        </head>
+        <body>
+            {$updatingIndex}
+        </body>
+        </html>
+        HTMLDOC;
+
+        $zip->addFromString('index.php', $fullHtml);
+
+        $zip->close();
+
+        return response()->download($zipPath)->deleteFileAfterSend(true);
     }
 }

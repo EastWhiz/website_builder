@@ -179,8 +179,7 @@ export default function Dashboard() {
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Button variant='plain' icon={PageDownIcon} onClick={() => {
-                    let data = JSON.stringify({ url: `${window.appURL}/angle-templates/preview/${value.id}` })
-                    window.open(`${window.appURL}/download?data=${data}`, "_blank");
+                    window.open(`${window.appURL}/download?angle_template_id=${value.id}`, "_blank");
                 }}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={EditIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
