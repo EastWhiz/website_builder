@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Angle;
 use App\Models\AngleContent;
+use App\Models\Template;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -23,7 +24,10 @@ class AngleController extends Controller
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
         })->cursorPaginate($request->page_count);
-        return sendResponse(true, 'Angles retrieved successfully!', $angles);
+
+        $templates = Template::get();
+
+        return sendResponse(true, 'Angles retrieved successfully!', $angles, $templates);
     }
 
     /**

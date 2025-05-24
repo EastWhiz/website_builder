@@ -3,23 +3,28 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { Box, Button as MuiButton } from '@mui/material';
 
 import {
-    Card,
     Button,
+    Card,
     IndexFilters,
     IndexTable,
+    Modal,
     Pagination,
     Select as ShopifySelect,
-    useIndexResourceState, useSetIndexFiltersMode,
-    Text
+    Text,
+    useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
+import { EditIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
-import { EditIcon, ViewIcon, PageDownIcon } from '@shopify/polaris-icons';
 import { useCallback, useEffect, useState } from 'react';
+import Select from 'react-select';
+import Swal from 'sweetalert2';
 
 
 export default function Dashboard() {
 
     const page = usePage().props;
+    const roleId = page?.auth?.user?.role_id;
+    // console.log(roleId);
 
     const [selected, setSelected] = useState(0);
 
@@ -70,9 +75,14 @@ export default function Dashboard() {
     });
     const [currentCursor, setCurrentCursor] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [myUrl, setMyUrl] = useState("");
     const [reload, setReload] = useState(true);
     const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
+
+    const [templateOptions, setTemplateOptions] = useState([]);
+    const [selectedTemplateOptions, setSelectedTemplateOptions] = useState([]);
+    const [active, setActive] = useState(false);
 
     useEffect(() => {
 
@@ -96,6 +106,7 @@ export default function Dashboard() {
             url.searchParams.delete('sort');
         }
 
+        setMyUrl(url);
         url = url.toString();
         setLoading(true)
         fetch(url)
@@ -110,6 +121,9 @@ export default function Dashboard() {
                         prev_cursor: result.data.prev_cursor,
                         prev_page_url: result.data.prev_page_url,
                     });
+                    setTemplateOptions(result.data2.map((value, index) => {
+                        return { value: value.id, label: value.name }
+                    }))
                 }
                 setLoading(false);
             })
@@ -135,6 +149,41 @@ export default function Dashboard() {
         },
         [tableRows]
     );
+
+    const selectPublishersHandler = () => {
+        const formData = new FormData();
+        formData.append('angles_ids', JSON.stringify(selectedResources));
+        formData.append('all_check', allResourcesSelected);
+        formData.append('search_query', JSON.stringify(myUrl.search));
+        formData.append('selected_templates', JSON.stringify(selectedTemplateOptions));
+
+        fetch(route('angles.applying'), {
+            method: 'POST',
+            body: formData,
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log(data);
+                if (data.success == true) {
+                    handleSelectionChange('all', false)
+                    setReload(!reload);
+                    setActive(false);
+                    Swal.fire("Success!", data.message, "success");
+                }
+            })
+            .catch((error) => {
+
+                console.error(error);
+            });
+    }
+
+    const promotedBulkActions = [
+        {
+            content: 'Select Publishers',
+            onAction: () => { setActive(true) },
+        },
+    ];
+
 
     const handleQueryValueRemove = useCallback(() => { setQueryValue(""); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
 
@@ -196,9 +245,11 @@ export default function Dashboard() {
                     </Box>
                 </Text>
             </IndexTable.Cell>
-            <IndexTable.Cell>
-                <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
-            </IndexTable.Cell>
+            {roleId == 1 &&
+                <IndexTable.Cell>
+                    <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
+                </IndexTable.Cell>
+            }
         </IndexTable.Row >
     ));
 
@@ -211,7 +262,37 @@ export default function Dashboard() {
             }
         >
             <Head title="Angles" />
-
+            <Modal
+                open={active}
+                size='fullScreen'
+                onClose={() => setActive(false)}
+                title="Publishers List"
+                primaryAction={{
+                    content: 'Done',
+                    onAction: () => selectPublishersHandler(),
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Cancel',
+                        onAction: () => setActive(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <Select
+                        menuPortalTarget={document.body}
+                        styles={{
+                            menuPortal: base => ({ ...base, zIndex: 9999 }),
+                        }}
+                        placeholder="Select Publishers..."
+                        options={templateOptions}
+                        value={selectedTemplateOptions}
+                        onChange={(e) => setSelectedTemplateOptions(e)}
+                        isMulti
+                        closeMenuOnSelect={false}
+                    />
+                </Modal.Section>
+            </Modal>
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
                 <div className="mx-auto max-w-7xl">
@@ -275,10 +356,11 @@ export default function Dashboard() {
                                             { title: 'JS Count', alignment: 'center' },
                                             { title: 'Image Count', alignment: 'center' },
                                             { title: 'Font Count', alignment: 'center' },
-                                            { title: 'Action' },
+                                            ...(roleId == 1 ? [{ title: 'Action' }] : []),
                                         ]}
                                         hasMoreItems
-                                        selectable={false}
+                                        selectable={true}
+                                        promotedBulkActions={promotedBulkActions}
                                     >
                                         {rowMarkup}
                                     </IndexTable>

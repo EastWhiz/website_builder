@@ -1,13 +1,14 @@
 <?php
 
 use App\Http\Controllers\AngleController;
+use App\Http\Controllers\AngleTemplateController;
 use App\Http\Controllers\DeepLControlller;
 use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
 use App\Models\Angle;
-use App\Models\EditedTemplate;
+use App\Models\AngleTemplate;
 use App\Models\Template;
 use App\Models\TemplateContent;
 use Illuminate\Foundation\Application;
@@ -49,8 +50,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('editAngle');
         Route::post('/angles/add-edit', [AngleController::class, 'addEditProcess'])->name('angles.addEdit');
 
-        // Route::inertia('/frontend', 'FrontEnd')->name('frontend');
-
         Route::inertia('/users', 'Users/Users')->name('users');
         Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');
     });
@@ -69,25 +68,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::inertia('/angles', 'Angles/Angles')->name('angles');
         Route::get('/angles/list', [AngleController::class, 'index'])->name('angles.list');
 
-        Route::get('/templates/preview/{id}', function ($id) {
-            return Inertia::render('Templates/PreviewTemplate', compact('id'));
-        })->name('previewTemplate');
-        Route::post('/templates/preview/contents', function (Request $request) {
-            $thisTemplate = Template::find($request->template_id);
-            return response()->json([
-                'message' => 'Data retrieved successfully',
-                'data' => [
-                    'template' => $thisTemplate,
-                    'css' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'css')->first(),
-                    'js' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'js')->first(),
-                    'body' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'html')->where('name', "BD1")->first(),
-                    'body2' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'html')->where('name', "BD2")->first(),
-                    'body3' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'html')->where('name', "BD3")->first(),
-                ],
-                'status' => 200
-            ]);
-        })->name('templates.previewContent');
-        Route::post('/edited-templates/save', [EditedTemplateController::class, 'saveTemplate'])->name('editedTemplates.save');
+        Route::post('/angles-applying', [AngleTemplateController::class, 'anglesApplying'])->name('angles.applying');
+
+
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -100,50 +83,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('userThemes');
         Route::get('/users/{id}/themes/list', [UsersController::class, 'userThemesList'])->name('userThemes.list');
 
-        Route::get('/templates/edited-preview/{id}', function ($id) {
-            return Inertia::render('Templates/PreviewEditedTemplate', compact('id'));
-        })->name('previewEditedTemplate');
-        Route::post('/templates/edited-preview/contents', function (Request $request) {
-            $thisEditedTemplate = EditedTemplate::where('id', $request->edited_template_id)->with(['template', 'user'])->first();
-            return response()->json([
-                'message' => 'Data retrieved successfully',
-                'data' => [
-                    'editedTemplate' => $thisEditedTemplate,
-                    'template' => $thisEditedTemplate->template,
-                    'css' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'css')->first(),
-                    'js' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'js')->first(),
-                    'body' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'html')->where('name', "BD1")->first(),
-                    'body2' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'html')->where('name', "BD2")->first(),
-                    'body3' => TemplateContent::where('template_uuid', $thisEditedTemplate->template->uuid)->where('type', 'html')->where('name', "BD3")->first(),
-                ],
-                'status' => 200
-            ]);
-            return $request;
-        })->name('editedTemplates.previewContent');
+        Route::get('/angle-templates/preview/{id}', function ($id) {
+            return Inertia::render('AngleTemplates/PreviewAngleTemplate', compact('id'));
+        })->name('previewAngleTemplate');
 
-        Route::get('/download', [EditedTemplateController::class, 'downloadTemplate'])->name('download');
+        Route::post('/angle-templates/contents', function (Request $request) {
+            $angleTemplate = AngleTemplate::with(['angle.contents', 'template.contents', 'user'])->where('id', $request->angle_template_id)->first();
+            return sendResponse(true, "Angle Template retrieved successfully", $angleTemplate);
+        })->name('AngleTemplate.previewContent');
+
+        Route::post('/angle-template/save', [AngleTemplateController::class, 'saveEditedAngleTemplate'])->name('editedAngleTemplate.save');
+
+        Route::get('/download', [AngleTemplateController::class, 'downloadTemplate'])->name('download');
         Route::post('/deepL', [DeepLControlller::class, 'deepL'])->name('deepL');
     });
 });
-
-// Route::get('/templates/preview/{id}', function ($id) {
-//     return Inertia::render('Templates/PreviewTemplate', compact('id'));
-// })->name('previewTemplate');
-
-// Route::post('/templates/preview/contents', function (Request $request) {
-//     $thisTemplate = Template::find($request->template_id);
-//     return response()->json([
-//         'message' => 'Data retrieved successfully',
-//         'data' => [
-//             'template' => $thisTemplate,
-//             'css' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'css')->first(),
-//             'js' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'js')->first(),
-//             'body' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'html')->where('name', "BD1")->first(),
-//             'body2' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'html')->where('name', "BD2")->first(),
-//             'body3' => TemplateContent::where('template_uuid', $thisTemplate->uuid)->where('type', 'html')->where('name', "BD3")->first(),
-//         ],
-//         'status' => 200
-//     ]);
-// })->name('templates.previewContent');
 
 require __DIR__ . '/auth.php';

@@ -465,14 +465,16 @@ export default function Dashboard() {
                                                     Insert Contents
                                                 </Typography>
                                                 <Typography variant="body" color="white" mb={3}>
-                                                    Insert HTML, JS, CSS Chunks
+                                                    {/* , JS, CSS */}
+                                                    Insert HTML Chunks
                                                 </Typography>
                                             </Box>
                                             <Card sx={{ minWidth: 275, }}>
                                                 <CardContent>
                                                     <Box>
                                                         <Typography variant="h5" component="div" mt={2} sx={{ fontSize: { xs: '18px', sm: '18px', md: '20px', lg: '24px', xl: '24px' }, textAlign: "center" }}>
-                                                            Insert the HTML, JS, CSS Chunks available to connect them for any angle
+                                                            {/* , JS, CSS */}
+                                                            Insert the HTML Chunks available to connect them for any angle
                                                         </Typography>
                                                         <Box sx={{
                                                             marginTop: "40px",
@@ -555,7 +557,8 @@ export default function Dashboard() {
                                                                     );
                                                                 })}
                                                             </Box>
-                                                            <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "20px", }}>
+
+                                                            {/* <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "20px", }}>
                                                                 <Typography variant="body" component="div" sx={{ marginBottom: "20px", textDecoration: "underline", fontSize: "18px", fontWeight: "500" }}>
                                                                     CSS Chunks
                                                                 </Typography>
@@ -700,7 +703,7 @@ export default function Dashboard() {
                                                                         </Box>
                                                                     );
                                                                 })}
-                                                            </Box>
+                                                            </Box> */}
                                                         </Box>
                                                     </Box>
                                                 </CardContent>
@@ -722,21 +725,23 @@ export default function Dashboard() {
                                                     Upload Files
                                                 </Typography>
                                                 <Typography variant="body" color="white" mb={3}>
-                                                    Upload Fonts, Images
+                                                    {/* Fonts,  */}
+                                                    Upload Images
                                                 </Typography>
                                             </Box>
                                             <Card sx={{ minWidth: 275 }}>
                                                 <CardContent>
                                                     <Box>
                                                         <Typography variant="h5" component="div" mt={2} sx={{ fontSize: { xs: '18px', sm: '18px', md: '20px', lg: '24px', xl: '24px' }, textAlign: "center" }}>
-                                                            Upload the Fonts, Images available to connect them for this angle
+                                                            {/* Fonts,  */}
+                                                            Upload the Images available to connect them for this angle
                                                         </Typography>
                                                         <Box sx={{
                                                             marginTop: "40px",
                                                             paddingLeft: { xs: '10px', sm: '50px', md: '100px', lg: '150px', xl: '150px' },
                                                             paddingRight: { xs: '10px', sm: '50px', md: '100px', lg: '150px', xl: '150px' },
                                                         }}>
-                                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                            {/* <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                                                 <Typography variant="body" component="div" sx={{ marginBottom: "20px", textDecoration: "underline", fontSize: "18px", fontWeight: "500" }}>
                                                                     Fonts
                                                                 </Typography>
@@ -817,7 +822,7 @@ export default function Dashboard() {
                                                                         </Box>
                                                                     </Box>
                                                                 );
-                                                            })}
+                                                            })} */}
 
                                                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                                                 <Typography variant="body" component="div" sx={{ marginBottom: "20px", textDecoration: "underline", fontSize: "18px", fontWeight: "500" }}>

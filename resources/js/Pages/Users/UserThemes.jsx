@@ -1,20 +1,19 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, usePage } from '@inertiajs/react';
-import { Box, Button as MuiButton } from '@mui/material';
+import { Head, usePage } from '@inertiajs/react';
+import { Box } from '@mui/material';
 
 import {
-    Card,
     Button,
+    Card,
     IndexFilters,
     IndexTable,
     Pagination,
     Select as ShopifySelect,
-    useIndexResourceState, useSetIndexFiltersMode,
-    Text
+    useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
+import { EditIcon, PageDownIcon, ViewIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
-import { EditIcon, ViewIcon, PageDownIcon } from '@shopify/polaris-icons';
 
 export default function Dashboard() {
 
@@ -40,8 +39,8 @@ export default function Dashboard() {
     let timeout = null;
 
     const resourceName = {
-        singular: 'Template',
-        plural: 'Templates',
+        singular: 'Sales Page',
+        plural: 'Sales Pages',
     };
 
     const pageOptions = [
@@ -170,7 +169,7 @@ export default function Dashboard() {
             position={index}
         >
             <IndexTable.Cell>
-                {`ET${value.id}`}
+                {`SP${value.id}`}
             </IndexTable.Cell>
             <IndexTable.Cell>
                 {value.name}
@@ -180,13 +179,13 @@ export default function Dashboard() {
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Button variant='plain' icon={PageDownIcon} onClick={() => {
-                    let data = JSON.stringify({ url: `${window.appURL}/templates/edited-preview/${value.id}` })
+                    let data = JSON.stringify({ url: `${window.appURL}/angle-templates/preview/${value.id}` })
                     window.open(`${window.appURL}/download?data=${data}`, "_blank");
                 }}></Button>
                 <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={EditIcon} onClick={() => window.open(`${window.appURL}/templates/edited-preview/${value.id}/`, "_blank")}></Button>
+                <Button variant='plain' icon={EditIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
                 <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/templates/edited-preview/${value.id}/`, "_blank")}></Button>
+                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
@@ -195,11 +194,11 @@ export default function Dashboard() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Templates
+                    Sales Pages
                 </h2>
             }
         >
-            <Head title="Templates" />
+            <Head title="Sales Pages" />
 
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}

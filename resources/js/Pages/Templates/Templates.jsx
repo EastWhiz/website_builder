@@ -20,14 +20,16 @@ import { useCallback, useEffect, useState } from 'react';
 export default function Dashboard() {
 
     const page = usePage().props;
+    const roleId = page?.auth?.user?.role_id;
+    // console.log(roleId);
 
     const [selected, setSelected] = useState(0);
 
     let timeout = null;
 
     const resourceName = {
-        singular: 'Template',
-        plural: 'Templates',
+        singular: 'Publisher',
+        plural: 'Publishers',
     };
 
     const pageOptions = [
@@ -156,7 +158,7 @@ export default function Dashboard() {
             position={index}
         >
             <IndexTable.Cell>
-                {`T${value.id}`}
+                {`P${value.id}`}
             </IndexTable.Cell>
             <IndexTable.Cell>
                 {value.name}
@@ -196,16 +198,11 @@ export default function Dashboard() {
                     </Box>
                 </Text>
             </IndexTable.Cell>
-            <IndexTable.Cell>
-                <Button variant='plain' icon={PageDownIcon} onClick={() => {
-                    let data = JSON.stringify({ url: `${window.appURL}/templates/preview/${value.id}` })
-                    window.open(`${window.appURL}/download?data=${data}`, "_blank");
-                }}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editTemplate', value.id))}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/templates/preview/${value.id}/`, "_blank")}></Button>
-            </IndexTable.Cell>
+            {roleId == 1 &&
+                <IndexTable.Cell>
+                    <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editTemplate', value.id))}></Button>
+                </IndexTable.Cell>
+            }
         </IndexTable.Row >
     ));
 
@@ -213,11 +210,11 @@ export default function Dashboard() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Templates
+                    Publishers
                 </h2>
             }
         >
-            <Head title="Templates" />
+            <Head title="Publishers" />
 
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
@@ -246,7 +243,7 @@ export default function Dashboard() {
                                             sortOptions={sortOptions}
                                             sortSelected={sortSelected}
                                             queryValue={queryValue}
-                                            queryPlaceholder="Search Templates..."
+                                            queryPlaceholder="Search Publishers..."
                                             onQueryChange={handleFiltersQueryChange}
                                             onQueryClear={handleQueryValueRemove}
                                             onSort={setSortSelected}
@@ -282,7 +279,7 @@ export default function Dashboard() {
                                             { title: 'JS Count', alignment: 'center' },
                                             { title: 'Image Count', alignment: 'center' },
                                             { title: 'Font Count', alignment: 'center' },
-                                            { title: 'Action' },
+                                            ...(roleId == 1 ? [{ title: 'Action' }] : []),
                                         ]}
                                         hasMoreItems
                                         selectable={false}

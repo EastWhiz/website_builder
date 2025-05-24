@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('edited_templates', function (Blueprint $table) {
+        Schema::create('angle_templates', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('angle_id');
             $table->unsignedBigInteger('template_id');
             $table->unsignedBigInteger('user_id');
             $table->string('name');
@@ -26,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('edited_templates');
+        Schema::dropIfExists('angle_templates');
     }
 };

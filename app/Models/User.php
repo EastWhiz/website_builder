@@ -52,8 +52,8 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class, 'role_id');
     }
 
-    public function editedTemplates()
+    public function angleTemplates()
     {
-        return $this->hasMany(EditedTemplate::class, 'user_id');
+        return $this->hasMany(AngleTemplate::class, 'user_id');
     }
 }

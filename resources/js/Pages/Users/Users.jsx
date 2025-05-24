@@ -2,19 +2,17 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { Box, Button as MuiButton } from '@mui/material';
 
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
     Card,
-    Button,
     IndexFilters,
     IndexTable,
     Pagination,
     Select as ShopifySelect,
-    useIndexResourceState, useSetIndexFiltersMode,
-    Text
+    useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 
 export default function Dashboard() {
 

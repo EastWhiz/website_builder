@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
+    // console.log(user);
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -22,33 +23,32 @@ export default function AuthenticatedLayout({ header, children }) {
                                     <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
                                 </Link>
                             </div>
-
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink
+                                    href={user.role_id == 1 ? route('dashboard') : route('memberDashboard')}
+                                    active={route().current('dashboard') || route().current('dashboard')}
+                                >
+                                    Dashboard
+                                </NavLink>
+                            </div>
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink
+                                    href={route('templates')}
+                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                                >
+                                    Publishers
+                                </NavLink>
+                            </div>
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink
+                                    href={route('angles')}
+                                    active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                                >
+                                    Angles
+                                </NavLink>
+                            </div>
                             {user && user.role.name == "admin" ?
                                 <>
-                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                        <NavLink
-                                            href={route('dashboard')}
-                                            active={route().current('dashboard')}
-                                        >
-                                            Dashboard
-                                        </NavLink>
-                                    </div>
-                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                        <NavLink
-                                            href={route('templates')}
-                                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                                        >
-                                            Templates
-                                        </NavLink>
-                                    </div>
-                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                        <NavLink
-                                            href={route('angles')}
-                                            active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
-                                        >
-                                            Angles
-                                        </NavLink>
-                                    </div>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                         <NavLink
                                             href={route('users')}
@@ -60,34 +60,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </> : <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                         <NavLink
-                                            href={route('memberDashboard')}
-                                            active={route().current('memberDashboard')}
-                                        >
-                                            Dashboard
-                                        </NavLink>
-                                    </div>
-                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                        <NavLink
-                                            href={route('templates')}
-                                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                                        >
-                                            Templates
-                                        </NavLink>
-                                    </div>
-                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                        <NavLink
-                                            href={route('angles')}
-                                            active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
-                                        >
-                                            Angles
-                                        </NavLink>
-                                    </div>
-                                    <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                        <NavLink
                                             href={route('userThemes', { id: user.id })}
                                             active={route().current('userThemes')}
                                         >
-                                            My Templates
+                                            Sales Pages
                                         </NavLink>
                                     </div>
                                 </>
@@ -191,26 +167,26 @@ export default function AuthenticatedLayout({ header, children }) {
                     }
                 >
                     <div className="space-y-1 pb-3 pt-2">
+                        <ResponsiveNavLink
+                            href={user.role_id == 1 ? route('dashboard') : route('memberDashboard')}
+                            active={route().current('dashboard') || route().current('dashboard')}
+                        >
+                            Dashboard
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('templates')}
+                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                        >
+                            Publishers
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('angles')}
+                            active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                        >
+                            Angles
+                        </ResponsiveNavLink>
                         {user && user.role.name == "admin" ?
                             <>
-                                <ResponsiveNavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
-                                    Dashboard
-                                </ResponsiveNavLink>
-                                <ResponsiveNavLink
-                                    href={route('templates')}
-                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                                >
-                                    Templates
-                                </ResponsiveNavLink>
-                                <ResponsiveNavLink
-                                    href={route('angles')}
-                                    active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
-                                >
-                                    Angles
-                                </ResponsiveNavLink>
                                 <ResponsiveNavLink
                                     href={route('users')}
                                     active={route().current('users') || route().current('userThemes')}
@@ -219,28 +195,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </ResponsiveNavLink>
                             </> : <>
                                 <ResponsiveNavLink
-                                    href={route('memberDashboard')}
-                                    active={route().current('memberDashboard')}
-                                >
-                                    Dashboard
-                                </ResponsiveNavLink>
-                                <ResponsiveNavLink
-                                    href={route('templates')}
-                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                                >
-                                    Templates
-                                </ResponsiveNavLink>
-                                <ResponsiveNavLink
-                                    href={route('angles')}
-                                    active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
-                                >
-                                    Angles
-                                </ResponsiveNavLink>
-                                <ResponsiveNavLink
                                     href={route('userThemes', { id: user.id })}
                                     active={route().current('userThemes')}
                                 >
-                                    Users
+                                    Sales Pages
                                 </ResponsiveNavLink>
                             </>
                         }

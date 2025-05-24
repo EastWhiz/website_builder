@@ -75,7 +75,7 @@ export default function Dashboard() {
 
     const [currentThing, setCurrentThing] = useState('');
 
-    const steps = ['Template', 'Contents', 'Files'];
+    const steps = ['Publisher', 'Contents', 'Files'];
 
     const [activeStep, setActiveStep] = useState(0);
     const [skipped, setSkipped] = useState(new Set());
@@ -305,11 +305,11 @@ export default function Dashboard() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Templates
+                    Publishers
                 </h2>
             }
         >
-            <Head title="Templates" />
+            <Head title="Publishers" />
 
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
@@ -415,7 +415,7 @@ export default function Dashboard() {
                                             <Box sx={{ mb: 0, background: "#707070", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                                 <Box mt={3} mb={2}><img src={Doc1}></img></Box>
                                                 <Typography variant="h3" component="div" color="white" mb={1} sx={{ fontSize: { xs: '30px', sm: '30px', md: '40px', lg: '40px', xl: '40px' } }}>
-                                                    Insert Template
+                                                    Insert Publisher
                                                 </Typography>
                                                 <Typography variant="body" color="white" mb={3}>
                                                     Insert head, body content below
@@ -443,7 +443,7 @@ export default function Dashboard() {
 
                                                                 }}
                                                                 fullWidth
-                                                                placeholder="Enter Template Name..."
+                                                                placeholder="Enter Publisher Name..."
                                                                 size="small"
                                                                 value={template.name}
                                                                 onChange={(e) => {
@@ -513,21 +513,23 @@ export default function Dashboard() {
                                                     Insert Contents
                                                 </Typography>
                                                 <Typography variant="body" color="white" mb={3}>
-                                                    Insert HTML, JS, CSS Chunks
+                                                    {/* HTML, JS, */}
+                                                    Insert CSS Chunks
                                                 </Typography>
                                             </Box>
                                             <Card sx={{ minWidth: 275, }}>
                                                 <CardContent>
                                                     <Box>
                                                         <Typography variant="h5" component="div" mt={2} sx={{ fontSize: { xs: '18px', sm: '18px', md: '20px', lg: '24px', xl: '24px' }, textAlign: "center" }}>
-                                                            Insert the HTML, JS, CSS Chunks available to connect them for any template
+                                                            {/*  HTML, JS, */}
+                                                            Insert the CSS Chunks available to connect them for any template
                                                         </Typography>
                                                         <Box sx={{
                                                             marginTop: "40px",
                                                             paddingLeft: { xs: '10px', sm: '50px', md: '100px', lg: '150px', xl: '150px' },
                                                             paddingRight: { xs: '10px', sm: '50px', md: '100px', lg: '150px', xl: '150px' },
                                                         }}>
-                                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                            {/* <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                                                 <Typography variant="body" component="div" sx={{ marginBottom: "20px", textDecoration: "underline", fontSize: "18px", fontWeight: "500" }}>
                                                                     HTML Chunks
                                                                 </Typography>
@@ -602,7 +604,7 @@ export default function Dashboard() {
                                                                         </Box>
                                                                     );
                                                                 })}
-                                                            </Box>
+                                                            </Box> */}
                                                             <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "20px", }}>
                                                                 <Typography variant="body" component="div" sx={{ marginBottom: "20px", textDecoration: "underline", fontSize: "18px", fontWeight: "500" }}>
                                                                     CSS Chunks
@@ -676,7 +678,8 @@ export default function Dashboard() {
                                                                     );
                                                                 })}
                                                             </Box>
-                                                            <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "20px", }}>
+
+                                                            {/* <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "20px", }}>
                                                                 <Typography variant="body" component="div" sx={{ marginBottom: "20px", textDecoration: "underline", fontSize: "18px", fontWeight: "500" }}>
                                                                     JS Chunks
                                                                 </Typography>
@@ -748,7 +751,7 @@ export default function Dashboard() {
                                                                         </Box>
                                                                     );
                                                                 })}
-                                                            </Box>
+                                                            </Box> */}
                                                         </Box>
                                                     </Box>
                                                 </CardContent>
