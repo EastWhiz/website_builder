@@ -4,6 +4,7 @@ use App\Http\Controllers\AngleController;
 use App\Http\Controllers\AngleTemplateController;
 use App\Http\Controllers\DeepLControlller;
 use App\Http\Controllers\EditedTemplateController;
+use App\Http\Controllers\GrokController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
@@ -100,6 +101,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/download', [AngleTemplateController::class, 'downloadTemplate'])->name('download');
         Route::post('/deepL', [DeepLControlller::class, 'deepL'])->name('deepL');
+        Route::post('/grok', [GrokController::class, 'grok'])->name('grok');
     });
 });
 

@@ -164,25 +164,8 @@ export default function Dashboard({ id }) {
     });
     const [chatGPT, setChatGPT] = useState({
         query: "",
-        response: `<div class="comment">
-            <strong>Ali Raza</strong>: This product looks amazing! 🔥
-            </div>
-
-            <div class="comment">
-            <strong>Sara Khan</strong>: I’ve been using this for a month, worth it!
-            </div>
-
-            <div class="comment">
-            <strong>Hamza Sheikh</strong>: Where can I buy this?
-            </div>
-
-            <div class="comment">
-            <strong>Mehwish Aslam</strong>: Just ordered mine! Can’t wait 😍
-            </div>
-
-            <div class="comment">
-            <strong>Bilal Ahmed</strong>: Does it come in different sizes?
-            </div>`,
+        response: "",
+        currentSource: false, // TEXT, CUSTOM_HTML
     });
     const [textManagement, setTextManagement] = useState({
         textInput: "",
@@ -353,6 +336,7 @@ export default function Dashboard({ id }) {
             if (editableElements.includes(event.target.localName) || event.target.classList.contains('editableDiv')) {
                 event.target.classList.add(randString);
                 setOpen(true);
+                resetModalHandler();
                 setEditing({
                     editID: randString,
                     currentElement: event.target,
@@ -402,6 +386,26 @@ export default function Dashboard({ id }) {
                 toLanguage: false,
                 fromText: "",
                 toText: "",
+                currentSource: false, // TEXT, CUSTOM_HTML
+            });
+            return;
+        }
+
+        if (chatGPT.query) {
+            if (chatGPT.currentSource == "text_management") {
+                setTextManagement(prev => ({
+                    ...prev,
+                    textInput: chatGPT.response,
+                }));
+            } else if (chatGPT.currentSource == "custom_html") {
+                setCustomHTMLManagement(prev => ({
+                    ...prev,
+                    input: chatGPT.response,
+                }));
+            }
+            setChatGPT({
+                query: "",
+                response: "",
                 currentSource: false, // TEXT, CUSTOM_HTML
             });
             return;
@@ -734,7 +738,76 @@ export default function Dashboard({ id }) {
         getData();
     }
 
+    const grokAIOpenHandler = (source) => {
+        if (source == "text_management") {
+            setChatGPT(prev => ({
+                ...prev, // keep all previous values
+                query: textManagement.textInput, // only update the value you want
+                currentSource: "text_management"
+            }));
+        } else if (source == "custom_html") {
+            setChatGPT(prev => ({
+                ...prev, // keep all previous values
+                query: customHTMLManagement.input, // only update the value you want
+                currentSource: "custom_html"
+            }));
+        }
+    }
+
+    const grokAIHandler = () => {
+        async function getData() {
+            const url = route('grok');
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json", // <---- MISSING BEFORE
+                        "Accept": "application/json",       // (optional but good)
+                    },
+                    body: JSON.stringify({
+                        prompt: chatGPT.query,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Response status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                // console.log(result);
+
+                if (result.success) {
+                    setChatGPT(prev => ({
+                        ...prev,
+                        response: result.data,
+                    }));
+                }
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+        getData();
+    }
+
+    const resetModalHandler = () => {
+        setTranslator({
+            fromLanguange: false,
+            toLanguage: false,
+            fromText: "",
+            toText: "",
+            currentSource: false, // TEXT, CUSTOM_HTML
+        });
+        setChatGPT({
+            query: "",
+            response: "",
+            currentSource: false, // TEXT, CUSTOM_HTML
+        });
+    }
+
     const mainHTMLActive = mainHTML.find(html => html.status == true)
+
+    console.log(chatGPT);
+    console.log(translator);
 
     return (
         <div>
@@ -761,14 +834,8 @@ export default function Dashboard({ id }) {
                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                 <Box>
                                     <ArrowBackIcon sx={{ marginTop: '-4px', marginRight: "10px", cursor: "pointer" }} onClick={() => {
-                                        if (translator.currentSource) {
-                                            setTranslator({
-                                                fromLanguange: false,
-                                                toLanguage: false,
-                                                fromText: "",
-                                                toText: "",
-                                                currentSource: false, // TEXT, CUSTOM_HTML
-                                            });
+                                        if (translator.currentSource || chatGPT.currentSource) {
+                                            resetModalHandler();
                                         } else if (editing.addElementType) {
                                             setEditing(prev => ({
                                                 ...prev, // keep all previous values
@@ -801,52 +868,50 @@ export default function Dashboard({ id }) {
                                 </div>
                             </Box>
                             <Box mt={1.5} sx={{ height: "265px", overflow: "auto" }}>
-                                {!translator.currentSource &&
-                                    <>
-                                        {editing && !editing.actionType &&
-                                            <Box mt={2} sx={{ display: "flex", gap: 1 }}>
-                                                <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
+                                <Box>
+                                    {editing && !editing.actionType &&
+                                        <Box mt={2} sx={{ display: "flex", gap: 1 }}>
+                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
+                                            <Box component="div" sx={{ marginTop: "15px" }} />
+                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
+                                        </Box>
+                                    }
+                                    {editing && editing.actionType == "add" && !editing.addElementPosition &&
+                                        <Box mt={2} sx={{ display: "flex", gap: 2, height: "100px" }}>
+                                            <Box sx={{ width: "50%", height: "100px" }}>
+                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("addElementPosition", "top")}>Top Side</Button>
                                                 <Box component="div" sx={{ marginTop: "15px" }} />
-                                                <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
+                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("addElementPosition", "left")}>Left Side</Button>
                                             </Box>
-                                        }
-                                        {editing && editing.actionType == "add" && !editing.addElementPosition &&
-                                            <Box mt={2} sx={{ display: "flex", gap: 2, height: "100px" }}>
-                                                <Box sx={{ width: "50%", height: "100px" }}>
-                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("addElementPosition", "top")}>Top Side</Button>
-                                                    <Box component="div" sx={{ marginTop: "15px" }} />
-                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("addElementPosition", "left")}>Left Side</Button>
-                                                </Box>
-                                                <Box sx={{ width: "50%" }}>
-                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="secondary" variant='outlined' onClick={() => handleChange("addElementPosition", "right")}>Right Side</Button>
-                                                    <Box component="div" sx={{ marginTop: "15px" }} />
-                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("addElementPosition", "bottom")}>Bottom Side</Button>
-                                                </Box>
+                                            <Box sx={{ width: "50%" }}>
+                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="secondary" variant='outlined' onClick={() => handleChange("addElementPosition", "right")}>Right Side</Button>
+                                                <Box component="div" sx={{ marginTop: "15px" }} />
+                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("addElementPosition", "bottom")}>Bottom Side</Button>
                                             </Box>
-                                        }
-                                        {((editing?.actionType === "add" && editing?.addElementPosition)) && !editing.addElementType && (
-                                            <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="warning" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "img")}>Image</Button>
-                                                <Box component="span" sx={{ marginTop: "10px" }} />
-                                                {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>DeepL</Button> */}
-                                                {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
-                                                {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>Chat GPT</Button> */}
-                                                {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
-                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="success" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "p")}>Text</Button>
-                                                <Box component="span" sx={{ marginTop: "10px" }} />
-                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "br")}>Spacer</Button>
-                                                <Box component="span" sx={{ marginTop: "10px" }} />
-                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="primary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "html")}>Custom HTML</Button>
-                                                <Box component="span" sx={{ marginTop: "10px" }} />
-                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "form")}>Form</Button>
-                                                <Box component="span" sx={{ marginTop: "10px" }} />
-                                                <Button className="doNotAct cptlz megaButton" variant='outlined' color="error" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "button")}>Button</Button>
-                                            </Box>
-                                        )}
-                                    </>
-                                }
+                                        </Box>
+                                    }
+                                    {((editing?.actionType === "add" && editing?.addElementPosition)) && !editing.addElementType && (
+                                        <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                            <Button className="doNotAct cptlz megaButton" variant='outlined' color="warning" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "img")}>Image</Button>
+                                            <Box component="span" sx={{ marginTop: "10px" }} />
+                                            {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>DeepL</Button> */}
+                                            {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
+                                            {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>Chat GPT</Button> */}
+                                            {/* <Box component="span" sx={{ marginTop: "10px" }} /> */}
+                                            <Button className="doNotAct cptlz megaButton" variant='outlined' color="success" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "p")}>Text</Button>
+                                            <Box component="span" sx={{ marginTop: "10px" }} />
+                                            <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "br")}>Spacer</Button>
+                                            <Box component="span" sx={{ marginTop: "10px" }} />
+                                            <Button className="doNotAct cptlz megaButton" variant='outlined' color="primary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "html")}>Custom HTML</Button>
+                                            <Box component="span" sx={{ marginTop: "10px" }} />
+                                            <Button className="doNotAct cptlz megaButton" variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "form")}>Form</Button>
+                                            <Box component="span" sx={{ marginTop: "10px" }} />
+                                            <Button className="doNotAct cptlz megaButton" variant='outlined' color="error" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "button")}>Button</Button>
+                                        </Box>
+                                    )}
+                                </Box>
 
-                                {translator.currentSource ?
+                                {editing.actionType && translator.currentSource &&
                                     <Box sx={{ pt: "5px" }}>
                                         {/* DEEPL TRANSLATOR */}
                                         <Box sx={{ display: "flex", gap: "20px" }}>
@@ -925,375 +990,218 @@ export default function Dashboard({ id }) {
                                                 }}
                                             />
                                         </Box>
-                                    </Box> : (
-                                        (editing?.actionType === "add" && editing?.addElementPosition && editing.addElementType) ||
-                                        (editing?.actionType === "edit")
-                                    ) ? (
-                                        <Box>
-                                            {/* IMAGE MANAGEMENT MODAL */}
-                                            {(editing && editing.actionType == "edit" && ['img'].includes(editing.elementName) ||
-                                                (editing && editing.actionType === "add" && editing.addElementType == "img")
-                                            ) && (
-                                                    <Box>
-                                                        <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                                                            <ToggleButtonGroup
-                                                                color="primary"
-                                                                value={imageManagement.via}
-                                                                exclusive
-                                                                onChange={(event, newAlignment) => {
-                                                                    setImageManagement({ ...imageManagement, via: newAlignment })
-                                                                }}
-                                                                aria-label="Platform"
-                                                            >
-                                                                <ToggleButton className='toggle_button' value="src">Src</ToggleButton>
-                                                                <ToggleButton className='toggle_button' value="upload">Upload</ToggleButton>
-                                                            </ToggleButtonGroup>
-                                                        </Box>
+                                    </Box>
+                                }
 
-                                                        {imageManagement.via == "src" ?
-                                                            <TextField
-                                                                fullWidth
-                                                                size='small'
-                                                                label="Image Src"
-                                                                slotProps={{
-                                                                    inputLabel: { shrink: true }
-                                                                }}
-                                                                placeholder='Enter Image URL'
-                                                                value={imageManagement.imageSrc}
-                                                                onChange={(e) => {
-                                                                    setImageManagement({ ...imageManagement, imageSrc: e.target.value })
-                                                                }}
-                                                            /> :
-                                                            <Box sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "10px" }} p={1}>
-                                                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                                                    <Box sx={{ display: "flex" }}>
-                                                                        <Box> <img src={Doc2} width="15"></img> </Box>
-                                                                        <Box sx={{ marginLeft: "10px" }}>
-                                                                            {imageManagement.imageFile.file ?
-                                                                                <Box sx={{ marginBottom: "-8px" }}>
-                                                                                    <Typography variant="body" component="div" sx={{ fontWeight: "500", marginTop: "-5px" }}>
-                                                                                        File: {imageManagement.imageFile.name}
-                                                                                    </Typography>
-                                                                                    <Typography variant="body" color="#8B8B8B">
-                                                                                        {imageManagement.imageFile.size.toFixed(2)} MB
-                                                                                    </Typography>
-                                                                                </Box> : imageManagement.imageFile.alreadyUploaded ? <Box>
-                                                                                    <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", marginTop: "5px" }}>
-                                                                                        <Typography variant="body" >
-                                                                                            Already Uploaded:
-                                                                                        </Typography>
-                                                                                        &nbsp;{imageManagement.imageFile.alreadyUploaded}
-                                                                                    </Typography>
-                                                                                </Box> : <Box>
-                                                                                    <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", textAlign: "center", marginTop: "0px" }}>
-                                                                                        <Typography variant="body" onClick={() => document.getElementById(`hiddenFileUpload`).click()} component="span" sx={{ textDecoration: "underline", color: "#323232", fontWeight: "500", marginTop: "30px", textAlign: "center", cursor: "pointer" }}>
-                                                                                            Click here
-                                                                                        </Typography>
-                                                                                        &nbsp; to upload your file.
-                                                                                    </Typography>
-                                                                                    <input type="file" multiple style={{ display: "none" }} id={`hiddenFileUpload`} onChange={(e) => {
-                                                                                        const insideFile = e.target.files[0];
-                                                                                        let temp = { ...imageManagement };
-                                                                                        temp.imageFile.alreadyUploaded = "";
-                                                                                        temp.imageFile.file = insideFile;
-                                                                                        temp.imageFile.name = insideFile.name;
-                                                                                        temp.imageFile.size = insideFile.size / 1000000;
-                                                                                        const blob = new Blob([insideFile], { type: 'image/png' });
-                                                                                        const blobUrl = URL.createObjectURL(blob);
-                                                                                        temp.imageFile.blobUrl = blobUrl;
+                                {editing.actionType && chatGPT.currentSource &&
+                                    <Box sx={{ pt: "5px" }}>
+                                        <Box sx={{ display: "flex" }}>
+                                            <TextField
+                                                fullWidth
+                                                size='small'
+                                                placeholder='Enter Query'
+                                                value={chatGPT.query}
+                                                onChange={(e) => {
+                                                    setChatGPT({ ...chatGPT, query: e.target.value })
+                                                }}
+                                            />
+                                            <Button sx={{ ml: 2, width: "100px" }} variant="contained" className="doNotAct cptlz" onClick={grokAIHandler}>GROK</Button>
+                                        </Box>
+                                        <Box sx={{ mt: 2, p: 1, borderRadius: "3px", border: "1px solid black", background: "#e5e5e5", fontSize: "12px" }}>
+                                            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{chatGPT.response == "" ? "Grok AI Response" : chatGPT.response}</pre>
+                                        </Box>
+                                    </Box>
+                                }
 
-                                                                                        let tempNewImages = [...newImageUploads];
-                                                                                        tempNewImages.push({ blobUrl: blobUrl, file: insideFile })
-                                                                                        setNewImageUploads(tempNewImages);
+                                {(!chatGPT.currentSource && !translator.currentSource) &&
+                                    <Box>
+                                        {/* IMAGE MANAGEMENT MODAL */}
+                                        {(editing && editing.actionType == "edit" && ['img'].includes(editing.elementName) ||
+                                            (editing && editing.actionType === "add" && editing.addElementType == "img")
+                                        ) && (
+                                                <Box>
+                                                    <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                                                        <ToggleButtonGroup
+                                                            color="primary"
+                                                            value={imageManagement.via}
+                                                            exclusive
+                                                            onChange={(event, newAlignment) => {
+                                                                setImageManagement({ ...imageManagement, via: newAlignment })
+                                                            }}
+                                                            aria-label="Platform"
+                                                        >
+                                                            <ToggleButton className='toggle_button' value="src">Src</ToggleButton>
+                                                            <ToggleButton className='toggle_button' value="upload">Upload</ToggleButton>
+                                                        </ToggleButtonGroup>
+                                                    </Box>
 
-                                                                                        setImageManagement(temp);
-                                                                                    }} />
-                                                                                </Box>
-                                                                            }
-                                                                        </Box>
-                                                                    </Box>
-                                                                    <Box sx={{ marginTop: "", cursor: "pointer" }}>
-                                                                        <ClearIcon sx={{ color: '#8B8B8B' }} onClick={() => {
-                                                                            let temp = { ...imageManagement };
-                                                                            temp.imageFile = { alreadyUploaded: "", name: "", size: "", file: "", blobUrl: "" };
-                                                                            setImageManagement(temp);
-                                                                        }} />
-                                                                    </Box>
-                                                                </Box>
-                                                            </Box>
-                                                        }
-                                                        <FormControl fullWidth sx={{ mt: 2.1 }}>
-                                                            <InputLabel id="demo-simple-select-label">Border</InputLabel>
-                                                            <Select
-                                                                // displayEmpty
-                                                                renderValue={(value) => {
-                                                                    if (!value) {
-                                                                        return <Typography color="grey"> Select Border</Typography>;
-                                                                    }
-                                                                    return <>{value}</>;
-                                                                }}
-                                                                value={imageManagement.border}
-                                                                label="Border"
-                                                                size='small'
-                                                                onChange={(e) => {
-                                                                    setImageManagement({ ...imageManagement, border: e.target.value })
-                                                                }}
-                                                            >
-                                                                {borderStyles.map((item, index) => (
-                                                                    <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
-                                                                ))}
-                                                            </Select>
-                                                        </FormControl>
+                                                    {imageManagement.via == "src" ?
                                                         <TextField
-                                                            sx={{ mt: 2 }}
-                                                            type='number'
                                                             fullWidth
                                                             size='small'
-                                                            label="Border Width"
+                                                            label="Image Src"
                                                             slotProps={{
                                                                 inputLabel: { shrink: true }
                                                             }}
-                                                            placeholder='Enter Border Width'
-                                                            value={imageManagement.borderWidth}
+                                                            placeholder='Enter Image URL'
+                                                            value={imageManagement.imageSrc}
                                                             onChange={(e) => {
-                                                                setImageManagement({ ...imageManagement, borderWidth: e.target.value })
+                                                                setImageManagement({ ...imageManagement, imageSrc: e.target.value })
                                                             }}
-                                                        />
-                                                        <Box mt={1} sx={{ display: "flex" }}>
-                                                            <Box sx={{ width: "50%" }}>
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                    Border Color
-                                                                </Typography>
-                                                                <HexColorPicker color={imageManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setImageManagement({ ...imageManagement, borderColor: e })} />
-                                                            </Box>
-                                                            <Box sx={{ width: "50%" }}>
-                                                                <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
-                                                                    View
-                                                                </Typography>
-                                                                <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", border: `${imageManagement.borderWidth}px ${imageManagement.border} ${imageManagement.borderColor}` }} />
-                                                            </Box>
-                                                        </Box>
-                                                    </Box>
-                                                )}
+                                                        /> :
+                                                        <Box sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "10px" }} p={1}>
+                                                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                                                <Box sx={{ display: "flex" }}>
+                                                                    <Box> <img src={Doc2} width="15"></img> </Box>
+                                                                    <Box sx={{ marginLeft: "10px" }}>
+                                                                        {imageManagement.imageFile.file ?
+                                                                            <Box sx={{ marginBottom: "-8px" }}>
+                                                                                <Typography variant="body" component="div" sx={{ fontWeight: "500", marginTop: "-5px" }}>
+                                                                                    File: {imageManagement.imageFile.name}
+                                                                                </Typography>
+                                                                                <Typography variant="body" color="#8B8B8B">
+                                                                                    {imageManagement.imageFile.size.toFixed(2)} MB
+                                                                                </Typography>
+                                                                            </Box> : imageManagement.imageFile.alreadyUploaded ? <Box>
+                                                                                <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", marginTop: "5px" }}>
+                                                                                    <Typography variant="body" >
+                                                                                        Already Uploaded:
+                                                                                    </Typography>
+                                                                                    &nbsp;{imageManagement.imageFile.alreadyUploaded}
+                                                                                </Typography>
+                                                                            </Box> : <Box>
+                                                                                <Typography variant="body" component="div" sx={{ color: "#8B8B8B", fontWeight: "500", textAlign: "center", marginTop: "0px" }}>
+                                                                                    <Typography variant="body" onClick={() => document.getElementById(`hiddenFileUpload`).click()} component="span" sx={{ textDecoration: "underline", color: "#323232", fontWeight: "500", marginTop: "30px", textAlign: "center", cursor: "pointer" }}>
+                                                                                        Click here
+                                                                                    </Typography>
+                                                                                    &nbsp; to upload your file.
+                                                                                </Typography>
+                                                                                <input type="file" multiple style={{ display: "none" }} id={`hiddenFileUpload`} onChange={(e) => {
+                                                                                    const insideFile = e.target.files[0];
+                                                                                    let temp = { ...imageManagement };
+                                                                                    temp.imageFile.alreadyUploaded = "";
+                                                                                    temp.imageFile.file = insideFile;
+                                                                                    temp.imageFile.name = insideFile.name;
+                                                                                    temp.imageFile.size = insideFile.size / 1000000;
+                                                                                    const blob = new Blob([insideFile], { type: 'image/png' });
+                                                                                    const blobUrl = URL.createObjectURL(blob);
+                                                                                    temp.imageFile.blobUrl = blobUrl;
 
-                                            {/* TEXT MANAGEMENT MODAL */}
-                                            {(editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName) ||
-                                                (editing && editing.actionType === "add" && editing.addElementType == "p")
-                                            ) && (
-                                                    <Box>
-                                                        <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" >AI</Button>
-                                                            <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => translateOpenHandler("text_management")}>Translate</Button>
-                                                        </Box>
-                                                        <Box sx={{ display: 'flex', gap: "15px" }}>
-                                                            <Box sx={{ width: "50%" }}>
-                                                                <TextField
-                                                                    className="multilineCss"
-                                                                    fullWidth
-                                                                    size='small'
-                                                                    placeholder='Enter Text'
-                                                                    value={textManagement.textInput}
-                                                                    multiline
-                                                                    rows={5}
-                                                                    onChange={(e) => {
-                                                                        setTextManagement({ ...textManagement, textInput: e.target.value })
-                                                                    }}
-                                                                />
-                                                                <TextField
-                                                                    sx={{ mt: 2 }}
-                                                                    className="multilineCss"
-                                                                    fullWidth
-                                                                    size='small'
-                                                                    placeholder='Enter Http:// Link'
-                                                                    value={textManagement.link}
-                                                                    multiline
-                                                                    rows={3.5}
-                                                                    label="Link"
-                                                                    slotProps={{
-                                                                        inputLabel: { shrink: true },
-                                                                    }}
-                                                                    onChange={(e) => {
-                                                                        setTextManagement({ ...textManagement, link: e.target.value })
-                                                                    }}
-                                                                />
-                                                                <TextField
-                                                                    sx={{ mt: 2 }}
-                                                                    type='number'
-                                                                    fullWidth
-                                                                    size='small'
-                                                                    label="Font Size"
-                                                                    slotProps={{
-                                                                        inputLabel: { shrink: true },
-                                                                    }}
-                                                                    placeholder='Enter Font Size'
-                                                                    value={textManagement.fontSize}
-                                                                    onChange={(e) => {
-                                                                        setTextManagement({ ...textManagement, fontSize: e.target.value })
-                                                                    }}
-                                                                />
-                                                            </Box>
-                                                            <Box sx={{ width: "50%" }}>
-                                                                <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
-                                                                    <Box sx={{ width: "50%" }}>
-                                                                        <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                            Color
-                                                                        </Typography>
-                                                                        <HexColorPicker class color={textManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, color: e })} />
-                                                                    </Box>
-                                                                    <Box sx={{ width: "50%" }}>
-                                                                        <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                            Background
-                                                                        </Typography>
-                                                                        <HexColorPicker color={textManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, backgroundColor: e })} />
+                                                                                    let tempNewImages = [...newImageUploads];
+                                                                                    tempNewImages.push({ blobUrl: blobUrl, file: insideFile })
+                                                                                    setNewImageUploads(tempNewImages);
+
+                                                                                    setImageManagement(temp);
+                                                                                }} />
+                                                                            </Box>
+                                                                        }
                                                                     </Box>
                                                                 </Box>
-                                                                <FormControl fullWidth sx={{ mt: 2.1 }}>
-                                                                    <InputLabel id="demo-simple-select-label">Text Align</InputLabel>
-                                                                    <Select
-                                                                        // displayEmpty
-                                                                        renderValue={(value) => {
-                                                                            if (!value) {
-                                                                                return <Typography color="grey"> Select Text Alignment</Typography>;
-                                                                            }
-                                                                            return <>{value}</>;
-                                                                        }}
-                                                                        value={textManagement.textAlign}
-                                                                        label="Text Align"
-                                                                        size='small'
-                                                                        onChange={(e) => {
-                                                                            setTextManagement({ ...textManagement, textAlign: e.target.value })
-                                                                        }}
-                                                                    >
-                                                                        {textAlignProperties.map((item, index) => (
-                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                                <FormControl fullWidth sx={{ mt: 2.1 }}>
-                                                                    <InputLabel id="demo-simple-select-label">Border</InputLabel>
-                                                                    <Select
-                                                                        // displayEmpty
-                                                                        renderValue={(value) => {
-                                                                            if (!value) {
-                                                                                return <Typography color="grey"> Select Border</Typography>;
-                                                                            }
-                                                                            return <>{value}</>;
-                                                                        }}
-                                                                        value={textManagement.border}
-                                                                        label="Border"
-                                                                        size='small'
-                                                                        onChange={(e) => {
-                                                                            setTextManagement({ ...textManagement, border: e.target.value })
-                                                                        }}
-                                                                    >
-                                                                        {borderStyles.map((item, index) => (
-                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                                <TextField
-                                                                    sx={{ mt: 2 }}
-                                                                    type='number'
-                                                                    fullWidth
-                                                                    size='small'
-                                                                    label="Border Width"
-                                                                    slotProps={{
-                                                                        inputLabel: { shrink: true }
-                                                                    }}
-                                                                    placeholder='Enter Border Width'
-                                                                    value={textManagement.borderWidth}
-                                                                    onChange={(e) => {
-                                                                        setTextManagement({ ...textManagement, borderWidth: e.target.value })
-                                                                    }}
-                                                                />
-                                                            </Box>
-                                                        </Box>
-                                                        <Box mt={1} sx={{ display: "flex" }}>
-                                                            <Box sx={{ width: "28%" }} className="customPicker">
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                    Border Color
-                                                                </Typography>
-                                                                <HexColorPicker color={textManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setTextManagement({ ...textManagement, borderColor: e })} />
-                                                            </Box>
-                                                            <Box sx={{ width: "72%" }}>
-                                                                <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
-                                                                    View
-                                                                </Typography>
-                                                                <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, background: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px` }}>
-                                                                    <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textManagement.textInput == "" ? "No Text" : textManagement.textInput}</pre>
+                                                                <Box sx={{ marginTop: "", cursor: "pointer" }}>
+                                                                    <ClearIcon sx={{ color: '#8B8B8B' }} onClick={() => {
+                                                                        let temp = { ...imageManagement };
+                                                                        temp.imageFile = { alreadyUploaded: "", name: "", size: "", file: "", blobUrl: "" };
+                                                                        setImageManagement(temp);
+                                                                    }} />
                                                                 </Box>
                                                             </Box>
                                                         </Box>
-                                                    </Box>
-                                                )}
-
-                                            {/* CUSTOM HTML */}
-                                            {(editing && editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName) ||
-                                                (editing && editing.actionType === "add" && editing.addElementType == "html")
-                                            ) && (
-                                                    <Box>
-                                                        <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
-                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" >AI</Button>
-                                                            <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                            <Button className="doNotAct" size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => translateOpenHandler("custom_html")}>Translate</Button>
-                                                        </Box>
-                                                        <TextField
-                                                            className="multilineCss"
-                                                            fullWidth
+                                                    }
+                                                    <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                                        <InputLabel id="demo-simple-select-label">Border</InputLabel>
+                                                        <Select
+                                                            // displayEmpty
+                                                            renderValue={(value) => {
+                                                                if (!value) {
+                                                                    return <Typography color="grey"> Select Border</Typography>;
+                                                                }
+                                                                return <>{value}</>;
+                                                            }}
+                                                            value={imageManagement.border}
+                                                            label="Border"
                                                             size='small'
-                                                            placeholder='Enter Custom HTML'
-                                                            value={customHTMLManagement.input}
-                                                            multiline
-                                                            rows={10} // You can adjust the number of rows as needed
                                                             onChange={(e) => {
-                                                                setCustomHTMLManagement({ ...customHTMLManagement, input: e.target.value })
+                                                                setImageManagement({ ...imageManagement, border: e.target.value })
                                                             }}
-                                                        />
-                                                    </Box>
-                                                )}
-
-                                            {/* BUTTOM MANAGEMENT */}
-                                            {(editing && editing.actionType == "edit" && ['button'].includes(editing.elementName) ||
-                                                (editing && editing.actionType === "add" && editing.addElementType == "button")
-                                            ) && (
-                                                    <Box sx={{ padding: "10px 0px" }}>
-                                                        <Box sx={{ display: 'flex', gap: "15px" }}>
-                                                            <Box sx={{ width: "50%" }}>
-                                                                <TextField
-                                                                    fullWidth
-                                                                    size='small'
-                                                                    label="Button Text"
-                                                                    multiline
-                                                                    rows={3}
-                                                                    slotProps={{
-                                                                        inputLabel: { shrink: true }
-                                                                    }}
-                                                                    placeholder='Enter Button Text'
-                                                                    value={buttonManagement.buttonText}
-                                                                    onChange={(e) => {
-                                                                        setButtonManagement({ ...buttonManagement, buttonText: e.target.value })
-                                                                    }}
-                                                                />
-                                                            </Box>
-                                                            <Box mt={-1.6} sx={{ width: "50%" }}>
-                                                                <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
-                                                                    <Box sx={{ width: "50%" }}>
-                                                                        <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                            Color
-                                                                        </Typography>
-                                                                        <HexColorPicker class color={buttonManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, color: e })} />
-                                                                    </Box>
-                                                                    <Box sx={{ width: "50%" }}>
-                                                                        <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                            Background
-                                                                        </Typography>
-                                                                        <HexColorPicker color={buttonManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, backgroundColor: e })} />
-                                                                    </Box>
-                                                                </Box>
-                                                            </Box>
+                                                        >
+                                                            {borderStyles.map((item, index) => (
+                                                                <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                    <TextField
+                                                        sx={{ mt: 2 }}
+                                                        type='number'
+                                                        fullWidth
+                                                        size='small'
+                                                        label="Border Width"
+                                                        slotProps={{
+                                                            inputLabel: { shrink: true }
+                                                        }}
+                                                        placeholder='Enter Border Width'
+                                                        value={imageManagement.borderWidth}
+                                                        onChange={(e) => {
+                                                            setImageManagement({ ...imageManagement, borderWidth: e.target.value })
+                                                        }}
+                                                    />
+                                                    <Box mt={1} sx={{ display: "flex" }}>
+                                                        <Box sx={{ width: "50%" }}>
+                                                            <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                Border Color
+                                                            </Typography>
+                                                            <HexColorPicker color={imageManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setImageManagement({ ...imageManagement, borderColor: e })} />
                                                         </Box>
-                                                        <Box>
+                                                        <Box sx={{ width: "50%" }}>
+                                                            <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                                View
+                                                            </Typography>
+                                                            <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", border: `${imageManagement.borderWidth}px ${imageManagement.border} ${imageManagement.borderColor}` }} />
+                                                        </Box>
+                                                    </Box>
+                                                </Box>
+                                            )}
+
+                                        {/* TEXT MANAGEMENT MODAL */}
+                                        {(editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName) ||
+                                            (editing && editing.actionType === "add" && editing.addElementType == "p")
+                                        ) && (
+                                                <Box>
+                                                    <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                                                        <Button className="doNotAct" size="small" variant="contained" color="primary" onClick={() => grokAIOpenHandler("text_management")}>AI</Button>
+                                                        <Box component="span" sx={{ marginLeft: "10px" }} />
+                                                        <Button className="doNotAct" size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => translateOpenHandler("text_management")}>Translate</Button>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', gap: "15px" }}>
+                                                        <Box sx={{ width: "50%" }}>
+                                                            <TextField
+                                                                className="multilineCss"
+                                                                fullWidth
+                                                                size='small'
+                                                                placeholder='Enter Text'
+                                                                value={textManagement.textInput}
+                                                                multiline
+                                                                rows={5}
+                                                                onChange={(e) => {
+                                                                    setTextManagement({ ...textManagement, textInput: e.target.value })
+                                                                }}
+                                                            />
+                                                            <TextField
+                                                                sx={{ mt: 2 }}
+                                                                className="multilineCss"
+                                                                fullWidth
+                                                                size='small'
+                                                                placeholder='Enter Http:// Link'
+                                                                value={textManagement.link}
+                                                                multiline
+                                                                rows={3.5}
+                                                                label="Link"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true },
+                                                                }}
+                                                                onChange={(e) => {
+                                                                    setTextManagement({ ...textManagement, link: e.target.value })
+                                                                }}
+                                                            />
                                                             <TextField
                                                                 sx={{ mt: 2 }}
                                                                 type='number'
@@ -1304,41 +1212,49 @@ export default function Dashboard({ id }) {
                                                                     inputLabel: { shrink: true },
                                                                 }}
                                                                 placeholder='Enter Font Size'
-                                                                value={buttonManagement.fontSize}
+                                                                value={textManagement.fontSize}
                                                                 onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, fontSize: e.target.value })
+                                                                    setTextManagement({ ...textManagement, fontSize: e.target.value })
                                                                 }}
                                                             />
-                                                            <TextField
-                                                                sx={{ mt: 2 }}
-                                                                type='number'
-                                                                fullWidth
-                                                                size='small'
-                                                                label="Margin"
-                                                                slotProps={{
-                                                                    inputLabel: { shrink: true },
-                                                                }}
-                                                                placeholder='Enter Margin'
-                                                                value={buttonManagement.margin}
-                                                                onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, margin: e.target.value })
-                                                                }}
-                                                            />
-                                                            <TextField
-                                                                sx={{ mt: 2 }}
-                                                                type='number'
-                                                                fullWidth
-                                                                size='small'
-                                                                label="Padding"
-                                                                slotProps={{
-                                                                    inputLabel: { shrink: true },
-                                                                }}
-                                                                placeholder='Enter Padding'
-                                                                value={buttonManagement.padding}
-                                                                onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, padding: e.target.value })
-                                                                }}
-                                                            />
+                                                        </Box>
+                                                        <Box sx={{ width: "50%" }}>
+                                                            <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
+                                                                <Box sx={{ width: "50%" }}>
+                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                        Color
+                                                                    </Typography>
+                                                                    <HexColorPicker class color={textManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, color: e })} />
+                                                                </Box>
+                                                                <Box sx={{ width: "50%" }}>
+                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                        Background
+                                                                    </Typography>
+                                                                    <HexColorPicker color={textManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, backgroundColor: e })} />
+                                                                </Box>
+                                                            </Box>
+                                                            <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                                                <InputLabel id="demo-simple-select-label">Text Align</InputLabel>
+                                                                <Select
+                                                                    // displayEmpty
+                                                                    renderValue={(value) => {
+                                                                        if (!value) {
+                                                                            return <Typography color="grey"> Select Text Alignment</Typography>;
+                                                                        }
+                                                                        return <>{value}</>;
+                                                                    }}
+                                                                    value={textManagement.textAlign}
+                                                                    label="Text Align"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        setTextManagement({ ...textManagement, textAlign: e.target.value })
+                                                                    }}
+                                                                >
+                                                                    {textAlignProperties.map((item, index) => (
+                                                                        <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    ))}
+                                                                </Select>
+                                                            </FormControl>
                                                             <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                                 <InputLabel id="demo-simple-select-label">Border</InputLabel>
                                                                 <Select
@@ -1349,11 +1265,11 @@ export default function Dashboard({ id }) {
                                                                         }
                                                                         return <>{value}</>;
                                                                     }}
-                                                                    value={buttonManagement.border}
+                                                                    value={textManagement.border}
                                                                     label="Border"
                                                                     size='small'
                                                                     onChange={(e) => {
-                                                                        setButtonManagement({ ...buttonManagement, border: e.target.value })
+                                                                        setTextManagement({ ...textManagement, border: e.target.value })
                                                                     }}
                                                                 >
                                                                     {borderStyles.map((item, index) => (
@@ -1371,47 +1287,77 @@ export default function Dashboard({ id }) {
                                                                     inputLabel: { shrink: true }
                                                                 }}
                                                                 placeholder='Enter Border Width'
-                                                                value={buttonManagement.borderWidth}
+                                                                value={textManagement.borderWidth}
                                                                 onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, borderWidth: e.target.value })
+                                                                    setTextManagement({ ...textManagement, borderWidth: e.target.value })
                                                                 }}
                                                             />
-                                                            <Box mt={1} sx={{ display: "flex" }} className="customPicker">
-                                                                <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                        Border Color
-                                                                    </Typography>
-                                                                    <HexColorPicker color={buttonManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setButtonManagement({ ...buttonManagement, borderColor: e })} />
-                                                                </Box>
-                                                                <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
-                                                                        View
-                                                                    </Typography>
-                                                                    <Box component={"button"} sx={{ color: `${buttonManagement.color}`, background: `${buttonManagement.backgroundColor}`, padding: `${buttonManagement.padding}px`, fontSize: `${buttonManagement.fontSize}px`, margin: `${buttonManagement.margin}px`, textAlign: "center", border: `${buttonManagement.borderWidth}px ${buttonManagement.border} ${buttonManagement.borderColor}` }}>{buttonManagement.buttonText}</Box>
-                                                                </Box>
+                                                        </Box>
+                                                    </Box>
+                                                    <Box mt={1} sx={{ display: "flex" }}>
+                                                        <Box sx={{ width: "28%" }} className="customPicker">
+                                                            <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                Border Color
+                                                            </Typography>
+                                                            <HexColorPicker color={textManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setTextManagement({ ...textManagement, borderColor: e })} />
+                                                        </Box>
+                                                        <Box sx={{ width: "72%" }}>
+                                                            <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                                View
+                                                            </Typography>
+                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, background: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px` }}>
+                                                                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textManagement.textInput == "" ? "No Text" : textManagement.textInput}</pre>
                                                             </Box>
                                                         </Box>
                                                     </Box>
-                                                )}
+                                                </Box>
+                                            )}
 
-                                            {/* FORMS */}
-                                            {editing && editing.actionType == "add" && editing.addElementType == "form" &&
+                                        {/* CUSTOM HTML */}
+                                        {(editing && editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName) ||
+                                            (editing && editing.actionType === "add" && editing.addElementType == "html")
+                                        ) && (
+                                                <Box>
+                                                    <Box mb={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
+                                                        <Button className="doNotAct" size="small" variant="contained" color="primary" onClick={() => grokAIOpenHandler("custom_html")}>AI</Button>
+                                                        <Box component="span" sx={{ marginLeft: "10px" }} />
+                                                        <Button className="doNotAct" size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => translateOpenHandler("custom_html")}>Translate</Button>
+                                                    </Box>
+                                                    <TextField
+                                                        className="multilineCss"
+                                                        fullWidth
+                                                        size='small'
+                                                        placeholder='Enter Custom HTML'
+                                                        value={customHTMLManagement.input}
+                                                        multiline
+                                                        rows={10} // You can adjust the number of rows as needed
+                                                        onChange={(e) => {
+                                                            setCustomHTMLManagement({ ...customHTMLManagement, input: e.target.value })
+                                                        }}
+                                                    />
+                                                </Box>
+                                            )}
+
+                                        {/* BUTTOM MANAGEMENT */}
+                                        {(editing && editing.actionType == "edit" && ['button'].includes(editing.elementName) ||
+                                            (editing && editing.actionType === "add" && editing.addElementType == "button")
+                                        ) && (
                                                 <Box sx={{ padding: "10px 0px" }}>
                                                     <Box sx={{ display: 'flex', gap: "15px" }}>
                                                         <Box sx={{ width: "50%" }}>
                                                             <TextField
                                                                 fullWidth
                                                                 size='small'
-                                                                label="Submit Button Text"
+                                                                label="Button Text"
                                                                 multiline
                                                                 rows={3}
                                                                 slotProps={{
                                                                     inputLabel: { shrink: true }
                                                                 }}
                                                                 placeholder='Enter Button Text'
-                                                                value={formManagement.submitText}
+                                                                value={buttonManagement.buttonText}
                                                                 onChange={(e) => {
-                                                                    setFormManagement({ ...formManagement, submitText: e.target.value })
+                                                                    setButtonManagement({ ...buttonManagement, buttonText: e.target.value })
                                                                 }}
                                                             />
                                                         </Box>
@@ -1421,162 +1367,285 @@ export default function Dashboard({ id }) {
                                                                     <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
                                                                         Color
                                                                     </Typography>
-                                                                    <HexColorPicker class color={formManagement.submitTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitTextColor: e })} />
+                                                                    <HexColorPicker class color={buttonManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, color: e })} />
                                                                 </Box>
                                                                 <Box sx={{ width: "50%" }}>
                                                                     <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
                                                                         Background
                                                                     </Typography>
-                                                                    <HexColorPicker color={formManagement.submitBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitBackgroundColor: e })} />
+                                                                    <HexColorPicker color={buttonManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, backgroundColor: e })} />
                                                                 </Box>
                                                             </Box>
                                                         </Box>
                                                     </Box>
-                                                    <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
-                                                        <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {
-                                                            let temp = { ...formManagement };
-                                                            temp.inputs.push({
-                                                                name: "",
-                                                                required: false,
-                                                                type: false,
-                                                                sort: ""
-                                                            });
-                                                            setFormManagement(temp);
-                                                        }}>Add Input</Button>
-                                                    </Box>
-                                                    <Box mt={2} p={2} pt={0} sx={{ border: "2px dashed #a5a5a5", borderRadius: "2px" }}>
-                                                        {formManagement && formManagement.inputs.map((value, index) => (
-                                                            <Box key={index} sx={{ mt: 2, display: "flex" }}>
-                                                                <TextField
-                                                                    sx={{ width: "150px" }}
-                                                                    size='small'
-                                                                    label="Input Name"
-                                                                    slotProps={{
-                                                                        inputLabel: { shrink: true }
-                                                                    }}
-                                                                    placeholder='Enter Name'
-                                                                    value={value.name}
-                                                                    onChange={(e) => {
-                                                                        let temp = { ...formManagement };
-                                                                        temp.inputs[index] = { ...temp.inputs[index], name: e.target.value };
-                                                                        setFormManagement(temp);
-                                                                    }}
-                                                                />
-                                                                <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                                <FormControl>
-                                                                    <InputLabel id="demo-simple-select-label">Required</InputLabel>
-                                                                    <Select
-                                                                        sx={{ width: "150px" }}
-                                                                        // displayEmpty
-                                                                        renderValue={(value) => {
-                                                                            if (!value) {
-                                                                                return <Typography color="grey"> Select...</Typography>;
-                                                                            }
-                                                                            return <>{value}</>;
-                                                                        }}
-                                                                        value={value.required}
-                                                                        label="Required"
-                                                                        size='small'
-                                                                        onChange={(e) => {
-                                                                            let temp = { ...formManagement };
-                                                                            temp.inputs[index] = { ...temp.inputs[index], required: e.target.value };
-                                                                            setFormManagement(temp);
-                                                                        }}
-                                                                    >
-                                                                        {requireds.map((item, index) => (
-                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                                <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                                <FormControl>
-                                                                    <InputLabel id="demo-simple-select-label">Type</InputLabel>
-                                                                    <Select
-                                                                        sx={{ width: "140px" }}
-                                                                        // displayEmpty
-                                                                        renderValue={(value) => {
-                                                                            if (!value) {
-                                                                                return <Typography color="grey"> Select...</Typography>;
-                                                                            }
-                                                                            return <>{value}</>;
-                                                                        }}
-                                                                        value={value.type}
-                                                                        label="Type"
-                                                                        size='small'
-                                                                        onChange={(e) => {
-                                                                            let temp = { ...formManagement };
-                                                                            temp.inputs[index] = { ...temp.inputs[index], type: e.target.value };
-                                                                            setFormManagement(temp);
-                                                                        }}
-                                                                    >
-                                                                        {commonInputTypes.map((item, index) => (
-                                                                            <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                                <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                                <TextField
-                                                                    sx={{ width: "60px" }}
-                                                                    size='small'
-                                                                    placeholder='Sort'
-                                                                    value={value.sort}
-                                                                    onChange={(e) => {
-                                                                        let temp = { ...formManagement };
-                                                                        temp.inputs[index] = { ...temp.inputs[index], sort: e.target.value };
-                                                                        setFormManagement(temp);
-                                                                    }}
-                                                                />
-                                                                <Box component="span" sx={{ marginLeft: "11px" }} />
-                                                                <Box mt={0.5}>
-                                                                    <RemoveCircleOutlineIcon sx={{ cursor: "pointer" }} onClick={() => {
-                                                                        let temp = { ...formManagement };
-                                                                        temp.inputs.splice(index, 1);
-                                                                        setFormManagement(temp);
-                                                                    }} />
-                                                                </Box>
+                                                    <Box>
+                                                        <TextField
+                                                            sx={{ mt: 2 }}
+                                                            type='number'
+                                                            fullWidth
+                                                            size='small'
+                                                            label="Font Size"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true },
+                                                            }}
+                                                            placeholder='Enter Font Size'
+                                                            value={buttonManagement.fontSize}
+                                                            onChange={(e) => {
+                                                                setButtonManagement({ ...buttonManagement, fontSize: e.target.value })
+                                                            }}
+                                                        />
+                                                        <TextField
+                                                            sx={{ mt: 2 }}
+                                                            type='number'
+                                                            fullWidth
+                                                            size='small'
+                                                            label="Margin"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true },
+                                                            }}
+                                                            placeholder='Enter Margin'
+                                                            value={buttonManagement.margin}
+                                                            onChange={(e) => {
+                                                                setButtonManagement({ ...buttonManagement, margin: e.target.value })
+                                                            }}
+                                                        />
+                                                        <TextField
+                                                            sx={{ mt: 2 }}
+                                                            type='number'
+                                                            fullWidth
+                                                            size='small'
+                                                            label="Padding"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true },
+                                                            }}
+                                                            placeholder='Enter Padding'
+                                                            value={buttonManagement.padding}
+                                                            onChange={(e) => {
+                                                                setButtonManagement({ ...buttonManagement, padding: e.target.value })
+                                                            }}
+                                                        />
+                                                        <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                                            <InputLabel id="demo-simple-select-label">Border</InputLabel>
+                                                            <Select
+                                                                // displayEmpty
+                                                                renderValue={(value) => {
+                                                                    if (!value) {
+                                                                        return <Typography color="grey"> Select Border</Typography>;
+                                                                    }
+                                                                    return <>{value}</>;
+                                                                }}
+                                                                value={buttonManagement.border}
+                                                                label="Border"
+                                                                size='small'
+                                                                onChange={(e) => {
+                                                                    setButtonManagement({ ...buttonManagement, border: e.target.value })
+                                                                }}
+                                                            >
+                                                                {borderStyles.map((item, index) => (
+                                                                    <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                ))}
+                                                            </Select>
+                                                        </FormControl>
+                                                        <TextField
+                                                            sx={{ mt: 2 }}
+                                                            type='number'
+                                                            fullWidth
+                                                            size='small'
+                                                            label="Border Width"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true }
+                                                            }}
+                                                            placeholder='Enter Border Width'
+                                                            value={buttonManagement.borderWidth}
+                                                            onChange={(e) => {
+                                                                setButtonManagement({ ...buttonManagement, borderWidth: e.target.value })
+                                                            }}
+                                                        />
+                                                        <Box mt={1} sx={{ display: "flex" }} className="customPicker">
+                                                            <Box sx={{ width: "50%" }}>
+                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                    Border Color
+                                                                </Typography>
+                                                                <HexColorPicker color={buttonManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setButtonManagement({ ...buttonManagement, borderColor: e })} />
                                                             </Box>
-                                                        ))}
+                                                            <Box sx={{ width: "50%" }}>
+                                                                <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                                    View
+                                                                </Typography>
+                                                                <Box component={"button"} sx={{ color: `${buttonManagement.color}`, background: `${buttonManagement.backgroundColor}`, padding: `${buttonManagement.padding}px`, fontSize: `${buttonManagement.fontSize}px`, margin: `${buttonManagement.margin}px`, textAlign: "center", border: `${buttonManagement.borderWidth}px ${buttonManagement.border} ${buttonManagement.borderColor}` }}>{buttonManagement.buttonText}</Box>
+                                                            </Box>
+                                                        </Box>
                                                     </Box>
                                                 </Box>
-                                            }
+                                            )}
 
-                                            {/* SPACER */}
-                                            {editing && editing.actionType == "add" && editing.addElementType == "br" &&
-                                                <Box sx={{ pt: "5px" }}>
-                                                    <TextField
-                                                        fullWidth
-                                                        type="number"
-                                                        size='small'
-                                                        label="Spacer Height"
-                                                        slotProps={{
-                                                            inputLabel: { shrink: true }
-                                                        }}
-                                                        placeholder='Enter Spacer Height'
-                                                        value={spacerManagement.height}
-                                                        onChange={(e) => {
-                                                            setSpacerManagement({ ...spacerManagement, height: e.target.value })
-                                                        }}
-                                                    />
+                                        {/* FORMS */}
+                                        {editing && editing.actionType == "add" && editing.addElementType == "form" &&
+                                            <Box sx={{ padding: "10px 0px" }}>
+                                                <Box sx={{ display: 'flex', gap: "15px" }}>
+                                                    <Box sx={{ width: "50%" }}>
+                                                        <TextField
+                                                            fullWidth
+                                                            size='small'
+                                                            label="Submit Button Text"
+                                                            multiline
+                                                            rows={3}
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true }
+                                                            }}
+                                                            placeholder='Enter Button Text'
+                                                            value={formManagement.submitText}
+                                                            onChange={(e) => {
+                                                                setFormManagement({ ...formManagement, submitText: e.target.value })
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                    <Box mt={-1.6} sx={{ width: "50%" }}>
+                                                        <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
+                                                            <Box sx={{ width: "50%" }}>
+                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                    Color
+                                                                </Typography>
+                                                                <HexColorPicker class color={formManagement.submitTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitTextColor: e })} />
+                                                            </Box>
+                                                            <Box sx={{ width: "50%" }}>
+                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                    Background
+                                                                </Typography>
+                                                                <HexColorPicker color={formManagement.submitBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitBackgroundColor: e })} />
+                                                            </Box>
+                                                        </Box>
+                                                    </Box>
                                                 </Box>
-                                            }
+                                                <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
+                                                    <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {
+                                                        let temp = { ...formManagement };
+                                                        temp.inputs.push({
+                                                            name: "",
+                                                            required: false,
+                                                            type: false,
+                                                            sort: ""
+                                                        });
+                                                        setFormManagement(temp);
+                                                    }}>Add Input</Button>
+                                                </Box>
+                                                <Box mt={2} p={2} pt={0} sx={{ border: "2px dashed #a5a5a5", borderRadius: "2px" }}>
+                                                    {formManagement && formManagement.inputs.map((value, index) => (
+                                                        <Box key={index} sx={{ mt: 2, display: "flex" }}>
+                                                            <TextField
+                                                                sx={{ width: "150px" }}
+                                                                size='small'
+                                                                label="Input Name"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Name'
+                                                                value={value.name}
+                                                                onChange={(e) => {
+                                                                    let temp = { ...formManagement };
+                                                                    temp.inputs[index] = { ...temp.inputs[index], name: e.target.value };
+                                                                    setFormManagement(temp);
+                                                                }}
+                                                            />
+                                                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                                                            <FormControl>
+                                                                <InputLabel id="demo-simple-select-label">Required</InputLabel>
+                                                                <Select
+                                                                    sx={{ width: "150px" }}
+                                                                    // displayEmpty
+                                                                    renderValue={(value) => {
+                                                                        if (!value) {
+                                                                            return <Typography color="grey"> Select...</Typography>;
+                                                                        }
+                                                                        return <>{value}</>;
+                                                                    }}
+                                                                    value={value.required}
+                                                                    label="Required"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        let temp = { ...formManagement };
+                                                                        temp.inputs[index] = { ...temp.inputs[index], required: e.target.value };
+                                                                        setFormManagement(temp);
+                                                                    }}
+                                                                >
+                                                                    {requireds.map((item, index) => (
+                                                                        <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    ))}
+                                                                </Select>
+                                                            </FormControl>
+                                                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                                                            <FormControl>
+                                                                <InputLabel id="demo-simple-select-label">Type</InputLabel>
+                                                                <Select
+                                                                    sx={{ width: "140px" }}
+                                                                    // displayEmpty
+                                                                    renderValue={(value) => {
+                                                                        if (!value) {
+                                                                            return <Typography color="grey"> Select...</Typography>;
+                                                                        }
+                                                                        return <>{value}</>;
+                                                                    }}
+                                                                    value={value.type}
+                                                                    label="Type"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        let temp = { ...formManagement };
+                                                                        temp.inputs[index] = { ...temp.inputs[index], type: e.target.value };
+                                                                        setFormManagement(temp);
+                                                                    }}
+                                                                >
+                                                                    {commonInputTypes.map((item, index) => (
+                                                                        <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    ))}
+                                                                </Select>
+                                                            </FormControl>
+                                                            <Box component="span" sx={{ marginLeft: "10px" }} />
+                                                            <TextField
+                                                                sx={{ width: "60px" }}
+                                                                size='small'
+                                                                placeholder='Sort'
+                                                                value={value.sort}
+                                                                onChange={(e) => {
+                                                                    let temp = { ...formManagement };
+                                                                    temp.inputs[index] = { ...temp.inputs[index], sort: e.target.value };
+                                                                    setFormManagement(temp);
+                                                                }}
+                                                            />
+                                                            <Box component="span" sx={{ marginLeft: "11px" }} />
+                                                            <Box mt={0.5}>
+                                                                <RemoveCircleOutlineIcon sx={{ cursor: "pointer" }} onClick={() => {
+                                                                    let temp = { ...formManagement };
+                                                                    temp.inputs.splice(index, 1);
+                                                                    setFormManagement(temp);
+                                                                }} />
+                                                            </Box>
+                                                        </Box>
+                                                    ))}
+                                                </Box>
+                                            </Box>
+                                        }
 
-                                            {/* CHATGPT */}
-                                            {/* <Box sx={{ pt: "5px" }}>
+                                        {/* SPACER */}
+                                        {editing && editing.actionType == "add" && editing.addElementType == "br" &&
+                                            <Box sx={{ pt: "5px" }}>
                                                 <TextField
                                                     fullWidth
+                                                    type="number"
                                                     size='small'
-                                                    placeholder='Enter Query'
-                                                    value={chatGPT.query}
+                                                    label="Spacer Height"
+                                                    slotProps={{
+                                                        inputLabel: { shrink: true }
+                                                    }}
+                                                    placeholder='Enter Spacer Height'
+                                                    value={spacerManagement.height}
                                                     onChange={(e) => {
-                                                        setChatGPT({ ...chatGPT, query: e.target.value })
+                                                        setSpacerManagement({ ...spacerManagement, height: e.target.value })
                                                     }}
                                                 />
-                                                <Box sx={{ mt: 2, p: 1, borderRadius: "3px", border: "1px solid black", background: "#e5e5e5", fontSize: "12px" }}>
-                                                    <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{chatGPT.response}</pre>
-                                                </Box>
-                                            </Box> */}
-                                        </Box>
-                                    ) : null}
+                                            </Box>
+                                        }
+                                    </Box>
+                                }
                             </Box>
                             <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
                                 <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => {

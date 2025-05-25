@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'grok' => [
+        'api_key' => env('GROK_API_KEY'),
+        'base_url' => env('GROK_API_URL', 'https://api.x.ai/v1'),
+        'strict_instructions' => env('GROK_STRICT_INSTRUCTIONS', 'Always respond in a professional tone, avoid speculative information, and provide accurate answers based on verified data.'),
+    ],
 ];
