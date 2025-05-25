@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Angle;
 use App\Models\AngleTemplate;
+use App\Models\ExtraContent;
 use App\Models\Template;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use ZipArchive;
 
 class AngleTemplateController extends Controller
@@ -79,6 +81,7 @@ class AngleTemplateController extends Controller
                     );
 
                     AngleTemplate::create([
+                        'uuid' => Str::uuid(),
                         'angle_id' => $currentAngle->id,
                         'template_id' => $currentTemplate->id,
                         'user_id' => Auth::user()->id,
@@ -98,21 +101,113 @@ class AngleTemplateController extends Controller
 
     public function saveEditedAngleTemplate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'main_html' => 'required',
-        ], []);
+        // return $request;
 
-        if ($validator->fails())
-            return simpleValidate($validator);
-
-        if ($request->edit_id != false) {
-            $editedAngleTemplate = AngleTemplate::find($request->edit_id);
+        for ($i = 0; $i < $request->chunk_count; $i++) {
+            $imageFile = $request->file('image' . $i);
+            if (!$imageFile) {
+                $existing_templates = ExtraContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_template_uuid', $request->angle_template_uuid)->where('can_be_deleted', true)->get();
+                foreach ($existing_templates as $key => $exContent) {
+                    if ($exContent->type == "image") {
+                        Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
+                    }
+                }
+                ExtraContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_template_uuid', $request->angle_template_uuid)->where('can_be_deleted', true)->delete();
+                return sendResponse(false, 'File not uploaded correctly!');
+            }
         }
 
-        $editedAngleTemplate->main_html = $request->main_html;
-        $editedAngleTemplate->save();
+        try {
 
-        return sendResponse(true, "Edited Sales Page Saved Successfully!");
+            $angleTemplateUUID = $request->angle_template_uuid; // Generate a unique ID for template storage
+            $assetUUID = $request->asset_unique_uuid; // Generate a unique ID for template storage
+            $basePath = "angleTemplates/$angleTemplateUUID";
+
+            // Store images
+            $images = [];
+            foreach ($request->allFiles() as $key => $file) {
+                if (Str::startsWith($key, 'image')) {
+                    $extension = $file->getClientOriginalExtension();
+                    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                    $fileName = $assetUUID . '-' . $originalName . '.' . $extension;
+                    $path = "{$basePath}/images/{$fileName}";
+                    Storage::disk('public')->putFileAs("{$basePath}/images", $file, $fileName);
+                    $images[] = [
+                        'name' => Storage::url($path),
+                        'blob_url' => $request->{$key . "blob_url"}
+                    ];
+                }
+            }
+
+            $images = collect($images)->transform(function ($item) use ($angleTemplateUUID) {
+                return [
+                    "angle_template_uuid" => $angleTemplateUUID,
+                    "type" => "image",
+                    'name' => $item['name'],
+                    'blob_url' => $item['blob_url']
+                ];
+            });
+
+            ExtraContent::upsert($images->toArray(), ['id']);
+
+            // NOW SAVING DATA TO DATABASE
+
+            if ($request->last_iteration == "true") {
+
+                $editedAngleTemplate = AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
+                $editedAngleTemplate->main_html = $request->main_html;
+                $editedAngleTemplate->save();
+
+                $old_contents = ExtraContent::where('can_be_deleted', false)->where('angle_template_uuid', $request->angle_template_uuid)->whereIn('type', ['image'])->get();
+                foreach ($old_contents as $key => $exContent) {
+                    if (!Str::contains($editedAngleTemplate->main_html, $exContent->name)) {
+                        logger($exContent->name);
+                        Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
+                        $exContent->delete();
+                    }
+                }
+
+                $new_contents = ExtraContent::where('can_be_deleted', true)->where('angle_template_uuid', $request->angle_template_uuid)->whereIn('type', ['image'])->get();
+                foreach ($new_contents as $key => $content) {
+
+                    $currentFilePath = str_replace('/storage/', '', $content->name); // Remove the /storage/ prefix to get the relative file path
+                    $fileInfo = pathinfo($currentFilePath); // Get file
+
+                    // Generate the new file name by replacing the UUID in the file path
+                    $newFileName = preg_replace('/[a-f0-9\-]{36}(?!.*[a-f0-9\-]{36})/i', $request->asset_unique_uuid, $fileInfo['basename']);
+
+                    // Set the new file path (the file will be moved to the same folder with a new name)
+                    $newFilePath = str_replace($fileInfo['basename'], $newFileName, $currentFilePath);
+
+                    // Check if the file exists using the public disk
+                    if (Storage::disk('public')->exists($currentFilePath)) {
+                        Storage::disk('public')->move($currentFilePath, $newFilePath);
+                    }
+
+                    $dbName = str_replace($fileInfo['basename'], $newFileName, $content->name);
+                    $finalImageName = "../.." . $dbName;
+
+                    $editedAngleTemplate->main_html = str_replace($content->blob_url, $finalImageName, $editedAngleTemplate->main_html);
+                    $editedAngleTemplate->save();
+
+                    $content->update([
+                        'can_be_deleted' => false,
+                        'name' => $dbName,
+                        'blob_url' => NULL,
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Files uploaded successfully!'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error uploading files: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function downloadTemplate(Request $request)
@@ -125,9 +220,10 @@ class AngleTemplateController extends Controller
 
         $templateImages = $template->contents()->where('type', 'image')->get()->pluck('name')->toArray();
         $angleImages = $angle->contents()->where('type', 'image')->get()->pluck('name')->toArray();
+        $extraImages = $angleTemplate->contents()->where('type', 'image')->get()->pluck('name')->toArray();
 
         $fontPaths = $template->contents()->where('type', 'font')->get()->pluck('name')->toArray();
-        $imagePaths = array_merge($templateImages, $angleImages);
+        $imagePaths = array_merge($templateImages, $angleImages, $extraImages);
 
         $zipFileName = 'SalesPage_' . $angleTemplate->name . '.zip';
         $zipPath = storage_path('app/' . $zipFileName);
@@ -171,6 +267,15 @@ class AngleTemplateController extends Controller
         $updatingIndex = str_replace(
             'src="../../storage/templates/' . $template->uuid . '/images/' . $template->asset_unique_uuid . '-',
             'src="images/' . $template->asset_unique_uuid . '-',
+            $updatingIndex
+        );
+
+
+        // UPDATING INDEX WITH IMAGE CHANGES - TEMPLATES
+        // (ASSET UNIQUE UUID NOT DELETED AS IT IS ALSO NOT SAVED FOR EXTRA CONTENTS AS IT IS ONLY USED FOR SAVING PURPOSE)
+        $updatingIndex = str_replace(
+            'src="../../storage/angleTemplates/' . $angleTemplate->uuid . '/images/',
+            'src="images/',
             $updatingIndex
         );
 

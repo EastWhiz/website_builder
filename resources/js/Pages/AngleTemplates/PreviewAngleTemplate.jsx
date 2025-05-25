@@ -152,6 +152,9 @@ export default function Dashboard({ id }) {
         borderWidth: "",
         borderColor: "",
     });
+
+    const [newImageUploads, setNewImageUploads] = useState([]);
+
     const [translator, setTranslator] = useState({
         fromLanguange: false,
         toLanguage: false,
@@ -254,7 +257,10 @@ export default function Dashboard({ id }) {
         getData()
 
         document.addEventListener("click", function (event) {
-            event.preventDefault();
+            const isHiddenFileInput = event.target.id === "hiddenFileUpload";
+            if (!isHiddenFileInput) {
+                event.preventDefault();
+            }
             handleClick(event);
         });
 
@@ -460,11 +466,19 @@ export default function Dashboard({ id }) {
             };
             if (editing.actionType == "edit") {
                 Object.assign(element.style, styles);
-                element.src = imageManagement.imageSrc;
+                if (imageManagement.via == "src") {
+                    element.src = imageManagement.imageSrc;
+                } else {
+                    element.src = imageManagement.imageFile.blobUrl;
+                }
             } else {
                 let newElement = document.createElement('img');
                 Object.assign(newElement.style, styles);
-                newElement.src = imageManagement.imageSrc;
+                if (imageManagement.via == "src") {
+                    newElement.src = imageManagement.imageSrc;
+                } else {
+                    newElement.src = imageManagement.imageFile.blobUrl;
+                }
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if ((editing.actionType == "edit" && ['button'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "button")) {
@@ -540,42 +554,131 @@ export default function Dashboard({ id }) {
         setEditing(temp);
     }
 
-    const updatedThemeSaveHandler = () => {
-        async function getData() {
-            const url = route('editedAngleTemplate.save');
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
 
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', },
-                    body: JSON.stringify({
-                        edit_id: data.id,
-                        main_html: mainHTML.find(value => value.status).html,
-                    })
-                });
+    const chunkArray = (array, size) => {
+        const result = [];
+        for (let i = 0; i < array.length; i += size) {
+            result.push(array.slice(i, i + size));
+        }
+        return result;
+    };
 
-                const result = await response.json();
-                if (result.success) {
-                    Swal.fire({
-                        title: 'Success',
-                        text: result.message,
-                        icon: 'success',
-                        timer: 1000,
-                        showConfirmButton: false,
-                    });
-                    router.get(route('userThemes', { id: data.user_id }))
+    let abortController = null;
+
+    const updatedThemeSaveHandler = async () => {
+        try {
+
+            const mainHTMLActiveInside = mainHTML.find(html => html.status == true);
+            const finalNewImages = newImageUploads.filter(value => mainHTMLActiveInside.html.includes(value.blobUrl))
+
+            const CHUNK_SIZE = 10; // Adjust chunk size as needed
+            const imageChunks = chunkArray(finalNewImages, CHUNK_SIZE);
+
+            let uploadedFiles = 0;
+            const totalFiles = finalNewImages.length;
+
+            Swal.fire({
+                title: 'Uploading...',
+                html: '<b>0%</b>',
+                allowOutsideClick: false,
+                showConfirmButton: false, // Hide the default OK button
+                showDenyButton: true,
+                denyButtonText: `Don't Save`
+            }).then((result) => {
+                if (result.isDenied) {
+                    if (abortController) {
+                        abortController.abort();
+                    }
                 }
-            } catch (error) {
-                Swal.fire({
-                    title: 'Error!',
-                    text: error.toString(),
-                    icon: 'error',
-                    timer: 1000,
-                    showConfirmButton: false,
-                });
+            });
+
+            const assetUUID = generateUUID();
+
+            const chunks = [...imageChunks];
+            if (chunks.length == 0)
+                chunks.push(1);
+
+            for (const [chunkIndex, chunk] of chunks.entries()) {
+
+                const isLastIteration = chunkIndex === chunks.length - 1 ? true : false;
+
+                const formData = new FormData();
+
+                formData.append("last_iteration", isLastIteration);
+                formData.append("asset_unique_uuid", assetUUID);
+                formData.append("chunk_count", chunk == 1 ? 0 : chunk.length);
+                formData.append("angle_template_uuid", data.uuid);
+                formData.append("main_html", mainHTML.find(value => value.status).html);
+
+                if (chunk != 1) {
+                    chunk.forEach((item, index) => {
+                        formData.append(`image${index}`, item.file);
+                        formData.append(`image${index}blob_url`, item.blobUrl);
+                    });
+                }
+
+                // Create a new AbortController for each chunk
+                abortController = new AbortController();
+
+                try {
+                    let response = await fetch(route('editedAngleTemplate.save'), {
+                        method: "POST",
+                        body: formData,
+                        signal: abortController.signal, // Attach abort signal
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) {
+                        Swal.fire("Error!", result.message, "error");
+                        return;
+                    }
+
+                    uploadedFiles += chunk.length;
+                    const progress = Math.round((uploadedFiles / totalFiles) * 100);
+
+                    // Smoothly update the existing Swal modal with progress
+                    // ${progress}%
+                    Swal.update({
+                        html: `<b>${progress}%</b>`,
+                        title: `Uploading...`,
+                    });
+
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        Swal.fire("Cancelled", "Upload has been cancelled.", "info");
+                        return;
+                    } else {
+                        Swal.fire("Error!", error.toString(), "error");
+                        return;
+                    }
+                }
+            }
+
+            Swal.fire({
+                title: 'Success',
+                text: "Sales Page Updated Successfully",
+                icon: 'success',
+                timer: 1000,
+                showConfirmButton: false,
+            });
+            router.get(route('userThemes', { id: data.user_id }))
+
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                Swal.fire("Cancelled", "Upload has been cancelled.", "info");
+                return;
+            } else {
+                Swal.fire("Error!", error.toString(), "error");
+                return;
             }
         }
-        getData();
     }
 
     const translateOpenHandler = (source) => {
@@ -898,6 +1001,11 @@ export default function Dashboard({ id }) {
                                                                                         const blob = new Blob([insideFile], { type: 'image/png' });
                                                                                         const blobUrl = URL.createObjectURL(blob);
                                                                                         temp.imageFile.blobUrl = blobUrl;
+
+                                                                                        let tempNewImages = [...newImageUploads];
+                                                                                        tempNewImages.push({ blobUrl: blobUrl, file: insideFile })
+                                                                                        setNewImageUploads(tempNewImages);
+
                                                                                         setImageManagement(temp);
                                                                                     }} />
                                                                                 </Box>
