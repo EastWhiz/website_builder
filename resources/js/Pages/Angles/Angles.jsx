@@ -13,7 +13,7 @@ import {
     Text,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { DeleteIcon, EditIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, EditIcon, ViewIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
 import Select from 'react-select';
@@ -282,6 +282,8 @@ export default function Dashboard() {
             </IndexTable.Cell>
             {roleId == 1 &&
                 <IndexTable.Cell>
+                    <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angles/preview/${value.id}/`, "_blank")}></Button>
+                    <span style={{ margin: "10px" }}></span>
                     <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
                     <span style={{ marginLeft: "10px" }}></span>
                     <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleHandler(value.id)}></Button>

@@ -92,6 +92,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return Inertia::render('AngleTemplates/PreviewAngleTemplate', compact('id'));
         })->name('previewAngleTemplate');
 
+        Route::get('/angles/preview/{id}', function ($id) {
+            return Inertia::render('Angles/PreviewAngle', compact('id'));
+        })->name('previewAngle');
+
+        Route::get('/angles/contents', function (Request $request) {
+            $angle = Angle::with(['contents'])->where('id', $request->angle_id)->first();
+            return sendResponse(true, "Angle retrieved successfully", $angle);
+        })->name('Angle.previewContent');
+
         Route::post('/angle-templates/contents', function (Request $request) {
             $angleTemplate = AngleTemplate::with(['angle.contents', 'template.contents', 'user'])->where('id', $request->angle_template_id)->first();
             return sendResponse(true, "Angle Template retrieved successfully", $angleTemplate);
