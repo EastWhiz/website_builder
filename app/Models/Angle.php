@@ -21,4 +21,9 @@ class Angle extends Model
     {
         return $this->hasMany(AngleTemplate::class, 'angle_id', 'id');
     }
+    
+    public function extraContents()
+    {
+        return $this->hasMany(extraContent::class, 'angle_uuid', 'uuid');
+    }
 }

@@ -220,11 +220,7 @@ class AngleTemplateController extends Controller
         $templateImages = $template->contents()->where('type', 'image')->get()->pluck('name')->toArray();
         $angleImages = $angle->contents()->where('type', 'image')->get()->pluck('name')->toArray();
         $extraImages = $angleTemplate->contents()->where('type', 'image')->get()->pluck('name')->toArray();
-        $angleContentImages = [];
-        $angle->contents()->where('type', 'html')->each(function ($body) use (&$angleContentImages) {
-            $insideImages = $body->contents()->where('type', 'image')->get()->pluck('name')->toArray();
-            $angleContentImages = array_merge($angleContentImages, $insideImages);
-        });
+        $angleContentImages = $angle->extraContents()->where('type', 'image')->get()->pluck('name')->toArray();
 
         $fontPaths = $template->contents()->where('type', 'font')->get()->pluck('name')->toArray();
         $imagePaths = array_merge($templateImages, $angleImages, $extraImages, $angleContentImages);
@@ -283,14 +279,12 @@ class AngleTemplateController extends Controller
             $updatingIndex
         );
 
-        $angle->contents()->where('type', 'html')->each(function ($body) use (&$updatingIndex) {
-            $body->contents()->where('type', 'image')->each(function ($content) use (&$updatingIndex) {
-                $updatingIndex = str_replace(
-                    'src="../../storage/angleContents/' . $content->angle_content_uuid . '/images/',
-                    'src="images/',
-                    $updatingIndex
-                );
-            });
+        $angle->extraContents()->where('type', 'image')->each(function ($extraContent) use (&$updatingIndex) {
+            $updatingIndex = str_replace(
+                'src="../../storage/angleContents/' . $extraContent->angle_content_uuid . '/images/',
+                'src="images/',
+                $updatingIndex
+            );
         });
 
         // UPDATING CSS WITH FONT CHANGES

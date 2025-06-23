@@ -347,7 +347,7 @@ class AngleController extends Controller
 
     public function saveEditedAngle(Request $request)
     {
-        return $request;
+        // return $request;
 
         for ($i = 0; $i < $request->chunk_count; $i++) {
             $imageFile = $request->file('image' . $i);

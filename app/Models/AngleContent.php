@@ -16,8 +16,8 @@ class AngleContent extends Model
         'can_be_deleted',
     ];
 
-    public function contents()
-    {
-        return $this->hasMany(ExtraContent::class, 'angle_content_uuid', 'uuid');
-    }
+    // public function contents()
+    // {
+    //     return $this->hasMany(ExtraContent::class, 'angle_content_uuid', 'uuid');
+    // }
 }
