@@ -19,15 +19,17 @@ class AngleController extends Controller
      */
     public function index(Request $request)
     {
-        $angles = Angle::with('contents')->when($request->get('q'), function ($q) use ($request) {
+        $angles = Angle::with(['contents' => function ($query) {
+                $query->select('type','angle_uuid'); // columns you want
+        }])->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
                 $q->orWhere('name', 'LIKE', '%' . $request->q . '%');
             });
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
-        })->cursorPaginate($request->page_count);
+        })->select(['id','name','uuid'])->cursorPaginate($request->page_count);
 
-        $templates = Template::get();
+        $templates = Template::get()->select(['id', 'name']);
 
         return sendResponse(true, 'Angles retrieved successfully!', $angles, $templates);
     }

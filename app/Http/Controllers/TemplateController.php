@@ -17,13 +17,15 @@ class TemplateController extends Controller
      */
     public function index(Request $request)
     {
-        $templates = Template::with('contents')->when($request->get('q'), function ($q) use ($request) {
+        $templates = Template::with(['contents' => function ($query) {
+                $query->select('type','template_uuid'); // columns you want
+        }])->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
                 $q->orWhere('name', 'LIKE', '%' . $request->q . '%');
             });
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
-        })->cursorPaginate($request->page_count);
+        })->select(['id','name','uuid'])->cursorPaginate($request->page_count);
         return sendResponse(true, 'Templates retrieved successfully!', $templates);
     }
 
