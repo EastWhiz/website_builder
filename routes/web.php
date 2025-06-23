@@ -75,8 +75,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('/angles-applying', [AngleTemplateController::class, 'anglesApplying'])->name('angles.applying');
 
-
-
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -96,10 +94,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return Inertia::render('Angles/PreviewAngle', compact('id'));
         })->name('previewAngle');
 
-        Route::get('/angles/contents', function (Request $request) {
+        Route::post('/angles/contents', function (Request $request) {
             $angle = Angle::with(['contents'])->where('id', $request->angle_id)->first();
             return sendResponse(true, "Angle retrieved successfully", $angle);
         })->name('Angle.previewContent');
+
+        Route::post('/angles/save', [AngleController::class, 'saveEditedAngle'])->name('editedAngle.save');
 
         Route::post('/angle-templates/contents', function (Request $request) {
             $angleTemplate = AngleTemplate::with(['angle.contents', 'template.contents', 'user'])->where('id', $request->angle_template_id)->first();

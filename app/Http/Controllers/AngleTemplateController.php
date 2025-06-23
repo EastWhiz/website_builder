@@ -161,7 +161,6 @@ class AngleTemplateController extends Controller
                 $old_contents = ExtraContent::where('can_be_deleted', false)->where('angle_template_uuid', $request->angle_template_uuid)->whereIn('type', ['image'])->get();
                 foreach ($old_contents as $key => $exContent) {
                     if (!Str::contains($editedAngleTemplate->main_html, $exContent->name)) {
-                        logger($exContent->name);
                         Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
                         $exContent->delete();
                     }
@@ -221,9 +220,14 @@ class AngleTemplateController extends Controller
         $templateImages = $template->contents()->where('type', 'image')->get()->pluck('name')->toArray();
         $angleImages = $angle->contents()->where('type', 'image')->get()->pluck('name')->toArray();
         $extraImages = $angleTemplate->contents()->where('type', 'image')->get()->pluck('name')->toArray();
+        $angleContentImages = [];
+        $angle->contents()->where('type', 'html')->each(function ($body) use (&$angleContentImages) {
+            $insideImages = $body->contents()->where('type', 'image')->get()->pluck('name')->toArray();
+            $angleContentImages = array_merge($angleContentImages, $insideImages);
+        });
 
         $fontPaths = $template->contents()->where('type', 'font')->get()->pluck('name')->toArray();
-        $imagePaths = array_merge($templateImages, $angleImages, $extraImages);
+        $imagePaths = array_merge($templateImages, $angleImages, $extraImages, $angleContentImages);
 
         $zipFileName = 'SalesPage_' . $angleTemplate->name . '.zip';
         $zipPath = storage_path('app/' . $zipFileName);
@@ -279,6 +283,16 @@ class AngleTemplateController extends Controller
             $updatingIndex
         );
 
+        $angle->contents()->where('type', 'html')->each(function ($body) use (&$updatingIndex) {
+            $body->contents()->where('type', 'image')->each(function ($content) use (&$updatingIndex) {
+                $updatingIndex = str_replace(
+                    'src="../../storage/angleContents/' . $content->angle_content_uuid . '/images/',
+                    'src="images/',
+                    $updatingIndex
+                );
+            });
+        });
+
         // UPDATING CSS WITH FONT CHANGES
         $updatingCss = str_replace(
             '../../storage/templates/' . $template->uuid . '/fonts/' . $template->asset_unique_uuid . '-',
@@ -313,11 +327,19 @@ class AngleTemplateController extends Controller
 
     public function deleteAngleTemplate(Request $request)
     {
+        // return $request;
+
         $angleTemplate = AngleTemplate::find($request->angle_template_id);
 
         if (!$angleTemplate) {
             return sendResponse(false, "Sales Page Not Found");
         }
+
+        $extraContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
+        $extraContents->each(function ($content) {
+            Storage::disk('public')->deleteDirectory("angleTemplates/{$content->angle_template_uuid}");
+            $content->delete();
+        });
 
         $angleTemplate->delete();
 

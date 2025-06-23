@@ -130,10 +130,27 @@ export default function Dashboard({ id }) {
         overflow: "hidden"
     };
 
+    function updateAngleImages(htmlString, currentAngle) {
+        return htmlString.replace(
+            /src="angle_images\//g,
+            `src="../../storage/angles/${currentAngle.uuid}/images/${currentAngle.asset_unique_uuid}-`
+        );
+    }
+
+    function reverseAngleImages(htmlString, currentAngle) {
+        return htmlString.replace(
+            new RegExp(
+                `src="\\.\\.\\/\\.\\.\\/storage\\/angles\\/${currentAngle.uuid}\\/images\\/${currentAngle.asset_unique_uuid}-`,
+                'g'
+            ),
+            'src="angle_images/'
+        );
+    }
+
     const [open, setOpen] = useState(false);
     const [data, setData] = useState(false);
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
-    const [mainCSS, setMainCSS] = useState('');
+    const [mainBodies, setMainBodies] = useState([]);
     const [editing, setEditing] = useState({
         editID: false,
         currentElement: false,
@@ -210,13 +227,13 @@ export default function Dashboard({ id }) {
     useEffect(() => {
 
         async function getData() {
-            const url = route('AngleTemplate.previewContent');
+            const url = route('Angle.previewContent');
 
             try {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', },
-                    body: JSON.stringify({ angle_template_id: id })
+                    body: JSON.stringify({ angle_id: id })
                 });
 
                 if (!response.ok) {
@@ -226,12 +243,14 @@ export default function Dashboard({ id }) {
                 const json = await response.json();
                 console.log(json);
                 setData(json.data);
-
-                let updated = json.data.main_html;
-                setMainHTML([{ html: updated, status: true }]);
-
-                setMainCSS(json.data.main_css);
-
+                let bodiesTemp = json.data.contents
+                    .filter(value => value.type === "html")
+                    .map((value, index) => ({
+                        ...value,
+                        selected_body: index === 0 // true if index is 0, false otherwise
+                    }))
+                setMainBodies(bodiesTemp);
+                setMainHTML([{ html: updateAngleImages(bodiesTemp[0].content, json.data), status: true }]);
             } catch (error) {
                 console.error(error.message);
             }
@@ -330,8 +349,7 @@ export default function Dashboard({ id }) {
     }
 
     const handleClick = (event) => {
-        // console.log(event.target.outerHTML);
-        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !event.target.outerHTML.includes("doNotAct")) {
+        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && !event.target.outerHTML.includes("doNotAct")) {
             let randString = generateRandomString();
             if (editableElements.includes(event.target.localName) || event.target.classList.contains('editableDiv')) {
                 event.target.classList.add(randString);
@@ -618,8 +636,9 @@ export default function Dashboard({ id }) {
                 formData.append("last_iteration", isLastIteration);
                 formData.append("asset_unique_uuid", assetUUID);
                 formData.append("chunk_count", chunk == 1 ? 0 : chunk.length);
-                formData.append("angle_template_uuid", data.uuid);
-                formData.append("main_html", mainHTML.find(value => value.status).html);
+                formData.append("main_html", reverseAngleImages(mainHTML.find(value => value.status).html, data));
+                formData.append("angle_content_uuid", mainBodies.find(value => value.selected_body).uuid);
+                formData.append("angle_uuid", mainBodies.find(value => value.selected_body).angle_uuid);
 
                 if (chunk != 1) {
                     chunk.forEach((item, index) => {
@@ -632,7 +651,7 @@ export default function Dashboard({ id }) {
                 abortController = new AbortController();
 
                 try {
-                    let response = await fetch(route('editedAngleTemplate.save'), {
+                    let response = await fetch(route('editedAngle.save'), {
                         method: "POST",
                         body: formData,
                         signal: abortController.signal, // Attach abort signal
@@ -667,12 +686,13 @@ export default function Dashboard({ id }) {
 
             Swal.fire({
                 title: 'Success',
-                text: "Sales Page Updated Successfully",
+                text: "Angle Body Updated Successfully",
                 icon: 'success',
                 timer: 1000,
                 showConfirmButton: false,
             });
-            router.get(route('userThemes', { id: data.user_id }))
+
+            router.get(route('angles'));
 
         } catch (error) {
             if (error.name === 'AbortError') {
@@ -806,8 +826,8 @@ export default function Dashboard({ id }) {
 
     const mainHTMLActive = mainHTML.find(html => html.status == true)
 
-    console.log(chatGPT);
-    console.log(translator);
+    // console.log(mainHTML);
+    // console.log(mainBodies);
 
     return (
         <div>
@@ -1660,11 +1680,11 @@ export default function Dashboard({ id }) {
                     </Box>
                 </Fade>
             </Modal>
-            <Head title={`Preview: ${data && data.template.name} (${data && data.angle.name})`} />
+            <Head title={`Preview: ${data.name}`} />
             <div>
                 <Box sx={{ background: "#c0c0c0", justifyContent: "space-between", display: "flex" }}>
                     <Box className="doNotAct" sx={{ mt: 0.3, ml: 0.5, fontWeight: "bold" }}>
-                        <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('userThemes', { id: data.user_id }))}>
+                        <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('angles'))}>
                             <path className='doNotAct' id="Vector" d="M12 15L15 12M15 12L12 9M15 12H4M4 7.24802V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2839 4.21799 18.9076C4 18.4798 4 17.9201 4 16.8V16.75" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </Box>
@@ -1683,16 +1703,55 @@ export default function Dashboard({ id }) {
                         </svg>
                     </Box>
                 </Box>
-                {data &&
-                    <div>
-                        <div dangerouslySetInnerHTML={{ __html: data.template.head }} />
-                        <style>
-                            {mainCSS}
-                        </style>
-                        {/* <pre>{mainHTML}</pre> */}
-                        <div className='mainHTML' dangerouslySetInnerHTML={{ __html: mainHTMLActive.html }} />
-                    </div>
-                }
+                <Box sx={{ mt: 0.8, ml: 0.5, width: "70%" }}>
+                    <Typography className="doNotAct" variant="body" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
+                        Select Body
+                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                        <select value={mainBodies.length > 0 && mainBodies.find(it => it.selected_body).id} className="doNotAct" style={{ width: "100%", padding: "5px" }} onChange={(e) => {
+                            const selectedId = e.target.value;
+                            function proceedFurther(selectedId) {
+                                setMainBodies((prev) =>
+                                    prev.map((body) => ({
+                                        ...body,
+                                        selected_body: body.id == selectedId
+                                    }))
+                                );
+                                let selectedBody = mainBodies.find(value => value.id == selectedId);
+                                setMainHTML([{ html: updateAngleImages(selectedBody.content, data), status: true }]);
+                            }
+                            if (mainHTML.length == 1) {
+                                proceedFurther(selectedId);
+                            } else if (mainHTML.length > 1) {
+                                Swal.fire({
+                                    title: "Are you sure?",
+                                    text: "Your unsaved progress will be deleted!",
+                                    icon: "warning",
+                                    showCancelButton: true,
+                                    confirmButtonColor: "#3085d6",
+                                    cancelButtonColor: "#d33",
+                                    confirmButtonText: "Yes, Sure!"
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        proceedFurther(selectedId);
+                                    }
+                                });
+                            }
+
+                        }}>
+                            {mainBodies.map((body, index) => {
+                                return (
+                                    <option className="doNotAct" key={index} value={body.id}>
+                                        {body.name}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                    </Box>
+                </Box>
+                <Box sx={{ width: "70%", border: "1px solid black", ml: 0.5, p: 1, mt: 2 }}>
+                    {data && <div className='mainHTML' dangerouslySetInnerHTML={{ __html: mainHTMLActive.html }} />}
+                </Box>
             </div>
         </div>
     );

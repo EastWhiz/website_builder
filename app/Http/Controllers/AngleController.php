@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use App\Models\ExtraContent;
 
 class AngleController extends Controller
 {
@@ -123,6 +124,7 @@ class AngleController extends Controller
 
             $fonts = collect($fonts)->transform(function ($item) use ($angleId) {
                 return [
+                    "uuid" => Str::uuid(),
                     "angle_uuid" => $angleId,
                     "type" => "font",
                     'name' => $item
@@ -133,6 +135,7 @@ class AngleController extends Controller
             foreach ($request->all() as $key => $value) {
                 if (Str::startsWith($key, 'font') && str_contains($key, 'Done')) {
                     $doneFonts[] = [
+                        "uuid" => Str::uuid(),
                         "angle_uuid" => $angleId,
                         "type" => "font",
                         'name' => $value,
@@ -157,6 +160,7 @@ class AngleController extends Controller
 
             $images = collect($images)->transform(function ($item) use ($angleId) {
                 return [
+                    "uuid" => Str::uuid(),
                     "angle_uuid" => $angleId,
                     "type" => "image",
                     'name' => $item
@@ -167,6 +171,7 @@ class AngleController extends Controller
             foreach ($request->all() as $key => $value) {
                 if (Str::startsWith($key, 'image') && str_contains($key, 'Done')) {
                     $doneImages[] = [
+                        "uuid" => Str::uuid(),
                         "angle_uuid" => $angleId,
                         "type" => "image",
                         'name' => $value,
@@ -182,16 +187,19 @@ class AngleController extends Controller
 
                 $html = collect($html)->transform(function ($item) use ($angleId) {
                     return [
+                        "uuid" => Str::uuid(),
                         "angle_uuid" => $angleId,
                         "type" => "html",
                         'name' => $item['name'],
                         'content' => $item['content'],
                         'can_be_deleted' => false
+                        // 'old_contents' => $newHtmlExtraContents
                     ];
                 });
 
                 $css = collect($css)->transform(function ($item) use ($angleId) {
                     return [
+                        "uuid" => Str::uuid(),
                         "angle_uuid" => $angleId,
                         "type" => "css",
                         'name' => $item['name'],
@@ -202,6 +210,7 @@ class AngleController extends Controller
 
                 $js = collect($js)->transform(function ($item) use ($angleId) {
                     return [
+                        "uuid" => Str::uuid(),
                         "angle_uuid" => $angleId,
                         "type" => "js",
                         'name' => $item['name'],
@@ -324,8 +333,127 @@ class AngleController extends Controller
         Storage::disk('public')->deleteDirectory("angles/$angle->uuid");
 
         AngleContent::where('angle_uuid', $angle->uuid)->delete();
+
+        $extraContents = ExtraContent::where('angle_uuid', $angle->uuid)->get();
+        $extraContents->each(function ($content) {
+            Storage::disk('public')->deleteDirectory("angleContents/{$content->angle_content_uuid}");
+            $content->delete();
+        });
+
         $angle->delete();
 
         return sendResponse(true, "Angle is deleted Successfully.");
+    }
+
+    public function saveEditedAngle(Request $request)
+    {
+        // return $request;
+
+        for ($i = 0; $i < $request->chunk_count; $i++) {
+            $imageFile = $request->file('image' . $i);
+            if (!$imageFile) {
+                $existing_templates = ExtraContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_content_uuid', $request->angle_content_uuid)->where('can_be_deleted', true)->get();
+                foreach ($existing_templates as $key => $exContent) {
+                    if ($exContent->type == "image") {
+                        Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
+                    }
+                }
+                ExtraContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_content_uuid', $request->angle_content_uuid)->where('can_be_deleted', true)->delete();
+                return sendResponse(false, 'File not uploaded correctly!');
+            }
+        }
+
+        try {
+
+            $angleUUID = $request->angle_uuid;
+            $angleContentUUID = $request->angle_content_uuid; // Generate a unique ID for template storage
+            $assetUUID = $request->asset_unique_uuid; // Generate a unique ID for template storage
+            $basePath = "angleContents/$angleContentUUID";
+
+            // Store images
+            $images = [];
+            foreach ($request->allFiles() as $key => $file) {
+                if (Str::startsWith($key, 'image')) {
+                    $extension = $file->getClientOriginalExtension();
+                    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+                    $fileName = $assetUUID . '-' . $originalName . '.' . $extension;
+                    $path = "{$basePath}/images/{$fileName}";
+                    Storage::disk('public')->putFileAs("{$basePath}/images", $file, $fileName);
+                    $images[] = [
+                        'name' => Storage::url($path),
+                        'blob_url' => $request->{$key . "blob_url"}
+                    ];
+                }
+            }
+
+            $images = collect($images)->transform(function ($item) use ($angleContentUUID, $angleUUID) {
+                return [
+                    "angle_uuid" => $angleUUID,
+                    "angle_content_uuid" => $angleContentUUID,
+                    "type" => "image",
+                    'name' => $item['name'],
+                    'blob_url' => $item['blob_url']
+                ];
+            });
+
+            ExtraContent::upsert($images->toArray(), ['id']);
+
+            // NOW SAVING DATA TO DATABASE
+
+            if ($request->last_iteration == "true") {
+
+                $editedAngleContent = AngleContent::where('uuid', $request->angle_content_uuid)->first();
+                $editedAngleContent->content = $request->main_html;
+                $editedAngleContent->save();
+
+                $old_contents = ExtraContent::where('can_be_deleted', false)->where('angle_content_uuid', $request->angle_content_uuid)->whereIn('type', ['image'])->get();
+                foreach ($old_contents as $key => $exContent) {
+                    if (!Str::contains($editedAngleContent->content, $exContent->name)) {
+                        Storage::disk('public')->delete(str_replace('/storage/', '', $exContent->name));
+                        $exContent->delete();
+                    }
+                }
+
+                $new_contents = ExtraContent::where('can_be_deleted', true)->where('angle_content_uuid', $request->angle_content_uuid)->whereIn('type', ['image'])->get();
+                foreach ($new_contents as $key => $content) {
+
+                    $currentFilePath = str_replace('/storage/', '', $content->name); // Remove the /storage/ prefix to get the relative file path
+                    $fileInfo = pathinfo($currentFilePath); // Get file
+
+                    // Generate the new file name by replacing the UUID in the file path
+                    $newFileName = preg_replace('/[a-f0-9\-]{36}(?!.*[a-f0-9\-]{36})/i', $request->asset_unique_uuid, $fileInfo['basename']);
+
+                    // Set the new file path (the file will be moved to the same folder with a new name)
+                    $newFilePath = str_replace($fileInfo['basename'], $newFileName, $currentFilePath);
+
+                    // Check if the file exists using the public disk
+                    if (Storage::disk('public')->exists($currentFilePath)) {
+                        Storage::disk('public')->move($currentFilePath, $newFilePath);
+                    }
+
+                    $dbName = str_replace($fileInfo['basename'], $newFileName, $content->name);
+                    $finalImageName = "../.." . $dbName;
+
+                    $editedAngleContent->content = str_replace($content->blob_url, $finalImageName, $editedAngleContent->content);
+                    $editedAngleContent->save();
+
+                    $content->update([
+                        'can_be_deleted' => false,
+                        'name' => $dbName,
+                        'blob_url' => NULL,
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Files uploaded successfully!'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error uploading files: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

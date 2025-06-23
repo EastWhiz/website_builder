@@ -331,7 +331,7 @@ export default function Dashboard({ id }) {
 
     const handleClick = (event) => {
         // console.log(event.target.outerHTML);
-        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !event.target.outerHTML.includes("doNotAct")) {
+        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && !event.target.outerHTML.includes("doNotAct")) {
             let randString = generateRandomString();
             if (editableElements.includes(event.target.localName) || event.target.classList.contains('editableDiv')) {
                 event.target.classList.add(randString);
