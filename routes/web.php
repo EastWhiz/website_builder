@@ -53,6 +53,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::inertia('/users', 'Users/Users')->name('users');
         Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');
+        Route::post('/users', [UsersController::class, 'store'])->name('createUser');
+        Route::post('/users/reset-password', [UsersController::class, 'resetPassword'])->name('resetPassword');
 
         Route::post('/templates/delete', [TemplateController::class, 'deleteTemplate'])->name('delete.template');
         Route::post('/angles/delete', [AngleController::class, 'deleteAngle'])->name('delete.angle');

@@ -66,3 +66,9 @@ input {
 .swal2-container {
     z-index: 9999
 }
+
+.editable-hover-border {
+    outline: 2px solid red !important;
+    cursor: pointer;
+    z-index: 9999;
+}

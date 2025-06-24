@@ -314,6 +314,57 @@ export default function Dashboard({ id }) {
         }
     }, [editing]);
 
+    useEffect(() => {
+        function handleMouseEnter(e) {
+            // Only add border if element does NOT have below classes and none of its parents have it
+            // This prevents the border from showing on elements that should not be acted upon
+            if (!e.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(e.target, 'popoverPlate') && !hasParentWithClass(e.target, 'swal2-container') && !e.target.outerHTML.includes("doNotAct")) {
+                e.target.classList.add("editable-hover-border"); // Add the border class on hover
+            }
+        }
+        function handleMouseLeave(e) {
+            // Always remove the border class when mouse leaves
+            e.target.classList.remove("editable-hover-border");
+        }
+        function addHoverListeners() {
+            const editableElementsList = editableElements; // List of tags that are considered editable
+            editableElementsList.forEach(tag => {
+                // For each editable tag, select all elements of that tag in the DOM
+                document.querySelectorAll(tag).forEach(el => {
+                    // Add mouseenter event to show border on hover
+                    el.addEventListener("mouseenter", handleMouseEnter);
+                    // Add mouseleave event to remove border when not hovering
+                    el.addEventListener("mouseleave", handleMouseLeave);
+                });
+            });
+            // Also add listeners to all elements with the 'editableDiv' class
+            document.querySelectorAll('.editableDiv').forEach(el => {
+                el.addEventListener("mouseenter", handleMouseEnter);
+                el.addEventListener("mouseleave", handleMouseLeave);
+            });
+        }
+        addHoverListeners(); // Attach all hover listeners when effect runs
+
+        return () => {
+            const editableElementsList = editableElements; // List of tags that are considered editable
+            editableElementsList.forEach(tag => {
+                // For each editable tag, select all elements of that tag in the DOM
+                document.querySelectorAll(tag).forEach(el => {
+                    // Remove mouseenter event to clean up
+                    el.removeEventListener("mouseenter", handleMouseEnter);
+                    // Remove mouseleave event to clean up
+                    el.removeEventListener("mouseleave", handleMouseLeave);
+                });
+            });
+            // Also remove listeners from all elements with the 'editableDiv' class
+            document.querySelectorAll('.editableDiv').forEach(el => {
+                el.removeEventListener("mouseenter", handleMouseEnter);
+                el.removeEventListener("mouseleave", handleMouseLeave);
+            });
+        };
+        // This cleanup ensures no duplicate event listeners and prevents memory leaks
+    }, [mainHTML]);
+
     function removePxAndConvertToFloat(value) {
         return parseFloat(value.replace('px', ''));
     }

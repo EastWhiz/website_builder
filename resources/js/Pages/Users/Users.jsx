@@ -1,8 +1,9 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { Box, Button as MuiButton } from '@mui/material';
+import { Modal, Fade, Backdrop, Box, TextField, Button as MuiButton } from '@mui/material';
 
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import {
     Card,
     IndexFilters,
@@ -13,6 +14,7 @@ import {
 } from '@shopify/polaris';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 
 export default function Dashboard() {
 
@@ -157,6 +159,36 @@ export default function Dashboard() {
 
     const appliedFilters = [];
 
+    const handleResetPassword = async (userId) => {
+        try {
+            const response = await fetch(route('resetPassword'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: userId })
+            });
+            const result = await response.json();
+            if (result.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Password Reset',
+                    text: 'Password has been reset to "Reset@321"'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: result.message || 'Failed to reset password.'
+                });
+            }
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to reset password.'
+            });
+        }
+    };
+
     const rowMarkup = tableRows.map((value, index) => (
         <IndexTable.Row
             id={value.id}
@@ -177,9 +209,69 @@ export default function Dashboard() {
                 <MuiButton size='small' variant='contained' color='secondary' className='cptlz' onClick={() => {
                     router.get(route('userThemes', { id: value.id }));
                 }}> <VisibilityIcon sx={{ fontSize: "16px", mr: 1 }} />Themes</MuiButton>
+                <MuiButton size='small' variant='contained' color='warning' className='cptlz' sx={{ ml: 1 }} onClick={() => handleResetPassword(value.id)}>
+                    <LockResetIcon sx={{ fontSize: "16px", mr: 1 }} /> Reset Password
+                </MuiButton>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
+
+    const [addUserModalOpen, setAddUserModalOpen] = useState(false);
+    const [newUser, setNewUser] = useState({ name: '', email: '', password: '' });
+    const [creatingUser, setCreatingUser] = useState(false);
+
+    const modalStyle = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: { xs: '95%', sm: '80%', md: '50%', lg: '40%', xl: '35%' },
+        bgcolor: 'background.paper',
+        boxShadow: 24,
+        p: 4,
+        pt: 4,
+        minWidth: 400,
+        minHeight: 250,
+        borderRadius: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+    };
+
+    const handleAddUser = async () => {
+        setCreatingUser(true);
+        try {
+            const response = await fetch(route('createUser'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newUser)
+            });
+            const result = await response.json();
+            if (result.success) {
+                setAddUserModalOpen(false);
+                setNewUser({ name: '', email: '', password: '' });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'User Created',
+                    text: 'The user has been created successfully!'
+                });
+                setReload(r => !r);
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: result.message || 'Failed to create user.'
+                });
+            }
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to create user.'
+            });
+        }
+        setCreatingUser(false);
+    };
 
     return (
         <AuthenticatedLayout
@@ -190,14 +282,12 @@ export default function Dashboard() {
             }
         >
             <Head title="Users" />
-
             <div className="py-16">
-                {/* sm:px-6 lg:px-8 */}
                 <div className="mx-auto max-w-7xl">
                     <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                         <div className="p-6 text-gray-900">
                             <Box>
-                                <div style={{ display: "flex", justifyContent: "right", marginBottom: "15px" }}>
+                                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "15px" }}>
                                     <ShopifySelect
                                         labelInline
                                         label="Rows:"
@@ -205,6 +295,9 @@ export default function Dashboard() {
                                         value={pageCount}
                                         onChange={handlePageCount}
                                     />
+                                    <MuiButton sx={{ marginLeft: "10px", height: "31px" }} variant="contained" color="primary" className="cptlz" onClick={() => setAddUserModalOpen(true)}>
+                                        Add
+                                    </MuiButton>
                                 </div>
                                 <Card>
                                     <div>
@@ -274,6 +367,53 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+            {/* Add User Modal using MUI Modal */}
+            <Modal
+                aria-labelledby="add-user-modal-title"
+                aria-describedby="add-user-modal-description"
+                open={addUserModalOpen}
+                onClose={() => setAddUserModalOpen(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{ backdrop: { timeout: 100 } }}
+            >
+                <Fade in={addUserModalOpen}>
+                    <Box sx={modalStyle}>
+                        <h3 id="add-user-modal-title" style={{ marginBottom: "10px", fontSize: 22 }}>Add New User</h3>
+                        <TextField
+                            label="Name"
+                            value={newUser.name}
+                            onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
+                            fullWidth
+                            size="small"
+                        />
+                        <TextField
+                            label="Email"
+                            type="email"
+                            value={newUser.email}
+                            onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))}
+                            fullWidth
+                            size="small"
+                        />
+                        <TextField
+                            label="Password"
+                            type="password"
+                            value={newUser.password}
+                            onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))}
+                            fullWidth
+                            size="small"
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                            <MuiButton onClick={() => setAddUserModalOpen(false)} sx={{ mr: 1 }} className="cptlz" disabled={creatingUser}>
+                                Cancel
+                            </MuiButton>
+                            <MuiButton variant="contained" color="primary" className="cptlz" onClick={handleAddUser} disabled={creatingUser || !newUser.name || !newUser.email || !newUser.password}>
+                                {creatingUser ? 'Creating...' : 'Create User'}
+                            </MuiButton>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
         </AuthenticatedLayout>
     );
 }
