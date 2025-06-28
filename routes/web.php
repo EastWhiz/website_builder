@@ -41,6 +41,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('editTemplate');
         Route::post('/templates/add-edit', [TemplateController::class, 'addEditProcess'])->name('templates.addEdit');
 
+        Route::post('/templates/delete', [TemplateController::class, 'deleteTemplate'])->name('delete.template');
+
+        Route::inertia('/users', 'Users/Users')->name('users');
+        Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');
+        Route::post('/users', [UsersController::class, 'store'])->name('createUser');
+        Route::post('/users/reset-password', [UsersController::class, 'resetPassword'])->name('resetPassword');
+    });
+
+    Route::middleware('role:member')->prefix('member')->group(function () {
+        Route::inertia('/dashboard', 'Dashboard')->name('memberDashboard');
+    });
+
+    Route::middleware('role:admin,member')->group(function () {
+
         // ANGLES ROUTES
         Route::inertia('/angles/add', 'Angles/AddEditAngle')->name('addAngle');
         Route::get('/angles/edit/{id}', function ($id) {
@@ -51,24 +65,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('editAngle');
         Route::post('/angles/add-edit', [AngleController::class, 'addEditProcess'])->name('angles.addEdit');
 
-        Route::inertia('/users', 'Users/Users')->name('users');
-        Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');
-        Route::post('/users', [UsersController::class, 'store'])->name('createUser');
-        Route::post('/users/reset-password', [UsersController::class, 'resetPassword'])->name('resetPassword');
-
-        Route::post('/templates/delete', [TemplateController::class, 'deleteTemplate'])->name('delete.template');
         Route::post('/angles/delete', [AngleController::class, 'deleteAngle'])->name('delete.angle');
         Route::post('/angle-templates/delete', [AngleTemplateController::class, 'deleteAngleTemplate'])->name('delete.angleTemplate');
-
-        Route::post('/angles/duplicate/{angle}', [AngleController::class, 'duplicateAngle'])->name('duplicate.angle');
-        Route::post('/angles/duplicate-multiple', [AngleController::class, 'duplicateMultipleAngles'])->name('duplicate.angles');
-    });
-
-    Route::middleware('role:member')->prefix('member')->group(function () {
-        Route::inertia('/dashboard', 'Dashboard')->name('memberDashboard');
-    });
-
-    Route::middleware('role:admin,member')->group(function () {
 
         // TEMPLATES ROUTES
         Route::inertia('/templates', 'Templates/Templates')->name('templates');
@@ -116,6 +114,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/download', [AngleTemplateController::class, 'downloadTemplate'])->name('download');
         Route::post('/deepL', [DeepLControlller::class, 'deepL'])->name('deepL');
         Route::post('/grok', [GrokController::class, 'grok'])->name('grok');
+
+        Route::post('/angles/duplicate/{angle}', [AngleController::class, 'duplicateAngle'])->name('duplicate.angle');
+        Route::post('/angles/duplicate-multiple', [AngleController::class, 'duplicateMultipleAngles'])->name('duplicate.angles');
     });
 });
 

@@ -258,7 +258,7 @@ export default function Dashboard({ id }) {
                 textInput: editing.innerHTML,
                 fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                 color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
-                backgroundColor: computedStyles.background == "none" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
+                backgroundColor: computedStyles.backgroundColor == "rgba(0, 0, 0, 0)" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`,
                 textAlign: computedStyles.textAlign,
                 border: computedStyles.borderStyle,
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
@@ -282,9 +282,9 @@ export default function Dashboard({ id }) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
             setButtonManagement(prev => ({
                 ...prev, // keep all previous values
-                buttonText: editing.innerHTML, // only update the value you want\
+                buttonText: editing.innerHTML, // only update the value you want
                 color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
-                backgroundColor: computedStyles.background == "none" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
+                backgroundColor: computedStyles.backgroundColor == "rgba(0, 0, 0, 0)" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`,
                 fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                 margin: removePxAndConvertToFloat(computedStyles.margin),
                 padding: removePxAndConvertToFloat(computedStyles.padding),
@@ -469,7 +469,7 @@ export default function Dashboard({ id }) {
             //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
             const styles = {
                 color: textManagement.color,
-                background: textManagement.backgroundColor,
+                backgroundColor: textManagement.backgroundColor,
                 fontSize: `${textManagement.fontSize}`,
                 border: textManagement.border,
                 borderWidth: `${textManagement.borderWidth}px`,
@@ -539,7 +539,7 @@ export default function Dashboard({ id }) {
         } else if ((editing.actionType == "edit" && ['button'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "button")) {
             const styles = {
                 color: buttonManagement.color,
-                background: buttonManagement.backgroundColor,
+                backgroundColor: buttonManagement.backgroundColor,
                 fontSize: `${buttonManagement.fontSize}px`,
                 margin: `${buttonManagement.margin}px`,
                 padding: `${buttonManagement.padding}px`,
@@ -1058,7 +1058,7 @@ export default function Dashboard({ id }) {
                                             />
                                             <Button sx={{ ml: 2, width: "100px" }} variant="contained" className="doNotAct cptlz" onClick={grokAIHandler}>GROK</Button>
                                         </Box>
-                                        <Box sx={{ mt: 2, p: 1, borderRadius: "3px", border: "1px solid black", background: "#e5e5e5", fontSize: "12px" }}>
+                                        <Box sx={{ mt: 2, p: 1, borderRadius: "3px", border: "1px solid black", backgroundColor: "#e5e5e5", fontSize: "12px" }}>
                                             <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{chatGPT.response == "" ? "Grok AI Response" : chatGPT.response}</pre>
                                         </Box>
                                     </Box>
@@ -1100,7 +1100,7 @@ export default function Dashboard({ id }) {
                                                                 setImageManagement({ ...imageManagement, imageSrc: e.target.value })
                                                             }}
                                                         /> :
-                                                        <Box sx={{ border: "3px dashed #D4D4D4", background: "#FCFCFC", minHeight: "10px" }} p={1}>
+                                                        <Box sx={{ border: "3px dashed #D4D4D4", backgroundColor: "#FCFCFC", minHeight: "10px" }} p={1}>
                                                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                                                 <Box sx={{ display: "flex" }}>
                                                                     <Box> <img src={Doc2} width="15"></img> </Box>
@@ -1356,7 +1356,7 @@ export default function Dashboard({ id }) {
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                 View
                                                             </Typography>
-                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, background: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px` }}>
+                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, backgroundColor: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px` }}>
                                                                 <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textManagement.textInput == "" ? "No Text" : textManagement.textInput}</pre>
                                                             </Box>
                                                         </Box>
@@ -1523,7 +1523,7 @@ export default function Dashboard({ id }) {
                                                                 <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                     View
                                                                 </Typography>
-                                                                <Box component={"button"} sx={{ color: `${buttonManagement.color}`, background: `${buttonManagement.backgroundColor}`, padding: `${buttonManagement.padding}px`, fontSize: `${buttonManagement.fontSize}px`, margin: `${buttonManagement.margin}px`, textAlign: "center", border: `${buttonManagement.borderWidth}px ${buttonManagement.border} ${buttonManagement.borderColor}` }}>{buttonManagement.buttonText}</Box>
+                                                                <Box component={"button"} sx={{ color: `${buttonManagement.color}`, backgroundColor: `${buttonManagement.backgroundColor}`, padding: `${buttonManagement.padding}px`, fontSize: `${buttonManagement.fontSize}px`, margin: `${buttonManagement.margin}px`, textAlign: "center", border: `${buttonManagement.borderWidth}px ${buttonManagement.border} ${buttonManagement.borderColor}` }}>{buttonManagement.buttonText}</Box>
                                                             </Box>
                                                         </Box>
                                                     </Box>
@@ -1713,7 +1713,7 @@ export default function Dashboard({ id }) {
             </Modal>
             <Head title={`Preview: ${data && data.template.name} (${data && data.angle.name})`} />
             <div>
-                <Box sx={{ background: "#c0c0c0", justifyContent: "space-between", display: "flex" }}>
+                <Box sx={{ backgroundColor: "#c0c0c0", justifyContent: "space-between", display: "flex" }}>
                     <Box className="doNotAct" sx={{ mt: 0.3, ml: 0.5, fontWeight: "bold" }}>
                         <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('userThemes', { id: data.user_id }))}>
                             <path className='doNotAct' id="Vector" d="M12 15L15 12M15 12L12 9M15 12H4M4 7.24802V7.2002C4 6.08009 4 5.51962 4.21799 5.0918C4.40973 4.71547 4.71547 4.40973 5.0918 4.21799C5.51962 4 6.08009 4 7.2002 4H16.8002C17.9203 4 18.4796 4 18.9074 4.21799C19.2837 4.40973 19.5905 4.71547 19.7822 5.0918C20 5.5192 20 6.07899 20 7.19691V16.8036C20 17.9215 20 18.4805 19.7822 18.9079C19.5905 19.2842 19.2837 19.5905 18.9074 19.7822C18.48 20 17.921 20 16.8031 20H7.19691C6.07899 20 5.5192 20 5.0918 19.7822C4.71547 19.5905 4.40973 19.2839 4.21799 18.9076C4 18.4798 4 17.9201 4 16.8V16.75" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

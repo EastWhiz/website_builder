@@ -334,17 +334,15 @@ export default function Dashboard() {
                     </Box>
                 </Text>
             </IndexTable.Cell>
-            {roleId == 1 &&
-                <IndexTable.Cell>
-                    <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angles/preview/${value.id}/`, "_blank")}></Button>
-                    <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
-                    <span style={{ marginLeft: "10px" }}></span>
-                    <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleHandler(value.id)}></Button>
-                    <span style={{ marginLeft: "10px" }}></span>
-                    <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleHandler(value.id)}></Button>
-                </IndexTable.Cell>
-            }
+            <IndexTable.Cell>
+                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angles/preview/${value.id}/`, "_blank")}></Button>
+                <span style={{ margin: "10px" }}></span>
+                <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
+                <span style={{ marginLeft: "10px" }}></span>
+                <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleHandler(value.id)}></Button>
+                <span style={{ marginLeft: "10px" }}></span>
+                <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleHandler(value.id)}></Button>
+            </IndexTable.Cell>
         </IndexTable.Row >
     ));
 
@@ -451,7 +449,7 @@ export default function Dashboard() {
                                             { title: 'JS Count', alignment: 'center' },
                                             { title: 'Image Count', alignment: 'center' },
                                             { title: 'Font Count', alignment: 'center' },
-                                            ...(roleId == 1 ? [{ title: 'Action' }] : []),
+                                            { title: 'Action' }
                                         ]}
                                         hasMoreItems
                                         selectable={true}
