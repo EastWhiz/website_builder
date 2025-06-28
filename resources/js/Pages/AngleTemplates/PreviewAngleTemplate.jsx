@@ -151,6 +151,7 @@ export default function Dashboard({ id }) {
         border: false,
         borderWidth: "",
         borderColor: "",
+        imageLink: "", // <-- Add link property
     });
 
     const [newImageUploads, setNewImageUploads] = useState([]);
@@ -277,6 +278,7 @@ export default function Dashboard({ id }) {
                 border: computedStyles.borderStyle,
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                imageLink: editing.currentElement.parentElement.href
             }));
         } else if (editing && editing.actionType == "edit" && ['button'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
@@ -526,6 +528,20 @@ export default function Dashboard({ id }) {
                 } else {
                     element.src = imageManagement.imageFile.blobUrl;
                 }
+
+                if (imageManagement.imageLink) {
+                    if (element.parentElement.tagName == 'A') {
+                        element.parentElement.href = imageManagement.imageLink;
+                    } else {
+                        let anchor = document.createElement('a');
+                        anchor.href = imageManagement.imageLink;
+                        anchor.target = '_blank';
+                        anchor.rel = 'noopener noreferrer';
+                        let cloned = element.cloneNode(true); // clone the original element
+                        anchor.appendChild(cloned); // put the clone inside the anchor
+                        element.parentNode.replaceChild(anchor, element); // now replace the original
+                    }
+                }
             } else {
                 let newElement = document.createElement('img');
                 Object.assign(newElement.style, styles);
@@ -534,7 +550,18 @@ export default function Dashboard({ id }) {
                 } else {
                     newElement.src = imageManagement.imageFile.blobUrl;
                 }
-                await addNewContentHandler(editing.addElementPosition, element, newElement);
+
+                // If a link is provided, wrap the image in an anchor
+                if (imageManagement.imageLink) {
+                    let anchor = document.createElement('a');
+                    anchor.href = imageManagement.imageLink;
+                    anchor.target = '_blank'; // Optional: open in new tab
+                    anchor.rel = 'noopener noreferrer'; // Optional: security best practice
+                    anchor.appendChild(newElement);
+                    await addNewContentHandler(editing.addElementPosition, element, anchor);
+                } else {
+                    await addNewContentHandler(editing.addElementPosition, element.parentNode, newElement);
+                }
             }
         } else if ((editing.actionType == "edit" && ['button'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "button")) {
             const styles = {
@@ -856,9 +883,6 @@ export default function Dashboard({ id }) {
     }
 
     const mainHTMLActive = mainHTML.find(html => html.status == true)
-
-    console.log(chatGPT);
-    console.log(translator);
 
     return (
         <div>
@@ -1193,6 +1217,21 @@ export default function Dashboard({ id }) {
                                                         value={imageManagement.borderWidth}
                                                         onChange={(e) => {
                                                             setImageManagement({ ...imageManagement, borderWidth: e.target.value })
+                                                        }}
+                                                    />
+                                                    <TextField
+                                                        sx={{ mt: 2 }}
+                                                        type='text'
+                                                        fullWidth
+                                                        size='small'
+                                                        label="Link"
+                                                        slotProps={{
+                                                            inputLabel: { shrink: true }
+                                                        }}
+                                                        placeholder='Enter Link'
+                                                        value={imageManagement.imageLink}
+                                                        onChange={(e) => {
+                                                            setImageManagement({ ...imageManagement, imageLink: e.target.value })
                                                         }}
                                                     />
                                                     <Box mt={1} sx={{ display: "flex" }}>
