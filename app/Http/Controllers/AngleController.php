@@ -464,6 +464,7 @@ class AngleController extends Controller
     {
         $newUuid = (string) Str::uuid();
         $newAssetUuid = (string) Str::uuid();
+        $newAngleContentUuid = (string) Str::uuid();
         $newAngle = $angle->replicate();
         $newAngle->uuid = $newUuid;
         $newAngle->asset_unique_uuid = $newAssetUuid;
@@ -500,7 +501,7 @@ class AngleController extends Controller
             $newExtra = $extra->replicate();
             $newExtra->angle_uuid = $newUuid;
             $newExtra->asset_unique_uuid = $newAssetUuid;
-            $newExtra->angle_content_uuid = (string) Str::uuid();   // IT DOESN'T EXIST IN OLD ANGLE, BUT WE ARE CREATING A NEW ONE TO FOLLOW THE SAME STRUCTURE
+            $newExtra->angle_content_uuid = $newAngleContentUuid;   // IT DOESN'T EXIST IN OLD ANGLE, BUT WE ARE CREATING A NEW ONE TO FOLLOW THE SAME STRUCTURE
             // Update angle_content_uuid if present in map
 
             // Duplicate file if type is image
