@@ -258,7 +258,7 @@ export default function Dashboard({ id }) {
                 textInput: editing.innerHTML,
                 fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                 color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
-                backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
+                backgroundColor: computedStyles.background == "none" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
                 textAlign: computedStyles.textAlign,
                 border: computedStyles.borderStyle,
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
@@ -284,7 +284,7 @@ export default function Dashboard({ id }) {
                 ...prev, // keep all previous values
                 buttonText: editing.innerHTML, // only update the value you want\
                 color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
-                backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
+                backgroundColor: computedStyles.background == "none" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.background))}`,
                 fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                 margin: removePxAndConvertToFloat(computedStyles.margin),
                 padding: removePxAndConvertToFloat(computedStyles.padding),
