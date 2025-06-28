@@ -20,14 +20,14 @@ class AngleController extends Controller
     public function index(Request $request)
     {
         $angles = Angle::with(['contents' => function ($query) {
-                $query->select('type','angle_uuid'); // columns you want
+            $query->select('type', 'angle_uuid'); // columns you want
         }])->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
                 $q->orWhere('name', 'LIKE', '%' . $request->q . '%');
             });
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
-        })->select(['id','name','uuid'])->cursorPaginate($request->page_count);
+        })->select(['id', 'name', 'uuid'])->cursorPaginate($request->page_count);
 
         $templates = Template::get()->select(['id', 'name']);
 
@@ -388,10 +388,11 @@ class AngleController extends Controller
                 }
             }
 
-            $images = collect($images)->transform(function ($item) use ($angleContentUUID, $angleUUID) {
+            $images = collect($images)->transform(function ($item) use ($angleContentUUID, $angleUUID, $assetUUID) {
                 return [
                     "angle_uuid" => $angleUUID,
                     "angle_content_uuid" => $angleContentUUID,
+                    "asset_unique_uuid" => $assetUUID,
                     "type" => "image",
                     'name' => $item['name'],
                     'blob_url' => $item['blob_url']
@@ -457,5 +458,109 @@ class AngleController extends Controller
                 'message' => 'Error uploading files: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function duplicateAngle(Request $request, Angle $angle)
+    {
+        $newUuid = (string) Str::uuid();
+        $newAssetUuid = (string) Str::uuid();
+        $newAngle = $angle->replicate();
+        $newAngle->uuid = $newUuid;
+        $newAngle->asset_unique_uuid = $newAssetUuid;
+        $newAngle->name = $angle->name . ' (Copy)';
+        $newAngle->push();
+
+        // Duplicate all AngleContent and keep mapping of old to new uuids
+        $angleContents = AngleContent::where('angle_uuid', $angle->uuid)->get();
+        foreach ($angleContents as $content) {
+            $newContent = $content->replicate();
+            $newContent->uuid = (string) Str::uuid();
+            $newContent->angle_uuid = $newUuid;
+            // Duplicate file if type is font or image
+            if (in_array($content->type, ['font', 'image']) && $content->name) {
+                $oldPath = str_replace('/storage/', '', $content->name);
+                $fileInfo = pathinfo($oldPath);
+                // Remove old asset_unique_uuid from filename
+                $oldAssetUuid = $angle->asset_unique_uuid;
+                $baseFilename = preg_replace('/^' . preg_quote($oldAssetUuid, '/') . '-/', '', $fileInfo['filename']);
+                $newFileName = $newAssetUuid . '-' . $baseFilename . '.' . $fileInfo['extension'];
+                $newFolder = "angles/$newUuid/" . ($content->type === 'font' ? 'fonts' : 'images');
+                $newPath = "$newFolder/$newFileName";
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->copy($oldPath, $newPath);
+                    $newContent->name = '/storage/' . $newPath;
+                }
+            }
+            $newContent->save();
+        }
+
+        // Duplicate ExtraContent, update both angle_uuid and angle_content_uuid
+        $extraContents = ExtraContent::where('angle_uuid', $angle->uuid)->get();
+        foreach ($extraContents as $extra) {
+            $newExtra = $extra->replicate();
+            $newExtra->angle_uuid = $newUuid;
+            $newExtra->asset_unique_uuid = $newAssetUuid;
+            $newExtra->angle_content_uuid = (string) Str::uuid();   // IT DOESN'T EXIST IN OLD ANGLE, BUT WE ARE CREATING A NEW ONE TO FOLLOW THE SAME STRUCTURE
+            // Update angle_content_uuid if present in map
+
+            // Duplicate file if type is image
+            if ($extra->type === 'image' && $extra->name) {
+                $oldPath = str_replace('/storage/', '', $extra->name);
+                $fileInfo = pathinfo($oldPath);
+                // Remove old asset_unique_uuid from filename
+                $baseFilename = preg_replace('/^' . preg_quote($extra->asset_unique_uuid, '/') . '-/', '', $fileInfo['filename']);
+                $newFileName = $newAssetUuid . '-' . $baseFilename . '.' . $fileInfo['extension'];
+                $newFolder = "angleContents/{$newExtra->angle_content_uuid}/images";
+                $newPath = "$newFolder/$newFileName";
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->copy($oldPath, $newPath);
+                    $newExtra->name = '/storage/' . $newPath;
+                }
+            }
+            $newExtra->save();
+
+            $preSearch = "{$extra->angle_content_uuid}/images/{$extra->asset_unique_uuid}";
+            $preReplace = "{$newExtra->angle_content_uuid}/images/{$newExtra->asset_unique_uuid}";
+
+            $angleContents = $newAngle->contents()->where('type', 'html')->each(function ($content) use ($preSearch, $preReplace) {
+                $content->content = str_replace($preSearch, $preReplace, $content->content);
+                $content->save();
+            });
+        }
+
+        return sendResponse(true, "Angle duplicated successfully", [
+            'new_angle_id' => $newAngle->id,
+            'new_angle_uuid' => $newUuid
+        ]);
+    }
+
+    public function duplicateMultipleAngles(Request $request)
+    {
+        $angles_ids = json_decode($request->angles_ids);
+        $search_query = json_decode($request->search_query);
+        $all_check = $request->all_check;
+
+        if ($all_check == "true") {
+            parse_str($search_query, $params);
+
+            $angles_ids = Angle::when(isset($params['q']), function ($q) use ($params) {
+                $q->where(function ($q) use ($params) {
+                    $q->where('name', 'LIKE', '%' . $params['q'] . '%');
+                });
+            })->get()->pluck('id');
+        }
+
+        if (count($angles_ids) == 0)
+            return sendResponse(false, 'At least select one angle!');
+
+        foreach ($angles_ids as $id) {
+            $angle = Angle::find($id);
+            if ($angle) {
+                // Reuse the single duplicate logic
+                $response = $this->duplicateAngle(new Request(), $angle);
+                $results[] = $response->getData();
+            }
+        }
+        return sendResponse(true, 'Angles duplicated successfully!', $results);
     }
 }

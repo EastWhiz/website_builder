@@ -14,6 +14,7 @@ import {
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
 import { DeleteIcon, EditIcon, ViewIcon } from '@shopify/polaris-icons';
+import { DuplicateIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import { useCallback, useEffect, useState } from 'react';
 import Select from 'react-select';
@@ -177,10 +178,38 @@ export default function Dashboard() {
             });
     }
 
+    const duplicateAnglesHandler = () => {
+        const formData = new FormData();
+        formData.append('angles_ids', JSON.stringify(selectedResources));
+        formData.append('all_check', allResourcesSelected);
+        formData.append('search_query', JSON.stringify(myUrl.search));
+        fetch(route('duplicate.angles'), {
+            method: 'POST',
+            body: formData,
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    handleSelectionChange('all', false);
+                    setReload(!reload);
+                    Swal.fire("Success!", data.message, "success");
+                } else {
+                    Swal.fire("Error!", data.message, "error");
+                }
+            })
+            .catch((error) => {
+                Swal.fire("Error!", error.message, "error");
+            });
+    }
+
     const promotedBulkActions = [
         {
             content: 'Select Publishers',
             onAction: () => { setActive(true) },
+        },
+        {
+            content: 'Duplicate Angles',
+            onAction: duplicateAnglesHandler,
         },
     ];
 
@@ -226,6 +255,31 @@ export default function Dashboard() {
                     })
             }
         });
+    }
+
+    const duplicateAngleHandler = (angleId) => {
+        fetch(route('duplicate.angle', angleId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                Swal.fire({
+                    title: data.success ? "Duplicated!" : "Error!",
+                    text: data.message,
+                    icon: data.success ? "success" : "error"
+                });
+                setReload(!reload);
+            })
+            .catch(error => {
+                Swal.fire({
+                    title: "Error!",
+                    text: error.message,
+                    icon: "error"
+                });
+            });
     }
 
     const filters = [];
@@ -287,6 +341,8 @@ export default function Dashboard() {
                     <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
                     <span style={{ marginLeft: "10px" }}></span>
                     <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleHandler(value.id)}></Button>
+                    <span style={{ marginLeft: "10px" }}></span>
+                    <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleHandler(value.id)}></Button>
                 </IndexTable.Cell>
             }
         </IndexTable.Row >

@@ -59,6 +59,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/templates/delete', [TemplateController::class, 'deleteTemplate'])->name('delete.template');
         Route::post('/angles/delete', [AngleController::class, 'deleteAngle'])->name('delete.angle');
         Route::post('/angle-templates/delete', [AngleTemplateController::class, 'deleteAngleTemplate'])->name('delete.angleTemplate');
+
+        Route::post('/angles/duplicate/{angle}', [AngleController::class, 'duplicateAngle'])->name('duplicate.angle');
+        Route::post('/angles/duplicate-multiple', [AngleController::class, 'duplicateMultipleAngles'])->name('duplicate.angles');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {
