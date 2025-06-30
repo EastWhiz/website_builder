@@ -72,3 +72,10 @@ input {
     cursor: pointer;
     z-index: 9999;
 }
+
+.app-anchor {
+    cursor: pointer !important;
+    text-decoration: underline !important;
+    font-weight: bold !important;
+    color: #3b7de3 !important;
+}

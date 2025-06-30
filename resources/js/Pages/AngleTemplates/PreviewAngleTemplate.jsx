@@ -78,6 +78,11 @@ export default function Dashboard({ id }) {
         'match-parent' // Inherits the alignment from the parent, but adjusts for direction
     ];
 
+    const linkTypes = [
+        'Clicked Element',
+        'Full Element',
+    ];
+
     const requireds = [
         'required',
         'not-required',
@@ -128,7 +133,43 @@ export default function Dashboard({ id }) {
         pt: 3,
         height: "400px",
         overflow: "hidden"
-    };
+    }
+
+    function getClickedWordFromElement() {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return null;
+
+        const range = selection.getRangeAt(0);
+        const node = range.startContainer;
+        const offset = range.startOffset;
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent;
+
+            // Expand left to start of word
+            let start = offset;
+            while (start > 0 && /\S/.test(text[start - 1])) start--;
+
+            // Expand right to end of word
+            let end = offset;
+            while (end < text.length && /\S/.test(text[end])) end++;
+
+            const word = text.slice(start, end).trim();
+            return {
+                word,
+                position: start // Index of the word in the text
+            };
+        }
+
+        return null;
+    }
+
+    function wrapWithAnchor(str, startIndex, length, href) {
+        const word = str.substring(startIndex, startIndex + length);
+        const anchor = `<a class="app-anchor" href="${href}">${word}</a>`;
+        return str.slice(0, startIndex) + anchor + str.slice(startIndex + length);
+    }
+
 
     const [open, setOpen] = useState(false);
     const [data, setData] = useState(false);
@@ -174,6 +215,7 @@ export default function Dashboard({ id }) {
         backgroundColor: "",
         fontSize: "12",
         link: "",
+        linkEffect: "Clicked Element", // false, true
         border: false,
         borderWidth: "",
         borderColor: "",
@@ -207,6 +249,8 @@ export default function Dashboard({ id }) {
         borderWidth: "",
         borderColor: "",
     });
+
+    const [anchorHelpProperties, setAnchorHelpProperties] = useState(null);
 
     useEffect(() => {
 
@@ -264,6 +308,7 @@ export default function Dashboard({ id }) {
                 border: computedStyles.borderStyle,
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                link: editing.currentElement.tagName == 'A' ? editing.currentElement.href : "",
             }));
         } else if (editing && editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) {
             setCustomHTMLManagement(prev => ({
@@ -387,6 +432,7 @@ export default function Dashboard({ id }) {
         if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && !event.target.outerHTML.includes("doNotAct")) {
             let randString = generateRandomString();
             if (editableElements.includes(event.target.localName) || event.target.classList.contains('editableDiv')) {
+                setAnchorHelpProperties(getClickedWordFromElement());
                 event.target.classList.add(randString);
                 setOpen(true);
                 resetModalHandler();
@@ -482,11 +528,20 @@ export default function Dashboard({ id }) {
             if (editing.actionType == "edit") {
                 if (textManagement.link && element.localName !== "a") {
                     let newElement = document.createElement('a');
-                    Object.assign(newElement.style, styles);
-                    newElement.innerHTML = textManagement.textInput;
                     newElement.className = element.className;
-                    newElement.setAttribute('href', textManagement.link);
-                    element.parentNode.replaceChild(newElement, element);
+                    Object.assign(newElement.style, styles);
+                    if (anchorHelpProperties && textManagement.linkEffect == "Clicked Element") {
+                        newElement.innerHTML = wrapWithAnchor(editing.innerHTML, anchorHelpProperties.position, anchorHelpProperties.word.length, textManagement.link);
+                        element.innerHTML = newElement.innerHTML;
+                    } else {
+                        newElement.innerHTML = textManagement.textInput;
+                        newElement.setAttribute('href', textManagement.link);
+                        element.parentNode.replaceChild(newElement, element);
+                    }
+                } else if (textManagement.link && element.localName == "a") {
+                    Object.assign(element.style, styles);
+                    element.innerHTML = textManagement.textInput;
+                    element.href = textManagement.link;
                 } else {
                     Object.assign(element.style, styles);
                     element.innerHTML = textManagement.textInput;
@@ -600,6 +655,7 @@ export default function Dashboard({ id }) {
             { html: document.querySelector(".mainHTML").innerHTML, status: true } // Add new entry
         ]);
         setOpen(false);
+        setAnchorHelpProperties(null);
     }
 
     const undoHandler = () => {
@@ -1275,6 +1331,28 @@ export default function Dashboard({ id }) {
                                                                     setTextManagement({ ...textManagement, textInput: e.target.value })
                                                                 }}
                                                             />
+                                                            <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                                                <InputLabel id="demo-simple-select-label">Link Effect</InputLabel>
+                                                                <Select
+                                                                    // displayEmpty
+                                                                    renderValue={(value) => {
+                                                                        if (!value) {
+                                                                            return <Typography color="grey"> Select Link Effect</Typography>;
+                                                                        }
+                                                                        return <>{value}</>;
+                                                                    }}
+                                                                    value={textManagement.linkEffect}
+                                                                    label="Link Effect"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        setTextManagement({ ...textManagement, linkEffect: e.target.value })
+                                                                    }}
+                                                                >
+                                                                    {linkTypes.map((item, index) => (
+                                                                        <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    ))}
+                                                                </Select>
+                                                            </FormControl>
                                                             <TextField
                                                                 sx={{ mt: 2 }}
                                                                 className="multilineCss"
