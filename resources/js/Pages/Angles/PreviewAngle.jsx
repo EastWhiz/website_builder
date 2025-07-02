@@ -315,7 +315,16 @@ export default function Dashboard({ id }) {
 
     useEffect(() => {
         // console.log(editing);
-        if (editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) {
+        if (editing && editing.actionType == "delete") {
+            let elementInside = document.querySelector(`.${editing.editID}`);
+            elementInside.remove();
+            setMainHTML(prev => [
+                ...prev.map(item => ({ ...item, status: false })), // Set previous statuses to false
+                { html: document.querySelector(".mainHTML").innerHTML, status: true } // Add new entry
+            ]);
+            setOpen(false);
+            setAnchorHelpProperties(null);
+        } else if (editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
             setTextManagement(prev => ({
                 ...prev,
@@ -1022,9 +1031,11 @@ export default function Dashboard({ id }) {
                                 <Box>
                                     {editing && !editing.actionType &&
                                         <Box mt={2} sx={{ display: "flex", gap: 1 }}>
-                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
+                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
                                             <Box component="div" sx={{ marginTop: "15px" }} />
-                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
+                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
+                                            <Box component="div" sx={{ marginTop: "15px" }} />
+                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="error" variant='outlined' onClick={() => handleChange("actionType", "delete")}>Delete Element</Button>
                                         </Box>
                                     }
                                     {editing && editing.actionType == "add" && !editing.addElementPosition &&
