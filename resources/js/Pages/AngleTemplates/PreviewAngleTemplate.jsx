@@ -185,31 +185,34 @@ export default function Dashboard({ id }) {
         addElementPosition: false,
         addElementType: false,
     });
-    const [imageManagement, setImageManagement] = useState({
+
+    const [newImageUploads, setNewImageUploads] = useState([]);
+
+    const INITIAL_IMAGE_MANAGEMENT = {
         via: "src",
         imageSrc: "",
         imageFile: { alreadyUploaded: "", name: "", size: "", file: "", blobUrl: "" },
         border: false,
         borderWidth: "",
         borderColor: "",
-        imageLink: "", // <-- Add link property
-    });
+        imageLink: "",          // <-- Add link property
+    };
 
-    const [newImageUploads, setNewImageUploads] = useState([]);
-
-    const [translator, setTranslator] = useState({
+    const INITIAL_TRANSLATOR = {
         fromLanguange: false,
         toLanguage: false,
         fromText: "",
         toText: "",
-        currentSource: false, // TEXT, CUSTOM_HTML
-    });
-    const [chatGPT, setChatGPT] = useState({
+        currentSource: false,    // TEXT, CUSTOM_HTML
+    };
+
+    const INITIAL_CHATGPT = {
         query: "",
         response: "",
-        currentSource: false, // TEXT, CUSTOM_HTML
-    });
-    const [textManagement, setTextManagement] = useState({
+        currentSource: false,    // TEXT, CUSTOM_HTML
+    };
+
+    const INITIAL_TEXT_MANAGEMENT = {
         textInput: "",
         color: "",
         backgroundColor: "",
@@ -220,25 +223,31 @@ export default function Dashboard({ id }) {
         borderWidth: "",
         borderColor: "",
         textAlign: false,
-    });
-    const [spacerManagement, setSpacerManagement] = useState({
-        height: ""
-    });
-    const [customHTMLManagement, setCustomHTMLManagement] = useState({
+    };
+
+    const INITIAL_SPACER_MANAGEMENT = {
+        height: "",
+    };
+
+    const INITIAL_CUSTOM_HTML_MANAGEMENT = {
         input: "",
-    });
-    const [formManagement, setFormManagement] = useState({
+    };
+
+    const INITIAL_FORM_MANAGEMENT = {
         submitText: "",
         submitTextColor: "",
         submitBackgroundColor: "",
-        inputs: [{
-            name: "",
-            required: false,
-            type: false,
-            sort: ""
-        }]
-    });
-    const [buttonManagement, setButtonManagement] = useState({
+        inputs: [
+            {
+                name: "",
+                required: false,
+                type: false,
+                sort: "",
+            },
+        ],
+    };
+
+    const INITIAL_BUTTON_MANAGEMENT = {
         buttonText: "",
         color: "",
         backgroundColor: "",
@@ -248,7 +257,16 @@ export default function Dashboard({ id }) {
         border: false,
         borderWidth: "",
         borderColor: "",
-    });
+    };
+
+    const [imageManagement, setImageManagement] = useState(INITIAL_IMAGE_MANAGEMENT);
+    const [translator, setTranslator] = useState(INITIAL_TRANSLATOR);
+    const [chatGPT, setChatGPT] = useState(INITIAL_CHATGPT);
+    const [textManagement, setTextManagement] = useState(INITIAL_TEXT_MANAGEMENT);
+    const [spacerManagement, setSpacerManagement] = useState(INITIAL_SPACER_MANAGEMENT);
+    const [customHTMLManagement, setCustomHTMLManagement] = useState(INITIAL_CUSTOM_HTML_MANAGEMENT);
+    const [formManagement, setFormManagement] = useState(INITIAL_FORM_MANAGEMENT);
+    const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
 
     const [anchorHelpProperties, setAnchorHelpProperties] = useState(null);
 
@@ -665,6 +683,16 @@ export default function Dashboard({ id }) {
         ]);
         setOpen(false);
         setAnchorHelpProperties(null);
+
+        // RESET ALL
+        setImageManagement(INITIAL_IMAGE_MANAGEMENT);
+        setTranslator(INITIAL_TRANSLATOR);
+        setChatGPT(INITIAL_CHATGPT);
+        setTextManagement(INITIAL_TEXT_MANAGEMENT);
+        setSpacerManagement(INITIAL_SPACER_MANAGEMENT);
+        setCustomHTMLManagement(INITIAL_CUSTOM_HTML_MANAGEMENT);
+        setFormManagement(INITIAL_FORM_MANAGEMENT);
+        setButtonManagement(INITIAL_BUTTON_MANAGEMENT);
     }
 
     const undoHandler = () => {
