@@ -114,6 +114,7 @@ export default function Dashboard({ id }) {
         'text',
         'rect',
         'tspan',
+        'svg',
         "li",
         "ul",
         "select",
@@ -326,7 +327,7 @@ export default function Dashboard({ id }) {
             ]);
             setOpen(false);
             setAnchorHelpProperties(null);
-        } else if (editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan'].includes(editing.elementName)) {
+        } else if (editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
             setTextManagement(prev => ({
                 ...prev,
@@ -543,7 +544,7 @@ export default function Dashboard({ id }) {
         let element = document.querySelector(`.${editing.editID}`);
 
         //FURTHER EDITING REMAINING
-        if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
+        if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
             //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
             const styles = {
                 color: textManagement.color,
@@ -1350,7 +1351,7 @@ export default function Dashboard({ id }) {
                                             )}
 
                                         {/* TEXT MANAGEMENT MODAL */}
-                                        {(editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan'].includes(editing.elementName) ||
+                                        {(editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName) ||
                                             (editing && editing.actionType === "add" && editing.addElementType == "p")
                                         ) && (
                                                 <Box>
