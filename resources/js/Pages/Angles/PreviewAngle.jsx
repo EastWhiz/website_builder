@@ -185,9 +185,15 @@ export default function Dashboard({ id }) {
         return null;
     }
 
-    function wrapWithAnchor(str, startIndex, length, href) {
+    function wrapWithAnchor(str, startIndex, length, href, styles = {}) {
+        const styleString = Object.entries(styles)
+            .filter(([, v]) => v !== undefined && v !== null && v !== '')
+            .map(([k, v]) =>
+                `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}: ${v}`
+            )
+            .join('; ');
         const word = str.substring(startIndex, startIndex + length);
-        const anchor = `<a class="app-anchor" href="${href}">${word}</a>`;
+        const anchor = `<a class="app-anchor" href="${href}" style="${styleString}">${word}</a>`;
         return str.slice(0, startIndex) + anchor + str.slice(startIndex + length);
     }
 
@@ -359,6 +365,7 @@ export default function Dashboard({ id }) {
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
                 link: editing.currentElement.tagName == 'A' ? editing.currentElement.href : "",
+                fontFamily: computedStyles.fontFamily,
             }));
         } else if (editing && editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) {
             setCustomHTMLManagement(prev => ({
@@ -571,20 +578,22 @@ export default function Dashboard({ id }) {
                 border: textManagement.border,
                 borderWidth: `${textManagement.borderWidth}px`,
                 borderColor: textManagement.borderColor,
-                textAlign: textManagement.textAlign
+                textAlign: textManagement.textAlign,
+                fontFamily: textManagement.fontFamily
             };
 
             if (editing.actionType == "edit") {
                 if (textManagement.link && element.localName !== "a") {
                     let newElement = document.createElement('a');
                     newElement.className = element.className;
-                    Object.assign(newElement.style, styles);
                     if (anchorHelpProperties && textManagement.linkEffect == "Clicked Element") {
-                        newElement.innerHTML = wrapWithAnchor(editing.innerHTML, anchorHelpProperties.position, anchorHelpProperties.word.length, textManagement.link);
+                        newElement.innerHTML = wrapWithAnchor(editing.innerHTML, anchorHelpProperties.position, anchorHelpProperties.word.length, textManagement.link, styles);
                         element.innerHTML = newElement.innerHTML;
                     } else {
+                        Object.assign(newElement.style, styles);
                         newElement.innerHTML = textManagement.textInput;
                         newElement.setAttribute('href', textManagement.link);
+                        newElement.classList.add('app-anchor');
                         element.parentNode.replaceChild(newElement, element);
                     }
                 } else if (textManagement.link && element.localName == "a") {
