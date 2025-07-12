@@ -323,7 +323,7 @@ export default function Dashboard({ id }) {
     }, []);
 
     useEffect(() => {
-        // console.log(editing);
+        console.log(editing);
         if (editing && editing.actionType == "delete") {
             let elementInside = document.querySelector(`.${editing.editID}`);
             elementInside.remove();
@@ -497,6 +497,8 @@ export default function Dashboard({ id }) {
 
     const addNewContentHandler = async (position, existingElement, newElement) => {
 
+        console.log(position, existingElement, newElement);
+
         if (position == "bottom") {
             existingElement.style.marginBottom = "5px";
             existingElement.insertAdjacentElement('afterend', newElement);
@@ -654,6 +656,8 @@ export default function Dashboard({ id }) {
                     newElement.src = imageManagement.imageFile.blobUrl;
                 }
 
+                console.log(editing.addElementPosition, element);
+
                 // If a link is provided, wrap the image in an anchor
                 if (imageManagement.imageLink) {
                     let anchor = document.createElement('a');
@@ -663,7 +667,7 @@ export default function Dashboard({ id }) {
                     anchor.appendChild(newElement);
                     await addNewContentHandler(editing.addElementPosition, element, anchor);
                 } else {
-                    await addNewContentHandler(editing.addElementPosition, element.parentNode, newElement);
+                    await addNewContentHandler(editing.addElementPosition, element, newElement);
                 }
             }
         } else if ((editing.actionType == "edit" && ['button'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "button")) {
@@ -696,24 +700,24 @@ export default function Dashboard({ id }) {
             await addNewContentHandler(editing.addElementPosition, element, newElement);
         }
 
-        let elementInside = document.querySelector(`.${editing.editID}`)
-        elementInside.classList.remove(editing.editID);
-        setMainHTML(prev => [
-            ...prev.map(item => ({ ...item, status: false })), // Set previous statuses to false
-            { html: document.querySelector(".mainHTML").innerHTML, status: true } // Add new entry
-        ]);
-        setOpen(false);
-        setAnchorHelpProperties(null);
+        // let elementInside = document.querySelector(`.${editing.editID}`)
+        // elementInside.classList.remove(editing.editID);
+        // setMainHTML(prev => [
+        //     ...prev.map(item => ({ ...item, status: false })), // Set previous statuses to false
+        //     { html: document.querySelector(".mainHTML").innerHTML, status: true } // Add new entry
+        // ]);
+        // setOpen(false);
+        // setAnchorHelpProperties(null);
 
-        // RESET ALL
-        setImageManagement(INITIAL_IMAGE_MANAGEMENT);
-        setTranslator(INITIAL_TRANSLATOR);
-        setChatGPT(INITIAL_CHATGPT);
-        setTextManagement(INITIAL_TEXT_MANAGEMENT);
-        setSpacerManagement(INITIAL_SPACER_MANAGEMENT);
-        setCustomHTMLManagement(INITIAL_CUSTOM_HTML_MANAGEMENT);
-        setFormManagement(INITIAL_FORM_MANAGEMENT);
-        setButtonManagement(INITIAL_BUTTON_MANAGEMENT);
+        // // RESET ALL
+        // setImageManagement(INITIAL_IMAGE_MANAGEMENT);
+        // setTranslator(INITIAL_TRANSLATOR);
+        // setChatGPT(INITIAL_CHATGPT);
+        // setTextManagement(INITIAL_TEXT_MANAGEMENT);
+        // setSpacerManagement(INITIAL_SPACER_MANAGEMENT);
+        // setCustomHTMLManagement(INITIAL_CUSTOM_HTML_MANAGEMENT);
+        // setFormManagement(INITIAL_FORM_MANAGEMENT);
+        // setButtonManagement(INITIAL_BUTTON_MANAGEMENT);
     }
 
     const undoHandler = () => {
