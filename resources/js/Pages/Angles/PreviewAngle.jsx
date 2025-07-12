@@ -352,21 +352,29 @@ export default function Dashboard({ id }) {
             ]);
             setOpen(false);
             setAnchorHelpProperties(null);
-        } else if (editing && editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) {
+        } else if ((editing && editing.actionType == "edit" || editing && editing.actionType == "add") && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
-            setTextManagement(prev => ({
-                ...prev,
-                textInput: editing.innerHTML,
-                fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
-                color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
-                backgroundColor: computedStyles.backgroundColor == "rgba(0, 0, 0, 0)" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`,
-                textAlign: computedStyles.textAlign,
-                border: computedStyles.borderStyle,
-                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
-                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
-                link: editing.currentElement.tagName == 'A' ? editing.currentElement.href : "",
-                fontFamily: computedStyles.fontFamily,
-            }));
+            if (editing && editing.actionType == "add") {
+                setTextManagement(prev => ({
+                    ...prev,
+                    fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
+                    fontFamily: computedStyles.fontFamily,
+                }));
+            } else if (editing && editing.actionType == "edit") {
+                setTextManagement(prev => ({
+                    ...prev,
+                    textInput: editing.innerHTML,
+                    fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
+                    color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
+                    backgroundColor: computedStyles.backgroundColor == "rgba(0, 0, 0, 0)" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`,
+                    textAlign: computedStyles.textAlign,
+                    border: computedStyles.borderStyle,
+                    borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
+                    borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                    link: editing.currentElement.tagName == 'A' ? editing.currentElement.href : "",
+                    fontFamily: computedStyles.fontFamily,
+                }));
+            }
         } else if (editing && editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) {
             setCustomHTMLManagement(prev => ({
                 ...prev, // keep all previous values
@@ -574,7 +582,7 @@ export default function Dashboard({ id }) {
             const styles = {
                 color: textManagement.color,
                 backgroundColor: textManagement.backgroundColor,
-                fontSize: `${textManagement.fontSize}`,
+                fontSize: `${textManagement.fontSize}px`,
                 border: textManagement.border,
                 borderWidth: `${textManagement.borderWidth}px`,
                 borderColor: textManagement.borderColor,
