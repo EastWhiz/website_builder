@@ -681,7 +681,7 @@ export default function Dashboard({ id }) {
                     anchor.appendChild(newElement);
                     await addNewContentHandler(editing.addElementPosition, element, anchor);
                 } else {
-                    await addNewContentHandler(editing.addElementPosition, element.parentNode, newElement);
+                    await addNewContentHandler(editing.addElementPosition, element, newElement);
                 }
             }
         } else if ((editing.actionType == "edit" && ['button'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "button")) {
