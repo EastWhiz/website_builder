@@ -1,9 +1,8 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Box, Button as MuiButton } from '@mui/material';
-
 import {
-    Button,
+    AppProvider, Button,
     Card,
     IndexFilters,
     IndexTable,
@@ -13,9 +12,9 @@ import {
     Text,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { DeleteIcon, EditIcon, ViewIcon } from '@shopify/polaris-icons';
-import { DuplicateIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, DuplicateIcon, EditIcon, ViewIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
+import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
 import Select from 'react-select';
 import Swal from 'sweetalert2';
@@ -347,139 +346,141 @@ export default function Dashboard() {
     ));
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Angles
-                </h2>
-            }
-        >
-            <Head title="Angles" />
-            <Modal
-                open={active}
-                size='fullScreen'
-                onClose={() => setActive(false)}
-                title="Publishers List"
-                primaryAction={{
-                    content: 'Done',
-                    onAction: () => selectPublishersHandler(),
-                }}
-                secondaryActions={[
-                    {
-                        content: 'Cancel',
-                        onAction: () => setActive(false),
-                    },
-                ]}
+        <AppProvider i18n={en}>
+            <AuthenticatedLayout
+                header={
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        Angles
+                    </h2>
+                }
             >
-                <Modal.Section>
-                    <Select
-                        menuPortalTarget={document.body}
-                        styles={{
-                            menuPortal: base => ({ ...base, zIndex: 9999 }),
-                        }}
-                        placeholder="Select Publishers..."
-                        options={templateOptions}
-                        value={selectedTemplateOptions}
-                        onChange={(e) => setSelectedTemplateOptions(e)}
-                        isMulti
-                        closeMenuOnSelect={false}
-                    />
-                </Modal.Section>
-            </Modal>
-            <div className="py-16">
-                {/* sm:px-6 lg:px-8 */}
-                <div className="mx-auto max-w-7xl">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        <div className="p-6 text-gray-900">
-                            <Box>
-                                <div style={{ display: "flex", justifyContent: "right", marginBottom: "15px" }}>
-                                    <ShopifySelect
-                                        labelInline
-                                        label="Rows:"
-                                        options={pageOptions}
-                                        value={pageCount}
-                                        onChange={handlePageCount}
-                                    />
-                                    {page && page.auth.user.role.name == "admin" &&
-                                        <>
-                                            <span style={{ marginRight: "10px" }}></span>
-                                            <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addAngle'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
-                                        </>
-                                    }
-                                </div>
-                                <Card>
-                                    <div>
-                                        <IndexFilters
-                                            sortOptions={sortOptions}
-                                            sortSelected={sortSelected}
-                                            queryValue={queryValue}
-                                            queryPlaceholder="Search Angles..."
-                                            onQueryChange={handleFiltersQueryChange}
-                                            onQueryClear={handleQueryValueRemove}
-                                            onSort={setSortSelected}
-                                            cancelAction={{
-                                                onAction: onHandleCancel,
-                                                disabled: false,
-                                                loading: false,
-                                            }}
-                                            tabs={tabs}
-                                            selected={selected}
-                                            onSelect={setSelected}
-                                            canCreateNewView={false}
-                                            filters={filters}
-                                            appliedFilters={appliedFilters}
-                                            onClearAll={handleFiltersClearAll}
-                                            mode={mode}
-                                            setMode={setMode}
-                                            loading={loading}
+                <Head title="Angles" />
+                <Modal
+                    open={active}
+                    size='fullScreen'
+                    onClose={() => setActive(false)}
+                    title="Publishers List"
+                    primaryAction={{
+                        content: 'Done',
+                        onAction: () => selectPublishersHandler(),
+                    }}
+                    secondaryActions={[
+                        {
+                            content: 'Cancel',
+                            onAction: () => setActive(false),
+                        },
+                    ]}
+                >
+                    <Modal.Section>
+                        <Select
+                            menuPortalTarget={document.body}
+                            styles={{
+                                menuPortal: base => ({ ...base, zIndex: 9999 }),
+                            }}
+                            placeholder="Select Publishers..."
+                            options={templateOptions}
+                            value={selectedTemplateOptions}
+                            onChange={(e) => setSelectedTemplateOptions(e)}
+                            isMulti
+                            closeMenuOnSelect={false}
+                        />
+                    </Modal.Section>
+                </Modal>
+                <div className="py-16">
+                    {/* sm:px-6 lg:px-8 */}
+                    <div className="mx-auto max-w-7xl">
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6 text-gray-900">
+                                <Box>
+                                    <div style={{ display: "flex", justifyContent: "right", marginBottom: "15px" }}>
+                                        <ShopifySelect
+                                            labelInline
+                                            label="Rows:"
+                                            options={pageOptions}
+                                            value={pageCount}
+                                            onChange={handlePageCount}
                                         />
-                                    </div>
-                                    <IndexTable
-                                        resourceName={resourceName}
-                                        itemCount={tableRows.length}
-                                        selectedItemsCount={
-                                            allResourcesSelected ? 'All ' : selectedResources.length
+                                        {page && page.auth.user.role.name == "admin" &&
+                                            <>
+                                                <span style={{ marginRight: "10px" }}></span>
+                                                <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addAngle'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
+                                            </>
                                         }
-                                        onSelectionChange={handleSelectionChange}
-                                        headings={[
-                                            { title: 'ID' },
-                                            { title: 'Title' },
-                                            { title: 'Body Count', alignment: 'center' },
-                                            { title: 'CSS Count', alignment: 'center' },
-                                            { title: 'JS Count', alignment: 'center' },
-                                            { title: 'Image Count', alignment: 'center' },
-                                            { title: 'Font Count', alignment: 'center' },
-                                            { title: 'Action' }
-                                        ]}
-                                        hasMoreItems
-                                        selectable={true}
-                                        promotedBulkActions={promotedBulkActions}
-                                    >
-                                        {rowMarkup}
-                                    </IndexTable>
-                                </Card>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '22px', paddingBottom: '22px' }}>
-                                    <Pagination hasNext={pagination.next_cursor ? true : false} hasPrevious={pagination.prev_cursor ? true : false} onNext={() => {
-                                        setPagination({
-                                            ...pagination,
-                                            path: pagination.next_page_url
-                                        })
-                                        setCurrentCursor(pagination.next_cursor);
-                                        setReload(!reload);
-                                    }} onPrevious={() => {
-                                        setPagination({
-                                            ...pagination,
-                                            path: pagination.prev_page_url
-                                        })
-                                        setCurrentCursor(pagination.prev_cursor);
-                                        setReload(!reload);
-                                    }} />
-                                </div>
-                            </Box>
+                                    </div>
+                                    <Card>
+                                        <div>
+                                            <IndexFilters
+                                                sortOptions={sortOptions}
+                                                sortSelected={sortSelected}
+                                                queryValue={queryValue}
+                                                queryPlaceholder="Search Angles..."
+                                                onQueryChange={handleFiltersQueryChange}
+                                                onQueryClear={handleQueryValueRemove}
+                                                onSort={setSortSelected}
+                                                cancelAction={{
+                                                    onAction: onHandleCancel,
+                                                    disabled: false,
+                                                    loading: false,
+                                                }}
+                                                tabs={tabs}
+                                                selected={selected}
+                                                onSelect={setSelected}
+                                                canCreateNewView={false}
+                                                filters={filters}
+                                                appliedFilters={appliedFilters}
+                                                onClearAll={handleFiltersClearAll}
+                                                mode={mode}
+                                                setMode={setMode}
+                                                loading={loading}
+                                            />
+                                        </div>
+                                        <IndexTable
+                                            resourceName={resourceName}
+                                            itemCount={tableRows.length}
+                                            selectedItemsCount={
+                                                allResourcesSelected ? 'All ' : selectedResources.length
+                                            }
+                                            onSelectionChange={handleSelectionChange}
+                                            headings={[
+                                                { title: 'ID' },
+                                                { title: 'Title' },
+                                                { title: 'Body Count', alignment: 'center' },
+                                                { title: 'CSS Count', alignment: 'center' },
+                                                { title: 'JS Count', alignment: 'center' },
+                                                { title: 'Image Count', alignment: 'center' },
+                                                { title: 'Font Count', alignment: 'center' },
+                                                { title: 'Action' }
+                                            ]}
+                                            hasMoreItems
+                                            selectable={true}
+                                            promotedBulkActions={promotedBulkActions}
+                                        >
+                                            {rowMarkup}
+                                        </IndexTable>
+                                    </Card>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '22px', paddingBottom: '22px' }}>
+                                        <Pagination hasNext={pagination.next_cursor ? true : false} hasPrevious={pagination.prev_cursor ? true : false} onNext={() => {
+                                            setPagination({
+                                                ...pagination,
+                                                path: pagination.next_page_url
+                                            })
+                                            setCurrentCursor(pagination.next_cursor);
+                                            setReload(!reload);
+                                        }} onPrevious={() => {
+                                            setPagination({
+                                                ...pagination,
+                                                path: pagination.prev_page_url
+                                            })
+                                            setCurrentCursor(pagination.prev_cursor);
+                                            setReload(!reload);
+                                        }} />
+                                    </div>
+                                </Box>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </AuthenticatedLayout>
+            </AuthenticatedLayout>
+        </AppProvider>
     );
 }

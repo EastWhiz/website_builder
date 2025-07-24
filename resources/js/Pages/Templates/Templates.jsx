@@ -3,17 +3,14 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { Box, Button as MuiButton } from '@mui/material';
 
 import {
-    Card,
-    Button,
-    IndexFilters,
+    AppProvider, Button, Card, IndexFilters,
     IndexTable,
     Pagination,
-    Select as ShopifySelect,
-    useIndexResourceState, useSetIndexFiltersMode,
-    Text
+    Select as ShopifySelect, Text, useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
+import { DeleteIcon, EditIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
-import { EditIcon, ViewIcon, PageDownIcon, DeleteIcon } from '@shopify/polaris-icons';
+import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
@@ -245,108 +242,110 @@ export default function Dashboard() {
     ));
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Publishers
-                </h2>
-            }
-        >
-            <Head title="Publishers" />
+        <AppProvider i18n={en}>
+            <AuthenticatedLayout
+                header={
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        Publishers
+                    </h2>
+                }
+            >
+                <Head title="Publishers" />
 
-            <div className="py-16">
-                {/* sm:px-6 lg:px-8 */}
-                <div className="mx-auto max-w-7xl">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        <div className="p-6 text-gray-900">
-                            <Box>
-                                <div style={{ display: "flex", justifyContent: "right", marginBottom: "15px" }}>
-                                    <ShopifySelect
-                                        labelInline
-                                        label="Rows:"
-                                        options={pageOptions}
-                                        value={pageCount}
-                                        onChange={handlePageCount}
-                                    />
-                                    {page && page.auth.user.role.name == "admin" &&
-                                        <>
-                                            <span style={{ marginRight: "10px" }}></span>
-                                            <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addTemplate'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
-                                        </>
-                                    }
-                                </div>
-                                <Card>
-                                    <div>
-                                        <IndexFilters
-                                            sortOptions={sortOptions}
-                                            sortSelected={sortSelected}
-                                            queryValue={queryValue}
-                                            queryPlaceholder="Search Publishers..."
-                                            onQueryChange={handleFiltersQueryChange}
-                                            onQueryClear={handleQueryValueRemove}
-                                            onSort={setSortSelected}
-                                            cancelAction={{
-                                                onAction: onHandleCancel,
-                                                disabled: false,
-                                                loading: false,
-                                            }}
-                                            tabs={tabs}
-                                            selected={selected}
-                                            onSelect={setSelected}
-                                            canCreateNewView={false}
-                                            filters={filters}
-                                            appliedFilters={appliedFilters}
-                                            onClearAll={handleFiltersClearAll}
-                                            mode={mode}
-                                            setMode={setMode}
-                                            loading={loading}
+                <div className="py-16">
+                    {/* sm:px-6 lg:px-8 */}
+                    <div className="mx-auto max-w-7xl">
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6 text-gray-900">
+                                <Box>
+                                    <div style={{ display: "flex", justifyContent: "right", marginBottom: "15px" }}>
+                                        <ShopifySelect
+                                            labelInline
+                                            label="Rows:"
+                                            options={pageOptions}
+                                            value={pageCount}
+                                            onChange={handlePageCount}
                                         />
-                                    </div>
-                                    <IndexTable
-                                        resourceName={resourceName}
-                                        itemCount={tableRows.length}
-                                        selectedItemsCount={
-                                            allResourcesSelected ? 'All ' : selectedResources.length
+                                        {page && page.auth.user.role.name == "admin" &&
+                                            <>
+                                                <span style={{ marginRight: "10px" }}></span>
+                                                <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addTemplate'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
+                                            </>
                                         }
-                                        onSelectionChange={handleSelectionChange}
-                                        headings={[
-                                            { title: 'ID' },
-                                            { title: 'Title' },
-                                            { title: 'Body Count', alignment: 'center' },
-                                            { title: 'CSS Count', alignment: 'center' },
-                                            { title: 'JS Count', alignment: 'center' },
-                                            { title: 'Image Count', alignment: 'center' },
-                                            { title: 'Font Count', alignment: 'center' },
-                                            ...(roleId == 1 ? [{ title: 'Action' }] : []),
-                                        ]}
-                                        hasMoreItems
-                                        selectable={false}
-                                    >
-                                        {rowMarkup}
-                                    </IndexTable>
-                                </Card>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '22px', paddingBottom: '22px' }}>
-                                    <Pagination hasNext={pagination.next_cursor ? true : false} hasPrevious={pagination.prev_cursor ? true : false} onNext={() => {
-                                        setPagination({
-                                            ...pagination,
-                                            path: pagination.next_page_url
-                                        })
-                                        setCurrentCursor(pagination.next_cursor);
-                                        setReload(!reload);
-                                    }} onPrevious={() => {
-                                        setPagination({
-                                            ...pagination,
-                                            path: pagination.prev_page_url
-                                        })
-                                        setCurrentCursor(pagination.prev_cursor);
-                                        setReload(!reload);
-                                    }} />
-                                </div>
-                            </Box>
+                                    </div>
+                                    <Card>
+                                        <div>
+                                            <IndexFilters
+                                                sortOptions={sortOptions}
+                                                sortSelected={sortSelected}
+                                                queryValue={queryValue}
+                                                queryPlaceholder="Search Publishers..."
+                                                onQueryChange={handleFiltersQueryChange}
+                                                onQueryClear={handleQueryValueRemove}
+                                                onSort={setSortSelected}
+                                                cancelAction={{
+                                                    onAction: onHandleCancel,
+                                                    disabled: false,
+                                                    loading: false,
+                                                }}
+                                                tabs={tabs}
+                                                selected={selected}
+                                                onSelect={setSelected}
+                                                canCreateNewView={false}
+                                                filters={filters}
+                                                appliedFilters={appliedFilters}
+                                                onClearAll={handleFiltersClearAll}
+                                                mode={mode}
+                                                setMode={setMode}
+                                                loading={loading}
+                                            />
+                                        </div>
+                                        <IndexTable
+                                            resourceName={resourceName}
+                                            itemCount={tableRows.length}
+                                            selectedItemsCount={
+                                                allResourcesSelected ? 'All ' : selectedResources.length
+                                            }
+                                            onSelectionChange={handleSelectionChange}
+                                            headings={[
+                                                { title: 'ID' },
+                                                { title: 'Title' },
+                                                { title: 'Body Count', alignment: 'center' },
+                                                { title: 'CSS Count', alignment: 'center' },
+                                                { title: 'JS Count', alignment: 'center' },
+                                                { title: 'Image Count', alignment: 'center' },
+                                                { title: 'Font Count', alignment: 'center' },
+                                                ...(roleId == 1 ? [{ title: 'Action' }] : []),
+                                            ]}
+                                            hasMoreItems
+                                            selectable={false}
+                                        >
+                                            {rowMarkup}
+                                        </IndexTable>
+                                    </Card>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '22px', paddingBottom: '22px' }}>
+                                        <Pagination hasNext={pagination.next_cursor ? true : false} hasPrevious={pagination.prev_cursor ? true : false} onNext={() => {
+                                            setPagination({
+                                                ...pagination,
+                                                path: pagination.next_page_url
+                                            })
+                                            setCurrentCursor(pagination.next_cursor);
+                                            setReload(!reload);
+                                        }} onPrevious={() => {
+                                            setPagination({
+                                                ...pagination,
+                                                path: pagination.prev_page_url
+                                            })
+                                            setCurrentCursor(pagination.prev_cursor);
+                                            setReload(!reload);
+                                        }} />
+                                    </div>
+                                </Box>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </AuthenticatedLayout>
+            </AuthenticatedLayout>
+        </AppProvider>
     );
 }

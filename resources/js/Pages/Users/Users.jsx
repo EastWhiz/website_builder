@@ -1,11 +1,11 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
-import { Modal, Fade, Backdrop, Box, TextField, Button as MuiButton } from '@mui/material';
+import { Backdrop, Box, Fade, Modal, Button as MuiButton, TextField } from '@mui/material';
 
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import LockResetIcon from '@mui/icons-material/LockReset';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
-    Card,
+    AppProvider, Card,
     IndexFilters,
     IndexTable,
     Pagination,
@@ -13,6 +13,7 @@ import {
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
 import "@shopify/polaris/build/esm/styles.css";
+import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
@@ -274,146 +275,148 @@ export default function Dashboard() {
     };
 
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Users
-                </h2>
-            }
-        >
-            <Head title="Users" />
-            <div className="py-16">
-                <div className="mx-auto max-w-7xl">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        <div className="p-6 text-gray-900">
-                            <Box>
-                                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "15px" }}>
-                                    <ShopifySelect
-                                        labelInline
-                                        label="Rows:"
-                                        options={pageOptions}
-                                        value={pageCount}
-                                        onChange={handlePageCount}
-                                    />
-                                    <MuiButton sx={{ marginLeft: "10px", height: "31px" }} variant="contained" color="primary" className="cptlz" onClick={() => setAddUserModalOpen(true)}>
-                                        Add
-                                    </MuiButton>
-                                </div>
-                                <Card>
-                                    <div>
-                                        <IndexFilters
-                                            sortOptions={sortOptions}
-                                            sortSelected={sortSelected}
-                                            queryValue={queryValue}
-                                            queryPlaceholder="Search Users..."
-                                            onQueryChange={handleFiltersQueryChange}
-                                            onQueryClear={handleQueryValueRemove}
-                                            onSort={setSortSelected}
-                                            cancelAction={{
-                                                onAction: onHandleCancel,
-                                                disabled: false,
-                                                loading: false,
-                                            }}
-                                            tabs={tabs}
-                                            selected={selected}
-                                            onSelect={setSelected}
-                                            canCreateNewView={false}
-                                            filters={filters}
-                                            appliedFilters={appliedFilters}
-                                            onClearAll={handleFiltersClearAll}
-                                            mode={mode}
-                                            setMode={setMode}
-                                            loading={loading}
+        <AppProvider i18n={en}>
+            <AuthenticatedLayout
+                header={
+                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        Users
+                    </h2>
+                }
+            >
+                <Head title="Users" />
+                <div className="py-16">
+                    <div className="mx-auto max-w-7xl">
+                        <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                            <div className="p-6 text-gray-900">
+                                <Box>
+                                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "15px" }}>
+                                        <ShopifySelect
+                                            labelInline
+                                            label="Rows:"
+                                            options={pageOptions}
+                                            value={pageCount}
+                                            onChange={handlePageCount}
                                         />
+                                        <MuiButton sx={{ marginLeft: "10px", height: "31px" }} variant="contained" color="primary" className="cptlz" onClick={() => setAddUserModalOpen(true)}>
+                                            Add
+                                        </MuiButton>
                                     </div>
-                                    <IndexTable
-                                        resourceName={resourceName}
-                                        itemCount={tableRows.length}
-                                        selectedItemsCount={
-                                            allResourcesSelected ? 'All ' : selectedResources.length
-                                        }
-                                        onSelectionChange={handleSelectionChange}
-                                        headings={[
-                                            { title: 'ID' },
-                                            { title: 'Name' },
-                                            { title: 'User Added' },
-                                            { title: 'Action' },
-                                        ]}
-                                        hasMoreItems
-                                        selectable={false}
-                                    >
-                                        {rowMarkup}
-                                    </IndexTable>
-                                </Card>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '22px', paddingBottom: '22px' }}>
-                                    <Pagination hasNext={pagination.next_cursor ? true : false} hasPrevious={pagination.prev_cursor ? true : false} onNext={() => {
-                                        setPagination({
-                                            ...pagination,
-                                            path: pagination.next_page_url
-                                        })
-                                        setCurrentCursor(pagination.next_cursor);
-                                        setReload(!reload);
-                                    }} onPrevious={() => {
-                                        setPagination({
-                                            ...pagination,
-                                            path: pagination.prev_page_url
-                                        })
-                                        setCurrentCursor(pagination.prev_cursor);
-                                        setReload(!reload);
-                                    }} />
-                                </div>
-                            </Box>
+                                    <Card>
+                                        <div>
+                                            <IndexFilters
+                                                sortOptions={sortOptions}
+                                                sortSelected={sortSelected}
+                                                queryValue={queryValue}
+                                                queryPlaceholder="Search Users..."
+                                                onQueryChange={handleFiltersQueryChange}
+                                                onQueryClear={handleQueryValueRemove}
+                                                onSort={setSortSelected}
+                                                cancelAction={{
+                                                    onAction: onHandleCancel,
+                                                    disabled: false,
+                                                    loading: false,
+                                                }}
+                                                tabs={tabs}
+                                                selected={selected}
+                                                onSelect={setSelected}
+                                                canCreateNewView={false}
+                                                filters={filters}
+                                                appliedFilters={appliedFilters}
+                                                onClearAll={handleFiltersClearAll}
+                                                mode={mode}
+                                                setMode={setMode}
+                                                loading={loading}
+                                            />
+                                        </div>
+                                        <IndexTable
+                                            resourceName={resourceName}
+                                            itemCount={tableRows.length}
+                                            selectedItemsCount={
+                                                allResourcesSelected ? 'All ' : selectedResources.length
+                                            }
+                                            onSelectionChange={handleSelectionChange}
+                                            headings={[
+                                                { title: 'ID' },
+                                                { title: 'Name' },
+                                                { title: 'User Added' },
+                                                { title: 'Action' },
+                                            ]}
+                                            hasMoreItems
+                                            selectable={false}
+                                        >
+                                            {rowMarkup}
+                                        </IndexTable>
+                                    </Card>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '22px', paddingBottom: '22px' }}>
+                                        <Pagination hasNext={pagination.next_cursor ? true : false} hasPrevious={pagination.prev_cursor ? true : false} onNext={() => {
+                                            setPagination({
+                                                ...pagination,
+                                                path: pagination.next_page_url
+                                            })
+                                            setCurrentCursor(pagination.next_cursor);
+                                            setReload(!reload);
+                                        }} onPrevious={() => {
+                                            setPagination({
+                                                ...pagination,
+                                                path: pagination.prev_page_url
+                                            })
+                                            setCurrentCursor(pagination.prev_cursor);
+                                            setReload(!reload);
+                                        }} />
+                                    </div>
+                                </Box>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            {/* Add User Modal using MUI Modal */}
-            <Modal
-                aria-labelledby="add-user-modal-title"
-                aria-describedby="add-user-modal-description"
-                open={addUserModalOpen}
-                onClose={() => setAddUserModalOpen(false)}
-                closeAfterTransition
-                slots={{ backdrop: Backdrop }}
-                slotProps={{ backdrop: { timeout: 100 } }}
-            >
-                <Fade in={addUserModalOpen}>
-                    <Box sx={modalStyle}>
-                        <h3 id="add-user-modal-title" style={{ marginBottom: "10px", fontSize: 22 }}>Add New User</h3>
-                        <TextField
-                            label="Name"
-                            value={newUser.name}
-                            onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
-                            fullWidth
-                            size="small"
-                        />
-                        <TextField
-                            label="Email"
-                            type="email"
-                            value={newUser.email}
-                            onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))}
-                            fullWidth
-                            size="small"
-                        />
-                        <TextField
-                            label="Password"
-                            type="password"
-                            value={newUser.password}
-                            onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))}
-                            fullWidth
-                            size="small"
-                        />
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                            <MuiButton onClick={() => setAddUserModalOpen(false)} sx={{ mr: 1 }} className="cptlz" disabled={creatingUser}>
-                                Cancel
-                            </MuiButton>
-                            <MuiButton variant="contained" color="primary" className="cptlz" onClick={handleAddUser} disabled={creatingUser || !newUser.name || !newUser.email || !newUser.password}>
-                                {creatingUser ? 'Creating...' : 'Create User'}
-                            </MuiButton>
+                {/* Add User Modal using MUI Modal */}
+                <Modal
+                    aria-labelledby="add-user-modal-title"
+                    aria-describedby="add-user-modal-description"
+                    open={addUserModalOpen}
+                    onClose={() => setAddUserModalOpen(false)}
+                    closeAfterTransition
+                    slots={{ backdrop: Backdrop }}
+                    slotProps={{ backdrop: { timeout: 100 } }}
+                >
+                    <Fade in={addUserModalOpen}>
+                        <Box sx={modalStyle}>
+                            <h3 id="add-user-modal-title" style={{ marginBottom: "10px", fontSize: 22 }}>Add New User</h3>
+                            <TextField
+                                label="Name"
+                                value={newUser.name}
+                                onChange={e => setNewUser(u => ({ ...u, name: e.target.value }))}
+                                fullWidth
+                                size="small"
+                            />
+                            <TextField
+                                label="Email"
+                                type="email"
+                                value={newUser.email}
+                                onChange={e => setNewUser(u => ({ ...u, email: e.target.value }))}
+                                fullWidth
+                                size="small"
+                            />
+                            <TextField
+                                label="Password"
+                                type="password"
+                                value={newUser.password}
+                                onChange={e => setNewUser(u => ({ ...u, password: e.target.value }))}
+                                fullWidth
+                                size="small"
+                            />
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                                <MuiButton onClick={() => setAddUserModalOpen(false)} sx={{ mr: 1 }} className="cptlz" disabled={creatingUser}>
+                                    Cancel
+                                </MuiButton>
+                                <MuiButton variant="contained" color="primary" className="cptlz" onClick={handleAddUser} disabled={creatingUser || !newUser.name || !newUser.email || !newUser.password}>
+                                    {creatingUser ? 'Creating...' : 'Create User'}
+                                </MuiButton>
+                            </Box>
                         </Box>
-                    </Box>
-                </Fade>
-            </Modal>
-        </AuthenticatedLayout>
+                    </Fade>
+                </Modal>
+            </AuthenticatedLayout>
+        </AppProvider >
     );
 }

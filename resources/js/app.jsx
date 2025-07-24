@@ -1,12 +1,10 @@
 import '../css/app.css';
 import './bootstrap';
 
-import en from "@shopify/polaris/locales/en.json";
+import "@/Assets/styles.css";
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
-import "@/Assets/styles.css";
-import { AppProvider } from '@shopify/polaris';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 window.appURL = import.meta.env.VITE_APP_URL;
@@ -22,9 +20,7 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(
-            <AppProvider i18n={en}>
-                <App {...props} />
-            </AppProvider>
+            <App {...props} />
         );
     },
     progress: {
