@@ -78,3 +78,12 @@ input {
     text-decoration: underline !important;
     color: #3b7de3 !important;
 }
+
+.sticky-left-div {
+    position: fixed;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    z-index: 999;
+    /* optional: ensures it stays on top */
+}
