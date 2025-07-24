@@ -84,6 +84,6 @@ input {
     top: 50%;
     left: 0;
     transform: translateY(-50%);
-    z-index: 999;
+    z-index: 9999;
     /* optional: ensures it stays on top */
 }
