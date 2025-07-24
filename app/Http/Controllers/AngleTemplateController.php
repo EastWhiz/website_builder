@@ -312,7 +312,7 @@ class AngleTemplateController extends Controller
         </html>
         HTMLDOC;
 
-        $zip->addFromString('index.php', $fullHtml);
+        $zip->addFromString('index.html', $fullHtml);
 
         $zip->close();
 
