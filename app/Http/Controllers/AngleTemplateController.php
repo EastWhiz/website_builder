@@ -54,6 +54,11 @@ class AngleTemplateController extends Controller
                         $updatingCss .= $item->content;
                     });
 
+                    $updatingJs = '';
+                    $currentTemplate->contents()->where('type', 'js')->get()->each(function ($item) use (&$updatingJs) {
+                        $updatingJs .= $item->content . "\n";
+                    });
+
                     foreach ($allBodies as $key => $body) {
                         $bodyKey = $key + 1;
                         $updatingIndex = str_replace("<!--INTERNAL--BD$bodyKey--EXTERNAL-->", $body->content, $updatingIndex);
@@ -88,6 +93,7 @@ class AngleTemplateController extends Controller
                         'name' => "$currentTemplate->name ($currentAngle->name)",
                         'main_html' =>  $updatingIndex,
                         'main_css' =>  $updatingCss,
+                        'main_js' =>  $updatingJs,
                     ]);
                 }
             }

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class AngleTemplate extends Model
 {
-    protected $fillable = ['uuid', 'angle_id', 'template_id', 'user_id', 'name', 'main_html', 'main_css'];
+    protected $fillable = ['uuid', 'angle_id', 'template_id', 'user_id', 'name', 'main_html', 'main_css', 'main_js'];
 
     public function angle()
     {

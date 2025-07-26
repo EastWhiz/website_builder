@@ -185,6 +185,7 @@ export default function Dashboard({ id }) {
     const [data, setData] = useState(false);
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
     const [mainCSS, setMainCSS] = useState('');
+    const [mainJS, setMainJS] = useState('');
     const [editing, setEditing] = useState({
         editID: false,
         currentElement: false,
@@ -304,6 +305,8 @@ export default function Dashboard({ id }) {
                 setMainHTML([{ html: updated, status: true }]);
 
                 setMainCSS(json.data.main_css);
+
+                setMainJS(json.data.main_js);
 
             } catch (error) {
                 console.error(error.message);
@@ -437,6 +440,12 @@ export default function Dashboard({ id }) {
             });
         };
         // This cleanup ensures no duplicate event listeners and prevents memory leaks
+    }, [mainHTML]);
+
+    useEffect(() => {
+        setTimeout(() => {
+            eval(mainJS);
+        }, 1000);
     }, [mainHTML]);
 
     function removePxAndConvertToFloat(value) {

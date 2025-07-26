@@ -679,7 +679,7 @@ export default function Dashboard() {
                                                                 })}
                                                             </Box>
 
-                                                            {/* <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "20px", }}>
+                                                            <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "20px", }}>
                                                                 <Typography variant="body" component="div" sx={{ marginBottom: "20px", textDecoration: "underline", fontSize: "18px", fontWeight: "500" }}>
                                                                     JS Chunks
                                                                 </Typography>
@@ -751,7 +751,7 @@ export default function Dashboard() {
                                                                         </Box>
                                                                     );
                                                                 })}
-                                                            </Box> */}
+                                                            </Box>
                                                         </Box>
                                                     </Box>
                                                 </CardContent>
