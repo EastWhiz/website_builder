@@ -261,6 +261,7 @@ class AngleTemplateController extends Controller
 
         $updatingIndex = $angleTemplate->main_html;
         $updatingCss = $angleTemplate->main_css;
+        $updatingJs = $angleTemplate->main_js;
 
         // UPDATING INDEX WITH IMAGE CHANGES - ANGLES
         $updatingIndex = str_replace(
@@ -314,6 +315,7 @@ class AngleTemplateController extends Controller
         </head>
         <body>
             {$updatingIndex}
+            <script>{$updatingJs}</script>
         </body>
         </html>
         HTMLDOC;
