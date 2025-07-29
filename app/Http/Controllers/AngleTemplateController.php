@@ -308,6 +308,7 @@ class AngleTemplateController extends Controller
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>{$angleTemplate->name}</title>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/css/intlTelInput.css">
             {$template->head}
             <style>
                 {$updatingCss}
@@ -315,6 +316,15 @@ class AngleTemplateController extends Controller
         </head>
         <body>
             {$updatingIndex}
+            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/intlTelInput.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/utils.js"></script>
+            <script>
+                document.querySelectorAll(".telInputs").forEach(input => {
+                    window.intlTelInput(input, {
+                        initialCountry: "us",
+                    });
+                });
+            </script>
             <script>{$updatingJs}</script>
         </body>
         </html>

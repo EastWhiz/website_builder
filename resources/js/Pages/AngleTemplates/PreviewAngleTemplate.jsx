@@ -1,8 +1,8 @@
 import Doc2 from "@/Assets/document2.png";
 import "@/Assets/styles.css";
 import { Head, router } from '@inertiajs/react';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ClearIcon from '@mui/icons-material/Clear';
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import Backdrop from '@mui/material/Backdrop';
@@ -10,11 +10,10 @@ import Fade from '@mui/material/Fade';
 import Modal from '@mui/material/Modal';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import convert from 'color-convert';
 import { useEffect, useState } from "react";
 import { HexColorPicker } from "react-colorful";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Swal from "sweetalert2";
-import convert from 'color-convert';
 
 export default function Dashboard({ id }) {
 
@@ -88,6 +87,24 @@ export default function Dashboard({ id }) {
         'not-required',
     ];
 
+    const apiTypesUrls = [
+        { label: 'Elps', value: 'https://ep.elpistrack.io/api/signup/procform' },
+        { label: 'Novelix', value: 'https://nexlapi.net/leads' },
+        { label: 'Tigloo', value: 'https://platform.onlinepartnersed.com/api/signup/procform' },
+        { label: 'Electra', value: 'https://lcaapi.net/leads' },
+        { label: 'Meeseeksmedia', value: 'https://mskmd-api.com/api/v2/leads' },
+        { label: 'Dark', value: 'https://tb.connnecto.com/api/signup/procform' },
+    ];
+
+    const apiTypes = [
+        { label: 'Elps', value: 'Elps' },
+        { label: 'Novelix', value: 'Novelix' },
+        { label: 'Tigloo', value: 'Tigloo' },
+        { label: 'Electra', value: 'Electra' },
+        { label: 'Meeseeksmedia', value: 'Meeseeksmedia' },
+        { label: 'Dark', value: 'Dark' },
+    ];
+
     const commonInputTypes = [
         "text",
         "email",
@@ -120,6 +137,7 @@ export default function Dashboard({ id }) {
         "select",
         "button",
         "option",
+        "form",
         // "section",
         // "div"
     ];
@@ -248,14 +266,36 @@ export default function Dashboard({ id }) {
         submitText: "",
         submitTextColor: "",
         submitBackgroundColor: "",
-        inputs: [
-            {
-                name: "",
-                required: false,
-                type: false,
-                sort: "",
-            },
-        ],
+        apiType: "Elps",
+        inputs: [{
+            name: "firstName",
+            id: "firstName",
+            inputName: "",
+            inputType: "text",
+            // required: false,
+            // type: false,
+        }, {
+            name: "lastName",
+            id: "lastName",
+            inputName: "",
+            inputType: "text",
+            // required: false,
+            // type: false,
+        }, {
+            name: "email",
+            id: "email",
+            inputName: "",
+            inputType: "text",
+            // required: false,
+            // type: false,
+        }, {
+            name: "phone",
+            id: "phone",
+            inputName: "",
+            inputType: "tel",
+            // required: false,
+            // type: false,
+        }]
     };
 
     const INITIAL_BUTTON_MANAGEMENT = {
@@ -307,6 +347,14 @@ export default function Dashboard({ id }) {
                 setMainCSS(json.data.main_css);
 
                 setMainJS(json.data.main_js);
+
+                setTimeout(() => {
+                    document.querySelectorAll(".telInputs").forEach(input => {
+                        window.intlTelInput(input, {
+                            initialCountry: "us",
+                        });
+                    });
+                }, 200);
 
             } catch (error) {
                 console.error(error.message);
@@ -388,6 +436,42 @@ export default function Dashboard({ id }) {
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
             }));
+        } else if (editing && editing.actionType == "edit" && ['form'].includes(editing.elementName)) {
+            const formEl = editing.currentElement; // Assuming this is your form element
+
+            // Step 1: Get all input elements inside the form
+            const inputElements = formEl.querySelectorAll("input");
+
+            const inputs = Array.from(inputElements)
+                .map(input => {
+                    const name = input.getAttribute("name");
+                    const id = input.getAttribute("id");
+
+                    if (!name) return null;
+
+                    // Find the corresponding label using the `for` attribute
+                    const label = id ? formEl.querySelector(`label[for="${id}"]`) : null;
+                    const labelText = label ? label.textContent.trim() : "";
+
+                    return {
+                        name: name,
+                        id: id || "",
+                        inputName: labelText,
+                        inputType: input.getAttribute("type") || "text",
+                        // required: input.required || false,
+                        // type: false
+                    };
+                })
+                .filter(input => input !== null);
+
+            // Step 3: Create the final payload
+            setFormManagement({
+                submitText: formEl.querySelector("button[type='submit']")?.textContent.trim() || "",
+                submitTextColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.color))}` || "",
+                submitBackgroundColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.backgroundColor))}` || "",
+                apiType: formEl.getAttribute("data-api-type"),
+                inputs: inputs
+            });
         }
     }, [editing]);
 
@@ -395,7 +479,7 @@ export default function Dashboard({ id }) {
         function handleMouseEnter(e) {
             // Only add border if element does NOT have below classes and none of its parents have it
             // This prevents the border from showing on elements that should not be acted upon
-            if (!e.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(e.target, 'popoverPlate') && !hasParentWithClass(e.target, 'swal2-container') && !e.target.outerHTML.includes("doNotAct")) {
+            if (!e.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(e.target, 'popoverPlate') && !hasParentWithClass(e.target, 'swal2-container') && (!e.target.outerHTML.includes("doNotAct") || e.target.localName == "form")) {
                 e.target.classList.add("editable-hover-border"); // Add the border class on hover
             }
         }
@@ -484,7 +568,7 @@ export default function Dashboard({ id }) {
 
     const handleClick = (event) => {
         // console.log(event.target.outerHTML);
-        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && !event.target.outerHTML.includes("doNotAct")) {
+        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && (!event.target.outerHTML.includes("doNotAct") || event.target.localName == "form")) {
             let randString = generateRandomString();
             if (editableElements.includes(event.target.localName) || event.target.classList.contains('editableDiv')) {
                 setAnchorHelpProperties(getClickedWordFromElement());
@@ -696,8 +780,76 @@ export default function Dashboard({ id }) {
                 newElement.innerHTML = buttonManagement.buttonText;
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
-        } else if (editing.actionType == "add" && editing.addElementType == "form") {
+        } else if ((editing.actionType == "edit" && ['form'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "form")) {
 
+            // Create form HTML content
+            let formHTML = '';
+
+            // Add input fields
+            formManagement.inputs.forEach(input => {
+                if (input.name && input.inputType) {
+                    formHTML += `
+                        <div style="margin-bottom: 15px;">
+                            <label for="${input.id}" style="display: block; margin-bottom: 5px;">${input.inputName || input.name}</label>
+                            <input
+                                type="${input.inputType}"
+                                id="${input.id}"
+                                name="${input.name}"
+                                class="${input.inputType == "tel" ? 'telInputs' : ''}"
+                                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+                                ${input.inputType === 'email' ? 'required' : ''}
+                            />
+                        </div>
+                    `;
+                }
+            });
+
+            // Add submit button
+            const submitButtonStyles = {
+                backgroundColor: formManagement.submitBackgroundColor || '#007bff',
+                color: formManagement.submitTextColor || '#ffffff',
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px',
+            };
+
+            const submitStyleString = Object.entries(submitButtonStyles)
+                .map(([k, v]) => `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}: ${v}`)
+                .join('; ');
+
+            formHTML += `
+                <button type="submit" class="doNotAct" style="${submitStyleString}">
+                    ${formManagement.submitText || 'Submit'}
+                </button>
+            `;
+
+            if (editing.actionType == "edit") {
+                // Update existing form
+                element.method = 'POST';
+                element.action = apiTypesUrls.find(api => api.label === formManagement.apiType)?.value || 'https://ep.elpistrack.io/api/signup/procform';
+                element.setAttribute("data-api-type", formManagement.apiType);
+                element.innerHTML = formHTML;
+                element.style.padding = '20px';
+                element.style.border = '1px solid #ddd';
+                element.style.borderRadius = '8px';
+                element.style.backgroundColor = '#f9f9f9';
+                element.style.width = '100%';
+            } else {
+                // Create new form element
+                let newElement = document.createElement('form');
+                newElement.style.width = '100%';
+                newElement.method = 'POST';
+                newElement.action = apiTypesUrls.find(api => api.label === formManagement.apiType)?.value || 'https://ep.elpistrack.io/api/signup/procform';
+                newElement.setAttribute("data-api-type", formManagement.apiType);
+                newElement.innerHTML = formHTML;
+                newElement.style.padding = '20px';
+                newElement.style.border = '1px solid #ddd';
+                newElement.style.borderRadius = '8px';
+                newElement.style.backgroundColor = '#f9f9f9';
+                await addNewContentHandler(editing.addElementPosition, element, newElement);
+            }
         } else if (editing.actionType == "add" && editing.addElementType == "br") {
             let newElement = document.createElement('div');
             newElement.classList.add('editableDiv');
@@ -713,6 +865,14 @@ export default function Dashboard({ id }) {
         ]);
         setOpen(false);
         setAnchorHelpProperties(null);
+
+        setTimeout(() => {
+            document.querySelectorAll(".telInputs").forEach(input => {
+                window.intlTelInput(input, {
+                    initialCountry: "us",
+                });
+            });
+        }, 200);
 
         // RESET ALL
         setImageManagement(INITIAL_IMAGE_MANAGEMENT);
@@ -1717,44 +1877,77 @@ export default function Dashboard({ id }) {
                                             )}
 
                                         {/* FORMS */}
-                                        {editing && editing.actionType == "add" && editing.addElementType == "form" &&
-                                            <Box sx={{ padding: "10px 0px" }}>
-                                                <Box sx={{ display: 'flex', gap: "15px" }}>
-                                                    <Box sx={{ width: "50%" }}>
-                                                        <TextField
-                                                            fullWidth
-                                                            size='small'
-                                                            label="Submit Button Text"
-                                                            multiline
-                                                            rows={3}
-                                                            slotProps={{
-                                                                inputLabel: { shrink: true }
-                                                            }}
-                                                            placeholder='Enter Button Text'
-                                                            value={formManagement.submitText}
-                                                            onChange={(e) => {
-                                                                setFormManagement({ ...formManagement, submitText: e.target.value })
-                                                            }}
-                                                        />
-                                                    </Box>
-                                                    <Box mt={-1.6} sx={{ width: "50%" }}>
-                                                        <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
-                                                            <Box sx={{ width: "50%" }}>
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                    Color
-                                                                </Typography>
-                                                                <HexColorPicker class color={formManagement.submitTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitTextColor: e })} />
-                                                            </Box>
-                                                            <Box sx={{ width: "50%" }}>
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                    Background
-                                                                </Typography>
-                                                                <HexColorPicker color={formManagement.submitBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitBackgroundColor: e })} />
+                                        {(editing && editing.actionType == "edit" && ['form'].includes(editing.elementName) ||
+                                            (editing && editing.actionType === "add" && editing.addElementType == "form")
+                                        ) && (
+                                                <Box sx={{ padding: "10px 0px" }}>
+                                                    <Box sx={{ display: 'flex', gap: "15px" }}>
+                                                        <Box sx={{ width: "50%" }}>
+                                                            <TextField
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Submit Button Text"
+                                                                multiline
+                                                                rows={3}
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Button Text'
+                                                                value={formManagement.submitText}
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, submitText: e.target.value })
+                                                                }}
+                                                            />
+                                                        </Box>
+                                                        <Box mt={-1.6} sx={{ width: "50%" }}>
+                                                            <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
+                                                                <Box sx={{ width: "50%" }}>
+                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                        Color
+                                                                    </Typography>
+                                                                    <HexColorPicker class color={formManagement.submitTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitTextColor: e })} />
+                                                                </Box>
+                                                                <Box sx={{ width: "50%" }}>
+                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                        Background
+                                                                    </Typography>
+                                                                    <HexColorPicker color={formManagement.submitBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitBackgroundColor: e })} />
+                                                                </Box>
                                                             </Box>
                                                         </Box>
                                                     </Box>
-                                                </Box>
-                                                <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
+                                                    <Box mt={2} mb={2}>
+                                                        <FormControl fullWidth>
+                                                            <InputLabel id="demo-simple-select-label" shrink>
+                                                                Select API
+                                                            </InputLabel>
+                                                            <Select
+                                                                labelId="demo-simple-select-label"
+                                                                value={formManagement.apiType}
+                                                                label="Select API"
+                                                                size="small"
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, apiType: e.target.value })
+                                                                }}
+                                                                displayEmpty
+                                                                renderValue={(value) =>
+                                                                    !value ? <Typography color="grey">Select API...</Typography> : value
+                                                                }
+                                                            >
+                                                                {apiTypes.map((item, index) => (
+                                                                    <MenuItem
+                                                                        className="doNotAct"
+                                                                        key={index}
+                                                                        value={item.value}
+                                                                        sx={{ textTransform: 'capitalize' }}
+                                                                    >
+                                                                        {item.label}
+                                                                    </MenuItem>
+                                                                ))}
+                                                            </Select>
+                                                        </FormControl>
+                                                    </Box>
+                                                    {/* <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
                                                     <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {
                                                         let temp = { ...formManagement };
                                                         temp.inputs.push({
@@ -1765,27 +1958,39 @@ export default function Dashboard({ id }) {
                                                         });
                                                         setFormManagement(temp);
                                                     }}>Add Input</Button>
-                                                </Box>
-                                                <Box mt={2} p={2} pt={0} sx={{ border: "2px dashed #a5a5a5", borderRadius: "2px" }}>
-                                                    {formManagement && formManagement.inputs.map((value, index) => (
-                                                        <Box key={index} sx={{ mt: 2, display: "flex" }}>
-                                                            <TextField
-                                                                sx={{ width: "150px" }}
-                                                                size='small'
-                                                                label="Input Name"
-                                                                slotProps={{
-                                                                    inputLabel: { shrink: true }
-                                                                }}
-                                                                placeholder='Enter Name'
-                                                                value={value.name}
-                                                                onChange={(e) => {
-                                                                    let temp = { ...formManagement };
-                                                                    temp.inputs[index] = { ...temp.inputs[index], name: e.target.value };
-                                                                    setFormManagement(temp);
-                                                                }}
-                                                            />
-                                                            <Box component="span" sx={{ marginLeft: "10px" }} />
-                                                            <FormControl>
+                                                </Box> */}
+                                                    <Box mt={2} p={2} pt={0} sx={{ border: "2px dashed #a5a5a5", borderRadius: "2px" }}>
+                                                        {formManagement && formManagement.inputs.map((value, index) => (
+                                                            <Box key={index} sx={{ mt: 2, display: "flex" }}>
+                                                                <TextField
+                                                                    sx={{ width: "100%" }}
+                                                                    size='small'
+                                                                    label="Name"
+                                                                    slotProps={{
+                                                                        inputLabel: { shrink: true }
+                                                                    }}
+                                                                    placeholder='Enter Name'
+                                                                    value={value.name}
+                                                                    disabled={true}
+                                                                />
+                                                                <Box component="span" sx={{ marginLeft: "10px" }} />
+                                                                <TextField
+                                                                    sx={{ width: "100%" }}
+                                                                    size='small'
+                                                                    label="Visible Name"
+                                                                    slotProps={{
+                                                                        inputLabel: { shrink: true }
+                                                                    }}
+                                                                    placeholder='Enter Name'
+                                                                    value={value.inputName}
+                                                                    onChange={(e) => {
+                                                                        let temp = { ...formManagement };
+                                                                        temp.inputs[index] = { ...temp.inputs[index], inputName: e.target.value };
+                                                                        setFormManagement(temp);
+                                                                    }}
+                                                                />
+                                                                <Box component="span" sx={{ marginLeft: "10px" }} />
+                                                                {/* <FormControl>
                                                                 <InputLabel id="demo-simple-select-label">Required</InputLabel>
                                                                 <Select
                                                                     sx={{ width: "150px" }}
@@ -1855,12 +2060,12 @@ export default function Dashboard({ id }) {
                                                                     temp.inputs.splice(index, 1);
                                                                     setFormManagement(temp);
                                                                 }} />
+                                                            </Box> */}
                                                             </Box>
-                                                        </Box>
-                                                    ))}
+                                                        ))}
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        }
+                                            )}
 
                                         {/* SPACER */}
                                         {editing && editing.actionType == "add" && editing.addElementType == "br" &&
@@ -1898,7 +2103,7 @@ export default function Dashboard({ id }) {
                 </Fade>
             </Modal>
             <Head title={`Preview: ${data && data.template.name} (${data && data.angle.name})`} />
-            <div class="sticky-left-div">
+            <div className="sticky-left-div">
                 <Box sx={{ flexDirection: "column", backgroundColor: "#c0c0c0", justifyContent: "space-between", display: "flex", padding: "8px", borderRadius: "5px", borderTopLeftRadius: "0px", borderBottomLeftRadius: "0px", boxShadow: "-2px 2px 10px 5px rgba(0,0,0,0.20)" }}>
                     <Box className="doNotAct" sx={{ ml: 0.3, fontWeight: "bold" }}>
                         <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('userThemes', { id: data.user_id }))}>
