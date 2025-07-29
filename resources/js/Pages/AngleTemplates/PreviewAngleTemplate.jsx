@@ -225,6 +225,9 @@ export default function Dashboard({ id }) {
         borderWidth: "",
         borderColor: "",
         imageLink: "",          // <-- Add link property
+        margin: "0px 0px 0px 0px",
+        padding: "0px 0px 0px 0px",
+        width: "100%",
     };
 
     const INITIAL_TRANSLATOR = {
@@ -251,6 +254,8 @@ export default function Dashboard({ id }) {
         border: false,
         borderWidth: "",
         borderColor: "",
+        margin: "0px 0px 0px 0px",
+        padding: "0px 0px 0px 0px",
         textAlign: false,
     };
 
@@ -267,6 +272,8 @@ export default function Dashboard({ id }) {
         submitTextColor: "",
         submitBackgroundColor: "",
         apiType: "Elps",
+        margin: "0px 0px 0px 0px",
+        padding: "0px 0px 0px 0px",
         inputs: [{
             name: "firstName",
             id: "firstName",
@@ -303,8 +310,8 @@ export default function Dashboard({ id }) {
         color: "",
         backgroundColor: "",
         fontSize: "",
-        margin: "",
-        padding: "",
+        margin: "0px 0px 0px 0px",
+        padding: "0px 0px 0px 0px",
         border: false,
         borderWidth: "",
         borderColor: "",
@@ -405,6 +412,8 @@ export default function Dashboard({ id }) {
                     borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
                     link: editing.currentElement.tagName == 'A' ? editing.currentElement.href : "",
                     fontFamily: computedStyles.fontFamily,
+                    padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
+                    margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`
                 }));
             }
         } else if (editing && editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) {
@@ -420,7 +429,9 @@ export default function Dashboard({ id }) {
                 border: computedStyles.borderStyle,
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
-                imageLink: editing.currentElement.parentElement.href
+                imageLink: editing.currentElement.parentElement.href,
+                padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
+                margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
             }));
         } else if (editing && editing.actionType == "edit" && ['button'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
@@ -430,15 +441,15 @@ export default function Dashboard({ id }) {
                 color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                 backgroundColor: computedStyles.backgroundColor == "rgba(0, 0, 0, 0)" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`,
                 fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
-                margin: removePxAndConvertToFloat(computedStyles.margin),
-                padding: removePxAndConvertToFloat(computedStyles.padding),
+                padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
+                margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
                 border: computedStyles.borderStyle,
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
             }));
         } else if (editing && editing.actionType == "edit" && ['form'].includes(editing.elementName)) {
             const formEl = editing.currentElement; // Assuming this is your form element
-
+            let computedStyles = window.getComputedStyle(editing.currentElement);
             // Step 1: Get all input elements inside the form
             const inputElements = formEl.querySelectorAll("input");
 
@@ -470,7 +481,9 @@ export default function Dashboard({ id }) {
                 submitTextColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.color))}` || "",
                 submitBackgroundColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.backgroundColor))}` || "",
                 apiType: formEl.getAttribute("data-api-type"),
-                inputs: inputs
+                inputs: inputs,
+                padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
+                margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
             });
         }
     }, [editing]);
@@ -555,6 +568,24 @@ export default function Dashboard({ id }) {
 
         return result;
     }
+
+    // Dynamic function to handle margin/padding validation and updates
+    const handleSpacingChange = (value, property, setterFunction) => {
+        const input = value.trim();
+        // Split the input by space
+        const parts = input.split(/\s+/);
+        // Regex to match valid px values (e.g., 10px, 5.5px, 0px)
+        const isValid = parts.every((part) =>
+            /^(\d+(\.\d+)?|\.\d+)px$/.test(part)
+        );
+        // Only update state if all parts are valid
+        if (isValid || input === "") {
+            setterFunction((prev) => ({
+                ...prev,
+                [property]: input,
+            }));
+        }
+    };
 
     const hasParentWithClass = (element, className) => {
         while (element && element !== document) {
@@ -662,7 +693,9 @@ export default function Dashboard({ id }) {
                 borderWidth: `${textManagement.borderWidth}px`,
                 borderColor: textManagement.borderColor,
                 textAlign: textManagement.textAlign,
-                fontFamily: textManagement.fontFamily
+                fontFamily: textManagement.fontFamily,
+                margin: textManagement.margin,
+                padding: textManagement.padding
             };
 
             if (editing.actionType == "edit") {
@@ -716,6 +749,9 @@ export default function Dashboard({ id }) {
                 border: imageManagement.border,
                 borderWidth: `${imageManagement.borderWidth}px`,
                 borderColor: imageManagement.borderColor,
+                margin: imageManagement.margin,
+                padding: imageManagement.padding,
+                width: imageManagement.width,
             };
             if (editing.actionType == "edit") {
                 Object.assign(element.style, styles);
@@ -764,8 +800,8 @@ export default function Dashboard({ id }) {
                 color: buttonManagement.color,
                 backgroundColor: buttonManagement.backgroundColor,
                 fontSize: `${buttonManagement.fontSize}px`,
-                margin: `${buttonManagement.margin}px`,
-                padding: `${buttonManagement.padding}px`,
+                margin: buttonManagement.margin,
+                padding: buttonManagement.padding,
                 border: buttonManagement.border,
                 borderWidth: `${buttonManagement.borderWidth}px`,
                 borderColor: buttonManagement.borderColor,
@@ -831,7 +867,8 @@ export default function Dashboard({ id }) {
                 element.action = apiTypesUrls.find(api => api.label === formManagement.apiType)?.value || 'https://ep.elpistrack.io/api/signup/procform';
                 element.setAttribute("data-api-type", formManagement.apiType);
                 element.innerHTML = formHTML;
-                element.style.padding = '20px';
+                element.style.margin = formManagement.margin;
+                element.style.padding = formManagement.padding;
                 element.style.border = '1px solid #ddd';
                 element.style.borderRadius = '8px';
                 element.style.backgroundColor = '#f9f9f9';
@@ -844,7 +881,8 @@ export default function Dashboard({ id }) {
                 newElement.action = apiTypesUrls.find(api => api.label === formManagement.apiType)?.value || 'https://ep.elpistrack.io/api/signup/procform';
                 newElement.setAttribute("data-api-type", formManagement.apiType);
                 newElement.innerHTML = formHTML;
-                newElement.style.padding = '20px';
+                newElement.style.margin = formManagement.margin;
+                newElement.style.padding = formManagement.padding;
                 newElement.style.border = '1px solid #ddd';
                 newElement.style.borderRadius = '8px';
                 newElement.style.backgroundColor = '#f9f9f9';
@@ -1519,6 +1557,32 @@ export default function Dashboard({ id }) {
                                                             setImageManagement({ ...imageManagement, imageLink: e.target.value })
                                                         }}
                                                     />
+                                                    <TextField
+                                                        sx={{ mt: 2.1 }}
+                                                        type="text"
+                                                        fullWidth
+                                                        size="small"
+                                                        label="Margin (top right bottom left)"
+                                                        slotProps={{
+                                                            inputLabel: { shrink: true },
+                                                        }}
+                                                        placeholder="e.g. 10px 20px 30px 40px"
+                                                        value={imageManagement.margin || ""}
+                                                        onChange={(e) => handleSpacingChange(e.target.value, 'margin', setImageManagement)}
+                                                    />
+                                                    <TextField
+                                                        sx={{ mt: 2.1 }}
+                                                        type="text"
+                                                        fullWidth
+                                                        size="small"
+                                                        label="Padding (top right bottom left)"
+                                                        slotProps={{
+                                                            inputLabel: { shrink: true },
+                                                        }}
+                                                        placeholder="e.g. 10px 20px 30px 40px"
+                                                        value={imageManagement.padding || ""}
+                                                        onChange={(e) => handleSpacingChange(e.target.value, 'padding', setImageManagement)}
+                                                    />
                                                     <Box mt={1} sx={{ display: "flex" }}>
                                                         <Box sx={{ width: "50%" }}>
                                                             <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
@@ -1582,6 +1646,19 @@ export default function Dashboard({ id }) {
                                                                     ))}
                                                                 </Select>
                                                             </FormControl>
+                                                            <TextField
+                                                                sx={{ mt: 2.1 }}
+                                                                type="text"
+                                                                fullWidth
+                                                                size="small"
+                                                                label="Margin (top right bottom left)"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true },
+                                                                }}
+                                                                placeholder="e.g. 10px 20px 30px 40px"
+                                                                value={textManagement.margin || ""}
+                                                                onChange={(e) => handleSpacingChange(e.target.value, 'margin', setTextManagement)}
+                                                            />
                                                             <TextField
                                                                 sx={{ mt: 2 }}
                                                                 className="multilineCss"
@@ -1652,6 +1729,19 @@ export default function Dashboard({ id }) {
                                                                     ))}
                                                                 </Select>
                                                             </FormControl>
+                                                            <TextField
+                                                                sx={{ mt: 2.1 }}
+                                                                type="text"
+                                                                fullWidth
+                                                                size="small"
+                                                                label="Padding (top right bottom left)"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true },
+                                                                }}
+                                                                placeholder="e.g. 10px 20px 30px 40px"
+                                                                value={textManagement.padding || ""}
+                                                                onChange={(e) => handleSpacingChange(e.target.value, 'padding', setTextManagement)}
+                                                            />
                                                             <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                                 <InputLabel id="demo-simple-select-label">Border</InputLabel>
                                                                 <Select
@@ -1792,34 +1882,30 @@ export default function Dashboard({ id }) {
                                                             }}
                                                         />
                                                         <TextField
-                                                            sx={{ mt: 2 }}
-                                                            type='number'
+                                                            sx={{ mt: 2.1 }}
+                                                            type="text"
                                                             fullWidth
-                                                            size='small'
-                                                            label="Margin"
+                                                            size="small"
+                                                            label="Margin (top right bottom left)"
                                                             slotProps={{
                                                                 inputLabel: { shrink: true },
                                                             }}
-                                                            placeholder='Enter Margin'
-                                                            value={buttonManagement.margin}
-                                                            onChange={(e) => {
-                                                                setButtonManagement({ ...buttonManagement, margin: e.target.value })
-                                                            }}
+                                                            placeholder="e.g. 10px 20px 30px 40px"
+                                                            value={buttonManagement.margin || ""}
+                                                            onChange={(e) => handleSpacingChange(e.target.value, 'margin', setButtonManagement)}
                                                         />
                                                         <TextField
-                                                            sx={{ mt: 2 }}
-                                                            type='number'
+                                                            sx={{ mt: 2.1 }}
+                                                            type="text"
                                                             fullWidth
-                                                            size='small'
-                                                            label="Padding"
+                                                            size="small"
+                                                            label="Padding (top right bottom left)"
                                                             slotProps={{
                                                                 inputLabel: { shrink: true },
                                                             }}
-                                                            placeholder='Enter Padding'
-                                                            value={buttonManagement.padding}
-                                                            onChange={(e) => {
-                                                                setButtonManagement({ ...buttonManagement, padding: e.target.value })
-                                                            }}
+                                                            placeholder="e.g. 10px 20px 30px 40px"
+                                                            value={buttonManagement.padding || ""}
+                                                            onChange={(e) => handleSpacingChange(e.target.value, 'padding', setButtonManagement)}
                                                         />
                                                         <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                             <InputLabel id="demo-simple-select-label">Border</InputLabel>
@@ -1946,6 +2032,32 @@ export default function Dashboard({ id }) {
                                                                 ))}
                                                             </Select>
                                                         </FormControl>
+                                                        <TextField
+                                                            sx={{ mt: 2.1 }}
+                                                            type="text"
+                                                            fullWidth
+                                                            size="small"
+                                                            label="Margin (top right bottom left)"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true },
+                                                            }}
+                                                            placeholder="e.g. 10px 20px 30px 40px"
+                                                            value={formManagement.margin || ""}
+                                                            onChange={(e) => handleSpacingChange(e.target.value, 'margin', setFormManagement)}
+                                                        />
+                                                        <TextField
+                                                            sx={{ mt: 2.1 }}
+                                                            type="text"
+                                                            fullWidth
+                                                            size="small"
+                                                            label="Padding (top right bottom left)"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true },
+                                                            }}
+                                                            placeholder="e.g. 10px 20px 30px 40px"
+                                                            value={formManagement.padding || ""}
+                                                            onChange={(e) => handleSpacingChange(e.target.value, 'padding', setFormManagement)}
+                                                        />
                                                     </Box>
                                                     {/* <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
                                                     <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {
