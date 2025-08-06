@@ -330,7 +330,22 @@ class AngleTemplateController extends Controller
         </html>
         HTMLDOC;
 
-        $zip->addFromString('index.html', $fullHtml);
+        $zip->addFromString('index.php', $fullHtml);
+
+        // Add files from public/api_files directory
+        $publicFilesPath = public_path('api_files');
+        if (is_dir($publicFilesPath)) {
+            $files = scandir($publicFilesPath);
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    $filePath = $publicFilesPath . DIRECTORY_SEPARATOR . $file;
+                    if (is_file($filePath)) {
+                        // Add file to zip under 'api_files/' directory
+                        $zip->addFile($filePath, 'api_files/' . $file);
+                    }
+                }
+            }
+        }
 
         $zip->close();
 

@@ -97,12 +97,12 @@ export default function Dashboard({ id }) {
     ];
 
     const apiTypes = [
-        { label: 'Elps', value: 'Elps' },
-        { label: 'Novelix', value: 'Novelix' },
-        { label: 'Tigloo', value: 'Tigloo' },
-        { label: 'Electra', value: 'Electra' },
-        { label: 'Meeseeksmedia', value: 'Meeseeksmedia' },
-        { label: 'Dark', value: 'Dark' },
+        { label: 'Elps', value: 'elps' },
+        { label: 'Novelix', value: 'novelix' },
+        { label: 'Tigloo', value: 'tigloo' },
+        { label: 'Electra', value: 'electra' },
+        { label: 'Meeseeksmedia', value: 'meeseeksmedia' },
+        { label: 'Dark', value: 'dark' },
     ];
 
     const commonInputTypes = [
@@ -271,19 +271,19 @@ export default function Dashboard({ id }) {
         submitText: "",
         submitTextColor: "",
         submitBackgroundColor: "",
-        apiType: "Elps",
+        apiType: "elps",
         margin: "0px 0px 0px 0px",
         padding: "0px 0px 0px 0px",
         inputs: [{
-            name: "firstName",
-            id: "firstName",
+            name: "firstname",
+            id: "firstname",
             inputName: "",
             inputType: "text",
             // required: false,
             // type: false,
         }, {
-            name: "lastName",
-            id: "lastName",
+            name: "lastname",
+            id: "lastname",
             inputName: "",
             inputType: "text",
             // required: false,
@@ -840,6 +840,8 @@ export default function Dashboard({ id }) {
                 }
             });
 
+            formHTML += ` <input type="hidden" name="form_type" value="${formManagement.apiType}" />`;
+
             // Add submit button
             const submitButtonStyles = {
                 backgroundColor: formManagement.submitBackgroundColor || '#007bff',
@@ -864,7 +866,7 @@ export default function Dashboard({ id }) {
             if (editing.actionType == "edit") {
                 // Update existing form
                 element.method = 'POST';
-                element.action = apiTypesUrls.find(api => api.label === formManagement.apiType)?.value || 'https://ep.elpistrack.io/api/signup/procform';
+                element.action = "api_files/backend.php";
                 element.setAttribute("data-api-type", formManagement.apiType);
                 element.innerHTML = formHTML;
                 element.style.margin = formManagement.margin;
@@ -878,7 +880,7 @@ export default function Dashboard({ id }) {
                 let newElement = document.createElement('form');
                 newElement.style.width = '100%';
                 newElement.method = 'POST';
-                newElement.action = apiTypesUrls.find(api => api.label === formManagement.apiType)?.value || 'https://ep.elpistrack.io/api/signup/procform';
+                newElement.action = "api_files/backend.php";
                 newElement.setAttribute("data-api-type", formManagement.apiType);
                 newElement.innerHTML = formHTML;
                 newElement.style.margin = formManagement.margin;
