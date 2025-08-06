@@ -400,12 +400,12 @@ export default function Dashboard() {
                                             value={pageCount}
                                             onChange={handlePageCount}
                                         />
-                                        {page && page.auth.user.role.name == "admin" &&
-                                            <>
+                                        {/* {page && page.auth.user.role.name == "admin" &&
+                                            <> */}
                                                 <span style={{ marginRight: "10px" }}></span>
                                                 <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addAngle'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
-                                            </>
-                                        }
+                                            {/* </>
+                                        } */}
                                     </div>
                                     <Card>
                                         <div>

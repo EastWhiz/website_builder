@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Models\ExtraContent;
+use Illuminate\Support\Facades\Auth;
 
 class AngleController extends Controller
 {
@@ -19,7 +20,7 @@ class AngleController extends Controller
      */
     public function index(Request $request)
     {
-        $angles = Angle::with(['contents' => function ($query) {
+        $angles = Angle::where('user_id',Auth::user()->id)->with(['contents' => function ($query) {
             $query->select('type', 'angle_uuid'); // columns you want
         }])->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
