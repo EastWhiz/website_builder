@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Angle extends Model
 {
     protected $fillable = [
+        'user_id',
         'name',
         'uuid',
         'asset_unique_uuid',
@@ -21,9 +22,14 @@ class Angle extends Model
     {
         return $this->hasMany(AngleTemplate::class, 'angle_id', 'id');
     }
-    
+
     public function extraContents()
     {
         return $this->hasMany(extraContent::class, 'angle_uuid', 'uuid');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 }

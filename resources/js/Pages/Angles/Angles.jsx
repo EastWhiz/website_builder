@@ -84,6 +84,10 @@ export default function Dashboard() {
     const [selectedTemplateOptions, setSelectedTemplateOptions] = useState([]);
     const [active, setActive] = useState(false);
 
+    const [usersOptions, setUsersOptions] = useState([]);
+    const [activeTwo, setActiveTwo] = useState(false);
+    const [selectedUsersOption, setSelectedUsersOption] = useState([]);
+
     useEffect(() => {
 
         let url = new URL(pagination.path);
@@ -124,6 +128,10 @@ export default function Dashboard() {
                     setTemplateOptions(result.data2.map((value, index) => {
                         return { value: value.id, label: value.name }
                     }))
+
+                    setUsersOptions(result.data3.map((value, index) => {
+                        return { value: value.id, label: value.name }
+                    }));
                 }
                 setLoading(false);
             })
@@ -177,6 +185,32 @@ export default function Dashboard() {
             });
     }
 
+    const assignToOtherUsersHandler = () => {
+        const formData = new FormData();
+        formData.append('angles_ids', JSON.stringify(selectedResources));
+        formData.append('all_check', allResourcesSelected);
+        formData.append('search_query', JSON.stringify(myUrl.search));
+        formData.append('selected_user', JSON.stringify(selectedUsersOption));
+        fetch(route('assign.to.users'), {
+            method: 'POST',
+            body: formData,
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log(data);
+                if (data.success == true) {
+                    handleSelectionChange('all', false)
+                    setReload(!reload);
+                    setActiveTwo(false);
+                    Swal.fire("Success!", data.message, "success");
+                }
+            })
+            .catch((error) => {
+
+                console.error(error);
+            });
+    }
+
     const duplicateAnglesHandler = () => {
         const formData = new FormData();
         formData.append('angles_ids', JSON.stringify(selectedResources));
@@ -210,6 +244,10 @@ export default function Dashboard() {
             content: 'Duplicate Angles',
             onAction: duplicateAnglesHandler,
         },
+        ...(roleId && roleId == 1 ? [{
+            content: 'Assign to User',
+            onAction: () => { setActiveTwo(true) },
+        }] : [])
     ];
 
 
@@ -298,6 +336,11 @@ export default function Dashboard() {
             <IndexTable.Cell>
                 {value.name}
             </IndexTable.Cell>
+            {roleId && roleId == 1 &&
+                <IndexTable.Cell>
+                    {`(ID: U${value.user.id}) ${value.user.name}`}
+                </IndexTable.Cell>
+            }
             <IndexTable.Cell >
                 <Text as="span" alignment="center">
                     <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "#d50000", color: "white" }}>
@@ -335,7 +378,7 @@ export default function Dashboard() {
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angles/preview/${value.id}/`, "_blank")}></Button>
-                <span style={{ margin: "10px" }}></span>
+                <span style={{ margin: "5px" }}></span>
                 <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
                 <span style={{ marginLeft: "10px" }}></span>
                 <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleHandler(value.id)}></Button>
@@ -383,6 +426,35 @@ export default function Dashboard() {
                             onChange={(e) => setSelectedTemplateOptions(e)}
                             isMulti
                             closeMenuOnSelect={false}
+                        />
+                    </Modal.Section>
+                </Modal>
+                <Modal
+                    open={activeTwo}
+                    size='fullScreen'
+                    onClose={() => setActiveTwo(false)}
+                    title="Users List"
+                    primaryAction={{
+                        content: 'Done',
+                        onAction: () => assignToOtherUsersHandler(),
+                    }}
+                    secondaryActions={[
+                        {
+                            content: 'Cancel',
+                            onAction: () => setActiveTwo(false),
+                        },
+                    ]}
+                >
+                    <Modal.Section>
+                        <Select
+                            menuPortalTarget={document.body}
+                            styles={{
+                                menuPortal: base => ({ ...base, zIndex: 9999 }),
+                            }}
+                            placeholder="Select User..."
+                            options={usersOptions}
+                            value={selectedUsersOption}
+                            onChange={(e) => setSelectedUsersOption(e)}
                         />
                     </Modal.Section>
                 </Modal>
@@ -444,6 +516,7 @@ export default function Dashboard() {
                                             headings={[
                                                 { title: 'ID' },
                                                 { title: 'Title' },
+                                                ...(roleId && roleId == 1 ? [{ title: 'Assigned to User' }] : []),
                                                 { title: 'Body Count', alignment: 'center' },
                                                 { title: 'CSS Count', alignment: 'center' },
                                                 { title: 'JS Count', alignment: 'center' },

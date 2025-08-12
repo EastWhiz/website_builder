@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Models\ExtraContent;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
 class AngleController extends Controller
@@ -20,7 +21,8 @@ class AngleController extends Controller
      */
     public function index(Request $request)
     {
-        $angles = Angle::where('user_id',Auth::user()->id)->with(['contents' => function ($query) {
+        // where('user_id', Auth::user()->id)->
+        $angles = Angle::with(['user', 'contents' => function ($query) {
             $query->select('type', 'angle_uuid'); // columns you want
         }])->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
@@ -28,11 +30,13 @@ class AngleController extends Controller
             });
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
-        })->select(['id', 'name', 'uuid'])->cursorPaginate($request->page_count);
+        })->select(['id', 'name', 'uuid', 'user_id'])->cursorPaginate($request->page_count);
 
         $templates = Template::get()->select(['id', 'name']);
 
-        return sendResponse(true, 'Angles retrieved successfully!', $angles, $templates);
+        $users = User::where('role_id', 2)->get()->select(['id', 'name']);
+
+        return sendResponse(true, 'Angles retrieved successfully!', $angles, $templates, $users);
     }
 
     /**
@@ -564,5 +568,34 @@ class AngleController extends Controller
             }
         }
         return sendResponse(true, 'Angles duplicated successfully!', $results);
+    }
+
+    public function assignToUsers(Request $request)
+    {
+        $angles_ids = json_decode($request->angles_ids);
+        $search_query = json_decode($request->search_query);
+        $selected_user = json_decode($request->selected_user);
+        $all_check = $request->all_check;
+
+        if ($all_check == "true") {
+            parse_str($search_query, $params);
+
+            $angles_ids = Angle::when(isset($params['q']), function ($q) use ($params) {
+                $q->where(function ($q) use ($params) {
+                    $q->where('name', 'LIKE', '%' . $params['q'] . '%');
+                });
+            })->get()->pluck('id');
+        }
+
+        if (count($angles_ids) == 0)
+            return sendResponse(false, 'At least select one angle!');
+
+        foreach ($angles_ids as $key => $angleId) {
+            Angle::where('id', $angleId)->update([
+                'user_id' => $selected_user->value
+            ]);
+        }
+
+        return sendResponse(true, 'Angle Assigned to Selected User Successfully.');
     }
 }
