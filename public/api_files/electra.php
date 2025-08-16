@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Prepare the data for Nexl API
     $data = array(
-        'affid' => '13',
+        'affid' => '',
         'first_name' => $postData['firstname'],
         'last_name' => $postData['lastname'],
         'email' => $postData['email'],
@@ -99,7 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Function to send data to Aweber API
-function sendToAweber($data) {
+function sendToAweber($data)
+{
     unset($data['form_type']);
     $aweberUrl = BASE_URL . "/api_files/aweber.php"; // Using BASE_URL to form the Aweber API URL
 
@@ -128,4 +129,3 @@ function sendToAweber($data) {
 
     return $decodedResponse;
 }
-?>

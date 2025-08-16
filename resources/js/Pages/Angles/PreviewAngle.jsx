@@ -286,10 +286,15 @@ export default function Dashboard({ id }) {
     const INITIAL_FORM_MANAGEMENT = {
         submitText: "",
         submitTextColor: "",
-        submitBackgroundColor: "",
+        submitBackgroundColor: "#ff7800",
         apiType: "elps",
         margin: "0px 0px 0px 0px",
-        padding: "0px 0px 0px 0px",
+        padding: "20px 20px 20px 20px",
+        border: "solid",
+        borderWidth: "2",
+        borderColor: "#0186ff",
+        h3Text: "Form",
+        h3FontSize: "24",
         inputs: [{
             name: "firstname",
             id: "firstname",
@@ -474,7 +479,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name) return null;
+                    if (!name || name == "form_type") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`label[for="${id}"]`) : null;
@@ -492,6 +497,7 @@ export default function Dashboard({ id }) {
                 .filter(input => input !== null);
 
             // Step 3: Create the final payload
+            const h3Element = formEl.querySelector("h3");
             setFormManagement({
                 submitText: formEl.querySelector("button[type='submit']")?.textContent.trim() || "",
                 submitTextColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.color))}` || "",
@@ -500,6 +506,11 @@ export default function Dashboard({ id }) {
                 inputs: inputs,
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
+                border: computedStyles.borderStyle,
+                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
+                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                h3Text: h3Element?.textContent.trim() || "",
+                h3FontSize: h3Element ? removePxAndConvertToFloat(window.getComputedStyle(h3Element).fontSize) : "24",
             });
         }
     }, [editing]);
@@ -831,6 +842,15 @@ export default function Dashboard({ id }) {
             // Create form HTML content
             let formHTML = '';
 
+            // Add H3 title if provided
+            if (formManagement.h3Text) {
+                formHTML += `
+                    <h3 className="doNotAct" style="text-align: center; margin-bottom: 20px; font-size: ${formManagement.h3FontSize || 24}px; color: #000;">
+                        ${formManagement.h3Text}
+                    </h3>
+                `;
+            }
+
             // Add input fields
             formManagement.inputs.forEach(input => {
                 if (input.name && input.inputType) {
@@ -861,6 +881,8 @@ export default function Dashboard({ id }) {
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontSize: '16px',
+                width: "100%",
+                marginTop: "15px"
             };
 
             const submitStyleString = Object.entries(submitButtonStyles)
@@ -881,7 +903,7 @@ export default function Dashboard({ id }) {
                 element.innerHTML = formHTML;
                 element.style.margin = formManagement.margin;
                 element.style.padding = formManagement.padding;
-                element.style.border = '1px solid #ddd';
+                element.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;
                 element.style.borderRadius = '8px';
                 element.style.backgroundColor = '#f9f9f9';
                 element.style.width = '100%';
@@ -895,7 +917,7 @@ export default function Dashboard({ id }) {
                 newElement.innerHTML = formHTML;
                 newElement.style.margin = formManagement.margin;
                 newElement.style.padding = formManagement.padding;
-                newElement.style.border = '1px solid #ddd';
+                newElement.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;
                 newElement.style.borderRadius = '8px';
                 newElement.style.backgroundColor = '#f9f9f9';
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
@@ -2016,6 +2038,39 @@ export default function Dashboard({ id }) {
                                                             </Box>
                                                         </Box>
                                                     </Box>
+                                                    <Box sx={{ display: 'flex', gap: "15px", mt: 2 }}>
+                                                        <Box sx={{ width: "70%" }}>
+                                                            <TextField
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Form Title"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Form Title'
+                                                                value={formManagement.h3Text}
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, h3Text: e.target.value })
+                                                                }}
+                                                            />
+                                                        </Box>
+                                                        <Box sx={{ width: "30%" }}>
+                                                            <TextField
+                                                                fullWidth
+                                                                size='small'
+                                                                type='number'
+                                                                label="Title Font Size"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Font Size'
+                                                                value={formManagement.h3FontSize}
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, h3FontSize: e.target.value })
+                                                                }}
+                                                            />
+                                                        </Box>
+                                                    </Box>
                                                     <Box mt={2} mb={2}>
                                                         <FormControl fullWidth>
                                                             <InputLabel id="demo-simple-select-label" shrink>
@@ -2072,6 +2127,53 @@ export default function Dashboard({ id }) {
                                                             value={formManagement.padding || ""}
                                                             onChange={(e) => handleSpacingChange(e.target.value, 'padding', setFormManagement)}
                                                         />
+                                                    </Box>
+                                                    <Box sx={{ display: "flex" }}>
+                                                        <Box mt={1} sx={{ width: "50%" }} className="customPicker">
+                                                            <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                Border Color
+                                                            </Typography>
+                                                            <HexColorPicker color={formManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setFormManagement({ ...formManagement, borderColor: e })} />
+                                                        </Box>
+                                                        <Box mt={3.2} sx={{ width: "50%" }} className="customPickerTwo">
+                                                            <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                                                <InputLabel id="demo-simple-select-label">Border</InputLabel>
+                                                                <Select
+                                                                    // displayEmpty
+                                                                    renderValue={(value) => {
+                                                                        if (!value) {
+                                                                            return <Typography color="grey"> Select Border</Typography>;
+                                                                        }
+                                                                        return <>{value}</>;
+                                                                    }}
+                                                                    value={formManagement.border}
+                                                                    label="Border"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        setFormManagement({ ...formManagement, border: e.target.value })
+                                                                    }}
+                                                                >
+                                                                    {borderStyles.map((item, index) => (
+                                                                        <MenuItem className="doNotAct" key={index} value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    ))}
+                                                                </Select>
+                                                            </FormControl>
+                                                            <TextField
+                                                                sx={{ mt: 2 }}
+                                                                type='number'
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Border Width"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Border Width'
+                                                                value={formManagement.borderWidth}
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, borderWidth: e.target.value })
+                                                                }}
+                                                            />
+                                                        </Box>
                                                     </Box>
                                                     {/* <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
                                                     <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {

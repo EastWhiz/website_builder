@@ -6,6 +6,7 @@ use App\Models\Angle;
 use App\Models\AngleTemplate;
 use App\Models\ExtraContent;
 use App\Models\Template;
+use App\Models\UserApiCredential;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -332,16 +333,25 @@ class AngleTemplateController extends Controller
 
         $zip->addFromString('index.php', $fullHtml);
 
-        // Add files from public/api_files directory
+        // Add files from public/api_files directory with text modifications
         $publicFilesPath = public_path('api_files');
         if (is_dir($publicFilesPath)) {
+            // Get current user's API credentials
+            $userApiCredentials = Auth::user()->apiCredential;
+
             $files = scandir($publicFilesPath);
             foreach ($files as $file) {
                 if ($file !== '.' && $file !== '..') {
                     $filePath = $publicFilesPath . DIRECTORY_SEPARATOR . $file;
                     if (is_file($filePath)) {
-                        // Add file to zip under 'api_files/' directory
-                        $zip->addFile($filePath, 'api_files/' . $file);
+                        // Read file content
+                        $fileContent = file_get_contents($filePath);
+
+                        // Modify the content based on your requirements
+                        $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiCredentials);
+
+                        // Add modified content to zip under 'api_files/' directory
+                        $zip->addFromString('api_files/' . $file, $modifiedContent);
                     }
                 }
             }
@@ -371,5 +381,96 @@ class AngleTemplateController extends Controller
         $angleTemplate->delete();
 
         return sendResponse(true, "Sales Page is deleted Successfully.");
+    }
+
+    /**
+     * Modify API file content before adding to zip
+     *
+     * @param string $content The original file content
+     * @param string $filename The name of the file being processed
+     * @param \App\Models\UserApiCredential|null $userApiCredentials The user's API credentials
+     * @return string The modified content
+     */
+    private function modifyApiFileContent($content, $filename, $userApiCredentials = null)
+    {
+        // If no credentials provided, return content as-is
+        if (!$userApiCredentials) {
+            return $content;
+        }
+
+        // For PHP files, replace configuration values
+        if (pathinfo($filename, PATHINFO_EXTENSION) === 'php') {
+
+            switch ($filename) {
+                case 'aweber.php':
+                    $content = str_replace('$clientId = "";', '$clientId = "' . ($userApiCredentials->aweber_client_id ?? '') . '";', $content);
+                    $content = str_replace('$clientSecret = "";', '$clientSecret = "' . ($userApiCredentials->aweber_client_secret ?? '') . '";', $content);
+                    $content = str_replace('$accountId = "";', '$accountId = "' . ($userApiCredentials->aweber_account_id ?? '') . '";', $content);
+                    $content = str_replace('$listId = "";', '$listId = "' . ($userApiCredentials->aweber_list_id ?? '') . '";', $content);
+                    break;
+
+                case 'electra.php':
+                    $content = str_replace("'affid' => '',", "'affid' => '" . ($userApiCredentials->electra_affid ?? '') . "',", $content);
+                    // Note: electra seems to use a different API key mechanism, might need to check the file more
+                    break;
+
+                case 'dark.php':
+                    $content = str_replace("'ai' => '',", "'ai' => '" . ($userApiCredentials->dark_ai ?? '') . "',", $content);
+                    $content = str_replace("'ci' => '',", "'ci' => '" . ($userApiCredentials->dark_ci ?? '') . "',", $content);
+                    $content = str_replace("'gi' => '',", "'gi' => '" . ($userApiCredentials->dark_gi ?? '') . "',", $content);
+                    $content = str_replace('$username = "";', '$username = "' . ($userApiCredentials->dark_username ?? '') . '";', $content);
+                    $content = str_replace('$password = "";', '$password = "' . ($userApiCredentials->dark_password ?? '') . '";', $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->dark_api_key ?? '') . '";', $content);
+                    break;
+
+                case 'elps.php':
+                    $content = str_replace("'ai' => '',", "'ai' => '" . ($userApiCredentials->elps_ai ?? '') . "',", $content);
+                    $content = str_replace("'ci' => '',", "'ci' => '" . ($userApiCredentials->elps_ci ?? '') . "',", $content);
+                    $content = str_replace("'gi' => '',", "'gi' => '" . ($userApiCredentials->elps_gi ?? '') . "',", $content);
+                    $content = str_replace('$username = "";', '$username = "' . ($userApiCredentials->elps_username ?? '') . '";', $content);
+                    $content = str_replace('$password = "";', '$password = "' . ($userApiCredentials->elps_password ?? '') . '";', $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->elps_api_key ?? '') . '";', $content);
+                    break;
+
+                case 'meeseeksmedia.php':
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->meeseeks_api_key ?? '') . '";', $content);
+                    break;
+
+                case 'novelix.php':
+                    $content = str_replace("'affid' => '',", "'affid' => '" . ($userApiCredentials->novelix_affid ?? '') . "',", $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->novelix_api_key ?? '') . '";', $content);
+                    break;
+
+                case 'tigloo.php':
+                    $content = str_replace("'ai' => '',", "'ai' => '" . ($userApiCredentials->tigloo_ai ?? '') . "',", $content);
+                    $content = str_replace("'ci' => '',", "'ci' => '" . ($userApiCredentials->tigloo_ci ?? '') . "',", $content);
+                    $content = str_replace("'gi' => '',", "'gi' => '" . ($userApiCredentials->tigloo_gi ?? '') . "',", $content);
+                    $content = str_replace('$username = "";', '$username = "' . ($userApiCredentials->tigloo_username ?? '') . '";', $content);
+                    $content = str_replace('$password = "";', '$password = "' . ($userApiCredentials->tigloo_password ?? '') . '";', $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->tigloo_api_key ?? '') . '";', $content);
+                    break;
+
+                case 'config.php':
+                    // Update BASE_URL to current domain if needed
+                    $baseUrl = request()->getSchemeAndHttpHost();
+                    $content = str_replace('define("BASE_URL", "http://localhost/myapp");', 'define("BASE_URL", "' . $baseUrl . '");', $content);
+                    break;
+
+                default:
+                    // No specific modifications for other files
+                    break;
+            }
+        }
+
+        // For JSON files (like tokens.json)
+        if (pathinfo($filename, PATHINFO_EXTENSION) === 'json') {
+            $data = json_decode($content, true);
+            if ($data !== null) {
+                // You can modify JSON data here if needed
+                $content = json_encode($data, JSON_PRETTY_PRINT);
+            }
+        }
+
+        return $content;
     }
 }

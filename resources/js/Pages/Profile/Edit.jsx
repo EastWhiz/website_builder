@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/react';
 import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
+import ApiFormFields from './Partials/ApiFormFields';
 
 export default function Edit({ mustVerifyEmail, status }) {
     return (
@@ -22,6 +23,14 @@ export default function Edit({ mustVerifyEmail, status }) {
                             mustVerifyEmail={mustVerifyEmail}
                             status={status}
                             className="max-w-xl"
+                        />
+                    </div>
+
+                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                        <ApiFormFields
+                            mustVerifyEmail={mustVerifyEmail}
+                            status={status}
+                            className=""
                         />
                     </div>
 

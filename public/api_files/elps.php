@@ -17,7 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postData = $_POST;
 
     // Helper function to get value or empty string
-    function getVal($arr, $key) {
+    function getVal($arr, $key)
+    {
         return isset($arr[$key]) ? $arr[$key] : '';
     }
 
@@ -26,9 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Prepare the data for Zeus API
     $data = array(
-        'ai' => '2958034',
-        'ci' => '1',
-        'gi' => '17',
+        'ai' => '',
+        'ci' => '',
+        'gi' => '',
         'userip' => getVal($postData, 'userip'),
         'firstname' => getVal($postData, 'firstname'),
         'lastname' => getVal($postData, 'lastname'),
@@ -45,15 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'MPC_6' => 'What is your zip code? | ' . getVal($postData, 'zipcode'),
     );
 
+    $username = "";
+    $password = "";
+    $xapikey = "";
+
     // Set cURL options for the Zeus API request
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
         'Content-Type: application/json',
-        'x-trackbox-username: cfff',
-        'x-trackbox-password: 1YAnplgj!',
-        'x-api-key: 2643889w34df345676ssdas323tgc738'
+        'x-trackbox-username: ' . $username,
+        'x-trackbox-password: ' . $password,
+        'x-api-key: ' . $xapikey
     ));
 
     // Error handling for cURL
@@ -96,7 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Function to send data to Aweber API
-function sendToAweber($data) {
+function sendToAweber($data)
+{
     unset($data['form_type']);
     $aweberUrl = BASE_URL . "/api_files/aweber.php"; // Using BASE_URL to form the Aweber API URL
 
@@ -125,4 +131,3 @@ function sendToAweber($data) {
 
     return $decodedResponse;
 }
-?>

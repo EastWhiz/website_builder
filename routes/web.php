@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AngleController;
 use App\Http\Controllers\AngleTemplateController;
+use App\Http\Controllers\ApiCredentialsController;
 use App\Http\Controllers\DeepLControlller;
 use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\GrokController;
@@ -83,6 +84,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        // API Credentials routes
+        Route::post('/api/credentials', [ApiCredentialsController::class, 'store'])->name('api.credentials.store');
+        Route::get('/api/credentials', [ApiCredentialsController::class, 'show'])->name('api.credentials.show');
+        Route::delete('/api/credentials', [ApiCredentialsController::class, 'destroy'])->name('api.credentials.destroy');
+        Route::get('/api/credentials/{provider}', [ApiCredentialsController::class, 'getProviderCredentials'])->name('api.credentials.provider');
 
         Route::get('/users/{id}/themes', function ($id) {
             return Inertia::render('Users/UserThemes', [

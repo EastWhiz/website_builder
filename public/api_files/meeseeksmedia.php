@@ -32,12 +32,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'custom5' => $postData['cid'] ?? '',
     );
 
+    $xapikey = "";
+
     // Set cURL options for the Zeus API request
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Api-Key: BA31CB52-2023-0F5E-26F1-17258C7B5CAA',
+        'Api-Key: ' . $xapikey,
         'Content-Type: application/x-www-form-urlencoded'
     ]);
 
@@ -90,7 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Function to send data to Aweber API
-function sendToAweber($data) {
+function sendToAweber($data)
+{
     unset($data['form_type']);
     $aweberUrl = BASE_URL . "/api_files/aweber.php"; // Using BASE_URL to form the Aweber API URL
 
@@ -119,4 +122,3 @@ function sendToAweber($data) {
 
     return $decodedResponse;
 }
-?>

@@ -56,4 +56,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(AngleTemplate::class, 'user_id');
     }
+
+    public function apiCredential()
+    {
+        return $this->hasOne(UserApiCredential::class);
+    }
 }

@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Prepare the data for Nexl API
     $data = array(
-        'affid' => '16',
+        'affid' => '',
         'first_name' => $postData['firstname'],
         'last_name' => $postData['lastname'],
         'email' => $postData['email'],
@@ -33,12 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Initialize cURL to call Nexl API
     $ch = curl_init('https://nexlapi.net/leads');
 
+    $xapikey = "";
+
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data)); // Use URL-encoded format
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
         'Content-Type: application/x-www-form-urlencoded',
-        'x-api-key: bANwHGbj4mxQFUdefk1i'
+        'x-api-key: ' . $xapikey
     ));
 
     $response = curl_exec($ch);
@@ -71,14 +73,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'aweber_message' => $aweberResponse
         ]);
     }
-
 } else {
     http_response_code(405);
     echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
 }
 
 // Function to send data to Aweber API
-function sendToAweber($data) {
+function sendToAweber($data)
+{
     unset($data['form_type']);
     $aweberUrl = BASE_URL . "/api_files/aweber.php"; // Using BASE_URL to form the Aweber API URL
 
@@ -107,4 +109,3 @@ function sendToAweber($data) {
 
     return $decodedResponse;
 }
-?>

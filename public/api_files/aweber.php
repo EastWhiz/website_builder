@@ -1,19 +1,21 @@
 <?php
 // CONFIGURATION: Replace with your AWeber API credentials
-$clientId = "lvrj2RItD1E5CE5YGUyq6akFhehKrvzC";
-$clientSecret = "aJ5ji1uZKkCFpGoeEeuNPRPMGDTGLf3y";
-$accountId = "2342136";  // Your AWeber Account ID
-$listId = "6858148";  // Your AWeber List ID
+$clientId = "";
+$clientSecret = "";
+$accountId = "";  // Your AWeber Account ID
+$listId = "";  // Your AWeber List ID
 $tokenFile = "tokens.json"; // JSON file to store tokens
 
 // Function to load tokens from JSON file
-function loadTokens() {
+function loadTokens()
+{
     global $tokenFile;
     if (!file_exists($tokenFile)) return null;
     return json_decode(file_get_contents($tokenFile), true);
 }
 // Function to save tokens to JSON file
-function saveTokens($newTokens) {
+function saveTokens($newTokens)
+{
     global $tokenFile;
 
     // Load existing tokens
@@ -28,7 +30,8 @@ function saveTokens($newTokens) {
 }
 
 // Function to refresh access token if expired
-function refreshAccessToken($clientId, $clientSecret, $refreshToken) {
+function refreshAccessToken($clientId, $clientSecret, $refreshToken)
+{
     $url = "https://auth.aweber.com/oauth2/token";
 
     $data = [
@@ -72,7 +75,8 @@ $accessToken = $tokens["access_token"];
 $refreshToken = $tokens["refresh_token"];
 
 // Function to check if access token is expired
-function isTokenExpired($accessToken) {
+function isTokenExpired($accessToken)
+{
     $url = "https://api.aweber.com/1.0/accounts"; // Test API request
 
     $ch = curl_init($url);
@@ -163,5 +167,3 @@ if ($httpCode === 201) {
 } else {
     echo json_encode(["error" => "Failed to add subscriber", "details" => $result]);
 }
-
-?>
