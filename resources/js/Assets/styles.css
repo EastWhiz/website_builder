@@ -87,3 +87,13 @@ input {
     z-index: 9999;
     /* optional: ensures it stays on top */
 }
+
+.iti {
+    width: 100% !important;
+}
+
+.iti input {
+    width: 100% !important;
+    box-sizing: border-box;
+    /* ensures padding doesn't break layout */
+}

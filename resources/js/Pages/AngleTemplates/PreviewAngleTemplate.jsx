@@ -279,6 +279,8 @@ export default function Dashboard({ id }) {
         borderColor: "#0186ff",
         h3Text: "Form",
         h3FontSize: "24",
+        h3HeadingColor: "#333333",
+        h3HeadingAlignment: "center",
         inputs: [{
             name: "firstname",
             id: "firstname",
@@ -495,6 +497,8 @@ export default function Dashboard({ id }) {
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
                 h3Text: h3Element?.textContent.trim() || "",
                 h3FontSize: h3Element ? removePxAndConvertToFloat(window.getComputedStyle(h3Element).fontSize) : "24",
+                h3HeadingColor: h3Element ? `#${convert.rgb.hex(rgbToArray(window.getComputedStyle(h3Element).color))}` : "#333333",
+                h3HeadingAlignment: h3Element ? window.getComputedStyle(h3Element).textAlign : "center",
             });
         }
     }, [editing]);
@@ -835,7 +839,7 @@ export default function Dashboard({ id }) {
             // Add H3 title if provided
             if (formManagement.h3Text) {
                 formHTML += `
-                    <h3 className="doNotAct" style="text-align: center; margin-bottom: 20px; font-size: ${formManagement.h3FontSize || 24}px; color: #000;">
+                    <h3 className="doNotAct" style="font-weight: bold; text-align: ${formManagement.h3HeadingAlignment || 'center'}; margin-bottom: 20px; font-size: ${formManagement.h3FontSize || 24}px; color: ${formManagement.h3HeadingColor || '#333333'};">
                         ${formManagement.h3Text}
                     </h3>
                 `;
@@ -844,11 +848,12 @@ export default function Dashboard({ id }) {
             // Add input fields
             formManagement.inputs.forEach(input => {
                 if (input.name && input.inputType) {
+                    // <label for="${input.id}" style="display: block; margin-bottom: 5px;">${input.inputName || input.name}</label>
                     formHTML += `
                         <div style="margin-bottom: 15px;">
-                            <label for="${input.id}" style="display: block; margin-bottom: 5px;">${input.inputName || input.name}</label>
                             <input
                                 type="${input.inputType}"
+                                placeholder="${input.inputName || input.name}"
                                 id="${input.id}"
                                 name="${input.name}"
                                 class="${input.inputType == "tel" ? 'telInputs' : ''}"
@@ -2027,7 +2032,7 @@ export default function Dashboard({ id }) {
                                                         </Box>
                                                     </Box>
                                                     <Box sx={{ display: 'flex', gap: "15px", mt: 2 }}>
-                                                        <Box sx={{ width: "70%" }}>
+                                                        <Box sx={{ width: "33%" }}>
                                                             <TextField
                                                                 fullWidth
                                                                 size='small'
@@ -2042,7 +2047,7 @@ export default function Dashboard({ id }) {
                                                                 }}
                                                             />
                                                         </Box>
-                                                        <Box sx={{ width: "30%" }}>
+                                                        <Box sx={{ width: "33%" }}>
                                                             <TextField
                                                                 fullWidth
                                                                 size='small'
@@ -2055,6 +2060,85 @@ export default function Dashboard({ id }) {
                                                                 value={formManagement.h3FontSize}
                                                                 onChange={(e) => {
                                                                     setFormManagement({ ...formManagement, h3FontSize: e.target.value })
+                                                                }}
+                                                            />
+                                                        </Box>
+                                                        <Box sx={{ width: "33%" }}>
+                                                            <FormControl fullWidth>
+                                                                <InputLabel id="h3-alignment-select-label">Title Alignment</InputLabel>
+                                                                <Select
+                                                                    // displayEmpty
+                                                                    renderValue={(value) => {
+                                                                        if (!value) {
+                                                                            return <Typography color="grey"> Select Alignment</Typography>;
+                                                                        }
+                                                                        return <>{value}</>;
+                                                                    }}
+                                                                    value={formManagement.h3HeadingAlignment}
+                                                                    label="Title Alignment"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        setFormManagement({ ...formManagement, h3HeadingAlignment: e.target.value })
+                                                                    }}
+                                                                >
+                                                                    {textAlignProperties.map((item, index) => (
+                                                                        <MenuItem className="doNotAct" key={index} value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    ))}
+                                                                </Select>
+                                                            </FormControl>
+                                                        </Box>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', gap: "15px", mt: 1 }}>
+                                                        <Box sx={{ width: "50%", display: "flex", gap: 2 }}>
+                                                            <Box sx={{ width: "50%" }} className="customPickerTwo">
+                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px", mb: 1 }}>
+                                                                    Title Color
+                                                                </Typography>
+                                                                <HexColorPicker color={formManagement.h3HeadingColor} style={{ width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, h3HeadingColor: e })} />
+                                                            </Box>
+                                                            <Box sx={{ width: "50%" }} className="customPickerTwo">
+                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
+                                                                    Border Color
+                                                                </Typography>
+                                                                <HexColorPicker color={formManagement.borderColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, borderColor: e })} />
+                                                            </Box>
+                                                        </Box>
+                                                        <Box sx={{ width: "50%" }}>
+                                                            <FormControl fullWidth sx={{ mt: 1 }}>
+                                                                <InputLabel id="demo-simple-select-label">Border</InputLabel>
+                                                                <Select
+                                                                    // displayEmpty
+                                                                    renderValue={(value) => {
+                                                                        if (!value) {
+                                                                            return <Typography color="grey"> Select Border</Typography>;
+                                                                        }
+                                                                        return <>{value}</>;
+                                                                    }}
+                                                                    value={formManagement.border}
+                                                                    label="Border"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        setFormManagement({ ...formManagement, border: e.target.value })
+                                                                    }}
+                                                                >
+                                                                    {borderStyles.map((item, index) => (
+                                                                        <MenuItem className="doNotAct" key={index} value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
+                                                                    ))}
+                                                                </Select>
+                                                            </FormControl>
+                                                            <TextField
+                                                                sx={{ mt: 2 }}
+                                                                type='number'
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Border Width"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Border Width'
+                                                                value={formManagement.borderWidth}
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, borderWidth: e.target.value })
                                                                 }}
                                                             />
                                                         </Box>
@@ -2115,53 +2199,6 @@ export default function Dashboard({ id }) {
                                                             value={formManagement.padding || ""}
                                                             onChange={(e) => handleSpacingChange(e.target.value, 'padding', setFormManagement)}
                                                         />
-                                                        <Box sx={{ display: "flex" }}>
-                                                            <Box mt={1} sx={{ width: "50%" }} className="customPicker">
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                    Border Color
-                                                                </Typography>
-                                                                <HexColorPicker color={formManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setFormManagement({ ...formManagement, borderColor: e })} />
-                                                            </Box>
-                                                            <Box mt={3.2} sx={{ width: "50%" }} className="customPickerTwo">
-                                                                <FormControl fullWidth sx={{ mt: 2.1 }}>
-                                                                    <InputLabel id="demo-simple-select-label">Border</InputLabel>
-                                                                    <Select
-                                                                        // displayEmpty
-                                                                        renderValue={(value) => {
-                                                                            if (!value) {
-                                                                                return <Typography color="grey"> Select Border</Typography>;
-                                                                            }
-                                                                            return <>{value}</>;
-                                                                        }}
-                                                                        value={formManagement.border}
-                                                                        label="Border"
-                                                                        size='small'
-                                                                        onChange={(e) => {
-                                                                            setFormManagement({ ...formManagement, border: e.target.value })
-                                                                        }}
-                                                                    >
-                                                                        {borderStyles.map((item, index) => (
-                                                                            <MenuItem className="doNotAct" key={index} value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                                <TextField
-                                                                    sx={{ mt: 2 }}
-                                                                    type='number'
-                                                                    fullWidth
-                                                                    size='small'
-                                                                    label="Border Width"
-                                                                    slotProps={{
-                                                                        inputLabel: { shrink: true }
-                                                                    }}
-                                                                    placeholder='Enter Border Width'
-                                                                    value={formManagement.borderWidth}
-                                                                    onChange={(e) => {
-                                                                        setFormManagement({ ...formManagement, borderWidth: e.target.value })
-                                                                    }}
-                                                                />
-                                                            </Box>
-                                                        </Box>
                                                     </Box>
                                                     {/* <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
                                                     <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {
