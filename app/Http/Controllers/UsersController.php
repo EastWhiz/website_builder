@@ -26,7 +26,8 @@ class UsersController extends Controller
     {
         $templates = AngleTemplate::where('user_id', $id)->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
-                $q->orWhere('name', 'LIKE', '%' . $request->q . '%');
+                $q->where('name', 'LIKE', '%' . $request->q . '%');
+                $q->orWhere('id', 'LIKE', '%' . $request->q . '%'); 
             });
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
