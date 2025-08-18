@@ -380,10 +380,18 @@ export default function Dashboard({ id }) {
                 setMainHTML([{ html: updateAngleImages(bodiesTemp[0].content, json.data), status: true }]);
 
                 setTimeout(() => {
-                    document.querySelectorAll(".telInputs").forEach(input => {
-                        window.intlTelInput(input, {
-                            initialCountry: "us",
-                        });
+                    window.intlTelInput(input, {
+                        initialCountry: "auto",
+                        geoIpLookup: function (callback) {
+                            fetch("https://ipapi.co/json/") // free IP geolocation API
+                                .then(res => res.json())
+                                .then(data => {
+                                    callback(data.country_code); // e.g. "PK" for Pakistan
+                                })
+                                .catch(() => {
+                                    callback("us"); // fallback if lookup fails
+                                });
+                        },
                     });
                 }, 200);
             } catch (error) {
@@ -944,10 +952,18 @@ export default function Dashboard({ id }) {
         setAnchorHelpProperties(null);
 
         setTimeout(() => {
-            document.querySelectorAll(".telInputs").forEach(input => {
-                window.intlTelInput(input, {
-                    initialCountry: "us",
-                });
+            window.intlTelInput(input, {
+                initialCountry: "auto",
+                geoIpLookup: function (callback) {
+                    fetch("https://ipapi.co/json/") // free IP geolocation API
+                        .then(res => res.json())
+                        .then(data => {
+                            callback(data.country_code); // e.g. "PK" for Pakistan
+                        })
+                        .catch(() => {
+                            callback("us"); // fallback if lookup fails
+                        });
+                },
             });
         }, 200);
 

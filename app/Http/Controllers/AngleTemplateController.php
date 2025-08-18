@@ -312,6 +312,105 @@ class AngleTemplateController extends Controller
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/css/intlTelInput.css">
             {$template->head}
             <style>
+                input {
+                    outline: none !important;
+                    outline-offset: none !important;
+                    box-shadow: none !important;
+                }
+
+                .toggle_button {
+                    padding: 5px !important;
+                    text-transform: capitalize !important;
+                }
+
+                .MuiOutlinedInput-input:focus {
+                    --tw-ring-inset: 0px
+                }
+
+                .customPicker .react-colorful {
+                    height: 104px;
+                }
+
+                .customPicker .react-colorful__hue {
+                    height: 15px;
+                }
+
+                .customPicker .react-colorful__hue-pointer {
+                    width: 15px;
+                    height: 15px
+                }
+
+                .customPicker .react-colorful__saturation-pointer {
+                    width: 15px;
+                    height: 15px
+                }
+
+                .customPickerTwo .react-colorful {
+                    height: 70px;
+                }
+
+                .customPickerTwo .react-colorful__hue {
+                    height: 15px;
+                }
+
+                .customPickerTwo .react-colorful__hue-pointer {
+                    width: 15px;
+                    height: 15px
+                }
+
+                .customPickerTwo .react-colorful__saturation-pointer {
+                    width: 15px;
+                    height: 15px
+                }
+
+                .cptlz {
+                    text-transform: capitalize !important;
+                }
+
+                .megaButton {
+                    height: 105px !important;
+                    font-size: 26px !important;
+                }
+
+                .megaButtonSquare {
+                    height: 225px !important;
+                    font-size: 32px !important;
+                }
+
+                .swal2-container {
+                    z-index: 9999
+                }
+
+                .editable-hover-border {
+                    outline: 2px solid red !important;
+                    cursor: pointer;
+                    z-index: 9999;
+                }
+
+                .app-anchor {
+                    cursor: pointer !important;
+                    text-decoration: underline !important;
+                    color: #3b7de3 !important;
+                }
+
+                .sticky-left-div {
+                    position: fixed;
+                    top: 50%;
+                    left: 0;
+                    transform: translateY(-50%);
+                    z-index: 9999;
+                    /* optional: ensures it stays on top */
+                }
+
+                .iti {
+                    width: 100% !important;
+                }
+
+                .iti input {
+                    width: 100% !important;
+                    box-sizing: border-box;
+                    /* ensures padding doesn't break layout */
+                }
                 {$updatingCss}
             </style>
         </head>
