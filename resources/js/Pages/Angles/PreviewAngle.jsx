@@ -380,19 +380,30 @@ export default function Dashboard({ id }) {
                 setMainHTML([{ html: updateAngleImages(bodiesTemp[0].content, json.data), status: true }]);
 
                 setTimeout(() => {
-                    window.intlTelInput(input, {
-                        initialCountry: "auto",
-                        geoIpLookup: function (callback) {
-                            fetch("https://ipapi.co/json/") // free IP geolocation API
-                                .then(res => res.json())
-                                .then(data => {
-                                    callback(data.country_code); // e.g. "PK" for Pakistan
-                                })
-                                .catch(() => {
-                                    callback("us"); // fallback if lookup fails
+                    fetch("https://ipapi.co/json/")
+                        .then(res => res.json())
+                        .then(data => {
+                            const userCountry = data.country_code || "us"; // fallback if undefined
+
+                            // Now loop through all telInputs and init with that country
+                            document.querySelectorAll(".telInputs").forEach(input => {
+                                window.intlTelInput(input, {
+                                    initialCountry: userCountry,
                                 });
-                        },
-                    });
+
+                                // Keep full width
+                                input.style.width = "100%";
+                            });
+                        })
+                        .catch(() => {
+                            // If API fails, just fallback to US
+                            document.querySelectorAll(".telInputs").forEach(input => {
+                                window.intlTelInput(input, {
+                                    initialCountry: "us",
+                                });
+                                input.style.width = "100%";
+                            });
+                        });
                 }, 200);
             } catch (error) {
                 console.error(error.message);
@@ -952,19 +963,30 @@ export default function Dashboard({ id }) {
         setAnchorHelpProperties(null);
 
         setTimeout(() => {
-            window.intlTelInput(input, {
-                initialCountry: "auto",
-                geoIpLookup: function (callback) {
-                    fetch("https://ipapi.co/json/") // free IP geolocation API
-                        .then(res => res.json())
-                        .then(data => {
-                            callback(data.country_code); // e.g. "PK" for Pakistan
-                        })
-                        .catch(() => {
-                            callback("us"); // fallback if lookup fails
+            fetch("https://ipapi.co/json/")
+                .then(res => res.json())
+                .then(data => {
+                    const userCountry = data.country_code || "us"; // fallback if undefined
+
+                    // Now loop through all telInputs and init with that country
+                    document.querySelectorAll(".telInputs").forEach(input => {
+                        window.intlTelInput(input, {
+                            initialCountry: userCountry,
                         });
-                },
-            });
+
+                        // Keep full width
+                        input.style.width = "100%";
+                    });
+                })
+                .catch(() => {
+                    // If API fails, just fallback to US
+                    document.querySelectorAll(".telInputs").forEach(input => {
+                        window.intlTelInput(input, {
+                            initialCountry: "us",
+                        });
+                        input.style.width = "100%";
+                    });
+                });
         }, 200);
 
         // RESET ALL
