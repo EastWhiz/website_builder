@@ -419,11 +419,30 @@ class AngleTemplateController extends Controller
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/intlTelInput.min.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/utils.js"></script>
             <script>
-                document.querySelectorAll(".telInputs").forEach(input => {
-                    window.intlTelInput(input, {
-                        initialCountry: "us",
+                fetch("https://ipapi.co/json/")
+                    .then(res => res.json())
+                    .then(data => {
+                        const userCountry = data.country_code || "us"; // fallback if undefined
+
+                        // Now loop through all telInputs and init with that country
+                        document.querySelectorAll(".telInputs").forEach(input => {
+                            window.intlTelInput(input, {
+                                initialCountry: userCountry,
+                            });
+
+                            // Keep full width
+                            input.style.width = "100%";
+                        });
+                    })
+                    .catch(() => {
+                        // If API fails, just fallback to US
+                        document.querySelectorAll(".telInputs").forEach(input => {
+                            window.intlTelInput(input, {
+                                initialCountry: "us",
+                            });
+                            input.style.width = "100%";
+                        });
                     });
-                });
             </script>
             <script>{$updatingJs}</script>
             <script>
