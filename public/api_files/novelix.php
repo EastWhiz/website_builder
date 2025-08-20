@@ -61,21 +61,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = implode("\n", $responseArray['errors']);
         }
 
-        echo json_encode([
-            'status' => false,
-            'message' => $message,
-            'aweber_message' => $aweberResponse
-        ]);
+        // echo json_encode([
+        //     'status' => false,
+        //     'message' => $message,
+        //     'aweber_message' => $aweberResponse
+        // ]);
+
+        header('Location: ' . BASE_URL . '?api_error=' . urlencode($message));
+        exit();
     } else {
-        echo json_encode([
-            'status' => true,
-            'message' => 'Lead registered successfully.',
-            'aweber_message' => $aweberResponse
-        ]);
+        // echo json_encode([
+        //     'status' => true,
+        //     'message' => 'Lead registered successfully.',
+        //     'aweber_message' => $aweberResponse
+        // ]);
+
+        header('Location: ' . BASE_URL . '?api_success=' . urlencode('Lead registered successfully.'));
+        exit();
     }
 } else {
-    http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+    // http_response_code(405);
+    // echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+
+    header('Location: ' . BASE_URL . '?api_error=' . urlencode('Method not allowed'));
+    exit();
 }
 
 // Function to send data to Aweber API

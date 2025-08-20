@@ -32,11 +32,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Check if the form type has a corresponding API file
     if (!isset($apiFiles[$formType])) {
-        echo json_encode([
-            'status' => false,
-            'message' => 'Invalid form type specified: ' . $formType
-        ]);
-        exit;
+        // echo json_encode([
+        //     'status' => false,
+        //     'message' => 'Invalid form type specified: ' . $formType
+        // ]);
+        // exit;
+
+        header('Location: ' . BASE_URL . '?api_error=' . urlencode('Invalid form type specified: ' . $formType));
+        exit();
     }
 
     $apiFile = $apiFiles[$formType];
@@ -44,17 +47,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Check if the API file exists
     if (!file_exists($apiFilePath)) {
-        echo json_encode([
-            'status' => false,
-            'message' => 'API file not found: ' . $apiFile
-        ]);
-        exit;
+        // echo json_encode([
+        //     'status' => false,
+        //     'message' => 'API file not found: ' . $apiFile
+        // ]);
+        // exit;
+
+        header('Location: ' . BASE_URL . '?api_error=' . urlencode('API file not found: ' . $apiFile));
+        exit();
     }
 
     // Include and execute the API file
     include $apiFilePath;
-
 } else {
-    http_response_code(405);
-    echo json_encode(['status' => false, 'message' => 'Method not allowed']);
+    // http_response_code(405);
+    // echo json_encode(['status' => false, 'message' => 'Method not allowed']);
+
+    header('Location: ' . BASE_URL . '?api_error=' . urlencode('Method not allowed'));
+    exit();
 }

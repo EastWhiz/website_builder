@@ -59,7 +59,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Error handling for cURL
     if (curl_errno($ch)) {
-        echo json_encode(['status' => 'error', 'message' => curl_error($ch)]);
+        // echo json_encode(['status' => 'error', 'message' => curl_error($ch)]);
+        // exit();
+
+        header('Location: ' . BASE_URL . '?api_error=' . urlencode(curl_error($ch)));
         exit();
     }
 
@@ -76,24 +79,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Filter and sanitize response for the client
     if ($httpCode !== 200 || !isset($responseArray['status']) || !$responseArray['status']) {
-        // Return error response if Zeus API call fails
-        echo json_encode([
-            'status' => false,
-            'message' => $responseArray['data'] ?? 'An error occurred. Please try again.',
-            'aweber_message' => $aweberResponse
-        ]);
+        // echo json_encode([
+        //     'status' => false,
+        //     'message' => $responseArray['data'] ?? 'An error occurred. Please try again.',
+        //     'aweber_message' => $aweberResponse
+        // ]);
+
+        header('Location: ' . BASE_URL . '?api_error=' . urlencode($responseArray['data'] ?? 'An error occurred. Please try again.'));
+        exit();
     } else {
-        // Return success message if Zeus API call is successful
-        echo json_encode([
-            'status' => true,
-            'message' => $responseArray['message'] ?? 'Registration completed successfully.',
-            'aweber_message' => $aweberResponse
-        ]);
+        // echo json_encode([
+        //     'status' => true,
+        //     'message' => $responseArray['message'] ?? 'Registration completed successfully.',
+        //     'aweber_message' => $aweberResponse
+        // ]);
+
+        header('Location: ' . BASE_URL . '?api_success=' . urlencode($responseArray['data'] ?? 'Registration completed successfully.'));
+        exit();
     }
 } else {
     // Handle method not allowed (only POST method is allowed)
-    http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+    // http_response_code(405);
+    // echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+
+    header('Location: ' . BASE_URL . '?api_error=' . urlencode('Method not allowed'));
+    exit();
 }
 
 // Function to send data to Aweber API

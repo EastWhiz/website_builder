@@ -426,6 +426,39 @@ class AngleTemplateController extends Controller
                 });
             </script>
             <script>{$updatingJs}</script>
+            <script>
+                // Additional JavaScript can go here
+                document.addEventListener("DOMContentLoaded", function () {
+                    const params = new URLSearchParams(window.location.search);
+                    const form = document.querySelector("form");
+
+                    if (params.toString() && form) {
+                    let messageBox = document.createElement("div");
+                    messageBox.style.padding = "10px";
+                    messageBox.style.marginBottom = "15px";
+                    messageBox.style.borderRadius = "5px";
+                    messageBox.style.fontWeight = "bold";
+
+                    if (params.has("api_error")) {
+                        messageBox.textContent = decodeURIComponent(params.get("api_error"));
+                        messageBox.style.backgroundColor = "#ffe6e6"; // light red
+                        messageBox.style.color = "#cc0000"; // red text
+                        messageBox.style.border = "1px solid #cc0000";
+                    } else if (params.has("api_success")) {
+                        messageBox.textContent = decodeURIComponent(params.get("api_success"));
+                        messageBox.style.backgroundColor = "#e6ffe6"; // light green
+                        messageBox.style.color = "#006600"; // green text
+                        messageBox.style.border = "1px solid #006600";
+                    }
+
+                    // Insert message at the top of form
+                    form.insertBefore(messageBox, form.firstChild);
+
+                    // Smooth scroll to form
+                    form.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                });
+                </script>
         </body>
         </html>
         HTMLDOC;
