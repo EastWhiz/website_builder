@@ -475,6 +475,17 @@ class AngleTemplateController extends Controller
 
                     // Smooth scroll to form
                     form.scrollIntoView({ behavior: "smooth", block: "start" });
+
+                    // Remove api_error/api_success from URL without reload
+                    params.delete("api_error");
+                    params.delete("api_success");
+
+                    const newUrl =
+                    window.location.origin +
+                    window.location.pathname +
+                    (params.toString() ? "?" + params.toString() : "");
+
+                    window.history.replaceState({}, document.title, newUrl);
                     }
                 });
             </script>
