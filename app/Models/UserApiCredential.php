@@ -36,6 +36,8 @@ class UserApiCredential extends Model
         'tigloo_ai',
         'tigloo_ci',
         'tigloo_gi',
+        'facebook_pixel_url',
+        'second_pixel_url',
     ];
 
     // protected $casts = [

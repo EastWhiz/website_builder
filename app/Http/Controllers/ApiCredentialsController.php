@@ -40,6 +40,8 @@ class ApiCredentialsController extends Controller
                 'tigloo_ai' => 'nullable|string|max:255',
                 'tigloo_ci' => 'nullable|string|max:255',
                 'tigloo_gi' => 'nullable|string|max:255',
+                'facebook_pixel_url' => 'nullable|url|max:1000',
+                'second_pixel_url' => 'nullable|url|max:1000',
             ]);
 
             $user = Auth::user();

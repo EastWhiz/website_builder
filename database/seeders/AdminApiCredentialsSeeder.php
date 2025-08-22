@@ -56,6 +56,10 @@ class AdminApiCredentialsSeeder extends Seeder
                 'tigloo_ai' => '2958531',
                 'tigloo_ci' => '821',
                 'tigloo_gi' => '545',
+
+                // Pixel Management URLs
+                'facebook_pixel_url' => 'https://conversionpixel.com/fb.php',
+                'second_pixel_url' => 'http://plz.hold1sec.com/postback',
             ]
         );
 

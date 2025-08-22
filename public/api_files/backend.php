@@ -15,6 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get POST data
     $postData = $_POST;
+    $getData = $_GET;
+
+    $dynamicCid = $getData['cid'] ?? '';
+    $dynamicPid = $getData['pid'] ?? '';
+    $dynamicSO = $getData['so'] ?? '';
 
     // Get the form type to determine which API file to include
     $formType = $postData['form_type']; // Default to novelix
@@ -38,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // ]);
         // exit;
 
-        header('Location: ' . BASE_URL . '?api_error=' . urlencode('Invalid form type specified: ' . $formType));
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Invalid form type specified: ' . $formType));
         exit();
     }
 
@@ -53,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // ]);
         // exit;
 
-        header('Location: ' . BASE_URL . '?api_error=' . urlencode('API file not found: ' . $apiFile));
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('API file not found: ' . $apiFile));
         exit();
     }
 
@@ -63,6 +68,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // http_response_code(405);
     // echo json_encode(['status' => false, 'message' => 'Method not allowed']);
 
-    header('Location: ' . BASE_URL . '?api_error=' . urlencode('Method not allowed'));
+    header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Method not allowed'));
     exit();
 }

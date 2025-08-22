@@ -15,11 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get POST data
     $postData = $_POST;
+    $getData = $_GET;
 
     // Helper function to get value or empty string
     function getVal($arr, $key) {
         return isset($arr[$key]) ? $arr[$key] : '';
     }
+
+    $dynamicCid = getVal($getData, 'cid') ?? '';
+    $dynamicPid = getVal($getData, 'pid') ?? '';
+    $dynamicSO = getVal($getData, 'so') ?? '';
 
     // Setup cURL to call the Zeus API
     $ch = curl_init('https://platform.onlinepartnersed.com/api/signup/procform');
@@ -35,10 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'email' => getVal($postData, 'email'),
         'password' => 'hardcodedpassword', // Ensure you handle passwords securely!
         'phone' => getVal($postData, 'phone'),
-        'so' => getVal($postData, 'so'),
+        'so' => $dynamicSO,
         'lg' => 'EN',
         'country' => getVal($postData, 'country'),
-        'affClickId' => getVal($postData, 'cid'),
+        'affClickId' => $dynamicCid,
         'MPC_3' => 'How old are you? | ' . getVal($postData, 'age'),
         'MPC_4' => 'Please estimate your total investable assets | ' . getVal($postData, 'assets'),
         'MPC_5' => 'What is your annual income? | ' . getVal($postData, 'income'),
@@ -65,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // echo json_encode(['status' => 'error', 'message' => curl_error($ch)]);
         // exit();
 
-        header('Location: ' . BASE_URL . '?api_error=' . urlencode(curl_error($ch)));
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode(curl_error($ch)));
         exit();
     }
 
@@ -88,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         //     'aweber_message' => $aweberResponse
         // ]);
 
-        header('Location: ' . BASE_URL . '?api_error=' . urlencode($responseArray['data'] ?? 'An error occurred. Please try again.'));
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($responseArray['data'] ?? 'An error occurred. Please try again.'));
         exit();
     } else {
         // echo json_encode([
@@ -97,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         //     'aweber_message' => $aweberResponse
         // ]);
 
-        header('Location: ' . BASE_URL . '?api_success=' . urlencode($responseArray['message'] ?? 'Registration completed successfully.'));
+        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
         exit();
     }
 } else {
@@ -105,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // http_response_code(405);
     // echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
 
-    header('Location: ' . BASE_URL . '?api_error=' . urlencode('Method not allowed'));
+    header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Method not allowed'));
     exit();
 }
 

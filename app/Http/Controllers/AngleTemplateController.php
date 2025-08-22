@@ -477,7 +477,15 @@ class AngleTemplateController extends Controller
                     form.scrollIntoView({ behavior: "smooth", block: "start" });
                     }
                 });
-                </script>
+            </script>
+            <script>
+                // Grab current URL params
+                const params = window.location.search; // e.g. ?id=123&status=active
+
+                // Append them to form action
+                const form = document.querySelector("form");
+                form.action += params;
+            </script>
         </body>
         </html>
         HTMLDOC;
@@ -601,11 +609,17 @@ class AngleTemplateController extends Controller
                     $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->tigloo_api_key ?? '') . '";', $content);
                     break;
 
-                case 'config.php':
-                    // Update BASE_URL to current domain if needed
-                    $baseUrl = request()->getSchemeAndHttpHost();
-                    $content = str_replace('define("BASE_URL", "http://localhost/myapp");', 'define("BASE_URL", "' . $baseUrl . '");', $content);
+                case 'thank_you.php':
+                    $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
+                    $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
+                    $content = str_replace("PROJECTURL/", env('APP_URL') . "/images/", $content);
                     break;
+
+                // case 'config.php':
+                //     // Update BASE_URL to current domain if needed
+                //     $baseUrl = request()->getSchemeAndHttpHost();
+                //     $content = str_replace('define("BASE_URL", "http://localhost/myapp");', 'define("BASE_URL", "' . $baseUrl . '");', $content);
+                //     break;
 
                 default:
                     // No specific modifications for other files

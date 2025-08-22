@@ -15,17 +15,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get POST data
     $postData = $_POST;
+    $getData = $_GET;
+
+    $dynamicCid = $getData['cid'] ?? '';
+    $dynamicPid = $getData['pid'] ?? '';
+    $dynamicSO = $getData['so'] ?? '';
 
     // Prepare the data for Nexl API
     $data = array(
         'affid' => '',
-        'first_name' => $postData['firstname'],
-        'last_name' => $postData['lastname'],
-        'email' => $postData['email'],
+        'first_name' => $postData['firstname'] ?? '',
+        'last_name' => $postData['lastname'] ?? '',
+        'email' => $postData['email'] ?? '',
         'password' => 'Tr5yLo92',
-        'phone' => $postData['phone'],
+        'phone' => $postData['phone'] ?? '',
         'source' => BASE_URL,
-        'hitid' => $postData['cid'] ?? '',
+        'hitid' => $dynamicCid,
         '_ip' => $postData['userip'] ?? '',
         'area_code' => $postData['area_code'] ?? '',
     );
@@ -67,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         //     'aweber_message' => $aweberResponse
         // ]);
 
-        header('Location: ' . BASE_URL . '?api_error=' . urlencode($message));
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($message));
         exit();
     } else {
         // echo json_encode([
@@ -76,14 +81,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         //     'aweber_message' => $aweberResponse
         // ]);
 
-        header('Location: ' . BASE_URL . '?api_success=' . urlencode('Lead registered successfully.'));
+        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
         exit();
     }
 } else {
     // http_response_code(405);
     // echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
 
-    header('Location: ' . BASE_URL . '?api_error=' . urlencode('Method not allowed'));
+    header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Method not allowed'));
     exit();
 }
 
