@@ -904,7 +904,9 @@ export default function Dashboard({ id }) {
                 cursor: 'pointer',
                 fontSize: '16px',
                 width: "100%",
-                marginTop: "15px"
+                marginTop: "15px",
+                display:"flex",
+                justifyContent:"center"
             };
 
             const submitStyleString = Object.entries(submitButtonStyles)
