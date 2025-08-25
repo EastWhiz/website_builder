@@ -97,3 +97,11 @@ input {
     box-sizing: border-box;
     /* ensures padding doesn't break layout */
 }
+
+.iti__country-name {
+    color: black !important;
+}
+
+.iti__selected-dial-code {
+    color: black !important;
+}

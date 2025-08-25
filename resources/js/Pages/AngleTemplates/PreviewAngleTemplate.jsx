@@ -304,7 +304,7 @@ export default function Dashboard({ id }) {
             // required: false,
             // type: false,
         }, {
-            name: "phone",
+            name: "temp_phone",
             id: "phone",
             inputName: "",
             inputType: "tel",
@@ -870,13 +870,18 @@ export default function Dashboard({ id }) {
             formManagement.inputs.forEach(input => {
                 if (input.name && input.inputType) {
                     // <label for="${input.id}" style="display: block; margin-bottom: 5px;">${input.inputName || input.name}</label>
+                    
+                    let modifiedName = input.name;
+                    if(input.name == "phone")
+                        modifiedName = "temp_phone";
+                    
                     formHTML += `
                         <div style="margin-bottom: 15px;">
                             <input
                                 type="${input.inputType}"
-                                placeholder="${input.inputName || input.name}"
+                                placeholder="${input.inputName || input.id}"
                                 id="${input.id}"
-                                name="${input.name}"
+                                name="${modifiedName}"
                                 class="${input.inputType == "tel" ? 'telInputs' : ''}"
                                 style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
                                 ${input.inputType === 'email' ? 'required' : ''}

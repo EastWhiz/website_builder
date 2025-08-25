@@ -124,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 function sendToAweber($data)
 {
     unset($data['form_type']);
+    unset($data['project_directory']);
     $aweberUrl = BASE_URL . "/api_files/aweber.php"; // Using BASE_URL to form the Aweber API URL
 
     // Initialize cURL for Aweber API

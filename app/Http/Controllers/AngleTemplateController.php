@@ -414,6 +414,14 @@ class AngleTemplateController extends Controller
                     box-sizing: border-box;
                     /* ensures padding doesn't break layout */
                 }
+                    
+                .iti__country-name {
+                    color: black !important;
+                }
+
+                .iti__selected-dial-code {
+                    color: black !important;
+                }
                 {$updatingCss}
             </style>
         </head>
@@ -421,7 +429,7 @@ class AngleTemplateController extends Controller
             {$updatingIndex}
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/intlTelInput.min.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/utils.js"></script>
-            <script>
+           <script>
                 fetch("https://ipapi.co/json/")
                     .then(res => res.json())
                     .then(data => {
@@ -429,21 +437,43 @@ class AngleTemplateController extends Controller
 
                         // Now loop through all telInputs and init with that country
                         document.querySelectorAll(".telInputs").forEach(input => {
-                            window.intlTelInput(input, {
-                                initialCountry: userCountry,
-                            });
-
-                            // Keep full width
+                            const iti = intlTelInput(input, { initialCountry: userCountry });
                             input.style.width = "100%";
+
+                            input.form?.addEventListener("submit", e => {
+                                const raw = input.value.trim();
+                                if (!raw) return;
+
+                                const { dialCode } = iti.getSelectedCountryData();
+                                const hidden = Object.assign(document.createElement("input"), {
+                                    type: "hidden",
+                                    name: "phone",
+                                    value: '+' + dialCode + raw.replace(/^0+/, "")
+                                });
+
+                                input.form.appendChild(hidden);
+                            });
                         });
                     })
                     .catch(() => {
                         // If API fails, just fallback to US
                         document.querySelectorAll(".telInputs").forEach(input => {
-                            window.intlTelInput(input, {
-                                initialCountry: "us",
-                            });
+                            window.intlTelInput(input, { initialCountry: "us" });
                             input.style.width = "100%";
+
+                            input.form?.addEventListener("submit", e => {
+                                const raw = input.value.trim();
+                                if (!raw) return;
+
+                                const { dialCode } = iti.getSelectedCountryData();
+                                const hidden = Object.assign(document.createElement("input"), {
+                                    type: "hidden",
+                                    name: "phone",
+                                    value: '+' + dialCode + raw.replace(/^0+/, "")
+                                });
+
+                                input.form.appendChild(hidden);
+                            });
                         });
                     });
             </script>
