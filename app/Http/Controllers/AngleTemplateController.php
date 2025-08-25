@@ -309,6 +309,8 @@ class AngleTemplateController extends Controller
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>{$angleTemplate->name}</title>
+            <script src=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.all.min.js "></script>
+            <link href=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.min.css " rel="stylesheet">
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/css/intlTelInput.css">
             {$template->head}
             <style>
@@ -452,40 +454,29 @@ class AngleTemplateController extends Controller
                     const form = document.querySelector("form");
 
                     if (params.toString() && form) {
-                    let messageBox = document.createElement("div");
-                    messageBox.style.padding = "10px";
-                    messageBox.style.marginBottom = "15px";
-                    messageBox.style.borderRadius = "5px";
-                    messageBox.style.fontWeight = "bold";
+                        if (params.has("api_error")) {
+                            Swal.fire({
+                                icon: "error",
+                                title: "Error!",
+                                text: decodeURIComponent(params.get("api_error")),
+                            });
+                        } else if (params.has("api_success")) {
+                            // decodeURIComponent(params.get("api_success"));  
+                        }
 
-                    if (params.has("api_error")) {
-                        messageBox.textContent = decodeURIComponent(params.get("api_error"));
-                        messageBox.style.backgroundColor = "#ffe6e6"; // light red
-                        messageBox.style.color = "#cc0000"; // red text
-                        messageBox.style.border = "1px solid #cc0000";
-                    } else if (params.has("api_success")) {
-                        messageBox.textContent = decodeURIComponent(params.get("api_success"));
-                        messageBox.style.backgroundColor = "#e6ffe6"; // light green
-                        messageBox.style.color = "#006600"; // green text
-                        messageBox.style.border = "1px solid #006600";
-                    }
+                        // Smooth scroll to form
+                        form.scrollIntoView();
 
-                    // Insert message at the top of form
-                    form.insertBefore(messageBox, form.firstChild);
+                        // Remove api_error/api_success from URL without reload
+                        params.delete("api_error");
+                        params.delete("api_success");
 
-                    // Smooth scroll to form
-                    form.scrollIntoView({ behavior: "smooth", block: "start" });
+                        const newUrl =
+                            window.location.origin +
+                            window.location.pathname +
+                            (params.toString() ? "?" + params.toString() : "");
 
-                    // Remove api_error/api_success from URL without reload
-                    params.delete("api_error");
-                    params.delete("api_success");
-
-                    const newUrl =
-                    window.location.origin +
-                    window.location.pathname +
-                    (params.toString() ? "?" + params.toString() : "");
-
-                    window.history.replaceState({}, document.title, newUrl);
+                        window.history.replaceState({}, document.title, newUrl);
                     }
                 });
             </script>

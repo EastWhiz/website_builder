@@ -125,7 +125,7 @@ export default function PixelFormFields({
 
     const pixelProviders = [
         { key: 'facebook', name: 'Facebook Pixel', icon: '📘' },
-        { key: 'second', name: 'Other Pixel', icon: '📊' },
+        { key: 'second', name: 'Voluum Pixel', icon: '📊' },
     ];
 
     const renderPixelFields = () => {
@@ -165,7 +165,7 @@ export default function PixelFormFields({
                 return (
                     <div className="space-y-4">
                         <div>
-                            <InputLabel htmlFor="second_pixel_url" value="Other Pixel URL" />
+                            <InputLabel htmlFor="second_pixel_url" value="Voluum Pixel URL" />
                             <TextInput
                                 id="second_pixel_url"
                                 type="url"
@@ -177,17 +177,16 @@ export default function PixelFormFields({
                             />
                             <InputError className="mt-2" message={errors.second_pixel_url} />
                             <p className="mt-1 text-sm text-gray-500">
-                                Enter your secondary pixel tracking URL (Google Analytics, TikTok, etc.).
+                                Enter your Voluum Pixel URL for advanced conversion tracking and optimization.
                             </p>
                         </div>
-                        <div className="bg-green-50 border border-green-200 rounded-md p-4">
-                            <h4 className="font-medium text-green-900 mb-2">Common Pixel Providers:</h4>
-                            <ul className="text-sm text-green-800 list-disc list-inside space-y-1">
-                                {/* <li><strong>Google Analytics:</strong> gtag or analytics.js URLs</li>
-                                <li><strong>TikTok Pixel:</strong> TikTok Events API endpoint</li>
-                                <li><strong>Twitter:</strong> Twitter conversion tracking</li>
-                                <li><strong>LinkedIn:</strong> LinkedIn Insight Tag</li> */}
-                                <li><strong>Custom:</strong> Any third-party tracking service</li>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <h4 className="font-medium text-blue-900 mb-2">Voluum Pixel Integration:</h4>
+                            <ul className="text-sm text-blue-800 list-disc list-inside space-y-1">
+                                <li><strong>Postback URL:</strong> Your Voluum campaign postback endpoint</li>
+                                <li><strong>Conversion Tracking:</strong> Real-time conversion data to Voluum</li>
+                                <li><strong>Optimization:</strong> Enhanced campaign performance insights</li>
+                                <li><strong>Format:</strong> Standard Voluum postback URL format</li>
                             </ul>
                         </div>
                     </div>
