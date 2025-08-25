@@ -272,6 +272,7 @@ export default function Dashboard({ id }) {
         submitTextColor: "",
         submitBackgroundColor: "#ff7800",
         apiType: "elps",
+        project_directory: "",
         margin: "0px 0px 0px 0px",
         padding: "20px 20px 20px 20px",
         border: "solid",
@@ -484,7 +485,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type") return null;
+                    if (!name || name == "form_type" || name == "project_directory") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`label[for="${id}"]`) : null;
@@ -508,6 +509,7 @@ export default function Dashboard({ id }) {
                 submitTextColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.color))}` || "",
                 submitBackgroundColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.backgroundColor))}` || "",
                 apiType: formEl.getAttribute("data-api-type"),
+                project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
                 inputs: inputs,
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
@@ -885,6 +887,7 @@ export default function Dashboard({ id }) {
             });
 
             formHTML += ` <input type="hidden" name="form_type" value="${formManagement.apiType}" />`;
+            formHTML += ` <input type="hidden" name="project_directory" value="${formManagement.project_directory}" />`;
 
             // Add submit button
             const submitButtonStyles = {
@@ -2211,6 +2214,22 @@ export default function Dashboard({ id }) {
                                                                 ))}
                                                             </Select>
                                                         </FormControl>
+                                                        <Box mt={2}>
+                                                            <TextField
+                                                                type="text"
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Project Directory"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Project Directory'
+                                                                value={formManagement.project_directory}
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, project_directory: e.target.value })
+                                                                }}
+                                                            />
+                                                        </Box>
                                                         <TextField
                                                             sx={{ mt: 2.1 }}
                                                             type="text"
