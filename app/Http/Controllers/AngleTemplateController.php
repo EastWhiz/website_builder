@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use ZipArchive;
+use Symfony\Component\DomCrawler\Crawler;
 
 class AngleTemplateController extends Controller
 {
@@ -509,7 +510,7 @@ class AngleTemplateController extends Controller
                         $fileContent = file_get_contents($filePath);
 
                         // Modify the content based on your requirements
-                        $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiCredentials);
+                        $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiCredentials, $fullHtml);
 
                         // Add modified content to zip under 'api_files/' directory
                         $zip->addFromString('api_files/' . $file, $modifiedContent);
@@ -552,7 +553,7 @@ class AngleTemplateController extends Controller
      * @param \App\Models\UserApiCredential|null $userApiCredentials The user's API credentials
      * @return string The modified content
      */
-    private function modifyApiFileContent($content, $filename, $userApiCredentials = null)
+    private function modifyApiFileContent($content, $filename, $userApiCredentials = null, $fullHTML = null)
     {
         // If no credentials provided, return content as-is
         if (!$userApiCredentials) {
@@ -617,11 +618,16 @@ class AngleTemplateController extends Controller
                     $content = str_replace("PROJECTURL/", env('APP_URL') . "/images/", $content);
                     break;
 
-                // case 'config.php':
-                //     // Update BASE_URL to current domain if needed
-                //     $baseUrl = request()->getSchemeAndHttpHost();
-                //     $content = str_replace('define("BASE_URL", "http://localhost/myapp");', 'define("BASE_URL", "' . $baseUrl . '");', $content);
-                //     break;
+                case 'config.php':
+                    $crawler = new Crawler($fullHTML);
+                    $node = $crawler->filter('input[name="project_directory"]');
+                    $value = $node->count() > 0 ? $node->attr('value') : '';
+                    // logger("TEST: " . $value);
+                    // Update BASE_URL to current domain if needed
+                    // $baseUrl = request()->getSchemeAndHttpHost();
+                    if($value)
+                        $content = str_replace('http://localhost/myAppFolder', $value, $content);
+                    break;
 
                 default:
                     // No specific modifications for other files
