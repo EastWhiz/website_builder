@@ -443,70 +443,46 @@ class AngleTemplateController extends Controller
             {$updatingIndex}
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/intlTelInput.min.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/utils.js"></script>
-           <script>
+            <script>
+                function initTelInputs(country) {
+                    document.querySelectorAll(".telInputs").forEach(input => {
+                        const iti = intlTelInput(input, { initialCountry: country });
+                        input.style.width = "100%";
+
+                        input.form?.addEventListener("submit", e => {
+                            const btn = input.form.querySelector('[type="submit"]');
+                            if (btn) {
+                                btn.dataset.original = btn.innerHTML; // save original
+                                btn.innerHTML = `<div class="loader"></div>`; // use CSS loader
+                                btn.style.opacity = "0.6";
+                                btn.disabled = true;
+                            }
+
+                            const raw = input.value.trim();
+                            if (!raw) return;
+
+                            const { dialCode } = iti.getSelectedCountryData();
+                            const hidden = Object.assign(document.createElement("input"), {
+                                type: "hidden",
+                                name: "phone",
+                                value: '+' + dialCode + raw.replace(/^0+/, "")
+                            });
+
+                            input.form.appendChild(hidden);
+                        });
+                    });
+                }
+
+                // Try to detect user country
                 fetch("https://ipapi.co/json/")
                     .then(res => res.json())
                     .then(data => {
                         const userCountry = data.country_code || "us"; // fallback if undefined
-
-                        // Now loop through all telInputs and init with that country
-                        document.querySelectorAll(".telInputs").forEach(input => {
-                            const iti = intlTelInput(input, { initialCountry: userCountry });
-                            input.style.width = "100%";
-
-                            input.form?.addEventListener("submit", e => {
-
-                                const btn = input.form.querySelector('[type="submit"]');
-                                if (btn) {
-                                    btn.dataset.original = btn.innerHTML; // save original
-                                    btn.innerHTML = `<div class="loader"></div>`; // just use the class
-                                    btn.style.opacity = "0.6";
-                                    btn.disabled = true;
-                                }
-
-                                const raw = input.value.trim();
-                                if (!raw) return;
-
-                                const { dialCode } = iti.getSelectedCountryData();
-                                const hidden = Object.assign(document.createElement("input"), {
-                                    type: "hidden",
-                                    name: "phone",
-                                    value: '+' + dialCode + raw.replace(/^0+/, "")
-                                });
-
-                                input.form.appendChild(hidden);
-                            });
-                        });
+                        initTelInputs(userCountry.toLowerCase());
                     })
                     .catch(() => {
-                        // If API fails, just fallback to US
-                        document.querySelectorAll(".telInputs").forEach(input => {
-                            window.intlTelInput(input, { initialCountry: "us" });
-                            input.style.width = "100%";
-
-                            input.form?.addEventListener("submit", e => {
-
-                                const btn = input.form.querySelector('[type="submit"]');
-                                if (btn) {
-                                    btn.dataset.original = btn.innerHTML; // save original
-                                    btn.innerHTML = `<div class="loader"></div>`; // just use the class
-                                    btn.style.opacity = "0.6";
-                                    btn.disabled = true;
-                                }
-
-                                const raw = input.value.trim();
-                                if (!raw) return;
-
-                                const { dialCode } = iti.getSelectedCountryData();
-                                const hidden = Object.assign(document.createElement("input"), {
-                                    type: "hidden",
-                                    name: "phone",
-                                    value: '+' + dialCode + raw.replace(/^0+/, "")
-                                });
-
-                                input.form.appendChild(hidden);
-                            });
-                        });
+                        // If API fails, fallback to US
+                        initTelInputs("us");
                     });
             </script>
             <script>{$updatingJs}</script>

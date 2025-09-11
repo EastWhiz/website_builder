@@ -203,12 +203,12 @@ export default function ApiFormFields({
 
     const apiProviders = [
         { key: 'aweber', name: 'AWeber', icon: '📧' },
-        { key: 'dark', name: 'Dark', icon: '🌑' },
+        { key: 'dark', name: 'Connecto', icon: '🌑' },
         { key: 'electra', name: 'Electra', icon: '⚡' },
-        { key: 'elps', name: 'ELPS', icon: '🔧' },
+        { key: 'elps', name: 'ELPIS', icon: '🔧' },
         { key: 'meeseeks', name: 'MeeseeksMedia', icon: '👀' },
         { key: 'novelix', name: 'Novelix', icon: '📚' },
-        { key: 'tigloo', name: 'Tigloo', icon: '🐅' },
+        { key: 'tigloo', name: 'Online Partners ED', icon: '🐅' },
     ];
 
     const renderApiFields = () => {
