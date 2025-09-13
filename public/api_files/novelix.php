@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Prepare the data for Nexl API
     $data = array(
-        'affid' => '',
+        'affid' => '16',
         'first_name' => $postData['firstname'] ?? '',
         'last_name' => $postData['lastname'] ?? '',
         'email' => $postData['email'] ?? '',
@@ -33,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'hitid' => $dynamicCid,
         '_ip' => $postData['userip'] ?? '',
         'area_code' => $postData['area_code'] ?? '',
+        'funnel'     => 'crowdedfunnel',
+        'aff_sub'    => $dynamicCid,
+        'aff_sub2'   => 'aff_sub2',
     );
 
     // Initialize cURL to call Nexl API
@@ -43,12 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data)); // Use URL-encoded format
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-        'Content-Type: application/x-www-form-urlencoded',
-        'x-api-key: ' . $xapikey
-    ));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/x-www-form-urlencoded'
+    ]);
 
     $response = curl_exec($ch);
+    if (curl_errno($ch)) {
+        // echo json_encode(['status' => false, 'message' => curl_error($ch)]);
+        // exit();
+
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode(curl_error($ch)));
+        exit();
+    }
+
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
@@ -57,13 +67,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Send data to Aweber (optional)
     $aweberResponse = sendToAweber($postData);
 
-    if ($httpCode !== 200 || !isset($responseArray['lead']['id'])) {
-        // Fallback to general message if no specific message or errors
-        $message = $responseArray['message'] ?? 'An error occurred. Please try again.';
+    if (!in_array($httpCode, [200, 201]) || empty($responseArray['lead'])) {
+        // Default message
+        $message = 'An error occurred. Please try again.';
 
-        // Prefer detailed errors if available
+        // If API returned an "errors" array, prefer it
         if (!empty($responseArray['errors']) && is_array($responseArray['errors'])) {
             $message = implode("\n", $responseArray['errors']);
+        }
+
+        // Handle known HTTP codes explicitly if no errors array is present
+        if (empty($responseArray['errors'])) {
+            switch ($httpCode) {
+                case 400:
+                    $message = 'Validation failed. Please check required fields.';
+                    break;
+                case 403:
+                    $message = 'Access denied or lead validation failed.';
+                    break;
+                case 409:
+                    $message = 'Lead registration conflict. Please try again later.';
+                    break;
+            }
         }
 
         // echo json_encode([

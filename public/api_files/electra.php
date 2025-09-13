@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Prepare the data for Nexl API
     $data = array(
-        'affid' => '',
+        'affid' => '13',
         'first_name' => $postData['firstname'] ?? '',
         'last_name' => $postData['lastname'] ?? '',
         'email' => $postData['email'] ?? '',

@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicSO = getVal($getData, 'so') ?? '';
 
     // Setup cURL to call the Zeus API
-    $ch = curl_init('https://ep.elpistrack.io/api/signup/procform');
+    $ch = curl_init('https://tb.connnecto.com/api/signup/procform');
 
     // Prepare the data for Zeus API
     $data = array(
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'firstname' => $postData['firstname'] ?? '',
         'lastname' => $postData['lastname'] ?? '',
         'email' => $postData['email'] ?? '',
-        'password' => 'hardcodedpassword',
+        'password' => 'G7pXr2kQ',
         'phone' => $postData['phone'] ?? '',
         'so' => $dynamicSO,
         'lg' => 'EN',

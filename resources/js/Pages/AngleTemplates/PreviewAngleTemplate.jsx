@@ -870,11 +870,11 @@ export default function Dashboard({ id }) {
             formManagement.inputs.forEach(input => {
                 if (input.name && input.inputType) {
                     // <label for="${input.id}" style="display: block; margin-bottom: 5px;">${input.inputName || input.name}</label>
-                    
+
                     let modifiedName = input.name;
-                    if(input.name == "phone")
+                    if (input.name == "phone")
                         modifiedName = "temp_phone";
-                    
+
                     formHTML += `
                         <div style="margin-bottom: 15px;">
                             <input
@@ -905,8 +905,8 @@ export default function Dashboard({ id }) {
                 fontSize: '16px',
                 width: "100%",
                 marginTop: "15px",
-                display:"flex",
-                justifyContent:"center"
+                display: "flex",
+                justifyContent: "center"
             };
 
             const submitStyleString = Object.entries(submitButtonStyles)
@@ -922,6 +922,7 @@ export default function Dashboard({ id }) {
             if (editing.actionType == "edit") {
                 // Update existing form
                 element.method = 'POST';
+                element.id = 'myForm'; // ← ID set here
                 element.action = "api_files/backend.php";
                 element.setAttribute("data-api-type", formManagement.apiType);
                 element.innerHTML = formHTML;
@@ -936,6 +937,7 @@ export default function Dashboard({ id }) {
                 let newElement = document.createElement('form');
                 newElement.style.width = '100%';
                 newElement.method = 'POST';
+                newElement.id = 'myForm'; // ← ID set here
                 newElement.action = "api_files/backend.php";
                 newElement.setAttribute("data-api-type", formManagement.apiType);
                 newElement.innerHTML = formHTML;
