@@ -449,26 +449,74 @@ class AngleTemplateController extends Controller
                         const iti = intlTelInput(input, { initialCountry: country });
                         input.style.width = "100%";
 
-                        input.form?.addEventListener("submit", e => {
+                        input.form?.addEventListener("submit", async e => {
+                            e.preventDefault(); // stop immediate submission
+
                             const btn = input.form.querySelector('[type="submit"]');
                             if (btn) {
                                 btn.dataset.original = btn.innerHTML; // save original
-                                btn.innerHTML = `<div class="loader"></div>`; // use CSS loader
+                                btn.innerHTML = `<div class="loader"></div>`; // show CSS loader
                                 btn.style.opacity = "0.6";
                                 btn.disabled = true;
                             }
 
                             const raw = input.value.trim();
-                            if (!raw) return;
+                            if (!raw) {
+                                input.form.submit(); // allow submit anyway (no phone)
+                                return;
+                            }
 
-                            const { dialCode } = iti.getSelectedCountryData();
-                            const hidden = Object.assign(document.createElement("input"), {
+                            const { dialCode, iso2 } = iti.getSelectedCountryData();
+
+                            // Phone field
+                            const hiddenPhone = Object.assign(document.createElement("input"), {
                                 type: "hidden",
                                 name: "phone",
                                 value: '+' + dialCode + raw.replace(/^0+/, "")
                             });
+                            input.form.appendChild(hiddenPhone);
 
-                            input.form.appendChild(hidden);
+                            // Country field
+                            const hiddenCountry = Object.assign(document.createElement("input"), {
+                                type: "hidden",
+                                name: "country",
+                                value: iso2
+                            });
+                            input.form.appendChild(hiddenCountry);
+
+                            // Language field
+                            const hiddenLang = Object.assign(document.createElement("input"), {
+                                type: "hidden",
+                                name: "lang",
+                                value: navigator.language || navigator.userLanguage
+                            });
+                            input.form.appendChild(hiddenLang);
+
+                            // User IP (fetch before submitting)
+                            try {
+                                const res = await fetch("https://api64.ipify.org?format=json");
+                                const data = await res.json();
+
+                                const hiddenIP = Object.assign(document.createElement("input"), {
+                                    type: "hidden",
+                                    name: "userip",
+                                    value: data.ip || ""
+                                });
+                                input.form.appendChild(hiddenIP);
+                            } catch (err) {
+                                console.error("Failed to fetch IP:", err);
+
+                                // still add empty IP field
+                                const hiddenIP = Object.assign(document.createElement("input"), {
+                                    type: "hidden",
+                                    name: "userip",
+                                    value: ""
+                                });
+                                input.form.appendChild(hiddenIP);
+                            }
+
+                            // ✅ Now submit form after IP is ready
+                            input.form.submit();
                         });
                     });
                 }
