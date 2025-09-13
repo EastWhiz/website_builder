@@ -17,6 +17,13 @@ import Swal from "sweetalert2";
 
 export default function Dashboard({ id }) {
 
+    const backgroundSelectors = [
+        ".main-con-box",
+        ".main_parent_container",
+        ".main-container",
+        ".banner"
+    ];
+
     const languages = [
         { value: 'AR', label: 'Arabic' },
         { value: 'BG', label: 'Bulgarian' },
@@ -155,6 +162,22 @@ export default function Dashboard({ id }) {
         pt: 3,
         height: "400px",
         overflow: "hidden"
+    }
+
+    function getFirstBackgroundColor(selectors) {
+        for (let selector of selectors) {
+            const el = document.querySelector(selector);
+            if (el) {
+                const bg = window.getComputedStyle(el).backgroundColor;
+
+                // rgba(0,0,0,0) or transparent = no color
+                if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+                    return bg; // return actual background
+                }
+                return "rgb(255, 255, 255)"; // element found but no color
+            }
+        }
+        return "rgb(255, 255, 255)"; // no element found at all
     }
 
     function getClickedWordFromElement() {
@@ -427,12 +450,21 @@ export default function Dashboard({ id }) {
                     fontFamily: computedStyles.fontFamily,
                 }));
             } else if (editing && editing.actionType == "edit") {
+
+                let dynamicBackgroundColor = "";
+                if (computedStyles.backgroundColor == "rgba(0, 0, 0, 0)") {
+                    dynamicBackgroundColor = getFirstBackgroundColor(backgroundSelectors);
+                    dynamicBackgroundColor = `#${convert.rgb.hex(rgbToArray(dynamicBackgroundColor))}`;
+                } else {
+                    dynamicBackgroundColor = `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`;
+                }
+
                 setTextManagement(prev => ({
                     ...prev,
                     textInput: editing.innerHTML,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
-                    backgroundColor: computedStyles.backgroundColor == "rgba(0, 0, 0, 0)" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`,
+                    backgroundColor: dynamicBackgroundColor,
                     textAlign: computedStyles.textAlign,
                     border: computedStyles.borderStyle,
                     borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
