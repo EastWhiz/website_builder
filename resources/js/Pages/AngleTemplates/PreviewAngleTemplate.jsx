@@ -4,7 +4,7 @@ import { Head, router } from '@inertiajs/react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ClearIcon from '@mui/icons-material/Clear';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import { Box, Button, FormControl, InputLabel, MenuItem, Select as MuiSelect, TextField, Typography } from '@mui/material';
 import Backdrop from '@mui/material/Backdrop';
 import Fade from '@mui/material/Fade';
 import Modal from '@mui/material/Modal';
@@ -14,6 +14,7 @@ import convert from 'color-convert';
 import { useEffect, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import Swal from "sweetalert2";
+import Select from 'react-select';
 
 export default function Dashboard({ id }) {
 
@@ -85,7 +86,7 @@ export default function Dashboard({ id }) {
     ];
 
     const linkTypes = [
-        'Clicked Element',
+        'Selected Element',
         'Full Element',
     ];
 
@@ -209,16 +210,37 @@ export default function Dashboard({ id }) {
         return null;
     }
 
-    function wrapWithAnchor(str, startIndex, length, href, styles = {}) {
+    function wrapWithAnchor(str, href, styles = {}) {
         const styleString = Object.entries(styles)
             .filter(([, v]) => v !== undefined && v !== null && v !== '')
             .map(([k, v]) =>
                 `${k.replace(/([A-Z])/g, '-$1').toLowerCase()}: ${v}`
             )
             .join('; ');
-        const word = str.substring(startIndex, startIndex + length);
-        const anchor = `<a class="app-anchor" href="${href}" style="${styleString}">${word}</a>`;
-        return str.slice(0, startIndex) + anchor + str.slice(startIndex + length);
+
+        // New logic using textPartsList and selectedTextPart
+        if (selectedTextPart && textPartsList.length > 0) {
+            // Convert the text to an array of words
+            const words = str.trim().split(/\s+/);
+
+            // Find the selected word based on selectedTextPart value (index)
+            const selectedIndex = selectedTextPart.value;
+
+            if (selectedIndex >= 0 && selectedIndex < words.length) {
+                // Create anchor for the selected word
+                const selectedWord = words[selectedIndex];
+                const anchor = `<a class="app-anchor" href="${href}" style="${styleString}">${selectedWord}</a>`;
+
+                // Replace the selected word with the anchor
+                words[selectedIndex] = anchor;
+
+                // Join the words back together
+                return words.join(' ');
+            }
+        }
+
+        // Fallback: if no specific part is selected, wrap the entire string
+        return `<a class="app-anchor" href="${href}" style="${styleString}">${str}</a>`;
     }
 
     // Text replacement utility functions
@@ -380,7 +402,7 @@ export default function Dashboard({ id }) {
         backgroundColor: "",
         fontSize: "12",
         link: "",
-        linkEffect: "Clicked Element", // false, true
+        linkEffect: "Selected Element", // false, true
         border: false,
         borderWidth: "",
         borderColor: "",
@@ -459,6 +481,8 @@ export default function Dashboard({ id }) {
     const [translator, setTranslator] = useState(INITIAL_TRANSLATOR);
     const [chatGPT, setChatGPT] = useState(INITIAL_CHATGPT);
     const [textManagement, setTextManagement] = useState(INITIAL_TEXT_MANAGEMENT);
+    const [textPartsList, setTextPartsList] = useState([]);
+    const [selectedTextPart, setSelectedTextPart] = useState(false);
     const [spacerManagement, setSpacerManagement] = useState(INITIAL_SPACER_MANAGEMENT);
     const [customHTMLManagement, setCustomHTMLManagement] = useState(INITIAL_CUSTOM_HTML_MANAGEMENT);
     const [formManagement, setFormManagement] = useState(INITIAL_FORM_MANAGEMENT);
@@ -575,6 +599,11 @@ export default function Dashboard({ id }) {
                 } else {
                     dynamicBackgroundColor = `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`;
                 }
+
+                setSelectedTextPart(false);
+                setTextPartsList(editing.innerHTML.trim().split(/\s+/).map((char, index) => {
+                    return { value: index, label: char }
+                }));
 
                 setTextManagement(prev => ({
                     ...prev,
@@ -887,8 +916,8 @@ export default function Dashboard({ id }) {
                 if (textManagement.link && element.localName !== "a") {
                     let newElement = document.createElement('a');
                     newElement.className = element.className;
-                    if (anchorHelpProperties && textManagement.linkEffect == "Clicked Element") {
-                        newElement.innerHTML = wrapWithAnchor(editing.innerHTML, anchorHelpProperties.position, anchorHelpProperties.word.length, textManagement.link, styles);
+                    if (anchorHelpProperties && textManagement.linkEffect == "Selected Element") {
+                        newElement.innerHTML = wrapWithAnchor(editing.innerHTML, textManagement.link, styles);
                         element.innerHTML = newElement.innerHTML;
                     } else {
                         Object.assign(newElement.style, styles);
@@ -1566,7 +1595,7 @@ export default function Dashboard({ id }) {
                                         <Box sx={{ display: "flex", gap: "20px" }}>
                                             <FormControl fullWidth>
                                                 <InputLabel id="demo-simple-select-label">Translate From</InputLabel>
-                                                <Select
+                                                <MuiSelect
                                                     // displayEmpty
                                                     renderValue={(value) => {
                                                         if (!value) {
@@ -1584,14 +1613,14 @@ export default function Dashboard({ id }) {
                                                     {languages.map((item, index) => (
                                                         <MenuItem className="doNotAct" value={item.value} sx={{ textTransform: 'capitalize' }}>{item.label}</MenuItem>
                                                     ))}
-                                                </Select>
+                                                </MuiSelect>
                                             </FormControl>
                                             <Box sx={{ mt: 0.5, cursor: "pointer" }}>
                                                 <SwapHorizIcon />
                                             </Box>
                                             <FormControl fullWidth>
                                                 <InputLabel id="demo-simple-select-label">Translate To</InputLabel>
-                                                <Select
+                                                <MuiSelect
                                                     // displayEmpty
                                                     renderValue={(value) => {
                                                         if (!value) {
@@ -1609,7 +1638,7 @@ export default function Dashboard({ id }) {
                                                     {languages.map((item, index) => (
                                                         <MenuItem className="doNotAct" value={item.value} sx={{ textTransform: 'capitalize' }}>{item.label}</MenuItem>
                                                     ))}
-                                                </Select>
+                                                </MuiSelect>
                                             </FormControl>
                                             <Button variant="contained" className="doNotAct cptlz" sx={{ width: "200px" }} onClick={translateHandler}>Translate</Button>
                                         </Box>
@@ -1758,7 +1787,7 @@ export default function Dashboard({ id }) {
                                                     }
                                                     <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                         <InputLabel id="demo-simple-select-label">Border</InputLabel>
-                                                        <Select
+                                                        <MuiSelect
                                                             // displayEmpty
                                                             renderValue={(value) => {
                                                                 if (!value) {
@@ -1776,7 +1805,7 @@ export default function Dashboard({ id }) {
                                                             {borderStyles.map((item, index) => (
                                                                 <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                             ))}
-                                                        </Select>
+                                                        </MuiSelect>
                                                     </FormControl>
                                                     <TextField
                                                         sx={{ mt: 2 }}
@@ -1877,7 +1906,7 @@ export default function Dashboard({ id }) {
                                                             />
                                                             <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                                 <InputLabel id="demo-simple-select-label">Link Effect</InputLabel>
-                                                                <Select
+                                                                <MuiSelect
                                                                     // displayEmpty
                                                                     renderValue={(value) => {
                                                                         if (!value) {
@@ -1895,8 +1924,22 @@ export default function Dashboard({ id }) {
                                                                     {linkTypes.map((item, index) => (
                                                                         <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
-                                                                </Select>
+                                                                </MuiSelect>
                                                             </FormControl>
+                                                            {textManagement.linkEffect == "Selected Element" &&
+                                                                <Box mt={1.5}>
+                                                                    <Select
+                                                                        menuPortalTarget={document.body}
+                                                                        styles={{
+                                                                            menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                                                        }}
+                                                                        placeholder="Select Element Part"
+                                                                        options={textPartsList}
+                                                                        value={selectedTextPart}
+                                                                        onChange={(e) => setSelectedTextPart(e)}
+                                                                    />
+                                                                </Box>
+                                                            }
                                                             <TextField
                                                                 sx={{ mt: 2.1 }}
                                                                 type="text"
@@ -1960,7 +2003,7 @@ export default function Dashboard({ id }) {
                                                             </Box>
                                                             <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                                 <InputLabel id="demo-simple-select-label">Text Align</InputLabel>
-                                                                <Select
+                                                                <MuiSelect
                                                                     // displayEmpty
                                                                     renderValue={(value) => {
                                                                         if (!value) {
@@ -1978,7 +2021,7 @@ export default function Dashboard({ id }) {
                                                                     {textAlignProperties.map((item, index) => (
                                                                         <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
-                                                                </Select>
+                                                                </MuiSelect>
                                                             </FormControl>
                                                             <TextField
                                                                 sx={{ mt: 2.1 }}
@@ -1995,7 +2038,7 @@ export default function Dashboard({ id }) {
                                                             />
                                                             <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                                 <InputLabel id="demo-simple-select-label">Border</InputLabel>
-                                                                <Select
+                                                                <MuiSelect
                                                                     // displayEmpty
                                                                     renderValue={(value) => {
                                                                         if (!value) {
@@ -2013,7 +2056,7 @@ export default function Dashboard({ id }) {
                                                                     {borderStyles.map((item, index) => (
                                                                         <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
-                                                                </Select>
+                                                                </MuiSelect>
                                                             </FormControl>
                                                             <TextField
                                                                 sx={{ mt: 2 }}
@@ -2160,7 +2203,7 @@ export default function Dashboard({ id }) {
                                                         />
                                                         <FormControl fullWidth sx={{ mt: 2.1 }}>
                                                             <InputLabel id="demo-simple-select-label">Border</InputLabel>
-                                                            <Select
+                                                            <MuiSelect
                                                                 // displayEmpty
                                                                 renderValue={(value) => {
                                                                     if (!value) {
@@ -2178,7 +2221,7 @@ export default function Dashboard({ id }) {
                                                                 {borderStyles.map((item, index) => (
                                                                     <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                 ))}
-                                                            </Select>
+                                                            </MuiSelect>
                                                         </FormControl>
                                                         <TextField
                                                             sx={{ mt: 2 }}
@@ -2288,7 +2331,7 @@ export default function Dashboard({ id }) {
                                                         <Box sx={{ width: "33%" }}>
                                                             <FormControl fullWidth>
                                                                 <InputLabel id="h3-alignment-select-label">Title Alignment</InputLabel>
-                                                                <Select
+                                                                <MuiSelect
                                                                     // displayEmpty
                                                                     renderValue={(value) => {
                                                                         if (!value) {
@@ -2306,7 +2349,7 @@ export default function Dashboard({ id }) {
                                                                     {textAlignProperties.map((item, index) => (
                                                                         <MenuItem className="doNotAct" key={index} value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
-                                                                </Select>
+                                                                </MuiSelect>
                                                             </FormControl>
                                                         </Box>
                                                     </Box>
@@ -2328,7 +2371,7 @@ export default function Dashboard({ id }) {
                                                         <Box sx={{ width: "50%" }}>
                                                             <FormControl fullWidth sx={{ mt: 1 }}>
                                                                 <InputLabel id="demo-simple-select-label">Border</InputLabel>
-                                                                <Select
+                                                                <MuiSelect
                                                                     // displayEmpty
                                                                     renderValue={(value) => {
                                                                         if (!value) {
@@ -2346,7 +2389,7 @@ export default function Dashboard({ id }) {
                                                                     {borderStyles.map((item, index) => (
                                                                         <MenuItem className="doNotAct" key={index} value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
-                                                                </Select>
+                                                                </MuiSelect>
                                                             </FormControl>
                                                             <TextField
                                                                 sx={{ mt: 2 }}
@@ -2370,7 +2413,7 @@ export default function Dashboard({ id }) {
                                                             <InputLabel id="demo-simple-select-label" shrink>
                                                                 Select API
                                                             </InputLabel>
-                                                            <Select
+                                                            <MuiSelect
                                                                 labelId="demo-simple-select-label"
                                                                 value={formManagement.apiType}
                                                                 label="Select API"
@@ -2393,7 +2436,7 @@ export default function Dashboard({ id }) {
                                                                         {item.label}
                                                                     </MenuItem>
                                                                 ))}
-                                                            </Select>
+                                                            </MuiSelect>
                                                         </FormControl>
                                                         <Box mt={2}>
                                                             <TextField
@@ -2483,7 +2526,7 @@ export default function Dashboard({ id }) {
                                                                 <Box component="span" sx={{ marginLeft: "10px" }} />
                                                                 {/* <FormControl>
                                                                 <InputLabel id="demo-simple-select-label">Required</InputLabel>
-                                                                <Select
+                                                                <MuiSelect
                                                                     sx={{ width: "150px" }}
                                                                     // displayEmpty
                                                                     renderValue={(value) => {
@@ -2504,12 +2547,12 @@ export default function Dashboard({ id }) {
                                                                     {requireds.map((item, index) => (
                                                                         <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
-                                                                </Select>
+                                                                </MuiSelect>
                                                             </FormControl>
                                                             <Box component="span" sx={{ marginLeft: "10px" }} />
                                                             <FormControl>
                                                                 <InputLabel id="demo-simple-select-label">Type</InputLabel>
-                                                                <Select
+                                                                <MuiSelect
                                                                     sx={{ width: "140px" }}
                                                                     // displayEmpty
                                                                     renderValue={(value) => {
@@ -2530,7 +2573,7 @@ export default function Dashboard({ id }) {
                                                                     {commonInputTypes.map((item, index) => (
                                                                         <MenuItem className="doNotAct" value={item} sx={{ textTransform: 'capitalize' }}>{item}</MenuItem>
                                                                     ))}
-                                                                </Select>
+                                                                </MuiSelect>
                                                             </FormControl>
                                                             <Box component="span" sx={{ marginLeft: "10px" }} />
                                                             <TextField
