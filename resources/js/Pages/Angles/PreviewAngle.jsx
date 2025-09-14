@@ -215,6 +215,112 @@ export default function Dashboard({ id }) {
         return str.slice(0, startIndex) + anchor + str.slice(startIndex + length);
     }
 
+    // Text replacement utility functions
+    function createSearchRegex(searchText, matchCase, matchWholeWord) {
+        let pattern = searchText;
+
+        // Escape regex special characters
+        pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Add word boundaries if matchWholeWord is true
+        if (matchWholeWord) {
+            pattern = `\\b${pattern}\\b`;
+        }
+
+        // Create regex with appropriate flags
+        const flags = matchCase ? 'g' : 'gi';
+        return new RegExp(pattern, flags);
+    }
+
+    function countTextOccurrences(htmlString, searchText, matchCase, matchWholeWord) {
+        if (!searchText.trim()) return 0;
+
+        // Create temporary DOM element to parse HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlString;
+
+        // Get all text content and count matches
+        const textContent = tempDiv.textContent || tempDiv.innerText || '';
+        const regex = createSearchRegex(searchText, matchCase, matchWholeWord);
+        const matches = textContent.match(regex);
+
+        return matches ? matches.length : 0;
+    }
+
+    function replaceTextInHTML(htmlString, searchText, replacementText, matchCase, matchWholeWord) {
+        if (!searchText.trim()) return htmlString;
+
+        const regex = createSearchRegex(searchText, matchCase, matchWholeWord);
+
+        // Function to replace text in text nodes only
+        function replaceInTextNodes(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                node.textContent = node.textContent.replace(regex, replacementText);
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                // Skip script and style elements
+                if (node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE') {
+                    for (let child of [...node.childNodes]) {
+                        replaceInTextNodes(child);
+                    }
+                }
+            }
+        }
+
+        // Create temporary DOM element
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlString;
+
+        // Replace text in all text nodes
+        replaceInTextNodes(tempDiv);
+
+        return tempDiv.innerHTML;
+    }
+
+    // URL replacement utility functions
+    function countURLOccurrences(htmlString, searchURL, matchCase, matchWholeWord) {
+        if (!searchURL.trim()) return 0;
+
+        // Create temporary DOM element to parse HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlString;
+
+        // Find all anchor tags
+        const anchorTags = tempDiv.querySelectorAll('a[href]');
+        let count = 0;
+
+        const regex = createSearchRegex(searchURL, matchCase, matchWholeWord);
+
+        anchorTags.forEach(anchor => {
+            const href = anchor.getAttribute('href') || '';
+            if (regex.test(href)) {
+                count++;
+            }
+        });
+
+        return count;
+    }
+
+    function replaceURLsInHTML(htmlString, searchURL, replacementURL, matchCase, matchWholeWord) {
+        if (!searchURL.trim()) return htmlString;
+
+        // Create temporary DOM element
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlString;
+
+        // Find all anchor tags
+        const anchorTags = tempDiv.querySelectorAll('a[href]');
+        const regex = createSearchRegex(searchURL, matchCase, matchWholeWord);
+
+        anchorTags.forEach(anchor => {
+            const href = anchor.getAttribute('href') || '';
+            const newHref = href.replace(regex, replacementURL);
+            if (newHref !== href) {
+                anchor.setAttribute('href', newHref);
+            }
+        });
+
+        return tempDiv.innerHTML;
+    }
 
     const [open, setOpen] = useState(false);
     const [data, setData] = useState(false);
@@ -349,6 +455,16 @@ export default function Dashboard({ id }) {
     const [customHTMLManagement, setCustomHTMLManagement] = useState(INITIAL_CUSTOM_HTML_MANAGEMENT);
     const [formManagement, setFormManagement] = useState(INITIAL_FORM_MANAGEMENT);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
+
+    // Replace functionality state
+    const [replaceModalOpen, setReplaceModalOpen] = useState(false);
+    const [replaceType, setReplaceType] = useState('text'); // 'text' or 'url'
+    const [searchText, setSearchText] = useState('');
+    const [replacementText, setReplacementText] = useState('');
+    const [matchCase, setMatchCase] = useState(false);
+    const [matchWholeWord, setMatchWholeWord] = useState(false);
+    const [occurrencesCount, setOccurrencesCount] = useState(0);
+    const [searchPerformed, setSearchPerformed] = useState(false);
 
     const [anchorHelpProperties, setAnchorHelpProperties] = useState(null);
 
@@ -1010,6 +1126,29 @@ export default function Dashboard({ id }) {
         setFormManagement(INITIAL_FORM_MANAGEMENT);
         setButtonManagement(INITIAL_BUTTON_MANAGEMENT);
     }
+
+    // Replace functionality handlers
+    const openTextReplaceModal = () => {
+        setReplaceType('text');
+        setReplaceModalOpen(true);
+        setSearchText('');
+        setReplacementText('');
+        setMatchCase(false);
+        setMatchWholeWord(false);
+        setOccurrencesCount(0);
+        setSearchPerformed(false);
+    };
+
+    const openURLReplaceModal = () => {
+        setReplaceType('url');
+        setReplaceModalOpen(true);
+        setSearchText('');
+        setReplacementText('');
+        setMatchCase(false);
+        setMatchWholeWord(false);
+        setOccurrencesCount(0);
+        setSearchPerformed(false);
+    };
 
     const undoHandler = () => {
         let temp = [...mainHTML];
@@ -2432,6 +2571,165 @@ export default function Dashboard({ id }) {
                     </Box>
                 </Fade>
             </Modal>
+
+            {/* REPLACE MODAL */}
+            <Modal
+                className="doNotAct"
+                aria-labelledby="replace-modal-title"
+                aria-describedby="replace-modal-description"
+                open={replaceModalOpen}
+                onClose={() => setReplaceModalOpen(false)}
+                closeAfterTransition
+                slots={{ backdrop: Backdrop }}
+                slotProps={{
+                    backdrop: {
+                        timeout: 100,
+                    },
+                }}
+            >
+                <Fade in={replaceModalOpen}>
+                    <Box className="doNotAct" sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: { xs: '90%', sm: '70%', md: '60%', lg: '50%', xl: '40%' },
+                        bgcolor: 'background.paper',
+                        boxShadow: 10,
+                        p: 4,
+                        borderRadius: 2
+                    }}>
+                        <Box className="doNotAct">
+                            <Box className="doNotAct" sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+                                <Typography className="doNotAct" variant="h6" component="h2">
+                                    {replaceType === 'text' ? 'Replace Text' : 'Replace URLs'}
+                                </Typography>
+                                <ClearIcon className="doNotAct" sx={{ cursor: "pointer" }} onClick={() => setReplaceModalOpen(false)} />
+                            </Box>
+
+                            <Box className="doNotAct" sx={{ mb: 2 }}>
+                                <TextField
+                                    className="doNotAct"
+                                    fullWidth
+                                    label={replaceType === 'text' ? 'Find Text' : 'Find URL'}
+                                    placeholder={replaceType === 'text' ? 'Enter text to search' : 'Enter URL to search'}
+                                    value={searchText}
+                                    onChange={(e) => setSearchText(e.target.value)}
+                                    size="small"
+                                    sx={{ mb: 2 }}
+                                />
+                                <TextField
+                                    className="doNotAct"
+                                    fullWidth
+                                    label={replaceType === 'text' ? 'Replace With' : 'Replace URL With'}
+                                    placeholder={replaceType === 'text' ? 'Enter replacement text' : 'Enter replacement URL'}
+                                    value={replacementText}
+                                    onChange={(e) => setReplacementText(e.target.value)}
+                                    size="small"
+                                />
+                            </Box>
+
+                            <Box className="doNotAct" sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <Box className="doNotAct" sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <input
+                                        className="doNotAct"
+                                        type="checkbox"
+                                        id="matchCase"
+                                        checked={matchCase}
+                                        onChange={(e) => setMatchCase(e.target.checked)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{ marginRight: '8px' }}
+                                    />
+                                    <label className="doNotAct" htmlFor="matchCase">Match Case</label>
+                                </Box>
+                                <Box className="doNotAct" sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <input
+                                        className="doNotAct"
+                                        type="checkbox"
+                                        id="matchWholeWord"
+                                        checked={matchWholeWord}
+                                        onChange={(e) => setMatchWholeWord(e.target.checked)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{ marginRight: '8px' }}
+                                    />
+                                    <label className="doNotAct" htmlFor="matchWholeWord">Match Whole Word</label>
+                                </Box>
+                                {searchPerformed && (
+                                    <Typography
+                                        className="doNotAct"
+                                        variant="body2"
+                                        sx={{
+                                            color: occurrencesCount > 0 ? 'primary.main' : 'error.main',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {occurrencesCount > 0
+                                            ? `Found: ${occurrencesCount} occurrence${occurrencesCount !== 1 ? 's' : ''}`
+                                            : 'No results'
+                                        }
+                                    </Typography>
+                                )}
+                            </Box>
+
+                            <Box className="doNotAct" sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+                                <Button className="doNotAct" variant="outlined" onClick={() => setReplaceModalOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    className="doNotAct"
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={() => {
+                                        const mainHTMLActiveInside = mainHTML.find(html => html.status === true);
+                                        if (mainHTMLActiveInside && searchText.trim()) {
+                                            let count;
+                                            if (replaceType === 'text') {
+                                                count = countTextOccurrences(mainHTMLActiveInside.html, searchText, matchCase, matchWholeWord);
+                                            } else {
+                                                count = countURLOccurrences(mainHTMLActiveInside.html, searchText, matchCase, matchWholeWord);
+                                            }
+                                            setOccurrencesCount(count);
+                                            setSearchPerformed(true);
+                                        }
+                                    }}
+                                >
+                                    Find
+                                </Button>
+                                <Button
+                                    className="doNotAct"
+                                    variant="contained"
+                                    color="success"
+                                    disabled={!searchText.trim() || !replacementText.trim() || occurrencesCount === 0}
+                                    onClick={() => {
+                                        const mainHTMLActiveInside = mainHTML.find(html => html.status === true);
+                                        if (mainHTMLActiveInside) {
+                                            let updatedHTML;
+                                            if (replaceType === 'text') {
+                                                updatedHTML = replaceTextInHTML(mainHTMLActiveInside.html, searchText, replacementText, matchCase, matchWholeWord);
+                                            } else {
+                                                updatedHTML = replaceURLsInHTML(mainHTMLActiveInside.html, searchText, replacementText, matchCase, matchWholeWord);
+                                            }
+
+                                            setMainHTML(prev => [
+                                                ...prev.map(item => ({ ...item, status: false })),
+                                                { html: updatedHTML, status: true }
+                                            ]);
+
+                                            setReplaceModalOpen(false);
+                                            setSearchText('');
+                                            setReplacementText('');
+                                            setOccurrencesCount(0);
+                                            setSearchPerformed(false);
+                                        }
+                                    }}
+                                >
+                                    Replace All
+                                </Button>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Fade>
+            </Modal>
             <Head title={`Preview: ${data.name}`} />
             <div className="sticky-left-div">
                 <Box sx={{ flexDirection: "column", backgroundColor: "#c0c0c0", justifyContent: "space-between", display: "flex", padding: "8px", borderRadius: "5px", borderTopLeftRadius: "0px", borderBottomLeftRadius: "0px", boxShadow: "-2px 2px 10px 5px rgba(0,0,0,0.20)" }}>
@@ -2447,6 +2745,10 @@ export default function Dashboard({ id }) {
                         <svg style={{ cursor: "pointer" }} className="doNotAct" width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" onClick={redoHandler}>
                             <path className="doNotAct" fillRule="evenodd" clipRule="evenodd" d="M13.2929 4.29289C13.6834 3.90237 14.3166 3.90237 14.7071 4.29289L18.7071 8.29289C19.0976 8.68342 19.0976 9.31658 18.7071 9.70711L14.7071 13.7071C14.3166 14.0976 13.6834 14.0976 13.2929 13.7071C12.9024 13.3166 12.9024 12.6834 13.2929 12.2929L15.5858 10H10.5C8.567 10 7 11.567 7 13.5C7 15.433 8.567 17 10.5 17H13C13.5523 17 14 17.4477 14 18C14 18.5523 13.5523 19 13 19H10.5C7.46243 19 5 16.5376 5 13.5C5 10.4624 7.46243 8 10.5 8H15.5858L13.2929 5.70711C12.9024 5.31658 12.9024 4.68342 13.2929 4.29289Z" fill="#000000" />
                         </svg>
+                    </Box>
+                    <Box className="doNotAct" sx={{ mt: 5, display: "flex", flexDirection: "column", }}>
+                        <svg style={{ cursor: "pointer" }} xmlns="http://www.w3.org/2000/svg" className='doNotAct' width="30px" height="30px" viewBox="0 0 16 16" onClick={openTextReplaceModal}><path fill="#000000" fillRule="evenodd" d="m3.221 3.739l2.261 2.269L7.7 3.784l-.7-.7l-1.012 1.007l-.008-1.6a.523.523 0 0 1 .5-.526H8V1H6.48A1.482 1.482 0 0 0 5 2.489V4.1L3.927 3.033l-.706.706zm6.67 1.794h.01c.183.311.451.467.806.467c.393 0 .706-.168.94-.503c.236-.335.353-.78.353-1.333c0-.511-.1-.913-.301-1.207c-.201-.295-.488-.442-.86-.442c-.405 0-.718.194-.938.581h-.01V1H9v4.919h.89v-.386zm-.015-1.061v-.34c0-.248.058-.448.175-.601a.54.54 0 0 1 .445-.23a.49.49 0 0 1 .436.233c.104.154.155.368.155.643c0 .33-.056.587-.169.768a.524.524 0 0 1-.47.27a.495.495 0 0 1-.411-.211a.853.853 0 0 1-.16-.532zM9 12.769c-.256.154-.625.231-1.108.231c-.563 0-1.02-.178-1.369-.533c-.349-.355-.523-.813-.523-1.374c0-.648.186-1.158.56-1.53c.374-.376.875-.563 1.5-.563c.433 0 .746.06.94.179v.998a1.26 1.26 0 0 0-.792-.276c-.325 0-.583.1-.774.298c-.19.196-.283.468-.283.816c0 .338.09.603.272.797c.182.191.431.287.749.287c.282 0 .558-.092.828-.276v.946zM4 7L3 8v6l1 1h7l1-1V8l-1-1H4zm0 1h7v6H4V8z" clipRule="evenodd" /></svg>
+                        <svg style={{ cursor: "pointer" }} xmlns="http://www.w3.org/2000/svg" className='doNotAct' width="30px" height="30px" viewBox="-4 -10 33 33" fill="#000000" onClick={openURLReplaceModal}><g fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M14 4c0-1.1.9-2 2-2m4 0c1.1 0 2 .9 2 2m0 4c0 1.1-.9 2-2 2m-4 0c-1.1 0-2-.9-2-2M3 7l3 3l3-3" /><path d="M6 10V5c0-1.7 1.3-3 3-3h1" /><rect className="doNotAct" width="8" height="8" x="2" y="14" rx="2" /><path d="M14 14c1.1 0 2 .9 2 2v4c0 1.1-.9 2-2 2m6-8c1.1 0 2 .9 2 2v4c0 1.1-.9 2-2 2" /></g></svg>
                     </Box>
                     <Box sx={{ mt: 5, ml: 0.7, mb: 0.5, fontWeight: "bold" }}>
                         <svg className="doNotAct" style={{ cursor: "pointer", marginTop: "5px", }} width="20px" height="20px" xmlns="http://www.w3.org/2000/svg" fill="#000000" version="1.1" id="Capa_1" viewBox="0 0 407.096 407.096" xmlSpace="preserve" onClick={updatedThemeSaveHandler}>
