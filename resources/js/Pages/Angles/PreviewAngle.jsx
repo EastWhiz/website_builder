@@ -18,12 +18,12 @@ import Select from 'react-select';
 
 export default function Dashboard({ id }) {
 
-    const backgroundSelectors = [
-        ".main-con-box",
-        ".main_parent_container",
-        ".main-container",
-        ".banner"
-    ];
+    // const backgroundSelectors = [
+    //     ".main-con-box",
+    //     ".main_parent_container",
+    //     ".main-container",
+    //     ".banner"
+    // ];
 
     const languages = [
         { value: 'AR', label: 'Arabic' },
@@ -165,21 +165,21 @@ export default function Dashboard({ id }) {
         overflow: "hidden"
     };
 
-    function getFirstBackgroundColor(selectors) {
-        for (let selector of selectors) {
-            const el = document.querySelector(selector);
-            if (el) {
-                const bg = window.getComputedStyle(el).backgroundColor;
+    // function getFirstBackgroundColor(selectors) {
+    //     for (let selector of selectors) {
+    //         const el = document.querySelector(selector);
+    //         if (el) {
+    //             const bg = window.getComputedStyle(el).backgroundColor;
 
-                // rgba(0,0,0,0) or transparent = no color
-                if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
-                    return bg; // return actual background
-                }
-                return "rgb(255, 255, 255)"; // element found but no color
-            }
-        }
-        return "rgb(255, 255, 255)"; // no element found at all
-    }
+    //             // rgba(0,0,0,0) or transparent = no color
+    //             if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+    //                 return bg; // return actual background
+    //             }
+    //             return "rgb(255, 255, 255)"; // element found but no color
+    //         }
+    //     }
+    //     return "rgb(255, 255, 255)"; // no element found at all
+    // }
 
     function updateAngleImages(htmlString, currentAngle) {
         return htmlString.replace(
@@ -604,16 +604,18 @@ export default function Dashboard({ id }) {
                     ...prev,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                     fontFamily: computedStyles.fontFamily,
+                    color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
+                    ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
                 }));
             } else if (editing && editing.actionType == "edit") {
 
-                let dynamicBackgroundColor = "";
-                if (computedStyles.backgroundColor == "rgba(0, 0, 0, 0)") {
-                    dynamicBackgroundColor = getFirstBackgroundColor(backgroundSelectors);
-                    dynamicBackgroundColor = `#${convert.rgb.hex(rgbToArray(dynamicBackgroundColor))}`;
-                } else {
-                    dynamicBackgroundColor = `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`;
-                }
+                // let dynamicBackgroundColor = "";
+                // if (computedStyles.backgroundColor == "rgba(0, 0, 0, 0)") {
+                //     dynamicBackgroundColor = getFirstBackgroundColor(backgroundSelectors);
+                //     dynamicBackgroundColor = `#${convert.rgb.hex(rgbToArray(dynamicBackgroundColor))}`;
+                // } else {
+                //     dynamicBackgroundColor = `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`;
+                // }
 
                 setSelectedTextPart(false);
                 setTextPartsList(editing.innerHTML.trim().split(/\s+/).map((char, index) => {
@@ -625,7 +627,7 @@ export default function Dashboard({ id }) {
                     textInput: editing.innerHTML,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
-                    backgroundColor: dynamicBackgroundColor,
+                    ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
                     textAlign: computedStyles.textAlign,
                     border: computedStyles.borderStyle,
                     borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
@@ -772,9 +774,21 @@ export default function Dashboard({ id }) {
         return parseFloat(value.replace('px', ''));
     }
 
-    function rgbToArray(rgb) {
-        const result = rgb.match(/^rgb\((\d+), (\d+), (\d+)\)$/);
-        return result ? result.slice(1).map(Number) : [0, 0, 0]; // Return black if not valid
+    function rgbToArray(color) {
+        // Match both rgb(...) and rgba(...)
+        const result = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
+
+        if (result) {
+            // Convert r,g,b to numbers, keep alpha if present (default = 1)
+            const r = Number(result[1]);
+            const g = Number(result[2]);
+            const b = Number(result[3]);
+            const a = result[4] !== undefined ? parseFloat(result[4]) : 1;
+            return [r, g, b, a];
+        }
+
+        // Default: black, fully opaque
+        return [0, 0, 0, 1];
     }
 
     const generateRandomString = () => {
