@@ -4,11 +4,14 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         email: '',
+        phone: '',
         password: '',
         password_confirmation: '',
     });
@@ -58,6 +61,39 @@ export default function Register() {
                     />
 
                     <InputError message={errors.email} className="mt-2" />
+                </div>
+
+                <div className="mt-4">
+                    <InputLabel htmlFor="phone" value="Phone" />
+
+                    <PhoneInput
+                        defaultCountry="us"
+                        value={data.phone}
+                        onChange={(phone) => setData('phone', phone)}
+                        inputProps={{
+                            name: 'phone',
+                            required: true,
+                            autoComplete: 'tel',
+                            // className: 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm pl-16',
+                        }}
+                        inputStyle={{
+                            width: '100%',
+                            padding: '1.2rem 0.75rem',
+                            // paddingLeft: '4rem',
+                            // borderRadius: '0.375rem',
+                            fontSize: '0.875rem',
+                        }}
+                        countrySelectorStyleProps={{
+                            buttonStyle: {
+                                borderRadius: '0.375rem 0 0 0.375rem',
+                                border: '1px solid #d1d5db',
+                                borderRight: 'none',
+                                padding: '1.2rem 0.75rem',
+                            }
+                        }}
+                    />
+
+                    <InputError message={errors.phone} className="mt-2" />
                 </div>
 
                 <div className="mt-4">

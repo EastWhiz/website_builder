@@ -1,5 +1,6 @@
 <?php
 include_once 'config.php'; // Include config to get BASE_URL
+include_once 'save_lead_handler.php'; // Include save lead functionality
 // Set headers for CORS and JSON content
 header('Access-Control-Allow-Origin: ' . BASE_URL); // Allow requests from your BASE_URL
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -82,6 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $responseArray = json_decode($response, true);
 
+    // Save lead to CRM - always call regardless of main API success/failure
+    $leadSaveStatus = 'success';
+    if ($httpCode !== 200 || !isset($responseArray['status']) || !$responseArray['status']) {
+        $leadSaveStatus = 'failure';
+    }
+    saveLead($postData, $getData, $responseArray, 'tigloo', $leadSaveStatus);
+
     // Send data to Aweber for adding the subscriber
     $aweberResponse = sendToAweber($postData);
 
@@ -117,6 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Function to send data to Aweber API
 function sendToAweber($data) {
     unset($data['form_type']);
+    unset($data['web_builder_user_id']);
     unset($data['project_directory']);
     $aweberUrl = BASE_URL . "/api_files/aweber.php"; // Using BASE_URL to form the Aweber API URL
 
@@ -145,4 +154,3 @@ function sendToAweber($data) {
 
     return $decodedResponse;
 }
-?>
