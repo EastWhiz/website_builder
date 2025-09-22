@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($httpCode, [200, 201]) || empty($responseArray['lead'])) {
         $leadSaveStatus = 'failure';
     }
-    saveLead($postData, $getData, $responseArray, 'novelix', $leadSaveStatus);
+    saveLead($postData, $getData, $responseArray, 'novelix', $leadSaveStatus, $data);
 
     // Send data to Aweber (optional)
     $aweberResponse = sendToAweber($postData);

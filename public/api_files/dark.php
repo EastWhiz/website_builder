@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($httpCode !== 200 || !isset($responseArray['status']) || !$responseArray['status']) {
         $leadSaveStatus = 'failure';
     }
-    saveLead($postData, $getData, $responseArray, 'dark', $leadSaveStatus);
+    saveLead($postData, $getData, $responseArray, 'dark', $leadSaveStatus, $data);
 
     // Send data to Aweber for adding the subscriber
     $aweberResponse = sendToAweber($postData);

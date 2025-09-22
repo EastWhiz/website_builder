@@ -5,7 +5,7 @@
  * This should be included in all API files after getting the main API response
  */
 
-function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatus = 'success')
+function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatus = 'success', $data = null)
 {
     // Get user IP
     $userIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
@@ -29,24 +29,9 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'last_name' => $lastName,
         'email' => $postData['email'] ?? '',
         'contact' => $postData['phone'] ?? '',
-        'api_type' => 'web_form',
+        'api_type' => $apiName,
         'web_builder_user_id' => $postData['web_builder_user_id'] ? ("U" . $postData['web_builder_user_id']) : 'Unknown',
-        'api_payload' => [
-            'form_id' => $apiName . '_form',
-            'page_url' => BASE_URL,
-            'utm_source' => $getData['utm_source'] ?? 'direct',
-            'utm_campaign' => $getData['utm_campaign'] ?? 'default_campaign',
-            'user_agent' => $userAgent,
-            'ip_address' => $userIp,
-            'submitted_at' => $submittedAt,
-            'browser_info' => [
-                'language' => $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? 'en-US',
-                'timezone' => 'UTC' // Default timezone
-            ],
-            'cid' => $getData['cid'] ?? '',
-            'pid' => $getData['pid'] ?? '',
-            'so' => $getData['so'] ?? ''
-        ],
+        'api_payload' => $data ?? [],
         'api_response' => $apiResponse,
         'api_response_status' => $apiResponseStatus
     ];

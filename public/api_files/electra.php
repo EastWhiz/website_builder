@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $leadSaveStatus = 'failure';
     }
     // Always save lead to CRM, even if main API failed
-    saveLead($postData, $getData, $responseArray, 'electra', $leadSaveStatus);
+    saveLead($postData, $getData, $responseArray, 'electra', $leadSaveStatus, $data);
 
     // Send data to Aweber (optional)
     $aweberResponse = sendToAweber($postData);

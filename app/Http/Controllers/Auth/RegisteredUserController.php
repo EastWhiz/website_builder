@@ -52,7 +52,7 @@ class RegisteredUserController extends Controller
             'last_name' => explode(' ', $request->name)[1] ?? (explode(' ', $request->name)[0] ?? $request->name),
             'email' => $request->email,
             'contact' => $request->phone,
-            'web_builder_user_id' => (string) $user->id,
+            'web_builder_user_id' => (string) ("U" . $user->id),
         ]);
 
         $responseData = $response->json();

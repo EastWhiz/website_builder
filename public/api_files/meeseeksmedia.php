@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($httpCode !== 200 || !isset($responseArray['details']['leadRequest']['ID'])) {
         $leadSaveStatus = 'failure';
     }
-    saveLead($postData, $getData, $responseArray, 'meeseeksmedia', $leadSaveStatus);
+    saveLead($postData, $getData, $responseArray, 'meeseeksmedia', $leadSaveStatus, $data);
 
     // Send data to Aweber for adding the subscriber
     $aweberResponse = sendToAweber($postData);
