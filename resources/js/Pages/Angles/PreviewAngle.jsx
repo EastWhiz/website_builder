@@ -2859,7 +2859,7 @@ export default function Dashboard({ id }) {
                             Select Body
                         </Typography>
                         <Box sx={{ mt: 0.5 }}>
-                            <MuiSelect value={mainBodies.length > 0 && mainBodies.find(it => it.selected_body).id} className="doNotAct" style={{ width: "100%", padding: "5px" }} onChange={(e) => {
+                            <select value={mainBodies.length > 0 && mainBodies.find(it => it.selected_body).id} className="doNotAct" style={{ width: "100%", padding: "5px" }} onChange={(e) => {
                                 const selectedId = e.target.value;
                                 function proceedFurther(selectedId) {
                                     setMainBodies((prev) =>
@@ -2897,7 +2897,7 @@ export default function Dashboard({ id }) {
                                         </option>
                                     );
                                 })}
-                            </MuiSelect>
+                            </select>
                         </Box>
                     </Box>
                     <Box sx={{ border: "1px solid black", ml: 0.5, p: 1, mt: 2 }}>
