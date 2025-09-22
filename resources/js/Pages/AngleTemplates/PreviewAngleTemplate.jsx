@@ -998,8 +998,8 @@ export default function Dashboard({ id }) {
                     } else {
                         let anchor = document.createElement('a');
                         anchor.href = imageManagement.imageLink;
-                        anchor.target = '_blank';
-                        anchor.rel = 'noopener noreferrer';
+                        // anchor.target = '_blank';
+                        // anchor.rel = 'noopener noreferrer';
                         let cloned = element.cloneNode(true); // clone the original element
                         anchor.appendChild(cloned); // put the clone inside the anchor
                         element.parentNode.replaceChild(anchor, element); // now replace the original
@@ -1018,8 +1018,8 @@ export default function Dashboard({ id }) {
                 if (imageManagement.imageLink) {
                     let anchor = document.createElement('a');
                     anchor.href = imageManagement.imageLink;
-                    anchor.target = '_blank'; // Optional: open in new tab
-                    anchor.rel = 'noopener noreferrer'; // Optional: security best practice
+                    // anchor.target = '_blank'; // Optional: open in new tab
+                    // anchor.rel = 'noopener noreferrer'; // Optional: security best practice
                     anchor.appendChild(newElement);
                     await addNewContentHandler(editing.addElementPosition, element, anchor);
                 } else {
