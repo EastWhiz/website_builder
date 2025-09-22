@@ -547,12 +547,11 @@ class AngleTemplateController extends Controller
                                 title: "Error!",
                                 text: decodeURIComponent(params.get("api_error")),
                             });
+                            // Smooth scroll to form
+                            form.scrollIntoView();
                         } else if (params.has("api_success")) {
                             // decodeURIComponent(params.get("api_success"));  
                         }
-
-                        // Smooth scroll to form
-                        form.scrollIntoView();
 
                         // Remove api_error/api_success from URL without reload
                         params.delete("api_error");
