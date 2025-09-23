@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'hitid' => $dynamicCid,
         '_ip' => $postData['userip'] ?? '',
         'area_code' => $postData['area_code'] ?? '',
-        'funnel'     => 'crowdedfunnel',
+        'funnel'     => $dynamicSO,
         'aff_sub'    => $dynamicCid,
         'aff_sub2'   => 'aff_sub2',
     );
