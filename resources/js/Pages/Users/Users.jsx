@@ -1,9 +1,12 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { Backdrop, Box, Fade, Modal, Button as MuiButton, TextField } from '@mui/material';
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
 
 import LockResetIcon from '@mui/icons-material/LockReset';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
     AppProvider, Card,
     IndexFilters,
@@ -190,6 +193,50 @@ export default function Dashboard() {
         }
     };
 
+    const handleDeleteUser = async (userId) => {
+        try {
+            const result = await Swal.fire({
+                title: 'Are you sure?',
+                text: 'This will permanently delete the user and all their associated data. This action cannot be undone!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete user!',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (result.isConfirmed) {
+                const response = await fetch(route('deleteUser'), {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: userId })
+                });
+                const deleteResult = await response.json();
+                if (deleteResult.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'User Deleted',
+                        text: 'User has been deleted successfully!'
+                    });
+                    setReload(r => !r); // Refresh the table
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: deleteResult.message || 'Failed to delete user.'
+                    });
+                }
+            }
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to delete user.'
+            });
+        }
+    };
+
     const rowMarkup = tableRows.map((value, index) => (
         <IndexTable.Row
             id={value.id}
@@ -213,12 +260,15 @@ export default function Dashboard() {
                 <MuiButton size='small' variant='contained' color='warning' className='cptlz' sx={{ ml: 1 }} onClick={() => handleResetPassword(value.id)}>
                     <LockResetIcon sx={{ fontSize: "16px", mr: 1 }} /> Reset Password
                 </MuiButton>
+                <MuiButton size='small' variant='contained' color='error' className='cptlz' sx={{ ml: 1 }} onClick={() => handleDeleteUser(value.id)}>
+                    <DeleteIcon sx={{ fontSize: "16px", mr: 1 }} /> Delete
+                </MuiButton>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
 
     const [addUserModalOpen, setAddUserModalOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ name: '', email: '', password: '' });
+    const [newUser, setNewUser] = useState({ name: '', email: '', phone: '', password: '' });
     const [creatingUser, setCreatingUser] = useState(false);
 
     const modalStyle = {
@@ -250,7 +300,7 @@ export default function Dashboard() {
             const result = await response.json();
             if (result.success) {
                 setAddUserModalOpen(false);
-                setNewUser({ name: '', email: '', password: '' });
+                setNewUser({ name: '', email: '', phone: '', password: '' });
                 Swal.fire({
                     icon: 'success',
                     title: 'User Created',
@@ -397,6 +447,34 @@ export default function Dashboard() {
                                 fullWidth
                                 size="small"
                             />
+                            <Box>
+                                <PhoneInput
+                                    defaultCountry="us"
+                                    value={newUser.phone}
+                                    onChange={(phone) => setNewUser(u => ({ ...u, phone }))}
+                                    inputProps={{
+                                        name: 'phone',
+                                        required: true,
+                                        autoComplete: 'tel',
+                                        // className: 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm pl-16',
+                                    }}
+                                    inputStyle={{
+                                        width: '100%',
+                                        padding: '1.2rem 0.75rem',
+                                        // paddingLeft: '4rem',
+                                        // borderRadius: '0.375rem',
+                                        fontSize: '0.875rem',
+                                    }}
+                                    countrySelectorStyleProps={{
+                                        buttonStyle: {
+                                            borderRadius: '0.375rem 0 0 0.375rem',
+                                            border: '1px solid #d1d5db',
+                                            borderRight: 'none',
+                                            padding: '1.2rem 0.75rem',
+                                        }
+                                    }}
+                                />
+                            </Box>
                             <TextField
                                 label="Password"
                                 type="password"
@@ -409,7 +487,7 @@ export default function Dashboard() {
                                 <MuiButton onClick={() => setAddUserModalOpen(false)} sx={{ mr: 1 }} className="cptlz" disabled={creatingUser}>
                                     Cancel
                                 </MuiButton>
-                                <MuiButton variant="contained" color="primary" className="cptlz" onClick={handleAddUser} disabled={creatingUser || !newUser.name || !newUser.email || !newUser.password}>
+                                <MuiButton variant="contained" color="primary" className="cptlz" onClick={handleAddUser} disabled={creatingUser || !newUser.name || !newUser.email || !newUser.phone || !newUser.password}>
                                     {creatingUser ? 'Creating...' : 'Create User'}
                                 </MuiButton>
                             </Box>

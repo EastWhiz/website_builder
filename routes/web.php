@@ -48,6 +48,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');
         Route::post('/users', [UsersController::class, 'store'])->name('createUser');
         Route::post('/users/reset-password', [UsersController::class, 'resetPassword'])->name('resetPassword');
+        Route::delete('/users', [UsersController::class, 'destroy'])->name('deleteUser');
 
         Route::post('/angles/assign-to-users', [AngleController::class, 'assignToUsers'])->name('assign.to.users');
     });
