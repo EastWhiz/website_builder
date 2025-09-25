@@ -91,17 +91,17 @@ class UsersController extends Controller
         }
 
         // Delete related angles and their contents
-        $angles = Angle::where('user_id', $user->id)->get();
-        foreach ($angles as $angle) {
-            Storage::disk('public')->deleteDirectory("angles/$angle->uuid");
-            AngleContent::where('angle_uuid', $angle->uuid)->delete();
-            $extraContents = ExtraContent::where('angle_uuid', $angle->uuid)->get();
-            $extraContents->each(function ($content) {
-                Storage::disk('public')->deleteDirectory("angleContents/{$content->angle_content_uuid}");
-                $content->delete();
-            });
-            $angle->delete();
-        }
+        // $angles = Angle::where('user_id', $user->id)->get();
+        // foreach ($angles as $angle) {
+        //     Storage::disk('public')->deleteDirectory("angles/$angle->uuid");
+        //     AngleContent::where('angle_uuid', $angle->uuid)->delete();
+        //     $extraContents = ExtraContent::where('angle_uuid', $angle->uuid)->get();
+        //     $extraContents->each(function ($content) {
+        //         Storage::disk('public')->deleteDirectory("angleContents/{$content->angle_content_uuid}");
+        //         $content->delete();
+        //     });
+        //     $angle->delete();
+        // }
         $user->delete();
     }
 
