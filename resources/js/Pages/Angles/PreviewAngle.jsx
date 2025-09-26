@@ -1644,7 +1644,13 @@ export default function Dashboard({ id }) {
                                                 </MuiSelect>
                                             </FormControl>
                                             <Box sx={{ mt: 0.5, cursor: "pointer" }}>
-                                                <SwapHorizIcon />
+                                                <SwapHorizIcon onClick={() => {
+                                                    setTranslator(prev => ({
+                                                        ...prev,
+                                                        fromLanguange: prev.toLanguage,
+                                                        toLanguage: prev.fromLanguange
+                                                    }))
+                                                }} />
                                             </Box>
                                             <FormControl fullWidth>
                                                 <InputLabel id="demo-simple-select-label">Translate To</InputLabel>
