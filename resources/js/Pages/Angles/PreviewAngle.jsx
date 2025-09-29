@@ -862,16 +862,16 @@ export default function Dashboard({ id }) {
     const addNewContentHandler = async (position, existingElement, newElement) => {
 
         if (position == "bottom") {
-            existingElement.style.marginBottom = "5px";
+            // existingElement.style.marginBottom = "5px";
             existingElement.insertAdjacentElement('afterend', newElement);
         } else if (position == "top") {
-            existingElement.style.marginTop = "5px";
+            // existingElement.style.marginTop = "5px";
             existingElement.insertAdjacentElement('beforebegin', newElement);
         } else if (position == "left") {
-            existingElement.style.marginLeft = "5px";
+            // existingElement.style.marginLeft = "5px";
             existingElement.parentNode.insertBefore(newElement, existingElement);
         } else if (position == "right") {
-            existingElement.style.marginRight = "5px";
+            // existingElement.style.marginRight = "5px";
             existingElement.parentNode.insertBefore(newElement, existingElement.nextSibling);
         }
     }
@@ -925,18 +925,21 @@ export default function Dashboard({ id }) {
         //FURTHER EDITING REMAINING
         if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
             //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
-            const styles = {
-                color: textManagement.color,
-                backgroundColor: textManagement.backgroundColor,
-                fontSize: `${textManagement.fontSize}px`,
-                border: textManagement.border,
-                borderWidth: `${textManagement.borderWidth}px`,
-                borderColor: textManagement.borderColor,
-                textAlign: textManagement.textAlign,
-                fontFamily: textManagement.fontFamily,
-                margin: textManagement.margin,
-                padding: textManagement.padding
-            };
+
+            // const styles = {
+            //     color: textManagement.color,
+            //     backgroundColor: textManagement.backgroundColor,
+            //     fontSize: `${textManagement.fontSize}px`,
+            //     border: textManagement.border,
+            //     borderWidth: `${textManagement.borderWidth}px`,
+            //     borderColor: textManagement.borderColor,
+            //     textAlign: textManagement.textAlign,
+            //     fontFamily: textManagement.fontFamily,
+            //     margin: textManagement.margin,
+            //     padding: textManagement.padding
+            // };
+
+            const styles = {};
 
             if (editing.actionType == "edit") {
                 if (textManagement.link && element.localName !== "a") {
@@ -966,9 +969,11 @@ export default function Dashboard({ id }) {
                     newElement = document.createElement('a');
                     Object.assign(newElement.style, styles);
                     newElement.innerHTML = textManagement.textInput;
+                    newElement.className = element.className;
                     newElement.setAttribute('href', textManagement.link);
                 } else {
                     newElement = document.createElement('div');
+                    newElement.className = element.className;
                     newElement.classList.add('editableDiv');
                     Object.assign(newElement.style, styles);
                     newElement.innerHTML = textManagement.textInput;

@@ -853,16 +853,16 @@ export default function Dashboard({ id }) {
     const addNewContentHandler = async (position, existingElement, newElement) => {
 
         if (position == "bottom") {
-            existingElement.style.marginBottom = "5px";
+            // existingElement.style.marginBottom = "5px";
             existingElement.insertAdjacentElement('afterend', newElement);
         } else if (position == "top") {
-            existingElement.style.marginTop = "5px";
+            // existingElement.style.marginTop = "5px";
             existingElement.insertAdjacentElement('beforebegin', newElement);
         } else if (position == "left") {
-            existingElement.style.marginLeft = "5px";
+            // existingElement.style.marginLeft = "5px";
             existingElement.parentNode.insertBefore(newElement, existingElement);
         } else if (position == "right") {
-            existingElement.style.marginRight = "5px";
+            // existingElement.style.marginRight = "5px";
             existingElement.parentNode.insertBefore(newElement, existingElement.nextSibling);
         }
     }
