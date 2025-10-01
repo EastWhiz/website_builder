@@ -414,7 +414,7 @@ class AngleTemplateController extends Controller
                     box-sizing: border-box;
                     /* ensures padding doesn't break layout */
                 }
-                    
+
                 .iti__country-name {
                     color: black !important;
                 }
@@ -550,7 +550,7 @@ class AngleTemplateController extends Controller
                             // Smooth scroll to form
                             form.scrollIntoView();
                         } else if (params.has("api_success")) {
-                            // decodeURIComponent(params.get("api_success"));  
+                            // decodeURIComponent(params.get("api_success"));
                         }
 
                         // Remove api_error/api_success from URL without reload
@@ -657,7 +657,7 @@ class AngleTemplateController extends Controller
                     break;
 
                 case 'electra.php':
-                    $content = str_replace("'affid' => '',", "'affid' => '" . ($userApiCredentials->electra_affid ?? '') . "',", $content);
+                    $content = str_replace("'affid' => '13',", "'affid' => '" . ($userApiCredentials->electra_affid ?? '') . "',", $content);
                     // Note: electra seems to use a different API key mechanism, might need to check the file more
                     break;
 
@@ -697,6 +697,10 @@ class AngleTemplateController extends Controller
                     $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->tigloo_api_key ?? '') . '";', $content);
                     break;
 
+                case 'koi.php':
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->koi_api_key ?? '') . '";', $content);
+                    break;
+
                 case 'thank_you.php':
                     $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
                     $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
@@ -710,7 +714,7 @@ class AngleTemplateController extends Controller
                     // logger("TEST: " . $value);
                     // Update BASE_URL to current domain if needed
                     // $baseUrl = request()->getSchemeAndHttpHost();
-                    if($value)
+                    if ($value)
                         $content = str_replace('http://localhost/myAppFolder', $value, $content);
                     break;
 

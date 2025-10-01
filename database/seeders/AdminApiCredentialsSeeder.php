@@ -57,6 +57,9 @@ class AdminApiCredentialsSeeder extends Seeder
                 'tigloo_ci' => '821',
                 'tigloo_gi' => '545',
 
+                // Koi API credentials
+                'koi_api_key' => 'D39501B5-4872-3F35-3463-EC6B258BE52A',
+
                 // Pixel Management URLs
                 'facebook_pixel_url' => 'https://conversionpixel.com/fb.php',
                 'second_pixel_url' => 'http://plz.hold1sec.com/postback',

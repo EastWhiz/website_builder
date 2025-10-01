@@ -45,6 +45,7 @@ export default function ApiFormFields({
             tigloo_ai: '',
             tigloo_ci: '',
             tigloo_gi: '',
+            koi_api_key: '',
         });
 
     // Load existing credentials on component mount
@@ -94,6 +95,7 @@ export default function ApiFormFields({
                     tigloo_ai: credentials.tigloo_ai || '',
                     tigloo_ci: credentials.tigloo_ci || '',
                     tigloo_gi: credentials.tigloo_gi || '',
+                    koi_api_key: credentials.koi_api_key || '',
                 });
             }
         } catch (error) {
@@ -209,6 +211,7 @@ export default function ApiFormFields({
         { key: 'meeseeks', name: 'MeeseeksMedia', icon: '👀' },
         { key: 'novelix', name: 'Novelix', icon: '📚' },
         { key: 'tigloo', name: 'Online Partners ED', icon: '🐅' },
+        { key: 'koi', name: 'Koi', icon: '🐟' },
     ];
 
     const renderApiFields = () => {
@@ -620,6 +623,33 @@ export default function ApiFormFields({
                         <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                             <p className="text-blue-800 text-sm">
                                 <strong>Endpoint:</strong> https://platform.onlinepartnersed.com/api/signup/procform
+                            </p>
+                        </div>
+                    </div>
+                );
+
+            case 'koi':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="koi_api_key" value="API Key" />
+                            <TextInput
+                                id="koi_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.koi_api_key}
+                                onChange={(e) => setData('koi_api_key', e.target.value)}
+                                placeholder="D39501B5-4872-3F35-3463-EC6B258BE52A"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.koi_api_key} />
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <p className="text-blue-800 text-sm">
+                                <strong>Endpoint:</strong> https://hannyaapi.com/api/v2/leads
+                            </p>
+                            <p className="text-blue-800 text-sm mt-1">
+                                <strong>Note:</strong> This API requires IP whitelisting. Make sure your server IP is whitelisted.
                             </p>
                         </div>
                     </div>

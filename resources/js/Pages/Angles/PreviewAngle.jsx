@@ -114,6 +114,7 @@ export default function Dashboard({ id }) {
         { label: 'Electra', value: 'electra' },
         { label: 'Meeseeksmedia', value: 'meeseeksmedia' },
         { label: 'Dark', value: 'dark' },
+        { label: 'Koi', value: 'koi' },
     ];
 
     const commonInputTypes = [

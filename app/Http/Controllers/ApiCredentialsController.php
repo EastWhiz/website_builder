@@ -42,6 +42,7 @@ class ApiCredentialsController extends Controller
                 'tigloo_gi' => 'nullable|string|max:255',
                 'facebook_pixel_url' => 'nullable|url|max:1000',
                 'second_pixel_url' => 'nullable|url|max:1000',
+                'koi_api_key' => 'nullable|string|max:255',
             ]);
 
             $user = Auth::user();
@@ -208,6 +209,12 @@ class ApiCredentialsController extends Controller
                         'ci' => $credentials->tigloo_ci,
                         'gi' => $credentials->tigloo_gi,
                         'endpoint' => 'https://platform.onlinepartnersed.com/api/signup/procform',
+                    ];
+                    break;
+                case 'koi':
+                    $providerData = [
+                        'api_key' => $credentials->koi_api_key,
+                        'endpoint' => 'https://hannyaapi.com/api/v2/leads',
                     ];
                     break;
                 default:
