@@ -12,7 +12,7 @@ import {
     Select as ShopifySelect,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { DeleteIcon, EditIcon, PageDownIcon, ViewIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, DuplicateIcon, EditIcon, PageDownIcon, ViewIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
@@ -195,6 +195,46 @@ export default function Dashboard() {
         });
     }
 
+    const duplicateAngleTemplateHandler = (angleTemplateId) => {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "Do you want to duplicate this Sales Page?",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#51a70a",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, duplicate it!"
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                fetch(route('duplicate.angleTemplate', angleTemplateId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        Swal.fire({
+                            title: data.success ? "Duplicated!" : "Error!",
+                            text: data.message,
+                            icon: data.success ? "success" : "error"
+                        });
+                        setReload(!reload);
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        Swal.fire({
+                            title: "Error!",
+                            text: "An error occurred while duplicating the Sales Page.",
+                            icon: "error"
+                        });
+                    });
+            }
+        });
+    }
+
     const filters = [];
 
     const appliedFilters = [];
@@ -225,6 +265,8 @@ export default function Dashboard() {
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleTemplateHandler(value.id)}></Button>
+                <span style={{ margin: "10px" }}></span>
+                <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleTemplateHandler(value.id)}></Button>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));

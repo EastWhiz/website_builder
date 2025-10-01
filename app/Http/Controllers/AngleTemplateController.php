@@ -6,6 +6,7 @@ use App\Models\Angle;
 use App\Models\AngleTemplate;
 use App\Models\ExtraContent;
 use App\Models\Template;
+use App\Models\TemplateContent;
 use App\Models\UserApiCredential;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -734,5 +735,96 @@ class AngleTemplateController extends Controller
         }
 
         return $content;
+    }
+
+    public function duplicateAngleTemplate(Request $request, AngleTemplate $angleTemplate)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Generate new UUIDs for the duplicated template
+            $newUuid = (string) Str::uuid();
+
+            // Create new AngleTemplate with duplicated data
+            $newAngleTemplate = AngleTemplate::create([
+                'uuid' => $newUuid,
+                'angle_id' => $angleTemplate->angle_id,
+                'template_id' => $angleTemplate->template_id,
+                'user_id' => Auth::id(), // Set current user as owner
+                'name' => $angleTemplate->name . ' (Copy)',
+                'main_html' => $angleTemplate->main_html,
+                'main_css' => $angleTemplate->main_css,
+                'main_js' => $angleTemplate->main_js,
+            ]);
+
+            $preSearch = "angleTemplates/{$angleTemplate->uuid}/images";
+            $preReplace = "angleTemplates/{$newUuid}/images";
+
+            $newAngleTemplate->main_html = str_replace($preSearch, $preReplace, $newAngleTemplate->main_html);
+            $newAngleTemplate->save();
+
+            // Get original folder path
+            $originalFolderPath = "angleTemplates/{$angleTemplate->uuid}";
+            $newFolderPath = "angleTemplates/{$newUuid}";
+
+            // Check if original folder exists
+            if (Storage::disk('public')->exists($originalFolderPath)) {
+                // Copy entire folder structure
+                $this->copyDirectory($originalFolderPath, $newFolderPath);
+            }
+
+            // Duplicate ExtraContent records
+            $originalContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
+
+            foreach ($originalContents as $content) {
+                $newBlobUrl = $content->blob_url;
+
+                ExtraContent::create([
+                    'angle_template_uuid' => $newUuid,
+                    'angle_uuid' => $content->angle_uuid,
+                    'name' => $content->name,
+                    'blob_url' => $newBlobUrl,
+                    'type' => $content->type,
+                    'can_be_deleted' => $content->can_be_deleted,
+                ]);
+            }
+
+            DB::commit();
+
+            return sendResponse(true, 'AngleTemplate duplicated successfully!', [
+                'angleTemplate' => $newAngleTemplate,
+                'original_uuid' => $angleTemplate->uuid,
+                'new_uuid' => $newUuid
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return sendResponse(false, 'Error duplicating AngleTemplate: ' . $e->getMessage());
+        }
+    }
+
+    private function copyDirectory($source, $destination)
+    {
+        $disk = Storage::disk('public');
+
+        // Get all files in the source directory recursively
+        $files = $disk->allFiles($source);
+
+        foreach ($files as $file) {
+            // Create the destination path
+            $relativePath = str_replace($source, '', $file);
+            $destinationFile = $destination . $relativePath;
+
+            // Get file contents and copy to new location
+            $contents = $disk->get($file);
+            $disk->put($destinationFile, $contents);
+        }
+
+        // Also copy any subdirectories structure
+        $directories = $disk->allDirectories($source);
+        foreach ($directories as $directory) {
+            $relativePath = str_replace($source, '', $directory);
+            $destinationDir = $destination . $relativePath;
+            $disk->makeDirectory($destinationDir);
+        }
     }
 }
