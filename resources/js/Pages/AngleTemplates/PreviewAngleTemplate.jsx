@@ -128,6 +128,30 @@ export default function Dashboard({ id }) {
         "submit"
     ];
 
+    const formFieldLanguageDefaults = {
+        "English": { "firstname": "First Name", "lastname": "Last Name", "email": "Email", "temp_phone": "Phone" },
+        "German": { "firstname": "Vorname", "lastname": "Nachname", "email": "E-Mail", "temp_phone": "Telefon" },
+        "Spanish": { "firstname": "Nombre", "lastname": "Apellido", "email": "Correo electrónico", "temp_phone": "Teléfono" },
+        "Japanese": { "firstname": "名", "lastname": "姓", "email": "メール", "temp_phone": "電話" },
+        "French": { "firstname": "Prénom", "lastname": "Nom", "email": "E-mail", "temp_phone": "Téléphone" },
+        "Italian": { "firstname": "Nome", "lastname": "Cognome", "email": "Email", "temp_phone": "Telefono" },
+        "Korean": { "firstname": "이름", "lastname": "성", "email": "이메일", "temp_phone": "전화번호" },
+        "Polish": { "firstname": "Imię", "lastname": "Nazwisko", "email": "E-mail", "temp_phone": "Telefon" },
+        "Portuguese": { "firstname": "Nome", "lastname": "Sobrenome", "email": "E-mail", "temp_phone": "Telefone" }
+    };
+
+    const formFieldLanguageOptions = [
+        { "value": "English", "label": "English" },
+        { "value": "German", "label": "German" },
+        { "value": "Spanish", "label": "Spanish" },
+        { "value": "Japanese", "label": "Japanese" },
+        { "value": "French", "label": "French" },
+        { "value": "Italian", "label": "Italian" },
+        { "value": "Korean", "label": "Korean" },
+        { "value": "Polish", "label": "Polish" },
+        { "value": "Portuguese", "label": "Portuguese" }
+    ];
+
     const editableElements = [
         "h1",
         "h2",
@@ -490,6 +514,7 @@ export default function Dashboard({ id }) {
     const [spacerManagement, setSpacerManagement] = useState(INITIAL_SPACER_MANAGEMENT);
     const [customHTMLManagement, setCustomHTMLManagement] = useState(INITIAL_CUSTOM_HTML_MANAGEMENT);
     const [formManagement, setFormManagement] = useState(INITIAL_FORM_MANAGEMENT);
+    const [selectedFormLanguage, setSelectedFormLanguage] = useState(false);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
 
     // Replace functionality state
@@ -681,8 +706,8 @@ export default function Dashboard({ id }) {
                     if (!name || name == "form_type" || name == "web_builder_user_id" || name == "project_directory") return null;
 
                     // Find the corresponding label using the `for` attribute
-                    const label = id ? formEl.querySelector(`label[for="${id}"]`) : null;
-                    const labelText = label ? label.textContent.trim() : "";
+                    const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
+                    const labelText = label ? label.trim() : "";
 
                     return {
                         name: name,
@@ -714,6 +739,8 @@ export default function Dashboard({ id }) {
                 h3HeadingColor: h3Element ? `#${convert.rgb.hex(rgbToArray(window.getComputedStyle(h3Element).color))}` : "#333333",
                 h3HeadingAlignment: h3Element ? window.getComputedStyle(h3Element).textAlign : "center",
             });
+
+            setSelectedFormLanguage(false);
         }
     }, [editing]);
 
@@ -827,6 +854,25 @@ export default function Dashboard({ id }) {
             }));
         }
     };
+
+    useEffect(() => {
+        if (selectedFormLanguage && formFieldLanguageDefaults[selectedFormLanguage]) {
+            // console.log(formFieldLanguageDefaults[selectedFormLanguage]);
+            setFormManagement(prev => ({
+                ...prev,
+                inputs: prev.inputs.map(input => {
+                    // console.log(formFieldLanguageDefaults[selectedFormLanguage][input.name]);
+                    if (formFieldLanguageDefaults[selectedFormLanguage][input.name]) {
+                        return {
+                            ...input,
+                            inputName: formFieldLanguageDefaults[selectedFormLanguage][input.name]
+                        };
+                    }
+                    return input;
+                })
+            }));
+        }
+    }, [selectedFormLanguage]);
 
     const hasParentWithClass = (element, className) => {
         while (element && element !== document) {
@@ -2515,18 +2561,30 @@ export default function Dashboard({ id }) {
                                                             onChange={(e) => handleSpacingChange(e.target.value, 'padding', setFormManagement)}
                                                         />
                                                     </Box>
-                                                    {/* <Box sx={{ display: "flex", justifyContent: "flex-end" }} mt={2}>
-                                                    <Button size="small" variant="contained" color="primary" sx={{ textTransform: "capitalize" }} onClick={() => {
-                                                        let temp = { ...formManagement };
-                                                        temp.inputs.push({
-                                                            name: "",
-                                                            required: false,
-                                                            type: false,
-                                                            sort: ""
-                                                        });
-                                                        setFormManagement(temp);
-                                                    }}>Add Input</Button>
-                                                </Box> */}
+                                                    <Box sx={{ mt: 2.1 }}>
+                                                        <FormControl fullWidth>
+                                                            <InputLabel id="demo-simple-select-label" shrink>
+                                                                Select Defaults Language
+                                                            </InputLabel>
+                                                            <MuiSelect
+                                                                labelId="demo-simple-select-label"
+                                                                value={selectedFormLanguage}
+                                                                label="Select Defaults Language"
+                                                                size="small"
+                                                                onChange={(e) => setSelectedFormLanguage(e.target.value)}
+                                                                displayEmpty
+                                                                renderValue={(value) =>
+                                                                    !value ? <Typography color="grey">Select Defaults Language...</Typography> : value
+                                                                }
+                                                            >
+                                                                {formFieldLanguageOptions.map((option) => (
+                                                                    <MenuItem key={option.value} value={option.value} className="doNotAct">
+                                                                        {option.label}
+                                                                    </MenuItem>
+                                                                ))}
+                                                            </MuiSelect>
+                                                        </FormControl>
+                                                    </Box>
                                                     <Box mt={2} p={2} pt={0} sx={{ border: "2px dashed #a5a5a5", borderRadius: "2px" }}>
                                                         {formManagement && formManagement.inputs.map((value, index) => (
                                                             <Box key={index} sx={{ mt: 2, display: "flex" }}>
