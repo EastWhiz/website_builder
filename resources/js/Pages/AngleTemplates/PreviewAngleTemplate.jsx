@@ -610,6 +610,15 @@ export default function Dashboard({ id }) {
                     return { value: index, label: char }
                 }));
 
+                let InsideLink = "";
+                if (editing.currentElement.tagName == 'A') {
+                    if (editing.currentElement.getAttribute("href") == "#myForm") {
+                        InsideLink = "#myForm";
+                    } else {
+                        InsideLink = editing.currentElement.href;
+                    }
+                }
+
                 setTextManagement(prev => ({
                     ...prev,
                     textInput: editing.innerHTML,
@@ -620,7 +629,7 @@ export default function Dashboard({ id }) {
                     border: computedStyles.borderStyle,
                     borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                     borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
-                    link: editing.currentElement.tagName == 'A' ? editing.currentElement.href : "",
+                    link: InsideLink,
                     fontFamily: computedStyles.fontFamily,
                     padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                     margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`
