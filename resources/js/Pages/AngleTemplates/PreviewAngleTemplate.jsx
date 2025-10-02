@@ -636,13 +636,9 @@ export default function Dashboard({ id }) {
                     return { value: index, label: char }
                 }));
 
-                let InsideLink = "";
+                let InsideLink = "#";
                 if (editing.currentElement.tagName == 'A') {
-                    if (editing.currentElement.getAttribute("href") == "#myForm") {
-                        InsideLink = "#myForm";
-                    } else {
-                        InsideLink = editing.currentElement.href;
-                    }
+                    InsideLink = editing.currentElement.getAttribute("href");
                 }
 
                 setTextManagement(prev => ({
@@ -674,7 +670,7 @@ export default function Dashboard({ id }) {
                 border: computedStyles.borderStyle,
                 borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
                 borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
-                imageLink: editing.currentElement.parentElement.href,
+                imageLink: editing.currentElement.parentElement.getAttribute("href"),
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
             }));
@@ -986,7 +982,7 @@ export default function Dashboard({ id }) {
             };
 
             if (editing.actionType == "edit") {
-                if (textManagement.link && element.localName !== "a") {
+                if (textManagement.link && textManagement.link != "#" && element.localName !== "a") {
                     let newElement = document.createElement('a');
                     newElement.className = element.className;
                     if (anchorHelpProperties && textManagement.linkEffect == "Selected Element") {
@@ -999,17 +995,18 @@ export default function Dashboard({ id }) {
                         newElement.classList.add('app-anchor');
                         element.parentNode.replaceChild(newElement, element);
                     }
-                } else if (textManagement.link && element.localName == "a") {
+                } else if (textManagement.link && textManagement.link != "#" && element.localName == "a") {
                     Object.assign(element.style, styles);
                     element.innerHTML = textManagement.textInput;
                     element.href = textManagement.link;
                 } else {
                     Object.assign(element.style, styles);
                     element.innerHTML = textManagement.textInput;
+                    element.href = "#";
                 }
             } else {
                 let newElement = '';
-                if (textManagement.link) {
+                if (textManagement.link && textManagement.link != "#") {
                     newElement = document.createElement('a');
                     Object.assign(newElement.style, styles);
                     newElement.innerHTML = textManagement.textInput;
@@ -1048,7 +1045,7 @@ export default function Dashboard({ id }) {
                     element.src = imageManagement.imageFile.blobUrl;
                 }
 
-                if (imageManagement.imageLink) {
+                if (imageManagement.imageLink && imageManagement.imageLink != "#") {
                     if (element.parentElement.tagName == 'A') {
                         element.parentElement.href = imageManagement.imageLink;
                     } else {
@@ -1059,6 +1056,10 @@ export default function Dashboard({ id }) {
                         let cloned = element.cloneNode(true); // clone the original element
                         anchor.appendChild(cloned); // put the clone inside the anchor
                         element.parentNode.replaceChild(anchor, element); // now replace the original
+                    }
+                } else {
+                    if (element.parentElement.tagName == 'A') {
+                        element.parentElement.href = "#";
                     }
                 }
             } else {
@@ -1071,7 +1072,7 @@ export default function Dashboard({ id }) {
                 }
 
                 // If a link is provided, wrap the image in an anchor
-                if (imageManagement.imageLink) {
+                if (imageManagement.imageLink && imageManagement.imageLink != "#") {
                     let anchor = document.createElement('a');
                     anchor.href = imageManagement.imageLink;
                     // anchor.target = '_blank'; // Optional: open in new tab
