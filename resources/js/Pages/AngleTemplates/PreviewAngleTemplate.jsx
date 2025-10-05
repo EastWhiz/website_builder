@@ -1369,11 +1369,27 @@ export default function Dashboard({ id }) {
 
                 const formData = new FormData();
 
+                let mainHTMLDynamic = mainHTML.find(value => value.status).html;
+                let tempDivInside = document.createElement('div');
+                tempDivInside.innerHTML = mainHTMLDynamic;
+
+                // Replace all parents of .iti__country-container
+                tempDivInside.querySelectorAll(".iti__country-container").forEach(el => {
+                    el.parentElement.outerHTML = `
+                    <div style="margin-bottom: 15px;">
+                        <input type="tel" placeholder="Telefonnummer" id="phone" name="temp_phone" class="telInputs" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    `;
+                });
+
+                // Get the updated HTML string
+                mainHTMLDynamic = tempDivInside.innerHTML;
+
                 formData.append("last_iteration", isLastIteration);
                 formData.append("asset_unique_uuid", assetUUID);
                 formData.append("chunk_count", chunk == 1 ? 0 : chunk.length);
                 formData.append("angle_template_uuid", data.uuid);
-                formData.append("main_html", mainHTML.find(value => value.status).html);
+                formData.append("main_html", mainHTMLDynamic);
 
                 if (chunk != 1) {
                     chunk.forEach((item, index) => {
