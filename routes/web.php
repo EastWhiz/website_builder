@@ -71,6 +71,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('/angles/delete', [AngleController::class, 'deleteAngle'])->name('delete.angle');
         Route::post('/angle-templates/delete', [AngleTemplateController::class, 'deleteAngleTemplate'])->name('delete.angleTemplate');
+        Route::post('/angle-templates/rename', [AngleTemplateController::class, 'renameAngleTemplate'])->name('rename.angleTemplate');
 
         // TEMPLATES ROUTES
         Route::inertia('/templates', 'Templates/Templates')->name('templates');

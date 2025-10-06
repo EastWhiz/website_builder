@@ -632,6 +632,27 @@ class AngleTemplateController extends Controller
     }
 
     /**
+     * Rename an AngleTemplate (Sales Page)
+     */
+    public function renameAngleTemplate(Request $request)
+    {
+        $request->validate([
+            'angle_template_id' => 'required|integer',
+            'name' => 'required|string|max:255',
+        ]);
+
+        $angleTemplate = AngleTemplate::find($request->angle_template_id);
+        if (!$angleTemplate) {
+            return sendResponse(false, 'Sales Page Not Found');
+        }
+
+        $angleTemplate->name = $request->name;
+        $angleTemplate->save();
+
+        return sendResponse(true, 'Sales Page renamed successfully.', $angleTemplate);
+    }
+
+    /**
      * Modify API file content before adding to zip
      *
      * @param string $content The original file content

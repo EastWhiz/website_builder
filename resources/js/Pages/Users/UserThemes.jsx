@@ -12,7 +12,7 @@ import {
     Select as ShopifySelect,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { DeleteIcon, DuplicateIcon, EditIcon, PageDownIcon, ViewIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, DuplicateIcon, EditIcon, PageDownIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
@@ -260,6 +260,8 @@ export default function Dashboard() {
                     window.open(`${window.appURL}/download?angle_template_id=${value.id}`, "_blank");
                 }}></Button>
                 <span style={{ margin: "10px" }}></span>
+                <Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)}></Button>
+                <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={EditIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
@@ -270,6 +272,51 @@ export default function Dashboard() {
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
+
+    const openRenameModal = (angleTemplateId, currentName) => {
+        Swal.fire({
+            title: 'Rename Sales Page',
+            input: 'text',
+            inputValue: currentName,
+            showCancelButton: true,
+            cancelButtonColor: "#d33",
+            confirmButtonText: 'Done',
+            confirmButtonColor: "#51a70a",
+            customClass: {
+                title: 'swal-title-left'
+            },
+            preConfirm: (newName) => {
+                if (!newName || newName.trim() === '') {
+                    Swal.showValidationMessage('Name cannot be empty');
+                    return false;
+                }
+                return fetch(route('rename.angleTemplate'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ angle_template_id: angleTemplateId, name: newName })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) throw new Error(data.message || 'Rename failed');
+                        return data;
+                    })
+                    .catch(err => {
+                        Swal.showValidationMessage(`Request failed: ${err.message}`);
+                    });
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                Swal.fire({
+                    title: 'Renamed!',
+                    text: result.value.message || 'Sales Page renamed successfully.',
+                    icon: 'success'
+                });
+                setReload(!reload);
+            }
+        });
+    }
 
     return (
         <AppProvider i18n={en}>
