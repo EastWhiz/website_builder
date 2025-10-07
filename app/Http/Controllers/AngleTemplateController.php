@@ -313,7 +313,7 @@ class AngleTemplateController extends Controller
             <title>{$angleTemplate->name}</title>
             <script src=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.all.min.js "></script>
             <link href=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.min.css " rel="stylesheet">
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/css/intlTelInput.css">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/css/intlTelInput.css">
             {$template->head}
             <style>
                 input {
@@ -437,17 +437,25 @@ class AngleTemplateController extends Controller
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
                 }
+
+                .telInputs {
+                    padding-left: 45px !important
+                }
+
                 {$updatingCss}
             </style>
         </head>
         <body>
             {$updatingIndex}
-            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/intlTelInput.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.1/build/js/utils.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/intlTelInput.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/utils.js"></script>
             <script>
                 function initTelInputs(country) {
                     document.querySelectorAll(".telInputs").forEach(input => {
-                        const iti = intlTelInput(input, { initialCountry: country });
+                        const iti = intlTelInput(input, {
+                            initialCountry: country,
+                            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/utils.js"
+                        });
                         input.style.width = "100%";
 
                         input.form?.addEventListener("submit", async e => {
@@ -467,13 +475,13 @@ class AngleTemplateController extends Controller
                                 return;
                             }
 
-                            const { dialCode, iso2 } = iti.getSelectedCountryData();
+                            const { iso2 } = iti.getSelectedCountryData();
 
                             // Phone field
                             const hiddenPhone = Object.assign(document.createElement("input"), {
                                 type: "hidden",
                                 name: "phone",
-                                value: '+' + dialCode + raw.replace(/^0+/, "")
+                                value: iti.getNumber()
                             });
                             input.form.appendChild(hiddenPhone);
 
@@ -514,6 +522,18 @@ class AngleTemplateController extends Controller
                                     value: ""
                                 });
                                 input.form.appendChild(hiddenIP);
+                            }
+
+                            if (!iti.isValidNumber()) {
+                                Swal.fire({
+                                    icon: "error",
+                                    title: "Error!",
+                                    text: "Please enter a valid phone number.",
+                                });
+                                btn.innerHTML = btn.dataset.original;
+                                btn.style.opacity = "1";
+                                btn.disabled = false;
+                                return;
                             }
 
                             // ✅ Now submit form after IP is ready

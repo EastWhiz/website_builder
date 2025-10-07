@@ -125,6 +125,11 @@ input {
     }
 }
 
+.telInputs {
+    padding-left: 45px !important
+}
+
+
 .swal-title-left {
     text-align: left !important;
     font-size: 22px !important;
