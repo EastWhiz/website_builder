@@ -130,6 +130,7 @@ function sendToAweber($data)
     unset($data['form_type']);
     unset($data['web_builder_user_id']);
     unset($data['project_directory']);
+    unset($data['sales_page_id']);
     $aweberUrl = BASE_URL . "/api_files/aweber.php"; // Using BASE_URL to form the Aweber API URL
 
     // Initialize cURL for Aweber API

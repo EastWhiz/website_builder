@@ -714,7 +714,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "web_builder_user_id" || name == "project_directory") return null;
+                    if (!name || name == "form_type" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -1161,6 +1161,7 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="form_type" value="${formManagement.apiType}" />`;
             formHTML += ` <input type="hidden" name="web_builder_user_id" value="${mainQuery.auth.user.id}" />`;
             formHTML += ` <input type="hidden" name="project_directory" value="${formManagement.project_directory}" />`;
+            formHTML += ` <input type="hidden" name="sales_page_id" value="A${id || ''}" />`;
             // Add submit button
             const submitButtonStyles = {
                 backgroundColor: formManagement.submitBackgroundColor || '#007bff',
