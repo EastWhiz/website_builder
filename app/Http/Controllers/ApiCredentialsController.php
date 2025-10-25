@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\UserApiCredential;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ApiCredentialsController extends Controller
@@ -13,6 +15,7 @@ class ApiCredentialsController extends Controller
     {
         try {
             $validated = $request->validate([
+                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi',
                 'aweber_client_id' => 'nullable|string|max:255',
                 'aweber_client_secret' => 'nullable|string|max:255',
                 'aweber_account_id' => 'nullable|string|max:255',
@@ -46,6 +49,10 @@ class ApiCredentialsController extends Controller
             ]);
 
             $user = Auth::user();
+            $provider = $validated['provider'];
+
+            // Remove provider from validated data as it's not a database field
+            unset($validated['provider']);
 
             // Update or create API credentials for the authenticated user
             $credentials = UserApiCredential::updateOrCreate(
@@ -53,12 +60,14 @@ class ApiCredentialsController extends Controller
                 array_merge($validated, ['user_id' => $user->id])
             );
 
+            // Call external API to sync the specific provider's credentials
+            $this->syncToExternalApi($credentials, $provider, $user->id);
+
             return response()->json([
                 'success' => true,
                 'message' => 'API credentials saved successfully.',
                 'data' => $credentials
             ], 200);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -93,7 +102,6 @@ class ApiCredentialsController extends Controller
                 'message' => 'API credentials retrieved successfully.',
                 'data' => $credentials
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -120,7 +128,6 @@ class ApiCredentialsController extends Controller
                     'message' => 'No API credentials found to delete.'
                 ], 404);
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -229,7 +236,6 @@ class ApiCredentialsController extends Controller
                 'message' => 'Provider credentials retrieved successfully.',
                 'data' => $providerData
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -237,5 +243,121 @@ class ApiCredentialsController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Sync provider credentials to external API
+     */
+    private function syncToExternalApi($credentials, $provider, $userId)
+    {
+        try {
+            $apiPayload = $this->buildApiPayload($credentials, $provider, $userId);
+
+            $response = Http::post('https://crm.diy/api/v1/create-update-api-data', $apiPayload);
+
+            // logger(json_encode($response->json()));
+
+            if (!$response->successful()) {
+                Log::error('External API sync failed', [
+                    'provider' => $provider,
+                    'user_id' => $userId,
+                    'response' => $response->json()
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('External API sync exception', [
+                'provider' => $provider,
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Build API payload for external API based on provider
+     */
+    private function buildApiPayload($credentials, $provider, $userId)
+    {
+        // Base payload with all empty fields
+        $payload = [
+            'apiType' => $provider,
+            'clientId' => '',
+            'clientSecret' => '',
+            'accountId' => '',
+            'listId' => '',
+            'userName' => '',
+            'password' => '',
+            'apiKey' => '',
+            'aiParam' => '',
+            'ciParam' => '',
+            'giParam' => '',
+            'webBuilderUserId' => (string) $userId,
+            'affiliateId' => '',
+            'endpointUrl' => ''
+        ];
+
+        // Map provider-specific fields
+        switch ($provider) {
+            case 'aweber':
+                $payload['clientId'] = $credentials->aweber_client_id ?? '';
+                $payload['clientSecret'] = $credentials->aweber_client_secret ?? '';
+                $payload['accountId'] = $credentials->aweber_account_id ?? '';
+                $payload['listId'] = $credentials->aweber_list_id ?? '';
+                break;
+
+            case 'electra':
+                $payload['affiliateId'] = $credentials->electra_affid ?? '';
+                $payload['apiKey'] = $credentials->electra_api_key ?? '';
+                $payload['endpointUrl'] = 'https://lcaapi.net/leads';
+                break;
+
+            case 'dark':
+                $payload['userName'] = $credentials->dark_username ?? '';
+                $payload['password'] = $credentials->dark_password ?? '';
+                $payload['apiKey'] = $credentials->dark_api_key ?? '';
+                $payload['aiParam'] = $credentials->dark_ai ?? '';
+                $payload['ciParam'] = $credentials->dark_ci ?? '';
+                $payload['giParam'] = $credentials->dark_gi ?? '';
+                $payload['endpointUrl'] = 'https://tb.connnecto.com/api/signup/procform';
+                break;
+
+            case 'elps':
+                $payload['userName'] = $credentials->elps_username ?? '';
+                $payload['password'] = $credentials->elps_password ?? '';
+                $payload['apiKey'] = $credentials->elps_api_key ?? '';
+                $payload['aiParam'] = $credentials->elps_ai ?? '';
+                $payload['ciParam'] = $credentials->elps_ci ?? '';
+                $payload['giParam'] = $credentials->elps_gi ?? '';
+                $payload['endpointUrl'] = 'https://ep.elpistrack.io/api/signup/procform';
+                break;
+
+            case 'meeseeks':
+                $payload['apiKey'] = $credentials->meeseeks_api_key ?? '';
+                $payload['endpointUrl'] = 'https://mskmd-api.com/api/v2/leads';
+                break;
+
+            case 'novelix':
+                $payload['apiKey'] = $credentials->novelix_api_key ?? '';
+                $payload['affiliateId'] = $credentials->novelix_affid ?? '';
+                $payload['endpointUrl'] = 'https://nexlapi.net/leads';
+                break;
+
+            case 'tigloo':
+                $payload['userName'] = $credentials->tigloo_username ?? '';
+                $payload['password'] = $credentials->tigloo_password ?? '';
+                $payload['apiKey'] = $credentials->tigloo_api_key ?? '';
+                $payload['aiParam'] = $credentials->tigloo_ai ?? '';
+                $payload['ciParam'] = $credentials->tigloo_ci ?? '';
+                $payload['giParam'] = $credentials->tigloo_gi ?? '';
+                $payload['endpointUrl'] = 'https://platform.onlinepartnersed.com/api/signup/procform';
+                break;
+
+            case 'koi':
+                $payload['apiKey'] = $credentials->koi_api_key ?? '';
+                $payload['endpointUrl'] = 'https://hannyaapi.com/api/v2/leads';
+                break;
+        }
+
+        return $payload;
     }
 }

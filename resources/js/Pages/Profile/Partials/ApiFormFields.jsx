@@ -114,7 +114,10 @@ export default function ApiFormFields({
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+                ...data,
+                provider: activeTab  // Send the current active tab (provider name)
+            }),
         })
             .then(response => response.json())
             .then(result => {
