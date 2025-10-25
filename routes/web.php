@@ -43,6 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/templates/add-edit', [TemplateController::class, 'addEditProcess'])->name('templates.addEdit');
 
         Route::post('/templates/delete', [TemplateController::class, 'deleteTemplate'])->name('delete.template');
+    Route::post('/templates/rename', [TemplateController::class, 'renameTemplate'])->name('rename.template');
 
         Route::inertia('/users', 'Users/Users')->name('users');
         Route::get('/users/list', [UsersController::class, 'index'])->name('users.list');

@@ -330,4 +330,29 @@ class TemplateController extends Controller
 
         return sendResponse(true, "Publisher is deleted Successfully.");
     }
+
+    /**
+     * Rename a template (publisher) by id
+     */
+    public function renameTemplate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'template_id' => 'required|integer',
+            'name' => 'required|string|max:255',
+        ]);
+
+        if ($validator->fails())
+            return simpleValidate($validator);
+
+        $template = Template::find($request->template_id);
+
+        if (!$template) {
+            return sendResponse(false, "Publisher Not Found");
+        }
+
+        $template->name = $request->name;
+        $template->save();
+
+        return sendResponse(true, "Publisher renamed successfully.", $template);
+    }
 }

@@ -8,7 +8,7 @@ import {
     Pagination,
     Select as ShopifySelect, Text, useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { DeleteIcon, EditIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, EditIcon, WrenchIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
@@ -179,6 +179,50 @@ export default function Dashboard() {
         });
     }
 
+    const renameTemplateHandler = (template) => {
+        Swal.fire({
+            title: 'Rename Publisher',
+            input: 'text',
+            inputLabel: 'New name',
+            inputValue: template.name,
+            showCancelButton: true,
+            confirmButtonColor: '#51a70a',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Rename',
+            inputValidator: (value) => {
+                if (!value || value.trim() === '') {
+                    return 'Please enter a name!'
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(route('rename.template'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        template_id: template.id,
+                        name: result.value
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        Swal.fire({
+                            title: data.success ? 'Renamed!' : 'Error!',
+                            text: data.message,
+                            icon: data.success ? 'success' : 'error'
+                        });
+                        setReload(!reload);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        Swal.fire({ title: 'Error', text: 'Unable to rename', icon: 'error' });
+                    });
+            }
+        });
+    }
+
     const filters = [];
 
     const appliedFilters = [];
@@ -233,6 +277,8 @@ export default function Dashboard() {
             </IndexTable.Cell>
             {roleId == 1 &&
                 <IndexTable.Cell>
+                    <Button variant='plain' icon={WrenchIcon} onClick={() => renameTemplateHandler(value)}></Button>
+                    <span style={{ marginLeft: "10px" }}></span>
                     <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editTemplate', value.id))}></Button>
                     <span style={{ marginLeft: "10px" }}></span>
                     <Button variant='plain' icon={DeleteIcon} onClick={() => deleteTemplateHandler(value.id)}></Button>
