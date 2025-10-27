@@ -12,7 +12,7 @@ class DeepLService
     public function __construct()
     {
         $this->apiKey = env('DEEPL_API_KEY');
-        $this->endpoint = 'https://api-free.deepl.com/v2/translate';
+        $this->endpoint = 'https://api.deepl.com/v2/translate';
     }
 
     public function translate($text, $targetLang = 'EN', $sourceLang = null)
