@@ -11,6 +11,7 @@ use App\Models\UserApiCredential;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use ZipArchive;
@@ -867,5 +868,244 @@ class AngleTemplateController extends Controller
             $destinationDir = $destination . $relativePath;
             $disk->makeDirectory($destinationDir);
         }
+    }
+
+    public function translateAngleTemplate(Request $request)
+    {
+        Log::info('🚀 Translation started', [
+            'angle_template_id' => $request->angle_template_id,
+            'target_language' => $request->target_language,
+            'user_id' => Auth::id()
+        ]);
+
+        try {
+            $request->validate([
+                'angle_template_id' => 'required|exists:angle_templates,id',
+                'target_language' => 'required|string|max:10'
+            ]);
+
+            $angleTemplate = AngleTemplate::findOrFail($request->angle_template_id);
+            $targetLanguage = $request->target_language;
+
+            Log::info('✅ Template found', [
+                'template_id' => $angleTemplate->id,
+                'template_name' => $angleTemplate->name,
+                'user_id' => $angleTemplate->user_id,
+                'html_length' => strlen($angleTemplate->main_html)
+            ]);
+
+            // Check if user has permission to edit this template
+            if (Auth::user()->role->name !== 'admin' && $angleTemplate->user_id !== Auth::id()) {
+                Log::warning('❌ Permission denied', [
+                    'user_role' => Auth::user()->role->name,
+                    'template_owner' => $angleTemplate->user_id,
+                    'current_user' => Auth::id()
+                ]);
+                return sendResponse(false, "You don't have permission to translate this template", null);
+            }
+
+            Log::info('✅ Permission granted');
+
+            // Initialize DeepL service
+            $deepLService = new \App\Services\DeepLService();
+            Log::info('✅ DeepL service initialized');
+
+            // Get the main_html content
+            $originalHtml = $angleTemplate->main_html;
+
+            if (empty($originalHtml)) {
+                Log::warning('❌ No HTML content to translate');
+                return sendResponse(false, "No content to translate", null);
+            }
+
+            Log::info('📝 Starting HTML content translation', [
+                'original_html_length' => strlen($originalHtml),
+                'target_language' => $targetLanguage
+            ]);
+
+            // Extract and translate text content in batches
+            $startTime = microtime(true);
+            $translatedHtml = $this->translateHtmlContentMinimal($originalHtml, $targetLanguage, $deepLService);
+            $endTime = microtime(true);
+
+            Log::info('✅ Translation completed', [
+                'translation_time_seconds' => round($endTime - $startTime, 2),
+                'translated_html_length' => strlen($translatedHtml)
+            ]);
+
+            // Update the angle template with translated content
+            $originalName = $angleTemplate->name;
+            $angleTemplate->main_html = $translatedHtml;
+            $angleTemplate->name = $angleTemplate->name . " ({$targetLanguage})";
+            $angleTemplate->save();
+
+            Log::info('✅ Template updated successfully', [
+                'original_name' => $originalName,
+                'new_name' => $angleTemplate->name,
+                'template_id' => $angleTemplate->id
+            ]);
+
+            return sendResponse(true, "Sales page translated successfully to {$targetLanguage}", $angleTemplate);
+        } catch (\Exception $e) {
+            Log::error('❌ Translation failed', [
+                'error_message' => $e->getMessage(),
+                'error_line' => $e->getLine(),
+                'error_file' => $e->getFile(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return sendResponse(false, "Translation failed: " . $e->getMessage(), null);
+        }
+    }
+
+    private function translateHtmlContentMinimal($html, $targetLanguage, $deepLService)
+    {
+        Log::info('🔍 Starting HTML content parsing', [
+            'html_length' => strlen($html),
+            'target_language' => $targetLanguage
+        ]);
+
+        // Extract all text content that needs translation using simple regex
+        $textToTranslate = [];
+        $placeholders = [];
+        $placeholderIndex = 0;
+
+        Log::info('📝 Extracting text between HTML tags...');
+
+        // Find text between HTML tags (excluding scripts, styles, and certain attributes)
+        $html = preg_replace_callback('/>(.*?)</s', function ($matches) use (&$textToTranslate, &$placeholders, &$placeholderIndex) {
+            $text = trim($matches[1]);
+
+            // Skip empty text, single characters, numbers, URLs, emails
+            if (empty($text) ||
+                strlen($text) < 3 ||
+                is_numeric($text) ||
+                preg_match('/^https?:\/\//', $text) ||
+                preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $text) ||
+                preg_match('/^[^a-zA-Z]*$/', $text)) {
+                return $matches[0];
+            }
+
+            $placeholder = "##TRANSLATE_" . $placeholderIndex . "##";
+            $textToTranslate[$placeholder] = $text;
+            $placeholders[] = $placeholder;
+            $placeholderIndex++;
+
+            return '>' . $placeholder . '<';
+        }, $html);
+
+        Log::info('✅ Text extraction completed', [
+            'texts_found_between_tags' => count($textToTranslate),
+            'sample_texts' => array_slice(array_values($textToTranslate), 0, 3)
+        ]);
+
+        Log::info('📝 Extracting text from HTML attributes...');
+
+        // Find common attributes that should be translated
+        $attributePattern = '/(alt|title|placeholder)=["\']([^"\']{3,})["\']i/';
+        $html = preg_replace_callback($attributePattern, function ($matches) use (&$textToTranslate, &$placeholders, &$placeholderIndex) {
+            $attribute = $matches[1];
+            $text = $matches[2];
+
+            // Skip if text contains URLs or looks like code
+            if (preg_match('/^https?:\/\//', $text) ||
+                preg_match('/[{}()<>\/\\\\]/', $text) ||
+                strlen($text) < 3) {
+                return $matches[0];
+            }
+
+            $placeholder = "##TRANSLATE_" . $placeholderIndex . "##";
+            $textToTranslate[$placeholder] = $text;
+            $placeholders[] = $placeholder;
+            $placeholderIndex++;
+
+            return $attribute . '="' . $placeholder . '"';
+        }, $html);
+
+        Log::info('✅ Attribute extraction completed', [
+            'total_texts_to_translate' => count($textToTranslate),
+            'sample_attribute_texts' => array_slice(array_values($textToTranslate), -3)
+        ]);
+
+        // If no text to translate, return original
+        if (empty($textToTranslate)) {
+            Log::warning('⚠️ No translatable text found, returning original HTML');
+            return $html;
+        }
+
+        Log::info('🌐 Starting batch translation', [
+            'total_items' => count($textToTranslate),
+            'target_language' => $targetLanguage
+        ]);
+
+        // Batch translate all text at once (much faster than individual calls)
+        try {
+            $allText = implode("\n---SPLIT---\n", array_values($textToTranslate));
+
+            Log::info('📤 Sending text to DeepL API', [
+                'combined_text_length' => strlen($allText),
+                'separator_count' => substr_count($allText, "\n---SPLIT---\n"),
+                'preview' => substr($allText, 0, 200) . (strlen($allText) > 200 ? '...' : '')
+            ]);
+
+            $apiStartTime = microtime(true);
+            $translatedText = $deepLService->translate($allText, $targetLanguage);
+            $apiEndTime = microtime(true);
+
+            Log::info('📥 DeepL API response received', [
+                'api_call_time_seconds' => round($apiEndTime - $apiStartTime, 2),
+                'translated_text_length' => strlen($translatedText),
+                'preview' => substr($translatedText, 0, 200) . (strlen($translatedText) > 200 ? '...' : '')
+            ]);
+
+            $translatedParts = explode("\n---SPLIT---\n", $translatedText);
+
+            Log::info('🔄 Processing translation results', [
+                'expected_parts' => count($textToTranslate),
+                'received_parts' => count($translatedParts)
+            ]);
+
+            // Map translations back to placeholders
+            $translations = [];
+            $index = 0;
+            foreach ($textToTranslate as $placeholder => $originalText) {
+                $translation = isset($translatedParts[$index]) ? trim($translatedParts[$index]) : $originalText;
+                $translations[$placeholder] = $translation;
+
+                if ($index < 3) { // Log first 3 translations as samples
+                    Log::info("📋 Translation sample #{$index}", [
+                        'original' => $originalText,
+                        'translated' => $translation
+                    ]);
+                }
+                $index++;
+            }
+
+            Log::info('🔄 Replacing placeholders in HTML...');
+
+            // Replace placeholders with translations
+            foreach ($translations as $placeholder => $translation) {
+                $html = str_replace($placeholder, $translation, $html);
+            }
+
+            Log::info('✅ Translation replacement completed successfully');
+
+        } catch (\Exception $e) {
+            Log::error('❌ Batch translation failed, falling back to original text', [
+                'error_message' => $e->getMessage(),
+                'error_line' => $e->getLine(),
+                'error_file' => $e->getFile()
+            ]);
+
+            // If batch translation fails, fallback to original text
+            foreach ($textToTranslate as $placeholder => $originalText) {
+                $html = str_replace($placeholder, $originalText, $html);
+            }
+        }
+
+        Log::info('🏁 HTML translation process completed', [
+            'final_html_length' => strlen($html)
+        ]);
+
+        return $html;
     }
 }

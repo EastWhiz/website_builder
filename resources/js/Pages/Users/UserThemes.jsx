@@ -8,11 +8,12 @@ import {
     Card,
     IndexFilters,
     IndexTable,
+    Modal,
     Pagination,
     Select as ShopifySelect,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { DeleteIcon, DuplicateIcon, EditIcon, PageDownIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, PageDownIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
@@ -72,6 +73,43 @@ export default function Dashboard() {
         { label: 'Id', value: 'id desc', directionLabel: 'Descending' },
     ];
 
+    const languages = [
+        { value: 'AR', label: 'Arabic' },
+        { value: 'BG', label: 'Bulgarian' },
+        { value: 'CS', label: 'Czech' },
+        { value: 'DA', label: 'Danish' },
+        { value: 'DE', label: 'German' },
+        { value: 'EL', label: 'Greek' },
+        { value: 'EN', label: 'English' },
+        { value: 'ES', label: 'Spanish' },
+        { value: 'ET', label: 'Estonian' },
+        { value: 'FI', label: 'Finnish' },
+        { value: 'FR', label: 'French' },
+        { value: 'HU', label: 'Hungarian' },
+        { value: 'ID', label: 'Indonesian' },
+        { value: 'IT', label: 'Italian' },
+        { value: 'JA', label: 'Japanese' },
+        { value: 'KO', label: 'Korean' },
+        { value: 'LT', label: 'Lithuanian' },
+        { value: 'LV', label: 'Latvian' },
+        { value: 'NB', label: 'Norwegian Bokmål' },
+        { value: 'NL', label: 'Dutch' },
+        { value: 'PL', label: 'Polish' },
+        { value: 'PT', label: 'Portuguese' },
+        // { value: 'PT-BR', label: 'Portuguese (Brazilian)' },
+        // { value: 'PT-PT', label: 'Portuguese (all Portuguese variants excluding Brazilian Portuguese)' },
+        { value: 'RO', label: 'Romanian' },
+        { value: 'RU', label: 'Russian' },
+        { value: 'SK', label: 'Slovak' },
+        { value: 'SL', label: 'Slovenian' },
+        { value: 'SV', label: 'Swedish' },
+        { value: 'TR', label: 'Turkish' },
+        { value: 'UK', label: 'Ukrainian' },
+        { value: 'ZH', label: 'Chinese' },
+        // { value: 'ZH-HANS', label: 'Chinese (simplified)' },
+        // { value: 'ZH-HANT', label: 'Chinese (traditional)' }
+    ];
+
     const [sortSelected, setSortSelected] = useState(['id asc']);
     const [queryValue, setQueryValue] = useState("");
     const { mode, setMode } = useSetIndexFiltersMode();
@@ -87,6 +125,14 @@ export default function Dashboard() {
     const [currentCursor, setCurrentCursor] = useState(null);
     const [loading, setLoading] = useState(false);
     const [reload, setReload] = useState(true);
+
+    // Translation state
+    const [translateModalOpen, setTranslateModalOpen] = useState(false);
+    const [translateActionModalOpen, setTranslateActionModalOpen] = useState(false);
+    const [selectedLanguage, setSelectedLanguage] = useState('');
+    const [currentAngleTemplateId, setCurrentAngleTemplateId] = useState(null);
+    const [translating, setTranslating] = useState(false);
+
     const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
 
@@ -266,12 +312,105 @@ export default function Dashboard() {
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
                 <span style={{ margin: "10px" }}></span>
+                <Button variant='plain' icon={LanguageIcon} onClick={() => openTranslateModal(value.id)}></Button>
+                <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleTemplateHandler(value.id)}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleTemplateHandler(value.id)}></Button>
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
+
+    const openTranslateModal = (angleTemplateId) => {
+        setCurrentAngleTemplateId(angleTemplateId);
+        setTranslateModalOpen(true);
+    };
+
+    const handleLanguageSelect = () => {
+        if (!selectedLanguage) {
+            alert('Please select a language');
+            return;
+        }
+        setTranslateModalOpen(false);
+        setTranslateActionModalOpen(true);
+    };
+
+    const handleTranslateAction = (shouldDuplicate) => {
+        setTranslateActionModalOpen(false);
+        setTranslating(true);
+
+        if (shouldDuplicate) {
+            // First duplicate, then translate
+            fetch(route('duplicate.angleTemplate', currentAngleTemplateId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Now translate the duplicated template
+                        translateAngleTemplate(data.data.angleTemplate.id);
+                    } else {
+                        throw new Error(data.message || 'Duplication failed');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        title: "Error!",
+                        text: "An error occurred while duplicating the Sales Page.",
+                        icon: "error"
+                    });
+                    setTranslating(false);
+                });
+        } else {
+            // Just translate the original
+            translateAngleTemplate(currentAngleTemplateId);
+        }
+    };
+
+    const translateAngleTemplate = (angleTemplateId) => {
+        fetch(route('translate.angleTemplate'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                angle_template_id: angleTemplateId,
+                target_language: selectedLanguage
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                setTranslating(false);
+                Swal.fire({
+                    title: data.success ? "Translated!" : "Error!",
+                    text: data.message,
+                    icon: data.success ? "success" : "error"
+                });
+                if (data.success) {
+                    setReload(!reload);
+                }
+                // Reset states
+                setSelectedLanguage('');
+                setCurrentAngleTemplateId(null);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                setTranslating(false);
+                Swal.fire({
+                    title: "Error!",
+                    text: "An error occurred while translating the Sales Page.",
+                    icon: "error"
+                });
+                // Reset states
+                setSelectedLanguage('');
+                setCurrentAngleTemplateId(null);
+            });
+    };
 
     const openRenameModal = (angleTemplateId, currentName) => {
         Swal.fire({
@@ -413,6 +552,64 @@ export default function Dashboard() {
                     </div>
                 </div>
             </AuthenticatedLayout>
+
+            {/* Language Selection Modal */}
+            <Modal
+                open={translateModalOpen}
+                onClose={() => setTranslateModalOpen(false)}
+                title="Select Translation Language"
+                primaryAction={{
+                    content: 'Next',
+                    onAction: handleLanguageSelect,
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Cancel',
+                        onAction: () => setTranslateModalOpen(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <ShopifySelect
+                        label="Target Language"
+                        options={languages}
+                        value={selectedLanguage}
+                        onChange={(value) => setSelectedLanguage(value)}
+                        placeholder="Select a language"
+                    />
+                </Modal.Section>
+            </Modal>
+
+            {/* Translation Action Modal */}
+            <Modal
+                open={translateActionModalOpen}
+                onClose={() => setTranslateActionModalOpen(false)}
+                title="Translation Options"
+                primaryAction={{
+                    content: 'Translate Only',
+                    onAction: () => handleTranslateAction(false),
+                    loading: translating,
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Duplicate & Translate',
+                        onAction: () => handleTranslateAction(true),
+                    },
+                    {
+                        content: 'Cancel',
+                        onAction: () => setTranslateActionModalOpen(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <p>Choose how you want to proceed with the translation:</p>
+                    <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
+                        <li><strong>Translate Only:</strong> Translate the current sales page directly</li>
+                        <li><strong>Duplicate & Translate:</strong> Create a copy first, then translate the copy</li>
+                    </ul>
+                </Modal.Section>
+            </Modal>
+
         </AppProvider>
     );
 }
