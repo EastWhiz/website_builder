@@ -21,6 +21,7 @@ class DeepLService
             'auth_key' => $this->apiKey,
             'text' => $text,
             'target_lang' => $targetLang,
+            'preserve_formatting' => 1,
         ];
 
         if ($sourceLang) {
