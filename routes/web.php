@@ -129,6 +129,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::post('/angles/duplicate/{angle}', [AngleController::class, 'duplicateAngle'])->name('duplicate.angle');
         Route::post('/angles/duplicate-multiple', [AngleController::class, 'duplicateMultipleAngles'])->name('duplicate.angles');
+        Route::post('/angles/translate', [AngleController::class, 'translateAngle'])->name('translate.angle');
         Route::post('/angle-templates/duplicate/{angleTemplate}', [AngleTemplateController::class, 'duplicateAngleTemplate'])->name('duplicate.angleTemplate');
         Route::post('/angle-templates/translate', [AngleTemplateController::class, 'translateAngleTemplate'])->name('translate.angleTemplate');
     });

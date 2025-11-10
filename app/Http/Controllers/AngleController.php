@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use App\Models\ExtraContent;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class AngleController extends Controller
 {
@@ -535,8 +536,11 @@ class AngleController extends Controller
         }
 
         return sendResponse(true, "Angle duplicated successfully", [
-            'new_angle_id' => $newAngle->id,
-            'new_angle_uuid' => $newUuid
+            'angle' => [
+                'id' => $newAngle->id,
+                'uuid' => $newUuid,
+                'name' => $newAngle->name
+            ]
         ]);
     }
 
@@ -597,5 +601,219 @@ class AngleController extends Controller
         }
 
         return sendResponse(true, 'Angle Assigned to Selected User Successfully.');
+    }
+
+    public function translateAngle(Request $request)
+    {
+        Log::info('🚀 Angle Translation started', [
+            'angle_id' => $request->angle_id,
+            'target_language' => $request->target_language,
+            'user_id' => Auth::id()
+        ]);
+
+        try {
+            $request->validate([
+                'angle_id' => 'required|exists:angles,id',
+                'target_language' => 'required|string|max:10',
+                'split_sentences' => 'nullable|string',
+                'preserve_formatting' => 'nullable|integer'
+            ]);
+
+            $angle = Angle::findOrFail($request->angle_id);
+            $targetLanguage = $request->target_language;
+            $splitSentences = $request->split_sentences;
+            $preserveFormatting = $request->preserve_formatting;
+
+            Log::info('✅ Angle found', [
+                'angle_id' => $angle->id,
+                'angle_name' => $angle->name,
+                'user_id' => $angle->user_id,
+                'target_language' => $targetLanguage
+            ]);
+
+            // Check if user has permission to edit this angle
+            if (Auth::user()->role->name !== 'admin' && $angle->user_id !== Auth::id()) {
+                Log::warning('❌ Permission denied', [
+                    'user_role' => Auth::user()->role->name,
+                    'angle_owner' => $angle->user_id,
+                    'current_user' => Auth::id()
+                ]);
+                return sendResponse(false, "You don't have permission to translate this angle", null);
+            }
+
+            Log::info('✅ Permission granted');
+
+            // Initialize DeepL service
+            $deepLService = new \App\Services\DeepLService();
+            Log::info('✅ DeepL service initialized');
+
+            // Get all HTML content bodies for this angle
+            $htmlBodies = $angle->contents()->where('type', 'html')->get();
+
+            if ($htmlBodies->isEmpty()) {
+                Log::warning('❌ No HTML content to translate');
+                return sendResponse(false, "No HTML content found to translate", null);
+            }
+
+            Log::info('📝 Starting HTML bodies translation', [
+                'bodies_count' => $htmlBodies->count(),
+                'target_language' => $targetLanguage
+            ]);
+
+            // Translate each body separately
+            $translatedCount = 0;
+            foreach ($htmlBodies as $body) {
+                $originalContent = $body->content;
+
+                if (empty($originalContent)) {
+                    Log::info("⏭️ Skipping empty body {$body->id}");
+                    continue;
+                }
+
+                Log::info("🔄 Translating body {$body->id}", [
+                    'body_name' => $body->name,
+                    'content_length' => strlen($originalContent)
+                ]);
+
+                // Extract and translate text content
+                $startTime = microtime(true);
+                $translatedContent = $this->translateHtmlContent($originalContent, $targetLanguage, $deepLService, $splitSentences, $preserveFormatting);
+                $endTime = microtime(true);
+
+                Log::info("✅ Body {$body->id} translated", [
+                    'translation_time_seconds' => round($endTime - $startTime, 2),
+                    'translated_content_length' => strlen($translatedContent)
+                ]);
+
+                // Update the content
+                $body->content = $translatedContent;
+                $body->save();
+                $translatedCount++;
+            }
+
+            // Update the angle name to indicate it's translated
+            $originalName = $angle->name;
+            $angle->name = $angle->name . " ({$targetLanguage})";
+            $angle->save();
+
+            Log::info('✅ Angle updated successfully', [
+                'original_name' => $originalName,
+                'new_name' => $angle->name,
+                'angle_id' => $angle->id,
+                'translated_bodies' => $translatedCount
+            ]);
+
+            return sendResponse(true, "Angle translated successfully to {$targetLanguage}. {$translatedCount} bodies were translated.", $angle);
+        } catch (\Exception $e) {
+            Log::error('❌ Angle Translation failed', [
+                'error_message' => $e->getMessage(),
+                'error_line' => $e->getLine(),
+                'error_file' => $e->getFile(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return sendResponse(false, "Translation failed: " . $e->getMessage(), null);
+        }
+    }
+
+    private function translateHtmlContent($html, $targetLanguage, $deepLService, $splitSentences = null, $preserveFormatting = null)
+    {
+        Log::info('🔍 Starting HTML content parsing', [
+            'html_length' => strlen($html),
+            'target_language' => $targetLanguage
+        ]);
+
+        // Extract all text content that needs translation using simple regex
+        $textToTranslate = [];
+        $placeholders = [];
+        $placeholderIndex = 0;
+
+        Log::info('📝 Extracting text between HTML tags...');
+
+        // Find text between HTML tags (excluding scripts, styles, and certain attributes)
+        $html = preg_replace_callback('/>(.*?)</s', function ($matches) use (&$textToTranslate, &$placeholders, &$placeholderIndex) {
+            $text = trim($matches[1]);
+
+            // Skip empty text, single characters, numbers, URLs, emails
+            if (empty($text) ||
+                strlen($text) < 3 ||
+                is_numeric($text) ||
+                preg_match('/^https?:\/\//', $text) ||
+                preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $text) ||
+                preg_match('/^[^a-zA-Z]*$/', $text)) {
+                return $matches[0];
+            }
+
+            $placeholder = "PLACEHOLDER_" . $placeholderIndex++;
+            $textToTranslate[$placeholder] = $text;
+            return '>' . $placeholder . '<';
+        }, $html);
+
+        Log::info('📊 Text extraction completed', [
+            'extracted_texts' => count($textToTranslate),
+            'target_language' => $targetLanguage
+        ]);
+
+        if (empty($textToTranslate)) {
+            Log::info('⚠️ No translatable text found');
+            return $html;
+        }
+
+        // Batch translate all text at once (much faster than individual calls)
+        try {
+            $allText = implode("\n---SPLIT---\n", array_values($textToTranslate));
+
+            Log::info('📤 Sending text to DeepL API', [
+                'combined_text_length' => strlen($allText),
+                'separator_count' => substr_count($allText, "\n---SPLIT---\n"),
+                'preview' => substr($allText, 0, 200) . (strlen($allText) > 200 ? '...' : '')
+            ]);
+
+            $apiStartTime = microtime(true);
+            $translatedText = $deepLService->translate($allText, $targetLanguage, null, $splitSentences, $preserveFormatting);
+            $apiEndTime = microtime(true);
+
+            Log::info('📥 DeepL API response received', [
+                'api_call_time_seconds' => round($apiEndTime - $apiStartTime, 2),
+                'translated_text_length' => strlen($translatedText),
+                'preview' => substr($translatedText, 0, 200) . (strlen($translatedText) > 200 ? '...' : '')
+            ]);
+
+            $translatedParts = explode("\n---SPLIT---\n", $translatedText);
+
+            Log::info('🔄 Processing translation results', [
+                'expected_parts' => count($textToTranslate),
+                'received_parts' => count($translatedParts)
+            ]);
+
+            // Map translations back to placeholders
+            $translations = [];
+            $index = 0;
+            foreach ($textToTranslate as $placeholder => $originalText) {
+                $translation = isset($translatedParts[$index]) ? trim($translatedParts[$index]) : $originalText;
+                $translations[$placeholder] = $translation;
+
+                if ($index < 3) { // Log first 3 translations as samples
+                    Log::info("📋 Translation sample #{$index}", [
+                        'original' => $originalText,
+                        'translated' => $translation
+                    ]);
+                }
+                $index++;
+            }
+
+            // Replace placeholders with translations
+            foreach ($translations as $placeholder => $translation) {
+                $html = str_replace($placeholder, $translation, $html);
+            }
+
+            Log::info('✅ HTML translation completed successfully');
+            return $html;
+
+        } catch (\Exception $e) {
+            Log::error('❌ Translation API error', [
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 }

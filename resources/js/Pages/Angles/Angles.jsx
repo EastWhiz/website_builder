@@ -12,7 +12,7 @@ import {
     Text,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
-import { DeleteIcon, DuplicateIcon, EditIcon, ViewIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, ViewIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
@@ -87,6 +87,51 @@ export default function Dashboard() {
     const [usersOptions, setUsersOptions] = useState([]);
     const [activeTwo, setActiveTwo] = useState(false);
     const [selectedUsersOption, setSelectedUsersOption] = useState([]);
+
+    // Translation state
+    const [translateModalOpen, setTranslateModalOpen] = useState(false);
+    const [translateActionModalOpen, setTranslateActionModalOpen] = useState(false);
+    const [selectedLanguage, setSelectedLanguage] = useState('');
+    const [currentAngleId, setCurrentAngleId] = useState(null);
+    const [translating, setTranslating] = useState(false);
+
+    // Translation options state
+    const [splitSentences, setSplitSentences] = useState('1'); // Default: split sentences
+    const [preserveFormatting, setPreserveFormatting] = useState('0'); // Default: preserve formatting
+
+    // Languages array similar to UserThemes
+    const languages = [
+        { value: 'AR', label: 'Arabic' },
+        { value: 'BG', label: 'Bulgarian' },
+        { value: 'CS', label: 'Czech' },
+        { value: 'DA', label: 'Danish' },
+        { value: 'DE', label: 'German' },
+        { value: 'EL', label: 'Greek' },
+        { value: 'EN', label: 'English' },
+        { value: 'ES', label: 'Spanish' },
+        { value: 'ET', label: 'Estonian' },
+        { value: 'FI', label: 'Finnish' },
+        { value: 'FR', label: 'French' },
+        { value: 'HU', label: 'Hungarian' },
+        { value: 'ID', label: 'Indonesian' },
+        { value: 'IT', label: 'Italian' },
+        { value: 'JA', label: 'Japanese' },
+        { value: 'KO', label: 'Korean' },
+        { value: 'LT', label: 'Lithuanian' },
+        { value: 'LV', label: 'Latvian' },
+        { value: 'NB', label: 'Norwegian Bokmål' },
+        { value: 'NL', label: 'Dutch' },
+        { value: 'PL', label: 'Polish' },
+        { value: 'PT', label: 'Portuguese' },
+        { value: 'RO', label: 'Romanian' },
+        { value: 'RU', label: 'Russian' },
+        { value: 'SK', label: 'Slovak' },
+        { value: 'SL', label: 'Slovenian' },
+        { value: 'SV', label: 'Swedish' },
+        { value: 'TR', label: 'Turkish' },
+        { value: 'UK', label: 'Ukrainian' },
+        { value: 'ZH', label: 'Chinese' },
+    ];
 
     useEffect(() => {
 
@@ -319,6 +364,103 @@ export default function Dashboard() {
             });
     }
 
+    const openTranslateModal = (angleId) => {
+        setCurrentAngleId(angleId);
+        setTranslateModalOpen(true);
+    };
+
+    const handleLanguageSelect = () => {
+        if (!selectedLanguage) {
+            alert('Please select a language');
+            return;
+        }
+        setTranslateModalOpen(false);
+        setTranslateActionModalOpen(true);
+    };
+
+    const handleTranslateAction = (shouldDuplicate) => {
+        setTranslateActionModalOpen(false);
+        setTranslating(true);
+
+        if (shouldDuplicate) {
+            // First duplicate, then translate
+            fetch(route('duplicate.angle', currentAngleId), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Now translate the duplicated angle
+                        translateAngle(data.data.angle.id);
+                    } else {
+                        throw new Error(data.message || 'Duplication failed');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        title: "Error!",
+                        text: "An error occurred while duplicating the Angle.",
+                        icon: "error"
+                    });
+                    setTranslating(false);
+                });
+        } else {
+            // Just translate the original
+            translateAngle(currentAngleId);
+        }
+    };
+
+    const translateAngle = (angleId) => {
+        fetch(route('translate.angle'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                angle_id: angleId,
+                target_language: selectedLanguage,
+                split_sentences: splitSentences,
+                preserve_formatting: preserveFormatting
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                setTranslating(false);
+                Swal.fire({
+                    title: data.success ? "Translated!" : "Error!",
+                    text: data.message,
+                    icon: data.success ? "success" : "error"
+                });
+                if (data.success) {
+                    setReload(!reload);
+                }
+                // Reset states
+                setSelectedLanguage('');
+                setCurrentAngleId(null);
+                setSplitSentences('1');
+                setPreserveFormatting('0');
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                setTranslating(false);
+                Swal.fire({
+                    title: "Error!",
+                    text: "An error occurred while translating the Angle.",
+                    icon: "error"
+                });
+                // Reset states
+                setSelectedLanguage('');
+                setCurrentAngleId(null);
+                setSplitSentences('1');
+                setPreserveFormatting('0');
+            });
+    };
+
     const filters = [];
 
     const appliedFilters = [];
@@ -380,6 +522,8 @@ export default function Dashboard() {
                 <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angles/preview/${value.id}/`, "_blank")}></Button>
                 <span style={{ margin: "5px" }}></span>
                 <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
+                <span style={{ marginLeft: "10px" }}></span>
+                <Button variant='plain' icon={LanguageIcon} onClick={() => openTranslateModal(value.id)}></Button>
                 <span style={{ marginLeft: "10px" }}></span>
                 <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleHandler(value.id)}></Button>
                 <span style={{ marginLeft: "10px" }}></span>
@@ -554,6 +698,95 @@ export default function Dashboard() {
                     </div>
                 </div>
             </AuthenticatedLayout>
+
+            {/* Language Selection Modal */}
+            <Modal
+                open={translateModalOpen}
+                onClose={() => setTranslateModalOpen(false)}
+                title="Translation Settings"
+                primaryAction={{
+                    content: 'Next',
+                    onAction: handleLanguageSelect,
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Cancel',
+                        onAction: () => setTranslateModalOpen(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <ShopifySelect
+                        label="Target Language"
+                        options={languages}
+                        value={selectedLanguage}
+                        onChange={(value) => setSelectedLanguage(value)}
+                        placeholder="Select a language"
+                    />
+                </Modal.Section>
+
+                <Modal.Section>
+                    {/* <Text variant="headingMd" as="h6">Translation Options</Text>
+
+                    <div style={{ marginTop: '16px' }}>
+                        <ShopifySelect
+                            label="Split Sentences"
+                            options={[
+                                { label: 'No splitting (0)', value: '0' },
+                                { label: 'Split into sentences (1)', value: '1' },
+                                { label: 'Split but no new lines (nonewlines)', value: 'nonewlines' }
+                            ]}
+                            value={splitSentences}
+                            onChange={(value) => setSplitSentences(value)}
+                            helpText="Controls how sentences are handled during translation. Default: Split into sentences for better accuracy."
+                        />
+                    </div> */}
+
+                    <div style={{ marginTop: '5px' }}>
+                        <ShopifySelect
+                            label="Preserve Formatting"
+                            options={[
+                                { label: 'No formatting preservation (0)', value: '0' },
+                                { label: 'Preserve formatting (1)', value: '1' }
+                            ]}
+                            value={preserveFormatting}
+                            onChange={(value) => setPreserveFormatting(value)}
+                            helpText="Whether to preserve the original text's formatting (line breaks, spaces). Default: Preserve formatting."
+                        />
+                    </div>
+                </Modal.Section>
+            </Modal>
+
+            {/* Translation Action Modal */}
+            <Modal
+                open={translateActionModalOpen}
+                onClose={() => setTranslateActionModalOpen(false)}
+                title="Translation Options"
+                primaryAction={{
+                    content: 'Translate Only',
+                    onAction: () => handleTranslateAction(false),
+                    loading: translating,
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Duplicate & Translate',
+                        onAction: () => handleTranslateAction(true),
+                    },
+                    {
+                        content: 'Cancel',
+                        onAction: () => setTranslateActionModalOpen(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <p>Choose how you want to proceed with the translation:</p>
+                    <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
+                        <li><strong>Translate Only:</strong> Translate the current angle directly (all bodies will be translated)</li>
+                        <li><strong>Duplicate & Translate:</strong> Create a copy first, then translate the copy</li>
+                    </ul>
+                </Modal.Section>
+            </Modal>
+
         </AppProvider>
     );
 }

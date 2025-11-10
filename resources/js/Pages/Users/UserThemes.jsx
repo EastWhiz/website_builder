@@ -591,7 +591,7 @@ export default function Dashboard() {
                 </Modal.Section>
 
                 <Modal.Section>
-                    <Text variant="headingMd" as="h6">Translation Options</Text>
+                    {/* <Text variant="headingMd" as="h6">Translation Options</Text>
 
                     <div style={{ marginTop: '16px' }}>
                         <ShopifySelect
@@ -605,9 +605,9 @@ export default function Dashboard() {
                             onChange={(value) => setSplitSentences(value)}
                             helpText="Controls how sentences are handled during translation. Default: Split into sentences for better accuracy."
                         />
-                    </div>
+                    </div> */}
 
-                    <div style={{ marginTop: '16px' }}>
+                    <div style={{ marginTop: '5px' }}>
                         <ShopifySelect
                             label="Preserve Formatting"
                             options={[
