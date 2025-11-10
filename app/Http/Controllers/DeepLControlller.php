@@ -20,7 +20,10 @@ class DeepLControlller extends Controller
         $text = $request->text;
         $language = $request->language;
         $sourceLanguage = $request->source_language;
-        $translatedText = $this->deepL->translate($text, $language, $sourceLanguage);
+        $splitSentences = $request->split_sentences;
+        $preserveFormatting = $request->preserve_formatting;
+
+        $translatedText = $this->deepL->translate($text, $language, $sourceLanguage, $splitSentences, $preserveFormatting);
         return sendResponse(true, "DeepL Translation Retreived", $translatedText);
     }
 }

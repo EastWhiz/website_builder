@@ -11,6 +11,7 @@ import {
     Modal,
     Pagination,
     Select as ShopifySelect,
+    Text,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
 import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, PageDownIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
@@ -132,6 +133,10 @@ export default function Dashboard() {
     const [selectedLanguage, setSelectedLanguage] = useState('');
     const [currentAngleTemplateId, setCurrentAngleTemplateId] = useState(null);
     const [translating, setTranslating] = useState(false);
+
+    // Translation options state
+    const [splitSentences, setSplitSentences] = useState('1'); // Default: split sentences
+    const [preserveFormatting, setPreserveFormatting] = useState('0'); // Default: preserve formatting
 
     const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
@@ -380,7 +385,9 @@ export default function Dashboard() {
             },
             body: JSON.stringify({
                 angle_template_id: angleTemplateId,
-                target_language: selectedLanguage
+                target_language: selectedLanguage,
+                split_sentences: splitSentences,
+                preserve_formatting: preserveFormatting
             })
         })
             .then(response => response.json())
@@ -397,6 +404,8 @@ export default function Dashboard() {
                 // Reset states
                 setSelectedLanguage('');
                 setCurrentAngleTemplateId(null);
+                setSplitSentences('1');
+                setPreserveFormatting('0');
             })
             .catch((error) => {
                 console.error('Error:', error);
@@ -409,6 +418,8 @@ export default function Dashboard() {
                 // Reset states
                 setSelectedLanguage('');
                 setCurrentAngleTemplateId(null);
+                setSplitSentences('1');
+                setPreserveFormatting('0');
             });
     };
 
@@ -557,7 +568,7 @@ export default function Dashboard() {
             <Modal
                 open={translateModalOpen}
                 onClose={() => setTranslateModalOpen(false)}
-                title="Select Translation Language"
+                title="Translation Settings"
                 primaryAction={{
                     content: 'Next',
                     onAction: handleLanguageSelect,
@@ -577,6 +588,37 @@ export default function Dashboard() {
                         onChange={(value) => setSelectedLanguage(value)}
                         placeholder="Select a language"
                     />
+                </Modal.Section>
+
+                <Modal.Section>
+                    <Text variant="headingMd" as="h6">Translation Options</Text>
+
+                    <div style={{ marginTop: '16px' }}>
+                        <ShopifySelect
+                            label="Split Sentences"
+                            options={[
+                                { label: 'No splitting (0)', value: '0' },
+                                { label: 'Split into sentences (1)', value: '1' },
+                                { label: 'Split but no new lines (nonewlines)', value: 'nonewlines' }
+                            ]}
+                            value={splitSentences}
+                            onChange={(value) => setSplitSentences(value)}
+                            helpText="Controls how sentences are handled during translation. Default: Split into sentences for better accuracy."
+                        />
+                    </div>
+
+                    <div style={{ marginTop: '16px' }}>
+                        <ShopifySelect
+                            label="Preserve Formatting"
+                            options={[
+                                { label: 'No formatting preservation (0)', value: '0' },
+                                { label: 'Preserve formatting (1)', value: '1' }
+                            ]}
+                            value={preserveFormatting}
+                            onChange={(value) => setPreserveFormatting(value)}
+                            helpText="Whether to preserve the original text's formatting (line breaks, spaces). Default: Preserve formatting."
+                        />
+                    </div>
                 </Modal.Section>
             </Modal>
 

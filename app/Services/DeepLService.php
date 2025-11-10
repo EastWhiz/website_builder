@@ -15,23 +15,34 @@ class DeepLService
         $this->endpoint = 'https://api.deepl.com/v2/translate';
     }
 
-    public function translate($text, $targetLang = 'EN', $sourceLang = null)
+    public function translate($text, $targetLang = 'EN', $sourceLang = null, $splitSentences = null, $preserveFormatting = null)
     {
         $data = [
             'auth_key' => $this->apiKey,
             'text' => $text,
             'target_lang' => $targetLang,
-            'preserve_formatting' => 1,
         ];
 
         if ($sourceLang) {
             $data['source_lang'] = $sourceLang;
         }
 
+        if ($splitSentences !== null) {
+            $data['split_sentences'] = $splitSentences;
+        }
+
+        if ($preserveFormatting !== null) {
+            $data['preserve_formatting'] = (int) $preserveFormatting;
+        }
+
+        // logger(json_encode($data));
+
         $response = Http::asForm()->post($this->endpoint, $data);
 
         if ($response->successful()) {
-            return $response->json()['translations'][0]['text'];
+            $data = $response->json()['translations'][0]['text'];
+            // logger("TRANSLATED: " . json_encode($data));
+            return $data;
         }
 
         throw new \Exception('DeepL API Error: ' . $response->body());

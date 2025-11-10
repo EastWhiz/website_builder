@@ -881,11 +881,15 @@ class AngleTemplateController extends Controller
         try {
             $request->validate([
                 'angle_template_id' => 'required|exists:angle_templates,id',
-                'target_language' => 'required|string|max:10'
+                'target_language' => 'required|string|max:10',
+                'split_sentences' => 'nullable|string',
+                'preserve_formatting' => 'nullable|integer'
             ]);
 
             $angleTemplate = AngleTemplate::findOrFail($request->angle_template_id);
             $targetLanguage = $request->target_language;
+            $splitSentences = $request->split_sentences;
+            $preserveFormatting = $request->preserve_formatting;
 
             Log::info('✅ Template found', [
                 'template_id' => $angleTemplate->id,
@@ -925,7 +929,7 @@ class AngleTemplateController extends Controller
 
             // Extract and translate text content in batches
             $startTime = microtime(true);
-            $translatedHtml = $this->translateHtmlContentMinimal($originalHtml, $targetLanguage, $deepLService);
+            $translatedHtml = $this->translateHtmlContentMinimal($originalHtml, $targetLanguage, $deepLService, $splitSentences, $preserveFormatting);
             $endTime = microtime(true);
 
             Log::info('✅ Translation completed', [
@@ -957,7 +961,7 @@ class AngleTemplateController extends Controller
         }
     }
 
-    private function translateHtmlContentMinimal($html, $targetLanguage, $deepLService)
+    private function translateHtmlContentMinimal($html, $targetLanguage, $deepLService, $splitSentences = null, $preserveFormatting = null)
     {
         Log::info('🔍 Starting HTML content parsing', [
             'html_length' => strlen($html),
@@ -1048,7 +1052,7 @@ class AngleTemplateController extends Controller
             ]);
 
             $apiStartTime = microtime(true);
-            $translatedText = $deepLService->translate($allText, $targetLanguage);
+            $translatedText = $deepLService->translate($allText, $targetLanguage, null, $splitSentences, $preserveFormatting);
             $apiEndTime = microtime(true);
 
             Log::info('📥 DeepL API response received', [
