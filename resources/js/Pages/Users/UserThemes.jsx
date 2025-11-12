@@ -140,6 +140,11 @@ export default function Dashboard() {
     const [splitSentences, setSplitSentences] = useState('1'); // Default: split sentences
     const [preserveFormatting, setPreserveFormatting] = useState('0'); // Default: preserve formatting
 
+    // Export modal state
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [selectedExportAngleTemplateId, setSelectedExportAngleTemplateId] = useState(null);
+    const [isSelfHosted, setIsSelfHosted] = useState(false);
+
     const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
 
@@ -309,9 +314,7 @@ export default function Dashboard() {
                 {convertISOToYMD(value.created_at)}
             </IndexTable.Cell>
             <IndexTable.Cell>
-                <Button variant='plain' icon={PageDownIcon} onClick={() => {
-                    window.open(`${window.appURL}/download?angle_template_id=${value.id}`, "_blank");
-                }}></Button>
+                <Button variant='plain' icon={PageDownIcon} onClick={() => openExportModal(value.id)}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)}></Button>
                 <span style={{ margin: "10px" }}></span>
@@ -331,6 +334,21 @@ export default function Dashboard() {
     const openTranslateModal = (angleTemplateId) => {
         setCurrentAngleTemplateId(angleTemplateId);
         setTranslateModalOpen(true);
+    };
+
+    // Export modal functions
+    const openExportModal = (angleTemplateId) => {
+        setSelectedExportAngleTemplateId(angleTemplateId);
+        setExportModalOpen(true);
+        setIsSelfHosted(false); // Reset to default
+    };
+
+    const handleExport = () => {
+        setExportModalOpen(false);
+        if (selectedExportAngleTemplateId) {
+            const isSelfHostedParam = isSelfHosted ? '&is_self_hosted=true' : '&is_self_hosted=false';
+            window.open(`${window.appURL}/download?angle_template_id=${selectedExportAngleTemplateId}${isSelfHostedParam}`, "_blank");
+        }
     };
 
     const handleLanguageSelect = () => {
@@ -651,6 +669,45 @@ export default function Dashboard() {
                         <li><strong>Translate Only:</strong> Translate the current sales page directly</li>
                         <li><strong>Duplicate & Translate:</strong> Create a copy first, then translate the copy</li>
                     </ul>
+                </Modal.Section>
+            </Modal>
+
+            {/* Export Modal */}
+            <Modal
+                open={exportModalOpen}
+                onClose={() => setExportModalOpen(false)}
+                title="Export Options"
+                primaryAction={{
+                    content: 'Export',
+                    onAction: handleExport,
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Cancel',
+                        onAction: () => setExportModalOpen(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <p>Choose how you want to export this sales page:</p>
+                    <div style={{ marginTop: '20px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={isSelfHosted}
+                                onChange={(e) => setIsSelfHosted(e.target.checked)}
+                            />
+                            <Text as="span">
+                                <strong>Self-hosted mode</strong> - Skip external API calls and send form data directly to CRM
+                            </Text>
+                        </label>
+                    </div>
+                    <div style={{ marginTop: '15px', fontSize: '14px', color: '#666' }}>
+                        <ul style={{ paddingLeft: '20px', margin: 0 }}>
+                            <li><strong>Self-hosted enabled:</strong> Forms will send data directly to your CRM without external API calls</li>
+                            <li><strong>Self-hosted disabled:</strong> Forms will use the current API flow as configured</li>
+                        </ul>
+                    </div>
                 </Modal.Section>
             </Modal>
 

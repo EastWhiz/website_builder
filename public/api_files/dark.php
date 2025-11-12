@@ -28,6 +28,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
 
+    // Check if self-hosted mode
+    $isSelfHosted = isset($postData['is_self_hosted']) && (bool) $postData['is_self_hosted'];
+
+    if ($isSelfHosted) {
+        // Self-hosted mode: Skip external API calls, only save to CRM
+        $responseArray = [
+            'status' => true,
+            'message' => 'Lead processed successfully (self-hosted)',
+            'is_self_hosted' => true
+        ];
+
+        // Save lead to CRM directly
+        saveLead($postData, $getData, $responseArray, 'dark', 'success', []);
+
+        // Redirect to thank you page
+        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
+        exit();
+    }
+
+    // Regular mode: Continue with external API calls
     // Setup cURL to call the Zeus API
     $ch = curl_init('https://tb.connnecto.com/api/signup/procform');
 

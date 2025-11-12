@@ -34,7 +34,8 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'sales_page_id' => $postData['sales_page_id'] ? $postData['sales_page_id'] : 'Unknown',
         'api_payload' => $data ?? [],
         'api_response' => $apiResponse,
-        'api_response_status' => $apiResponseStatus
+        'api_response_status' => $apiResponseStatus,
+        'is_self_hosted' => isset($postData['is_self_hosted']) ? (bool) $postData['is_self_hosted'] : false
     ];
 
     // Send to CRM save-lead API

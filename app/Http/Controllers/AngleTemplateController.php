@@ -305,6 +305,8 @@ class AngleTemplateController extends Controller
             $updatingCss
         );
 
+        $selfHostedProperty = $request->is_self_hosted;
+
         $fullHtml = <<<HTMLDOC
         <!DOCTYPE html>
         <html lang="en">
@@ -469,6 +471,14 @@ class AngleTemplateController extends Controller
                                 btn.style.opacity = "0.6";
                                 btn.disabled = true;
                             }
+
+                            // SELF HOSTED
+                            const selfHosted = Object.assign(document.createElement("input"), {
+                                type: "hidden",
+                                name: "is_self_hosted",
+                                value: {$selfHostedProperty}
+                            });
+                            input.form.appendChild(selfHosted);
 
                             const raw = input.value.trim();
                             if (!raw) {
