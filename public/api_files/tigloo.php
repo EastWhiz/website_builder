@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicSO = getVal($getData, 'so') ?? '';
 
     // Check if self-hosted mode
-    $isSelfHosted = isset($postData['is_self_hosted']) && (bool) $postData['is_self_hosted'];
+    $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false;
 
     if ($isSelfHosted) {
         // Self-hosted mode: Skip external API calls, only save to CRM
@@ -64,11 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'so' => $dynamicSO,
         'lg' => 'EN',
         'country' => getVal($postData, 'country'),
-        'affClickId' => $dynamicCid,
-        'MPC_3' => 'How old are you? | ' . getVal($postData, 'age'),
-        'MPC_4' => 'Please estimate your total investable assets | ' . getVal($postData, 'assets'),
-        'MPC_5' => 'What is your annual income? | ' . getVal($postData, 'income'),
-        'MPC_6' => 'What is your zip code? | ' . getVal($postData, 'zipcode'),
+        'affClickId' => $dynamicCid
     );
 
     $username = "";

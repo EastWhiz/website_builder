@@ -7,6 +7,12 @@
 
 function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatus = 'success', $data = null)
 {
+    // Helper function to get value or empty string
+    function getValInside($arr, $key)
+    {
+        return isset($arr[$key]) ? $arr[$key] : '';
+    }
+
     // Get user IP
     $userIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     if (strpos($userIp, ',') !== false) {
@@ -35,7 +41,9 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'api_payload' => $data ?? [],
         'api_response' => $apiResponse,
         'api_response_status' => $apiResponseStatus,
-        'is_self_hosted' => isset($postData['is_self_hosted']) ? (bool) $postData['is_self_hosted'] : false
+        'is_self_hosted' => (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false,
+        'so' => getValInside($getData, 'so') ?? '',
+        'cid' => getValInside($getData, 'cid') ?? ''
     ];
 
     // Send to CRM save-lead API

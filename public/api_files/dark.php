@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicSO = getVal($getData, 'so') ?? '';
 
     // Check if self-hosted mode
-    $isSelfHosted = isset($postData['is_self_hosted']) && (bool) $postData['is_self_hosted'];
+    $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false;
 
     if ($isSelfHosted) {
         // Self-hosted mode: Skip external API calls, only save to CRM
