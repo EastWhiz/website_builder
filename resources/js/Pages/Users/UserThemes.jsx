@@ -82,6 +82,8 @@ export default function Dashboard() {
         { value: 'DE', label: 'German' },
         { value: 'EL', label: 'Greek' },
         { value: 'EN', label: 'English' },
+        // { value: 'EN-GB', label: 'English (British)' },
+        // { value: 'EN-US', label: 'English (American)' },
         { value: 'ES', label: 'Spanish' },
         { value: 'ET', label: 'Estonian' },
         { value: 'FI', label: 'Finnish' },

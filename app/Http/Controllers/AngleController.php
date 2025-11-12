@@ -632,14 +632,14 @@ class AngleController extends Controller
             ]);
 
             // Check if user has permission to edit this angle
-            if (Auth::user()->role->name !== 'admin' && $angle->user_id !== Auth::id()) {
-                Log::warning('❌ Permission denied', [
-                    'user_role' => Auth::user()->role->name,
-                    'angle_owner' => $angle->user_id,
-                    'current_user' => Auth::id()
-                ]);
-                return sendResponse(false, "You don't have permission to translate this angle", null);
-            }
+            // if (Auth::user()->role->name !== 'admin' && $angle->user_id !== Auth::id()) {
+            //     Log::warning('❌ Permission denied', [
+            //         'user_role' => Auth::user()->role->name,
+            //         'angle_owner' => $angle->user_id,
+            //         'current_user' => Auth::id()
+            //     ]);
+            //     return sendResponse(false, "You don't have permission to translate this angle", null);
+            // }
 
             Log::info('✅ Permission granted');
 

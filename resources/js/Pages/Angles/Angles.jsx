@@ -108,6 +108,8 @@ export default function Dashboard() {
         { value: 'DE', label: 'German' },
         { value: 'EL', label: 'Greek' },
         { value: 'EN', label: 'English' },
+        // { value: 'EN-GB', label: 'English (British)' },
+        // { value: 'EN-US', label: 'English (American)' },
         { value: 'ES', label: 'Spanish' },
         { value: 'ET', label: 'Estonian' },
         { value: 'FI', label: 'Finnish' },
@@ -123,6 +125,8 @@ export default function Dashboard() {
         { value: 'NL', label: 'Dutch' },
         { value: 'PL', label: 'Polish' },
         { value: 'PT', label: 'Portuguese' },
+        // { value: 'PT-BR', label: 'Portuguese (Brazilian)' },
+        // { value: 'PT-PT', label: 'Portuguese (all Portuguese variants excluding Brazilian Portuguese)' },
         { value: 'RO', label: 'Romanian' },
         { value: 'RU', label: 'Russian' },
         { value: 'SK', label: 'Slovak' },
@@ -131,6 +135,8 @@ export default function Dashboard() {
         { value: 'TR', label: 'Turkish' },
         { value: 'UK', label: 'Ukrainian' },
         { value: 'ZH', label: 'Chinese' },
+        // { value: 'ZH-HANS', label: 'Chinese (simplified)' },
+        // { value: 'ZH-HANT', label: 'Chinese (traditional)' }
     ];
 
     useEffect(() => {
