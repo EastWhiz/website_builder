@@ -39,6 +39,12 @@ class UserApiCredential extends Model
         'facebook_pixel_url',
         'second_pixel_url',
         'koi_api_key',
+        'pastile_username',
+        'pastile_password',
+        'pastile_api_key',
+        'pastile_ai',
+        'pastile_ci',
+        'pastile_gi',
     ];
 
     // protected $casts = [

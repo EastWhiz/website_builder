@@ -5,6 +5,7 @@ import TextInput from '@/Components/TextInput';
 import { Transition } from '@headlessui/react';
 import { useForm, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 export default function PixelFormFields({
     className = '',
@@ -59,16 +60,31 @@ export default function PixelFormFields({
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+                ...data,
+                provider: activeTab
+            }),
         })
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    // Handle success
-                    console.log('Pixel URLs saved successfully');
+                    // console.log('API credentials saved successfully');
+                    Swal.fire({
+                        title: 'Success!',
+                        text: result.message,
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
                 } else {
-                    // Handle errors
-                    console.error('Error saving pixel URLs:', result.errors);
+                    // console.error('Error saving API credentials:', result.errors);
+                    Swal.fire({
+                        title: 'Error!',
+                        text: result.message,
+                        icon: 'error',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
                 }
             })
             .catch(error => {

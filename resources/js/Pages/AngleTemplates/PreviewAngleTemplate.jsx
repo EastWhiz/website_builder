@@ -105,6 +105,7 @@ export default function Dashboard({ id }) {
         { label: 'Electra', value: 'https://lcaapi.net/leads' },
         { label: 'Meeseeksmedia', value: 'https://mskmd-api.com/api/v2/leads' },
         { label: 'Dark', value: 'https://tb.connnecto.com/api/signup/procform' },
+        { label: 'Pastile', value: 'https://tb.pastile.net/api/signup/procform' },
     ];
 
     const apiTypes = [
@@ -115,6 +116,7 @@ export default function Dashboard({ id }) {
         { label: 'Meeseeksmedia', value: 'meeseeksmedia' },
         { label: 'Dark', value: 'dark' },
         { label: 'Koi', value: 'koi' },
+        { label: 'Pastile', value: 'pastile' },
     ];
 
     const commonInputTypes = [

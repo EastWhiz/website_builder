@@ -15,7 +15,7 @@ class ApiCredentialsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi',
+                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,facebook,second',
                 'aweber_client_id' => 'nullable|string|max:255',
                 'aweber_client_secret' => 'nullable|string|max:255',
                 'aweber_account_id' => 'nullable|string|max:255',
@@ -46,6 +46,12 @@ class ApiCredentialsController extends Controller
                 'facebook_pixel_url' => 'nullable|url|max:1000',
                 'second_pixel_url' => 'nullable|url|max:1000',
                 'koi_api_key' => 'nullable|string|max:255',
+                'pastile_username' => 'nullable|string|max:255',
+                'pastile_password' => 'nullable|string|max:255',
+                'pastile_api_key' => 'nullable|string|max:255',
+                'pastile_ai' => 'nullable|string|max:255',
+                'pastile_ci' => 'nullable|string|max:255',
+                'pastile_gi' => 'nullable|string|max:255',
             ]);
 
             $user = Auth::user();
@@ -224,6 +230,17 @@ class ApiCredentialsController extends Controller
                         'endpoint' => 'https://hannyaapi.com/api/v2/leads',
                     ];
                     break;
+                case 'pastile':
+                    $providerData = [
+                        'username' => $credentials->pastile_username,
+                        'password' => $credentials->pastile_password,
+                        'api_key' => $credentials->pastile_api_key,
+                        'ai' => $credentials->pastile_ai,
+                        'ci' => $credentials->pastile_ci,
+                        'gi' => $credentials->pastile_gi,
+                        'endpoint' => 'https://tb.pastile.net/api/signup/procform',
+                    ];
+                    break;
                 default:
                     return response()->json([
                         'success' => false,
@@ -355,6 +372,16 @@ class ApiCredentialsController extends Controller
             case 'koi':
                 $payload['apiKey'] = $credentials->koi_api_key ?? '';
                 $payload['endpointUrl'] = 'https://hannyaapi.com/api/v2/leads';
+                break;
+
+            case 'pastile':
+                $payload['userName'] = $credentials->pastile_username ?? '';
+                $payload['password'] = $credentials->pastile_password ?? '';
+                $payload['apiKey'] = $credentials->pastile_api_key ?? '';
+                $payload['aiParam'] = $credentials->pastile_ai ?? '';
+                $payload['ciParam'] = $credentials->pastile_ci ?? '';
+                $payload['giParam'] = $credentials->pastile_gi ?? '';
+                $payload['endpointUrl'] = 'https://tb.pastile.net/api/signup/procform';
                 break;
         }
 

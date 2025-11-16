@@ -46,6 +46,12 @@ export default function ApiFormFields({
             tigloo_ci: '',
             tigloo_gi: '',
             koi_api_key: '',
+            pastile_username: '',
+            pastile_password: '',
+            pastile_api_key: '',
+            pastile_ai: '',
+            pastile_ci: '',
+            pastile_gi: '',
         });
 
     // Load existing credentials on component mount
@@ -96,6 +102,12 @@ export default function ApiFormFields({
                     tigloo_ci: credentials.tigloo_ci || '',
                     tigloo_gi: credentials.tigloo_gi || '',
                     koi_api_key: credentials.koi_api_key || '',
+                    pastile_username: credentials.pastile_username || '',
+                    pastile_password: credentials.pastile_password || '',
+                    pastile_api_key: credentials.pastile_api_key || '',
+                    pastile_ai: credentials.pastile_ai || '',
+                    pastile_ci: credentials.pastile_ci || '',
+                    pastile_gi: credentials.pastile_gi || '',
                 });
             }
         } catch (error) {
@@ -215,6 +227,7 @@ export default function ApiFormFields({
         { key: 'novelix', name: 'Novelix', icon: '📚' },
         { key: 'tigloo', name: 'Online Partners ED', icon: '🐅' },
         { key: 'koi', name: 'Koi', icon: '🐟' },
+        { key: 'pastile', name: 'Pastile', icon: '💊' },
     ];
 
     const renderApiFields = () => {
@@ -653,6 +666,93 @@ export default function ApiFormFields({
                             </p>
                             <p className="text-blue-800 text-sm mt-1">
                                 <strong>Note:</strong> This API requires IP whitelisting. Make sure your server IP is whitelisted.
+                            </p>
+                        </div>
+                    </div>
+                );
+
+            case 'pastile':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="pastile_username" value="Trackbox Username" />
+                            <TextInput
+                                id="pastile_username"
+                                className="mt-1 block w-full"
+                                value={data.pastile_username}
+                                onChange={(e) => setData('pastile_username', e.target.value)}
+                                placeholder="CFmeeseeks"
+                                autoComplete="username"
+                            />
+                            <InputError className="mt-2" message={errors.pastile_username} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="pastile_password" value="Trackbox Password" />
+                            <TextInput
+                                id="pastile_password"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.pastile_password}
+                                onChange={(e) => setData('pastile_password', e.target.value)}
+                                placeholder="3OxW)n(8_9"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.pastile_password} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="pastile_api_key" value="API Key" />
+                            <TextInput
+                                id="pastile_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.pastile_api_key}
+                                onChange={(e) => setData('pastile_api_key', e.target.value)}
+                                placeholder="2643889w34df345676ssdas323tgc738"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.pastile_api_key} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div>
+                                <InputLabel htmlFor="pastile_ai" value="AI Parameter" />
+                                <TextInput
+                                    id="pastile_ai"
+                                    className="mt-1 block w-full"
+                                    value={data.pastile_ai}
+                                    onChange={(e) => setData('pastile_ai', e.target.value)}
+                                    placeholder="2958073"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.pastile_ai} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="pastile_ci" value="CI Parameter" />
+                                <TextInput
+                                    id="pastile_ci"
+                                    className="mt-1 block w-full"
+                                    value={data.pastile_ci}
+                                    onChange={(e) => setData('pastile_ci', e.target.value)}
+                                    placeholder="1"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.pastile_ci} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="pastile_gi" value="GI Parameter" />
+                                <TextInput
+                                    id="pastile_gi"
+                                    className="mt-1 block w-full"
+                                    value={data.pastile_gi}
+                                    onChange={(e) => setData('pastile_gi', e.target.value)}
+                                    placeholder="55"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.pastile_gi} />
+                            </div>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <p className="text-blue-800 text-sm">
+                                <strong>Endpoint:</strong> https://tb.pastile.net/api/signup/procform
                             </p>
                         </div>
                     </div>

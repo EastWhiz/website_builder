@@ -60,6 +60,14 @@ class AdminApiCredentialsSeeder extends Seeder
                 // Koi API credentials
                 'koi_api_key' => 'D39501B5-4872-3F35-3463-EC6B258BE52A',
 
+                // Pastile API credentials
+                'pastile_username' => 'CFmeeseeks',
+                'pastile_password' => '3OxW)n(8_9',
+                'pastile_api_key' => '2643889w34df345676ssdas323tgc738',
+                'pastile_ai' => '2958073',
+                'pastile_ci' => '1',
+                'pastile_gi' => '55',
+
                 // Pixel Management URLs
                 'facebook_pixel_url' => 'https://conversionpixel.com/fb.php',
                 'second_pixel_url' => 'http://plz.hold1sec.com/postback',
