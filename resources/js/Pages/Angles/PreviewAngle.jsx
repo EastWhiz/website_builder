@@ -497,7 +497,7 @@ export default function Dashboard({ id }) {
             name: "email",
             id: "email",
             inputName: "",
-            inputType: "text",
+            inputType: "email",
             // required: false,
             // type: false,
         }, {
@@ -1147,6 +1147,7 @@ export default function Dashboard({ id }) {
                     formHTML += `
                         <div style="margin-bottom: 15px;">
                             <input
+                                required
                                 type="${input.inputType}"
                                 placeholder="${input.inputName || input.id}"
                                 id="${input.id}"
