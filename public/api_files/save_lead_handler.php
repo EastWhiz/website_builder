@@ -43,7 +43,8 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'api_response_status' => $apiResponseStatus,
         'is_self_hosted' => (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false,
         'so' => getValInside($getData, 'so') ?? '',
-        'cid' => getValInside($getData, 'cid') ?? ''
+        'cid' => getValInside($getData, 'cid') ?? '',
+        'ip_address' => $data['userip'] ?? ''
     ];
 
     // Send to CRM save-lead API

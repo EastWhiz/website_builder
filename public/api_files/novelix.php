@@ -22,25 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicPid = $getData['pid'] ?? '';
     $dynamicSO = $getData['so'] ?? '';
 
-    // Check if self-hosted mode
-    $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false;
-
-    if ($isSelfHosted) {
-        // Self-hosted mode: Skip external API calls, only save to CRM
-        $responseArray = [
-            'status' => true,
-            'message' => 'Lead processed successfully (self-hosted)',
-            'is_self_hosted' => true
-        ];
-
-        // Save lead to CRM directly
-        saveLead($postData, $getData, $responseArray, 'novelix', 'success', []);
-
-        // Redirect to thank you page
-        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
-        exit();
-    }
-
     // Regular mode: Continue with external API calls
     // Prepare the data for Nexl API
     $data = array(
@@ -63,6 +44,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ch = curl_init('https://nexlapi.net/leads');
 
     $xapikey = "";
+
+    // Check if self-hosted mode
+    $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false;
+
+    if ($isSelfHosted) {
+        // Self-hosted mode: Skip external API calls, only save to CRM
+        $responseArray = [
+            'status' => true,
+            'message' => 'Lead processed successfully (self-hosted)',
+            'is_self_hosted' => true
+        ];
+
+        // Save lead to CRM directly
+        saveLead($postData, $getData, $responseArray, 'novelix', 'success', $data);
+
+        // Redirect to thank you page
+        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
+        exit();
+    }
+
 
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data)); // Use URL-encoded format

@@ -19,32 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $getData = $_GET;
 
     // Helper function to get value or empty string
-    function getVal($arr, $key) {
+    function getVal($arr, $key)
+    {
         return isset($arr[$key]) ? $arr[$key] : '';
     }
 
     $dynamicCid = getVal($getData, 'cid') ?? '';
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
-
-    // Check if self-hosted mode
-    $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false;
-
-    if ($isSelfHosted) {
-        // Self-hosted mode: Skip external API calls, only save to CRM
-        $responseArray = [
-            'status' => true,
-            'message' => 'Lead processed successfully (self-hosted)',
-            'is_self_hosted' => true
-        ];
-
-        // Save lead to CRM directly
-        saveLead($postData, $getData, $responseArray, 'tigloo', 'success', []);
-
-        // Redirect to thank you page
-        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
-        exit();
-    }
 
     // Regular mode: Continue with external API calls
     // Setup cURL to call the Zeus API
@@ -70,6 +52,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = "";
     $password = "";
     $xapikey = "";
+
+    // Check if self-hosted mode
+    $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false;
+
+    if ($isSelfHosted) {
+        // Self-hosted mode: Skip external API calls, only save to CRM
+        $responseArray = [
+            'status' => true,
+            'message' => 'Lead processed successfully (self-hosted)',
+            'is_self_hosted' => true
+        ];
+
+        // Save lead to CRM directly
+        saveLead($postData, $getData, $responseArray, 'tigloo', 'success', $data);
+
+        // Redirect to thank you page
+        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
+        exit();
+    }
 
     // Set cURL options for the Zeus API request
     curl_setopt($ch, CURLOPT_POST, 1);
@@ -139,7 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Function to send data to Aweber API
-function sendToAweber($data) {
+function sendToAweber($data)
+{
     unset($data['form_type']);
     unset($data['web_builder_user_id']);
     unset($data['project_directory']);
