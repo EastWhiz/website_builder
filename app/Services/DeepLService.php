@@ -35,14 +35,16 @@ class DeepLService
             $data['preserve_formatting'] = (int) $preserveFormatting;
         }
 
-        // logger(json_encode($data));
+        // logger(json_encode($data, JSON_PRETTY_PRINT));
 
         $response = Http::asForm()->post($this->endpoint, $data);
 
         if ($response->successful()) {
-            $data = $response->json()['translations'][0]['text'];
-            // logger("TRANSLATED: " . json_encode($data));
-            return $data;
+            $data = $response->json();
+            // logger("RESPONSE: " . json_encode($data, JSON_PRETTY_PRINT));
+            $translatedText = $data['translations'][0]['text'];
+            // logger("TRANSLATED: " . json_encode($translatedText));
+            return $translatedText;
         }
 
         throw new \Exception('DeepL API Error: ' . $response->body());

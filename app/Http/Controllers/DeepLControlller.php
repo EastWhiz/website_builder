@@ -24,6 +24,7 @@ class DeepLControlller extends Controller
         $preserveFormatting = $request->preserve_formatting;
 
         $translatedText = $this->deepL->translate($text, $language, $sourceLanguage, $splitSentences, $preserveFormatting);
+        // logger(json_encode($translatedText));
         return sendResponse(true, "DeepL Translation Retreived", $translatedText);
     }
 }
