@@ -74,20 +74,20 @@ export default function Dashboard() {
         { label: 'Id', value: 'id desc', directionLabel: 'Descending' },
     ];
 
-    const languages = [
+    // Languages array similar to UserThemes
+    const sourceLanguages = [
         { value: 'AR', label: 'Arabic' },
         { value: 'BG', label: 'Bulgarian' },
         { value: 'CS', label: 'Czech' },
         { value: 'DA', label: 'Danish' },
         { value: 'DE', label: 'German' },
         { value: 'EL', label: 'Greek' },
-        // { value: 'EN', label: 'English' },
-        { value: 'EN-GB', label: 'English (British)' },
-        { value: 'EN-US', label: 'English (American)' },
+        { value: 'EN', label: 'English' },
         { value: 'ES', label: 'Spanish' },
         { value: 'ET', label: 'Estonian' },
         { value: 'FI', label: 'Finnish' },
         { value: 'FR', label: 'French' },
+        { value: 'HE', label: 'Hebrew' },
         { value: 'HU', label: 'Hungarian' },
         { value: 'ID', label: 'Indonesian' },
         { value: 'IT', label: 'Italian' },
@@ -99,18 +99,57 @@ export default function Dashboard() {
         { value: 'NL', label: 'Dutch' },
         { value: 'PL', label: 'Polish' },
         { value: 'PT', label: 'Portuguese' },
-        // { value: 'PT-BR', label: 'Portuguese (Brazilian)' },
-        // { value: 'PT-PT', label: 'Portuguese (all Portuguese variants excluding Brazilian Portuguese)' },
         { value: 'RO', label: 'Romanian' },
         { value: 'RU', label: 'Russian' },
         { value: 'SK', label: 'Slovak' },
         { value: 'SL', label: 'Slovenian' },
         { value: 'SV', label: 'Swedish' },
+        { value: 'TH', label: 'Thai' },
+        { value: 'TR', label: 'Turkish' },
+        { value: 'UK', label: 'Ukrainian' },
+        { value: 'VI', label: 'Vietnamese' },
+        { value: 'ZH', label: 'Chinese' },
+    ];
+
+    // Languages array similar to UserThemes
+    const targetLanguages = [
+        { value: 'AR', label: 'Arabic' },
+        { value: 'BG', label: 'Bulgarian' },
+        { value: 'CS', label: 'Czech' },
+        { value: 'DA', label: 'Danish' },
+        { value: 'DE', label: 'German' },
+        { value: 'EL', label: 'Greek' },
+        { value: 'EN-GB', label: 'English (British)' },
+        { value: 'EN-US', label: 'English (American)' },
+        { value: 'ES', label: 'Spanish' },
+        { value: 'ES-419', label: 'Spanish (Latin America)' },
+        { value: 'ET', label: 'Estonian' },
+        { value: 'FI', label: 'Finnish' },
+        { value: 'FR', label: 'French' },
+        { value: 'HE', label: 'Hebrew' },
+        { value: 'HU', label: 'Hungarian' },
+        { value: 'ID', label: 'Indonesian' },
+        { value: 'IT', label: 'Italian' },
+        { value: 'JA', label: 'Japanese' },
+        { value: 'KO', label: 'Korean' },
+        { value: 'LT', label: 'Lithuanian' },
+        { value: 'LV', label: 'Latvian' },
+        { value: 'NB', label: 'Norwegian Bokmål' },
+        { value: 'NL', label: 'Dutch' },
+        { value: 'PL', label: 'Polish' },
+        { value: 'PT-BR', label: 'Portuguese (Brazilian)' },
+        { value: 'PT-PT', label: 'Portuguese (all Portuguese variants excluding Brazilian Portuguese)' },
+        { value: 'RO', label: 'Romanian' },
+        { value: 'RU', label: 'Russian' },
+        { value: 'SK', label: 'Slovak' },
+        { value: 'SL', label: 'Slovenian' },
+        { value: 'SV', label: 'Swedish' },
+        { value: 'TH', label: 'Thai' },
         { value: 'TR', label: 'Turkish' },
         { value: 'UK', label: 'Ukrainian' },
         { value: 'ZH', label: 'Chinese' },
-        // { value: 'ZH-HANS', label: 'Chinese (simplified)' },
-        // { value: 'ZH-HANT', label: 'Chinese (traditional)' }
+        { value: 'ZH-HANS', label: 'Chinese (simplified)' },
+        { value: 'ZH-HANT', label: 'Chinese (traditional)' }
     ];
 
     const [sortSelected, setSortSelected] = useState(['id asc']);
@@ -603,7 +642,7 @@ export default function Dashboard() {
                 <Modal.Section>
                     <ShopifySelect
                         label="Target Language"
-                        options={languages}
+                        options={targetLanguages}
                         value={selectedLanguage}
                         onChange={(value) => setSelectedLanguage(value)}
                         placeholder="Select a language"
