@@ -308,7 +308,7 @@ class ApiCredentialsController extends Controller
             'aiParam' => '',
             'ciParam' => '',
             'giParam' => '',
-            'webBuilderUserId' => (string) $userId,
+            'webBuilderUserId' => (string) ("U" . $userId),
             'affiliateId' => '',
             'endpointUrl' => ''
         ];
