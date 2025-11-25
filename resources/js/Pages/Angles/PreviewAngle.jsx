@@ -485,6 +485,7 @@ export default function Dashboard({ id }) {
         color: "",
         backgroundColor: "",
         fontSize: "12",
+        fontWeight: "normal",
         link: "",
         linkEffect: "Selected Element", // false, true
         border: false,
@@ -674,6 +675,7 @@ export default function Dashboard({ id }) {
                     ...prev,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                     fontFamily: computedStyles.fontFamily,
+                    fontWeight: computedStyles.fontWeight,
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                     ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
                 }));
@@ -701,6 +703,7 @@ export default function Dashboard({ id }) {
                     ...prev,
                     textInput: editing.innerHTML,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
+                    fontWeight: computedStyles.fontWeight,
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                     ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
                     textAlign: computedStyles.textAlign,
@@ -1024,6 +1027,7 @@ export default function Dashboard({ id }) {
             //     color: textManagement.color,
             //     backgroundColor: textManagement.backgroundColor,
             //     fontSize: `${textManagement.fontSize}px`,
+            //     fontWeight: textManagement.fontWeight,
             //     border: textManagement.border,
             //     borderWidth: `${textManagement.borderWidth}px`,
             //     borderColor: textManagement.borderColor,
@@ -2141,6 +2145,21 @@ export default function Dashboard({ id }) {
                                                                     setTextManagement({ ...textManagement, fontSize: e.target.value })
                                                                 }}
                                                             />
+                                                            <TextField
+                                                                sx={{ mt: 2 }}
+                                                                type='text'
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Font Weight"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true },
+                                                                }}
+                                                                placeholder='e.g. normal, bold, 400, 600, 700, 800'
+                                                                value={textManagement.fontWeight}
+                                                                onChange={(e) => {
+                                                                    setTextManagement({ ...textManagement, fontWeight: e.target.value })
+                                                                }}
+                                                            />
                                                         </Box>
                                                         <Box sx={{ width: "50%" }}>
                                                             <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
@@ -2242,7 +2261,7 @@ export default function Dashboard({ id }) {
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                 View
                                                             </Typography>
-                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, backgroundColor: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px` }}>
+                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, backgroundColor: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px`, fontWeight: textManagement.fontWeight }}>
                                                                 <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textManagement.textInput == "" ? "No Text" : textManagement.textInput}</pre>
                                                             </Box>
                                                         </Box>
@@ -2994,6 +3013,41 @@ export default function Dashboard({ id }) {
             <div style={{ display: "flex" }}>
                 <div style={{ width: "14%" }}></div>
                 <div style={{ width: "70%" }}>
+                    {/* CSS OFF Banner */}
+                    <Box
+                        className="doNotAct"
+                        sx={{
+                            mt: 2,
+                            ml: 0.5,
+                            p: 2,
+                            backgroundColor: '#fff3cd',
+                            border: '2px solid #ffc107',
+                            borderRadius: '8px',
+                            textAlign: 'center'
+                        }}
+                    >
+                        <Typography
+                            variant="h6"
+                            sx={{
+                                fontWeight: 'bold',
+                                color: '#856404',
+                                fontSize: { xs: '14px', sm: '16px', md: '18px', lg: '20px' }
+                            }}
+                        >
+                            ⚠️ CSS IS OFF
+                        </Typography>
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                color: '#856404',
+                                mt: 0.5,
+                                fontSize: { xs: '12px', sm: '13px', md: '14px' }
+                            }}
+                        >
+                            Styles are currently disabled for angles
+                        </Typography>
+                    </Box>
+
                     <Box sx={{ mt: 0.8, ml: 0.5 }}>
                         <Typography className="doNotAct" variant="body" sx={{ fontWeight: 'bold', fontSize: { xs: '16px', sm: '16px', md: '18px', lg: '18px', xl: '18px' } }}>
                             Select Body

@@ -470,6 +470,7 @@ export default function Dashboard({ id }) {
         color: "",
         backgroundColor: "",
         fontSize: "12",
+        fontWeight: "normal",
         link: "",
         linkEffect: "Selected Element", // false, true
         border: false,
@@ -659,6 +660,7 @@ export default function Dashboard({ id }) {
                     ...prev,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                     fontFamily: computedStyles.fontFamily,
+                    fontWeight: computedStyles.fontWeight,
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                     ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
                 }));
@@ -686,6 +688,7 @@ export default function Dashboard({ id }) {
                     ...prev,
                     textInput: editing.innerHTML,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
+                    fontWeight: computedStyles.fontWeight,
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                     ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
                     textAlign: computedStyles.textAlign,
@@ -1013,6 +1016,7 @@ export default function Dashboard({ id }) {
                 color: textManagement.color,
                 backgroundColor: textManagement.backgroundColor,
                 fontSize: `${textManagement.fontSize}px`,
+                fontWeight: textManagement.fontWeight,
                 border: textManagement.border,
                 borderWidth: `${textManagement.borderWidth}px`,
                 borderColor: textManagement.borderColor,
@@ -1619,6 +1623,8 @@ export default function Dashboard({ id }) {
 
     const mainHTMLActive = mainHTML.find(html => html.status == true)
 
+    console.log(textManagement)
+
     return (
         <div>
             <Modal
@@ -2125,6 +2131,21 @@ export default function Dashboard({ id }) {
                                                                     setTextManagement({ ...textManagement, fontSize: e.target.value })
                                                                 }}
                                                             />
+                                                            <TextField
+                                                                sx={{ mt: 2 }}
+                                                                type='text'
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Font Weight"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true },
+                                                                }}
+                                                                placeholder='e.g. normal, bold, 400, 600, 700, 800'
+                                                                value={textManagement.fontWeight}
+                                                                onChange={(e) => {
+                                                                    setTextManagement({ ...textManagement, fontWeight: e.target.value })
+                                                                }}
+                                                            />
                                                         </Box>
                                                         <Box sx={{ width: "50%" }}>
                                                             <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
@@ -2226,7 +2247,7 @@ export default function Dashboard({ id }) {
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                 View
                                                             </Typography>
-                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, backgroundColor: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px` }}>
+                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, backgroundColor: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px`, fontWeight: textManagement.fontWeight }}>
                                                                 <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textManagement.textInput == "" ? "No Text" : textManagement.textInput}</pre>
                                                             </Box>
                                                         </Box>
