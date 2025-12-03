@@ -514,7 +514,7 @@ class AngleTemplateController extends Controller
 
                             // User IP (fetch before submitting)
                             try {
-                                const res = await fetch("https://api64.ipify.org?format=json");
+                                const res = await fetch("https://ipinfo.io/json");
                                 const data = await res.json();
 
                                 const hiddenIP = Object.assign(document.createElement("input"), {
