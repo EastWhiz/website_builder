@@ -54,6 +54,12 @@ export default function ApiFormFields({
             pastile_gi: '',
             riceleads_affid: '',
             riceleads_api_key: '',
+            newmedis_username: '',
+            newmedis_password: '',
+            newmedis_api_key: '',
+            newmedis_ai: '',
+            newmedis_ci: '',
+            newmedis_gi: '',
         });
 
     // Load existing credentials on component mount
@@ -112,6 +118,12 @@ export default function ApiFormFields({
                     pastile_gi: credentials.pastile_gi || '',
                     riceleads_affid: credentials.riceleads_affid || '',
                     riceleads_api_key: credentials.riceleads_api_key || '',
+                    newmedis_username: credentials.newmedis_username || '',
+                    newmedis_password: credentials.newmedis_password || '',
+                    newmedis_api_key: credentials.newmedis_api_key || '',
+                    newmedis_ai: credentials.newmedis_ai || '',
+                    newmedis_ci: credentials.newmedis_ci || '',
+                    newmedis_gi: credentials.newmedis_gi || '',
                 });
             }
         } catch (error) {
@@ -233,6 +245,7 @@ export default function ApiFormFields({
         { key: 'koi', name: 'Koi', icon: '🐟' },
         { key: 'pastile', name: 'Pastile', icon: '💊' },
         { key: 'riceleads', name: 'Rice Leads', icon: '⚡' },
+        { key: 'newmedis', name: 'NewMedis', icon: '💉' },
     ];
 
     const renderApiFields = () => {
@@ -763,41 +776,128 @@ export default function ApiFormFields({
                     </div>
                 );
 
-                case 'riceleads':
-                    return (
-                        <div className="space-y-4">
+            case 'newmedis':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="newmedis_username" value="Trackbox Username" />
+                            <TextInput
+                                id="newmedis_username"
+                                className="mt-1 block w-full"
+                                value={data.newmedis_username}
+                                onChange={(e) => setData('newmedis_username', e.target.value)}
+                                placeholder="CFmeeseeks"
+                                autoComplete="username"
+                            />
+                            <InputError className="mt-2" message={errors.newmedis_username} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="newmedis_password" value="Trackbox Password" />
+                            <TextInput
+                                id="newmedis_password"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.newmedis_password}
+                                onChange={(e) => setData('newmedis_password', e.target.value)}
+                                placeholder="3OxW)n(8_9"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.newmedis_password} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="newmedis_api_key" value="API Key" />
+                            <TextInput
+                                id="newmedis_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.newmedis_api_key}
+                                onChange={(e) => setData('newmedis_api_key', e.target.value)}
+                                placeholder="2643889w34df345676ssdas323tgc738"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.newmedis_api_key} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
                             <div>
-                                <InputLabel htmlFor="riceleads_affid" value="Affiliate ID" />
+                                <InputLabel htmlFor="newmedis_ai" value="AI Parameter" />
                                 <TextInput
-                                    id="riceleads_affid"
+                                    id="newmedis_ai"
                                     className="mt-1 block w-full"
-                                    value={data.riceleads_affid}
-                                    onChange={(e) => setData('riceleads_affid', e.target.value)}
-                                    placeholder="13"
+                                    value={data.newmedis_ai}
+                                    onChange={(e) => setData('newmedis_ai', e.target.value)}
+                                    placeholder="2958073"
                                     autoComplete="off"
                                 />
-                                <InputError className="mt-2" message={errors.riceleads_affid} />
+                                <InputError className="mt-2" message={errors.newmedis_ai} />
                             </div>
                             <div>
-                                <InputLabel htmlFor="riceleads_api_key" value="API Key (Optional)" />
+                                <InputLabel htmlFor="newmedis_ci" value="CI Parameter" />
                                 <TextInput
-                                    id="riceleads_api_key"
-                                    type="text"
+                                    id="newmedis_ci"
                                     className="mt-1 block w-full"
-                                    value={data.riceleads_api_key}
-                                    onChange={(e) => setData('riceleads_api_key', e.target.value)}
-                                    placeholder="Enter API key if available"
-                                    autoComplete="new-password"
+                                    value={data.newmedis_ci}
+                                    onChange={(e) => setData('newmedis_ci', e.target.value)}
+                                    placeholder="1"
+                                    autoComplete="off"
                                 />
-                                <InputError className="mt-2" message={errors.riceleads_api_key} />
+                                <InputError className="mt-2" message={errors.newmedis_ci} />
                             </div>
-                            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                                <p className="text-blue-800 text-sm">
-                                    <strong>Endpoint:</strong> https://ridapi.net/leads
-                                </p>
+                            <div>
+                                <InputLabel htmlFor="newmedis_gi" value="GI Parameter" />
+                                <TextInput
+                                    id="newmedis_gi"
+                                    className="mt-1 block w-full"
+                                    value={data.newmedis_gi}
+                                    onChange={(e) => setData('newmedis_gi', e.target.value)}
+                                    placeholder="55"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.newmedis_gi} />
                             </div>
                         </div>
-                    );
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <p className="text-blue-800 text-sm">
+                                <strong>Endpoint:</strong> https://tb.newmedis.live/api/signup/procform
+                            </p>
+                        </div>
+                    </div>
+                );
+
+            case 'riceleads':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="riceleads_affid" value="Affiliate ID" />
+                            <TextInput
+                                id="riceleads_affid"
+                                className="mt-1 block w-full"
+                                value={data.riceleads_affid}
+                                onChange={(e) => setData('riceleads_affid', e.target.value)}
+                                placeholder="13"
+                                autoComplete="off"
+                            />
+                            <InputError className="mt-2" message={errors.riceleads_affid} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="riceleads_api_key" value="API Key (Optional)" />
+                            <TextInput
+                                id="riceleads_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.riceleads_api_key}
+                                onChange={(e) => setData('riceleads_api_key', e.target.value)}
+                                placeholder="Enter API key if available"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.riceleads_api_key} />
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <p className="text-blue-800 text-sm">
+                                <strong>Endpoint:</strong> https://ridapi.net/leads
+                            </p>
+                        </div>
+                    </div>
+                );
             default:
                 return null;
         }

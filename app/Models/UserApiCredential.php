@@ -47,6 +47,12 @@ class UserApiCredential extends Model
         'pastile_gi',
         'riceleads_api_key',
         'riceleads_affid',
+        'newmedis_username',
+        'newmedis_password',
+        'newmedis_api_key',
+        'newmedis_ai',
+        'newmedis_ci',
+        'newmedis_gi',
     ];
 
     // protected $casts = [

@@ -15,7 +15,7 @@ class ApiCredentialsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,facebook,second',
+                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,facebook,second',
                 'aweber_client_id' => 'nullable|string|max:255',
                 'aweber_client_secret' => 'nullable|string|max:255',
                 'aweber_account_id' => 'nullable|string|max:255',
@@ -54,6 +54,12 @@ class ApiCredentialsController extends Controller
                 'pastile_gi' => 'nullable|string|max:255',
                 'riceleads_api_key' => 'nullable|string|max:255',
                 'riceleads_affid' => 'nullable|string|max:255',
+                'newmedis_username' => 'nullable|string|max:255',
+                'newmedis_password' => 'nullable|string|max:255',
+                'newmedis_api_key' => 'nullable|string|max:255',
+                'newmedis_ai' => 'nullable|string|max:255',
+                'newmedis_ci' => 'nullable|string|max:255',
+                'newmedis_gi' => 'nullable|string|max:255',
             ]);
 
             $user = Auth::user();
@@ -247,12 +253,23 @@ class ApiCredentialsController extends Controller
                         'endpoint' => 'https://tb.pastile.net/api/signup/procform',
                     ];
                     break;
-                    case 'riceleads':
-                        $providerData = [
-                            'affid' => $credentials->riceleads_affid,
-                            'api_key' => $credentials->riceleads_api_key,
-                            'endpoint' => 'https://lcaapi.net/leads',
-                        ];
+                case 'newmedis':
+                    $providerData = [
+                        'username' => $credentials->newmedis_username,
+                        'password' => $credentials->newmedis_password,
+                        'api_key' => $credentials->newmedis_api_key,
+                        'ai' => $credentials->newmedis_ai,
+                        'ci' => $credentials->newmedis_ci,
+                        'gi' => $credentials->newmedis_gi,
+                        'endpoint' => 'https://tb.newmedis.live/api/signup/procform',
+                    ];
+                    break;
+                case 'riceleads':
+                    $providerData = [
+                        'affid' => $credentials->riceleads_affid,
+                        'api_key' => $credentials->riceleads_api_key,
+                        'endpoint' => 'https://ridapi.net/leads',
+                    ];
                     break;    
                 default:
                     return response()->json([
@@ -395,6 +412,15 @@ class ApiCredentialsController extends Controller
                 $payload['ciParam'] = $credentials->pastile_ci ?? '';
                 $payload['giParam'] = $credentials->pastile_gi ?? '';
                 $payload['endpointUrl'] = 'https://tb.pastile.net/api/signup/procform';
+                break;
+            case 'newmedis':
+                $payload['userName'] = $credentials->newmedis_username ?? '';
+                $payload['password'] = $credentials->newmedis_password ?? '';
+                $payload['apiKey'] = $credentials->newmedis_api_key ?? '';
+                $payload['aiParam'] = $credentials->newmedis_ai ?? '';
+                $payload['ciParam'] = $credentials->newmedis_ci ?? '';
+                $payload['giParam'] = $credentials->newmedis_gi ?? '';
+                $payload['endpointUrl'] = 'https://tb.newmedis.live/api/signup/procform';
                 break;
             case 'riceleads':
                 $payload['affiliateId'] = $credentials->riceleads_affid ?? '';
