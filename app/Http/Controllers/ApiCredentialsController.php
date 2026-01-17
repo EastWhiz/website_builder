@@ -15,7 +15,7 @@ class ApiCredentialsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,facebook,second',
+                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,seamediaone,facebook,second',
                 'aweber_client_id' => 'nullable|string|max:255',
                 'aweber_client_secret' => 'nullable|string|max:255',
                 'aweber_account_id' => 'nullable|string|max:255',
@@ -60,6 +60,12 @@ class ApiCredentialsController extends Controller
                 'newmedis_ai' => 'nullable|string|max:255',
                 'newmedis_ci' => 'nullable|string|max:255',
                 'newmedis_gi' => 'nullable|string|max:255',
+                'seamediaone_username' => 'nullable|string|max:255',
+                'seamediaone_password' => 'nullable|string|max:255',
+                'seamediaone_api_key' => 'nullable|string|max:255',
+                'seamediaone_ai' => 'nullable|string|max:255',
+                'seamediaone_ci' => 'nullable|string|max:255',
+                'seamediaone_gi' => 'nullable|string|max:255',
             ]);
 
             $user = Auth::user();
@@ -264,6 +270,17 @@ class ApiCredentialsController extends Controller
                         'endpoint' => 'https://tb.newmedis.live/api/signup/procform',
                     ];
                     break;
+                case 'seamediaone':
+                    $providerData = [
+                        'username' => $credentials->seamediaone_username,
+                        'password' => $credentials->seamediaone_password,
+                        'api_key' => $credentials->seamediaone_api_key,
+                        'ai' => $credentials->seamediaone_ai,
+                        'ci' => $credentials->seamediaone_ci,
+                        'gi' => $credentials->seamediaone_gi,
+                        'endpoint' => 'https://tb.seamediaone.net/api/signup/procform',
+                    ];
+                    break;
                 case 'riceleads':
                     $providerData = [
                         'affid' => $credentials->riceleads_affid,
@@ -421,6 +438,15 @@ class ApiCredentialsController extends Controller
                 $payload['ciParam'] = $credentials->newmedis_ci ?? '';
                 $payload['giParam'] = $credentials->newmedis_gi ?? '';
                 $payload['endpointUrl'] = 'https://tb.newmedis.live/api/signup/procform';
+                break;
+            case 'seamediaone':
+                $payload['userName'] = $credentials->seamediaone_username ?? '';
+                $payload['password'] = $credentials->seamediaone_password ?? '';
+                $payload['apiKey'] = $credentials->seamediaone_api_key ?? '';
+                $payload['aiParam'] = $credentials->seamediaone_ai ?? '';
+                $payload['ciParam'] = $credentials->seamediaone_ci ?? '';
+                $payload['giParam'] = $credentials->seamediaone_gi ?? '';
+                $payload['endpointUrl'] = 'https://tb.seamediaone.net/api/signup/procform';
                 break;
             case 'riceleads':
                 $payload['affiliateId'] = $credentials->riceleads_affid ?? '';

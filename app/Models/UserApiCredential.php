@@ -53,6 +53,12 @@ class UserApiCredential extends Model
         'newmedis_ai',
         'newmedis_ci',
         'newmedis_gi',
+        'seamediaone_username',
+        'seamediaone_password',
+        'seamediaone_api_key',
+        'seamediaone_ai',
+        'seamediaone_ci',
+        'seamediaone_gi',
     ];
 
     // protected $casts = [

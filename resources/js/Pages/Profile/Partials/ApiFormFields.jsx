@@ -60,6 +60,12 @@ export default function ApiFormFields({
             newmedis_ai: '',
             newmedis_ci: '',
             newmedis_gi: '',
+            seamediaone_username: '',
+            seamediaone_password: '',
+            seamediaone_api_key: '',
+            seamediaone_ai: '',
+            seamediaone_ci: '',
+            seamediaone_gi: '',
         });
 
     // Load existing credentials on component mount
@@ -124,6 +130,12 @@ export default function ApiFormFields({
                     newmedis_ai: credentials.newmedis_ai || '',
                     newmedis_ci: credentials.newmedis_ci || '',
                     newmedis_gi: credentials.newmedis_gi || '',
+                    seamediaone_username: credentials.seamediaone_username || '',
+                    seamediaone_password: credentials.seamediaone_password || '',
+                    seamediaone_api_key: credentials.seamediaone_api_key || '',
+                    seamediaone_ai: credentials.seamediaone_ai || '',
+                    seamediaone_ci: credentials.seamediaone_ci || '',
+                    seamediaone_gi: credentials.seamediaone_gi || '',
                 });
             }
         } catch (error) {
@@ -246,6 +258,7 @@ export default function ApiFormFields({
         { key: 'pastile', name: 'Pastile', icon: '💊' },
         { key: 'riceleads', name: 'Rice Leads', icon: '⚡' },
         { key: 'newmedis', name: 'NewMedis', icon: '💉' },
+        { key: 'seamediaone', name: 'Seamediaone', icon: '🌊' },
     ];
 
     const renderApiFields = () => {
@@ -858,6 +871,93 @@ export default function ApiFormFields({
                         <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                             <p className="text-blue-800 text-sm">
                                 <strong>Endpoint:</strong> https://tb.newmedis.live/api/signup/procform
+                            </p>
+                        </div>
+                    </div>
+                );
+
+            case 'seamediaone':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="seamediaone_username" value="Trackbox Username" />
+                            <TextInput
+                                id="seamediaone_username"
+                                className="mt-1 block w-full"
+                                value={data.seamediaone_username}
+                                onChange={(e) => setData('seamediaone_username', e.target.value)}
+                                placeholder="CFmeeseeks"
+                                autoComplete="username"
+                            />
+                            <InputError className="mt-2" message={errors.seamediaone_username} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="seamediaone_password" value="Trackbox Password" />
+                            <TextInput
+                                id="seamediaone_password"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.seamediaone_password}
+                                onChange={(e) => setData('seamediaone_password', e.target.value)}
+                                placeholder="3OxW)n(8_9"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.seamediaone_password} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="seamediaone_api_key" value="API Key" />
+                            <TextInput
+                                id="seamediaone_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.seamediaone_api_key}
+                                onChange={(e) => setData('seamediaone_api_key', e.target.value)}
+                                placeholder="2643889w34df345676ssdas323tgc738"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.seamediaone_api_key} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div>
+                                <InputLabel htmlFor="seamediaone_ai" value="AI Parameter" />
+                                <TextInput
+                                    id="seamediaone_ai"
+                                    className="mt-1 block w-full"
+                                    value={data.seamediaone_ai}
+                                    onChange={(e) => setData('seamediaone_ai', e.target.value)}
+                                    placeholder="2958073"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.seamediaone_ai} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="seamediaone_ci" value="CI Parameter" />
+                                <TextInput
+                                    id="seamediaone_ci"
+                                    className="mt-1 block w-full"
+                                    value={data.seamediaone_ci}
+                                    onChange={(e) => setData('seamediaone_ci', e.target.value)}
+                                    placeholder="1"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.seamediaone_ci} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="seamediaone_gi" value="GI Parameter" />
+                                <TextInput
+                                    id="seamediaone_gi"
+                                    className="mt-1 block w-full"
+                                    value={data.seamediaone_gi}
+                                    onChange={(e) => setData('seamediaone_gi', e.target.value)}
+                                    placeholder="55"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.seamediaone_gi} />
+                            </div>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <p className="text-blue-800 text-sm">
+                                <strong>Endpoint:</strong> https://tb.seamediaone.net/api/signup/procform
                             </p>
                         </div>
                     </div>
