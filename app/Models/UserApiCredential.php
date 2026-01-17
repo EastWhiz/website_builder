@@ -45,6 +45,8 @@ class UserApiCredential extends Model
         'pastile_ai',
         'pastile_ci',
         'pastile_gi',
+        'riceleads_api_key',
+        'riceleads_affid',
     ];
 
     // protected $casts = [

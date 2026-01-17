@@ -15,7 +15,7 @@ class ApiCredentialsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,facebook,second',
+                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,facebook,second',
                 'aweber_client_id' => 'nullable|string|max:255',
                 'aweber_client_secret' => 'nullable|string|max:255',
                 'aweber_account_id' => 'nullable|string|max:255',
@@ -52,6 +52,8 @@ class ApiCredentialsController extends Controller
                 'pastile_ai' => 'nullable|string|max:255',
                 'pastile_ci' => 'nullable|string|max:255',
                 'pastile_gi' => 'nullable|string|max:255',
+                'riceleads_api_key' => 'nullable|string|max:255',
+                'riceleads_affid' => 'nullable|string|max:255',
             ]);
 
             $user = Auth::user();
@@ -67,7 +69,11 @@ class ApiCredentialsController extends Controller
             );
 
             // Call external API to sync the specific provider's credentials
-            $this->syncToExternalApi($credentials, $provider, $user->id);
+            // Skip syncing if running on localhost
+            $host = request()->getHost();
+            if ($host !== 'localhost' && $host !== '127.0.0.1') {
+                $this->syncToExternalApi($credentials, $provider, $user->id);
+            }
 
             return response()->json([
                 'success' => true,
@@ -241,6 +247,13 @@ class ApiCredentialsController extends Controller
                         'endpoint' => 'https://tb.pastile.net/api/signup/procform',
                     ];
                     break;
+                    case 'riceleads':
+                        $providerData = [
+                            'affid' => $credentials->riceleads_affid,
+                            'api_key' => $credentials->riceleads_api_key,
+                            'endpoint' => 'https://lcaapi.net/leads',
+                        ];
+                    break;    
                 default:
                     return response()->json([
                         'success' => false,
@@ -382,6 +395,11 @@ class ApiCredentialsController extends Controller
                 $payload['ciParam'] = $credentials->pastile_ci ?? '';
                 $payload['giParam'] = $credentials->pastile_gi ?? '';
                 $payload['endpointUrl'] = 'https://tb.pastile.net/api/signup/procform';
+                break;
+            case 'riceleads':
+                $payload['affiliateId'] = $credentials->riceleads_affid ?? '';
+                $payload['apiKey'] = $credentials->riceleads_api_key ?? '';
+                $payload['endpointUrl'] = 'https://ridapi.net/leads';
                 break;
         }
 
