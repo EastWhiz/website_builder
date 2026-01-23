@@ -777,6 +777,15 @@ class AngleTemplateController extends Controller
                     $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->newmedis_api_key ?? '') . '";', $content);
                     break;
 
+                case 'seamediaone.php':
+                    $content = str_replace("'ai' => '',", "'ai' => '" . ($userApiCredentials->seamediaone_ai ?? '') . "',", $content);
+                    $content = str_replace("'ci' => '',", "'ci' => '" . ($userApiCredentials->seamediaone_ci ?? '') . "',", $content);
+                    $content = str_replace("'gi' => '',", "'gi' => '" . ($userApiCredentials->seamediaone_gi ?? '') . "',", $content);
+                    $content = str_replace('$username = "";', '$username = "' . ($userApiCredentials->seamediaone_username ?? '') . '";', $content);
+                    $content = str_replace('$password = "";', '$password = "' . ($userApiCredentials->seamediaone_password ?? '') . '";', $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->seamediaone_api_key ?? '') . '";', $content);
+                    break;
+
                 case 'thank_you.php':
                     $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
                     $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
