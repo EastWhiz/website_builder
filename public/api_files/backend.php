@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'tigloo' => 'tigloo.php',
         'koi' => 'koi.php',
         'pastile' => 'pastile.php',
+        'riceleads' => 'riceleads.php',
     ];
 
     // Check if the form type has a corresponding API file
