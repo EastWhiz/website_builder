@@ -563,7 +563,12 @@ export default function Dashboard() {
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
-                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angles/preview/${value.id}/`, "_blank")}></Button>
+                <Button variant='plain' icon={ViewIcon} onClick={() => {
+                    const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
+                        ? window.appURL 
+                        : window.location.origin;
+                    window.open(`${baseUrl}/angles/preview/${value.id}/`, "_blank");
+                }}></Button>
                 <span style={{ margin: "5px" }}></span>
                 <Button variant='plain' icon={EditIcon} onClick={() => router.get(route('editAngle', value.id))}></Button>
                 <span style={{ marginLeft: "10px" }}></span>

@@ -357,9 +357,19 @@ export default function Dashboard() {
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)}></Button>
                 <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={EditIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
+                <Button variant='plain' icon={EditIcon} onClick={() => {
+                    const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
+                        ? window.appURL 
+                        : window.location.origin;
+                    window.open(`${baseUrl}/angle-templates/preview/${value.id}/`, "_blank");
+                }}></Button>
                 <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={ViewIcon} onClick={() => window.open(`${window.appURL}/angle-templates/preview/${value.id}/`, "_blank")}></Button>
+                <Button variant='plain' icon={ViewIcon} onClick={() => {
+                    const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
+                        ? window.appURL 
+                        : window.location.origin;
+                    window.open(`${baseUrl}/angle-templates/preview/${value.id}/`, "_blank");
+                }}></Button>
                 <span style={{ margin: "10px" }}></span>
                 <Button variant='plain' icon={LanguageIcon} onClick={() => openTranslateModal(value.id)}></Button>
                 <span style={{ margin: "10px" }}></span>
@@ -386,7 +396,10 @@ export default function Dashboard() {
         setExportModalOpen(false);
         if (selectedExportAngleTemplateId) {
             const isSelfHostedParam = isSelfHosted ? '&is_self_hosted=true' : '&is_self_hosted=false';
-            window.open(`${window.appURL}/download?angle_template_id=${selectedExportAngleTemplateId}${isSelfHostedParam}`, "_blank");
+            const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
+                ? window.appURL 
+                : window.location.origin;
+            window.open(`${baseUrl}/download?angle_template_id=${selectedExportAngleTemplateId}${isSelfHostedParam}`, "_blank");
         }
     };
 
