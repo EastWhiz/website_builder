@@ -798,9 +798,14 @@ class AngleTemplateController extends Controller
                     $value = $node->count() > 0 ? $node->attr('value') : '';
                     // logger("TEST: " . $value);
                     // Update BASE_URL to current domain if needed
-                    // $baseUrl = request()->getSchemeAndHttpHost();
-                    if ($value)
+                    $baseUrl = request()->getSchemeAndHttpHost();
+                    // Use project_directory if provided and valid, otherwise use current request URL
+                    if ($value && !str_contains($value, 'localhost') && !str_contains($value, '127.0.0.1')) {
                         $content = str_replace('http://localhost/myAppFolder', $value, $content);
+                    } else {
+                        // If project_directory is empty or contains localhost, use current request URL
+                        $content = str_replace('http://localhost/myAppFolder', $baseUrl, $content);
+                    }
                     break;
 
                 default:
