@@ -156,6 +156,9 @@ export default function Dashboard({ id }) {
         { label: 'Dark', value: 'dark' },
         { label: 'Koi', value: 'koi' },
         { label: 'Pastile', value: 'pastile' },
+        { label: 'RiceLeads', value: 'riceleads' },
+        { label: 'NewMedis', value: 'newmedis' },
+        { label: 'Seamediaone', value: 'seamediaone' },
     ];
 
     const commonInputTypes = [
