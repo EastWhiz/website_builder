@@ -816,6 +816,7 @@ class AngleController extends Controller
             // Map translations back to placeholders
             $translations = [];
             $index = 0;
+            $unchangedCount = 0;
             foreach ($textToTranslate as $placeholder => $originalText) {
                 $translation = isset($translatedParts[$index]) ? trim($translatedParts[$index]) : $originalText;
                 
@@ -839,15 +840,63 @@ class AngleController extends Controller
                     $translation = $originalText;
                 }
                 
+                // Detect if translation is unchanged (DeepL sometimes returns original text)
+                $normalizedOriginal = trim($originalText);
+                $normalizedTranslated = trim($translation);
+                
+                // Check if translation is identical to original (case-insensitive for short texts)
+                if (strtolower($normalizedOriginal) === strtolower($normalizedTranslated) && 
+                    strlen($normalizedOriginal) > 3) { // Only check for meaningful text
+                    $unchangedCount++;
+                    
+                    // Try to force translation by retrying with explicit source language detection
+                    if ($unchangedCount <= 5) { // Limit retries to avoid too many API calls
+                        try {
+                            Log::warning("⚠️ Translation unchanged, attempting forced retranslation", [
+                                'index' => $index,
+                                'original' => substr($normalizedOriginal, 0, 50),
+                                'target_language' => $targetLanguage
+                            ]);
+                            
+                            // Retry translation with explicit source language (let DeepL detect)
+                            $retryTranslation = $deepLService->translate($normalizedOriginal, $targetLanguage, null, $splitSentences, $preserveFormatting);
+                            $retryTranslation = trim($retryTranslation);
+                            
+                            // If retry produced different result, use it
+                            if (strtolower($retryTranslation) !== strtolower($normalizedOriginal) && !empty($retryTranslation)) {
+                                $translation = $retryTranslation;
+                                Log::info("✅ Forced retranslation succeeded", [
+                                    'index' => $index,
+                                    'new_translation' => substr($translation, 0, 50)
+                                ]);
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning("⚠️ Retry translation failed", [
+                                'index' => $index,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                }
+                
                 $translations[$placeholder] = $translation;
 
                 if ($index < 3) { // Log first 3 translations as samples
                     Log::info("📋 Translation sample #{$index}", [
                         'original' => $originalText,
-                        'translated' => $translation
+                        'translated' => $translation,
+                        'unchanged' => strtolower($normalizedOriginal) === strtolower($normalizedTranslated)
                     ]);
                 }
                 $index++;
+            }
+            
+            if ($unchangedCount > 0) {
+                Log::warning("⚠️ Some translations were unchanged", [
+                    'unchanged_count' => $unchangedCount,
+                    'total_count' => count($textToTranslate),
+                    'target_language' => $targetLanguage
+                ]);
             }
 
             // Replace placeholders with translations
