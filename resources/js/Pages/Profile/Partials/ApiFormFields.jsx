@@ -963,41 +963,41 @@ export default function ApiFormFields({
                     </div>
                 );
 
-            case 'riceleads':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="riceleads_affid" value="Affiliate ID" />
-                            <TextInput
-                                id="riceleads_affid"
-                                className="mt-1 block w-full"
-                                value={data.riceleads_affid}
-                                onChange={(e) => setData('riceleads_affid', e.target.value)}
-                                placeholder="13"
-                                autoComplete="off"
-                            />
-                            <InputError className="mt-2" message={errors.riceleads_affid} />
+                case 'riceleads':
+                    return (
+                        <div className="space-y-4">
+                            <div>
+                                <InputLabel htmlFor="riceleads_affid" value="Affiliate ID" />
+                                <TextInput
+                                    id="riceleads_affid"
+                                    className="mt-1 block w-full"
+                                    value={data.riceleads_affid}
+                                    onChange={(e) => setData('riceleads_affid', e.target.value)}
+                                    placeholder="13"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.riceleads_affid} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="riceleads_api_key" value="API Key (Optional)" />
+                                <TextInput
+                                    id="riceleads_api_key"
+                                    type="text"
+                                    className="mt-1 block w-full"
+                                    value={data.riceleads_api_key}
+                                    onChange={(e) => setData('riceleads_api_key', e.target.value)}
+                                    placeholder="Enter API key if available"
+                                    autoComplete="new-password"
+                                />
+                                <InputError className="mt-2" message={errors.riceleads_api_key} />
+                            </div>
+                            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                                <p className="text-blue-800 text-sm">
+                                    <strong>Endpoint:</strong> https://ridapi.net/leads
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <InputLabel htmlFor="riceleads_api_key" value="API Key (Optional)" />
-                            <TextInput
-                                id="riceleads_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.riceleads_api_key}
-                                onChange={(e) => setData('riceleads_api_key', e.target.value)}
-                                placeholder="Enter API key if available"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.riceleads_api_key} />
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://ridapi.net/leads
-                            </p>
-                        </div>
-                    </div>
-                );
+                    );
             default:
                 return null;
         }
@@ -1021,17 +1021,17 @@ export default function ApiFormFields({
                     <nav className="-mb-px flex space-x-8 overflow-x-auto">
                         {apiProviders.map((provider) => (
                             provider.name === 'Novelix' ? null : (
-                                <button
-                                    key={provider.key}
-                                    onClick={() => setActiveTab(provider.key)}
-                                    className={`${activeTab === provider.key
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
-                                >
-                                    <span>{provider.icon}</span>
-                                    <span>{provider.name}</span>
-                                </button>
+                            <button
+                                key={provider.key}
+                                onClick={() => setActiveTab(provider.key)}
+                                className={`${activeTab === provider.key
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                            >
+                                <span>{provider.icon}</span>
+                                <span>{provider.name}</span>
+                            </button>
                             )
                         ))}
                     </nav>

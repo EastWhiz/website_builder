@@ -281,12 +281,12 @@ class ApiCredentialsController extends Controller
                         'endpoint' => 'https://tb.seamediaone.net/api/signup/procform',
                     ];
                     break;
-                case 'riceleads':
-                    $providerData = [
-                        'affid' => $credentials->riceleads_affid,
-                        'api_key' => $credentials->riceleads_api_key,
+                    case 'riceleads':
+                        $providerData = [
+                            'affid' => $credentials->riceleads_affid,
+                            'api_key' => $credentials->riceleads_api_key,
                         'endpoint' => 'https://ridapi.net/leads',
-                    ];
+                        ];
                     break;    
                 default:
                     return response()->json([
