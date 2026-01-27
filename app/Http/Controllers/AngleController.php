@@ -779,6 +779,34 @@ class AngleController extends Controller
             ]);
 
             $translatedParts = explode("\n---SPLIT---\n", $translatedText);
+            
+            // If splitting failed (DeepL translated the separator), try alternative approach
+            if (count($translatedParts) !== count($textToTranslate)) {
+                Log::warning('⚠️ Separator count mismatch, attempting recovery', [
+                    'expected' => count($textToTranslate),
+                    'received' => count($translatedParts)
+                ]);
+                
+                // Try splitting by any variation of the separator (with or without newlines, with spaces)
+                $translatedParts = preg_split('/\s*---SPLIT---\s*/', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
+                
+                // If still doesn't match, try more aggressive splitting
+                if (count($translatedParts) !== count($textToTranslate)) {
+                    Log::warning('⚠️ Recovery attempt failed, trying alternative separator patterns', [
+                        'expected' => count($textToTranslate),
+                        'received' => count($translatedParts)
+                    ]);
+                    
+                    // Try with case-insensitive and various spacing
+                    $translatedParts = preg_split('/\s*---\s*SPLIT\s*---\s*/i', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
+                }
+            }
+            
+            // Clean separator from each part before processing (preventive measure)
+            foreach ($translatedParts as $key => $part) {
+                $translatedParts[$key] = str_replace('---SPLIT---', '', $part);
+                $translatedParts[$key] = preg_replace('/\s*---SPLIT---\s*/', '', $translatedParts[$key]);
+            }
 
             Log::info('🔄 Processing translation results', [
                 'expected_parts' => count($textToTranslate),
@@ -790,6 +818,27 @@ class AngleController extends Controller
             $index = 0;
             foreach ($textToTranslate as $placeholder => $originalText) {
                 $translation = isset($translatedParts[$index]) ? trim($translatedParts[$index]) : $originalText;
+                
+                // Aggressively clean up any separator text that might have been translated
+                // Handle multiple variations and occurrences
+                $translation = str_replace('---SPLIT---', '', $translation);
+                $translation = preg_replace('/\s*---SPLIT---\s*/', '', $translation);
+                $translation = preg_replace('/---SPLIT---/i', '', $translation); // Case insensitive
+                $translation = preg_replace('/\s*---\s*SPLIT\s*---\s*/i', '', $translation); // With spaces in separator
+                $translation = preg_replace('/\s*---SPLIT---\s*/u', '', $translation); // Unicode mode
+                // Remove multiple consecutive separators
+                while (strpos($translation, '---SPLIT---') !== false) {
+                    $translation = str_replace('---SPLIT---', '', $translation);
+                }
+                // Clean up any remaining whitespace issues
+                $translation = preg_replace('/\s+/', ' ', $translation);
+                $translation = trim($translation);
+                
+                // If translation is empty after cleanup, use original
+                if (empty($translation)) {
+                    $translation = $originalText;
+                }
+                
                 $translations[$placeholder] = $translation;
 
                 if ($index < 3) { // Log first 3 translations as samples
@@ -805,6 +854,22 @@ class AngleController extends Controller
             foreach ($translations as $placeholder => $translation) {
                 $html = str_replace($placeholder, $translation, $html);
             }
+            
+            // Final aggressive cleanup: Remove any remaining separator text from HTML
+            // Multiple passes to catch all variations
+            $html = str_replace('---SPLIT---', '', $html);
+            $html = preg_replace('/\s*---SPLIT---\s*/', '', $html);
+            $html = preg_replace('/---SPLIT---/i', '', $html); // Case insensitive
+            $html = preg_replace('/\s*---\s*SPLIT\s*---\s*/i', '', $html); // With spaces
+            $html = preg_replace('/\s*---SPLIT---\s*/u', '', $html); // Unicode mode
+            // Remove multiple consecutive separators
+            while (strpos($html, '---SPLIT---') !== false) {
+                $html = str_replace('---SPLIT---', '', $html);
+            }
+            // Clean up any double spaces or whitespace issues
+            $html = preg_replace('/\s+/', ' ', $html);
+            // Clean up spaces before/after punctuation that might have been created
+            $html = preg_replace('/\s+([.,!?;:])/', '$1', $html);
 
             Log::info('✅ HTML translation completed successfully');
             return $html;
