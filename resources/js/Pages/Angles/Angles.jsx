@@ -426,6 +426,18 @@ export default function Dashboard() {
         setTranslateActionModalOpen(false);
         setTranslating(true);
 
+        // Show loading overlay
+        Swal.fire({
+            title: 'Translating...',
+            html: 'Please wait while we translate the page. This may take a few moments.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
         if (shouldDuplicate) {
             // First duplicate, then translate
             fetch(route('duplicate.angle', currentAngleId), {
@@ -446,6 +458,7 @@ export default function Dashboard() {
                 })
                 .catch((error) => {
                     console.error('Error:', error);
+                    Swal.close();
                     Swal.fire({
                         title: "Error!",
                         text: "An error occurred while duplicating the Angle.",
@@ -475,6 +488,7 @@ export default function Dashboard() {
             .then(response => response.json())
             .then(data => {
                 setTranslating(false);
+                Swal.close(); // Close loading overlay
                 Swal.fire({
                     title: data.success ? "Translated!" : "Error!",
                     text: data.message,
@@ -492,6 +506,7 @@ export default function Dashboard() {
             .catch((error) => {
                 console.error('Error:', error);
                 setTranslating(false);
+                Swal.close(); // Close loading overlay
                 Swal.fire({
                     title: "Error!",
                     text: "An error occurred while translating the Angle.",
@@ -820,6 +835,7 @@ export default function Dashboard() {
                     {
                         content: 'Duplicate & Translate',
                         onAction: () => handleTranslateAction(true),
+                        loading: translating,
                     },
                     {
                         content: 'Cancel',
