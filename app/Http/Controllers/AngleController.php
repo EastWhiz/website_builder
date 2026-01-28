@@ -729,24 +729,209 @@ class AngleController extends Controller
 
         Log::info('📝 Extracting text between HTML tags...');
 
-        // Find text between HTML tags (excluding scripts, styles, and certain attributes)
-        $html = preg_replace_callback('/>(.*?)</s', function ($matches) use (&$textToTranslate, &$placeholders, &$placeholderIndex) {
-            $text = trim($matches[1]);
+        // First, protect script, style, SVG, and other non-translatable tags
+        $protectedTags = [];
+        $html = preg_replace_callback('/<(script|style|noscript|pre|code|textarea|svg)[^>]*>.*?<\/\1>/is', function ($matches) use (&$protectedTags) {
+            $placeholder = '##PROTECTED_TAG_' . count($protectedTags) . '##';
+            $protectedTags[$placeholder] = $matches[0];
+            return $placeholder;
+        }, $html);
+        
+        // Also protect SVG elements that might be self-closing or have nested structure
+        // This ensures all SVG attributes (width, height, viewBox, style) are preserved
+        $html = preg_replace_callback('/<svg[^>]*>.*?<\/svg>/is', function ($matches) use (&$protectedTags) {
+            // Check if not already protected
+            if (strpos($matches[0], '##PROTECTED_TAG_') === false) {
+                $svgContent = $matches[0];
+                
+                // Ensure SVG has explicit width/height if viewBox is present but width/height are missing
+                // This prevents SVG from scaling to 100% width
+                if (preg_match('/viewBox=["\']([^"\']+)["\']/', $svgContent, $viewBoxMatch)) {
+                    $viewBox = $viewBoxMatch[1];
+                    // Extract width and height from viewBox (format: "0 0 width height")
+                    if (preg_match('/viewBox=["\']\s*[\d\.]+\s+[\d\.]+\s+([\d\.]+)\s+([\d\.]+)\s*["\']/', $svgContent, $dimensions)) {
+                        $svgWidth = $dimensions[1];
+                        $svgHeight = $dimensions[2];
+                        
+                        // Add width and height attributes if they don't exist
+                        if (!preg_match('/\bwidth\s*=/i', $svgContent)) {
+                            $svgContent = preg_replace('/(<svg[^>]*)(>)/i', '$1 width="' . $svgWidth . 'px"$2', $svgContent, 1);
+                        }
+                        if (!preg_match('/\bheight\s*=/i', $svgContent)) {
+                            $svgContent = preg_replace('/(<svg[^>]*)(>)/i', '$1 height="' . $svgHeight . 'px"$2', $svgContent, 1);
+                        }
+                    }
+                }
+                
+                $placeholder = '##PROTECTED_TAG_' . count($protectedTags) . '##';
+                $protectedTags[$placeholder] = $svgContent;
+                return $placeholder;
+            }
+            return $matches[0];
+        }, $html);
+        
+        // Protect SVG elements wrapped in other tags (like div, span) to preserve their container
+        // This helps maintain SVG sizing when wrapped in containers
+        $html = preg_replace_callback('/<(div|span|p)[^>]*>\s*<svg[^>]*>.*?<\/svg>\s*<\/\1>/is', function ($matches) use (&$protectedTags) {
+            $content = $matches[0];
+            // Check if not already protected and contains SVG
+            if (strpos($content, '##PROTECTED_TAG_') === false && preg_match('/<svg/i', $content)) {
+                $placeholder = '##PROTECTED_TAG_' . count($protectedTags) . '##';
+                $protectedTags[$placeholder] = $content;
+                return $placeholder;
+            }
+            return $content;
+        }, $html);
+        
+        // Protect table structures and list items that contain currency/numeric data
+        // This prevents breaking structured layouts
+        $html = preg_replace_callback('/<(td|th|li)[^>]*>.*?<\/\1>/is', function ($matches) use (&$protectedTags) {
+            $content = $matches[0];
+            // Check if this cell/item contains currency or structured numeric data
+            if (preg_match('/[\$€£¥]\s*[\d,]+\.?\d*/', $content) || 
+                preg_match('/\d+[\d,]*\.?\d*\s*[\$€£¥]/', $content)) {
+                $placeholder = '##PROTECTED_TAG_' . count($protectedTags) . '##';
+                $protectedTags[$placeholder] = $content;
+                return $placeholder;
+            }
+            return $content;
+        }, $html);
 
-            // Skip empty text, single characters, numbers, URLs, emails
-            if (empty($text) ||
-                strlen($text) < 3 ||
-                is_numeric($text) ||
-                preg_match('/^https?:\/\//', $text) ||
-                preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $text) ||
-                preg_match('/^[^a-zA-Z]*$/', $text)) {
+        // Find text between HTML tags (excluding scripts, styles, and certain attributes)
+        // Track already processed text positions to avoid duplicate extraction
+        $processedPositions = [];
+        $html = preg_replace_callback('/>(.*?)</s', function ($matches) use (&$textToTranslate, &$placeholders, &$placeholderIndex, &$processedPositions) {
+            $originalText = $matches[1]; // Keep original with whitespace
+            $text = trim($originalText);
+            
+            // Skip if this is a protected tag placeholder
+            if (strpos($originalText, '##PROTECTED_TAG_') !== false) {
                 return $matches[0];
             }
+            
+            // Skip if we've already processed this exact text at this position
+            // This prevents duplicate extraction of the same content
+            $textHash = md5($originalText . $matches[0]);
+            if (isset($processedPositions[$textHash])) {
+                // This text was already processed - return original match
+                return $matches[0];
+            }
+            $processedPositions[$textHash] = true;
+            
+            // Check if we're inside a list item by examining the full match
+            // The pattern '>(.*?)<' matches text between tags, so we need to check
+            // if the tag before '>' is an <li> tag
+            $fullMatch = $matches[0];
+            $isInsideListItem = preg_match('/<li[^>]*>\s*' . preg_quote($originalText, '/') . '/is', $fullMatch) ||
+                                preg_match('/<li[^>]*>/i', substr($fullMatch, 0, 50));
+            
+            // Skip empty text
+            if (empty($text)) {
+                return $matches[0];
+            }
+            
+            // For list items, be more lenient - translate even if it starts with numbers or percentages
+            // Skip pure numbers only if NOT in a list item
+            if (is_numeric($text) && !$isInsideListItem) {
+                return $matches[0];
+            }
+            
+            // Skip URLs and emails
+            if (preg_match('/^https?:\/\//', $text) ||
+                preg_match('/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/', $text)) {
+                return $matches[0];
+            }
+            
+            // Skip text with no letters (but allow in list items if it's part of structured content)
+            if (!$isInsideListItem && preg_match('/^[^a-zA-Z]*$/', $text)) {
+                return $matches[0];
+            }
+            
+            // For very short text, only translate if it's in a list item or has meaningful content
+            if (strlen($text) < 3 && (!$isInsideListItem || (!preg_match('/[a-zA-Z]/', $text) && !preg_match('/[%£$€¥]/', $text)))) {
+                return $matches[0];
+            }
+            
+            // For list items, allow text that starts with numbers/percentages (like "92% of users...")
+            if ($isInsideListItem && preg_match('/^\d+%?\s+/', $text)) {
+                // This is a list item starting with a number/percentage - translate it
+                // Don't skip it
+            }
+            
+            // Skip text that contains mostly numbers/currency/dates (preserve formatting)
+            // Check if text is mostly numeric or currency symbols
+            $nonNumericChars = preg_replace('/[\d\s\$€£¥,\-\.:]/', '', $text);
+            $textRatio = strlen($nonNumericChars) / max(strlen($text), 1);
+            
+            // Allow text that starts with numbers/percentages if it has substantial text content
+            // This handles list items like "92% of users started..." which should be translated
+            if (preg_match('/^\d+%?\s+[a-zA-Z]/', $text) && $textRatio > 0.4) {
+                // Text starts with number/percentage but has substantial text - translate it
+                // Continue processing
+            } elseif ($textRatio < 0.3 && strlen($text) > 5) {
+                // Text is mostly numbers/currency - skip it (unless it's a list item with meaningful start)
+                if (!$isInsideListItem || !preg_match('/^\d+%?\s+[a-zA-Z]/', $text)) {
+                    return $matches[0];
+                }
+            }
+            
+            // Skip if text contains HTML tags (shouldn't happen but safety check)
+            if (preg_match('/<[^>]+>/', $originalText)) {
+                return $matches[0];
+            }
+            
+            // Skip if text contains currency symbols (unless in list items with meaningful text)
+            if (preg_match('/[\$€£¥]/', $text)) {
+                // Contains currency symbol - check if it's meaningful text or just a number
+                $textRatio = strlen(preg_replace('/[\d\$€£¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
+                // If less than 40% letters, skip it (it's mostly numbers/currency)
+                if ($textRatio < 0.4) {
+                    return $matches[0];
+                }
+                // If in list item and has meaningful text, allow it
+                if (!$isInsideListItem && $textRatio < 0.5) {
+                    return $matches[0];
+                }
+            }
+            
+            // Skip if text ends with numbers (likely part of structured layout) - but allow list items
+            if (!$isInsideListItem && preg_match('/\d+\s*$/', $text) && strlen($text) > 10) {
+                // Ends with numbers and is long enough - likely structured
+                $textRatio = strlen(preg_replace('/[\d\$€£¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
+                if ($textRatio < 0.7) {
+                    return $matches[0];
+                }
+            }
+            
+            // Skip if text contains numbers in the middle (like "Parti 49 Canada") - but allow list items
+            if (!$isInsideListItem && (preg_match('/\s+\d+\s+/', $text) || preg_match('/\d+[a-zA-Z]|[a-zA-Z]\d+/', $text))) {
+                // Contains numbers mixed with text - be conservative
+                $textRatio = strlen(preg_replace('/[\d\$€£¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
+                if ($textRatio < 0.6) {
+                    return $matches[0];
+                }
+            }
+            
+            // For list items, be more permissive - allow text starting with numbers/percentages
+            // This handles cases like "92% of users started..." which should be translated
+            if ($isInsideListItem && preg_match('/^\d+%?\s+[a-zA-Z]/', $text)) {
+                // List item starting with number/percentage followed by text - translate it
+                // Continue processing
+            }
 
+            // Store original text with whitespace for exact replacement
             $placeholder = "PLACEHOLDER_" . $placeholderIndex++;
-            $textToTranslate[$placeholder] = $text;
+            $textToTranslate[$placeholder] = [
+                'original' => $originalText, // Keep original with whitespace
+                'text' => $text // Trimmed version for translation
+            ];
             return '>' . $placeholder . '<';
         }, $html);
+        
+        // Restore protected tags
+        foreach ($protectedTags as $placeholder => $originalTag) {
+            $html = str_replace($placeholder, $originalTag, $html);
+        }
 
         Log::info('📊 Text extraction completed', [
             'extracted_texts' => count($textToTranslate),
@@ -760,7 +945,28 @@ class AngleController extends Controller
 
         // Batch translate all text at once (much faster than individual calls)
         try {
-            $allText = implode("\n---SPLIT---\n", array_values($textToTranslate));
+            // Extract just the text values for translation (not the original with whitespace)
+            $textsForTranslation = array_map(function($item) {
+                return is_array($item) ? $item['text'] : $item;
+            }, array_values($textToTranslate));
+            
+            // Deduplicate texts to avoid translating the same text multiple times
+            // This prevents repetition issues
+            $uniqueTexts = [];
+            $textToPlaceholderMap = []; // Map: normalized text => array of placeholders
+            foreach ($textToTranslate as $placeholder => $textData) {
+                $text = is_array($textData) ? $textData['text'] : trim($textData);
+                $normalizedText = strtolower(trim($text));
+                
+                if (!isset($textToPlaceholderMap[$normalizedText])) {
+                    $textToPlaceholderMap[$normalizedText] = [];
+                    $uniqueTexts[] = $text; // Keep original case for first occurrence
+                }
+                $textToPlaceholderMap[$normalizedText][] = $placeholder;
+            }
+            
+            // Translate only unique texts
+            $allText = implode("\n---SPLIT---\n", $uniqueTexts);
 
             Log::info('📤 Sending text to DeepL API', [
                 'combined_text_length' => strlen($allText),
@@ -781,9 +987,9 @@ class AngleController extends Controller
             $translatedParts = explode("\n---SPLIT---\n", $translatedText);
             
             // If splitting failed (DeepL translated the separator), try alternative approach
-            if (count($translatedParts) !== count($textToTranslate)) {
+            if (count($translatedParts) !== count($uniqueTexts)) {
                 Log::warning('⚠️ Separator count mismatch, attempting recovery', [
-                    'expected' => count($textToTranslate),
+                    'expected' => count($uniqueTexts),
                     'received' => count($translatedParts)
                 ]);
                 
@@ -791,9 +997,9 @@ class AngleController extends Controller
                 $translatedParts = preg_split('/\s*---SPLIT---\s*/', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
                 
                 // If still doesn't match, try more aggressive splitting
-                if (count($translatedParts) !== count($textToTranslate)) {
+                if (count($translatedParts) !== count($uniqueTexts)) {
                     Log::warning('⚠️ Recovery attempt failed, trying alternative separator patterns', [
-                        'expected' => count($textToTranslate),
+                        'expected' => count($uniqueTexts),
                         'received' => count($translatedParts)
                     ]);
                     
@@ -809,16 +1015,47 @@ class AngleController extends Controller
             }
 
             Log::info('🔄 Processing translation results', [
-                'expected_parts' => count($textToTranslate),
-                'received_parts' => count($translatedParts)
+                'expected_parts' => count($uniqueTexts),
+                'received_parts' => count($translatedParts),
+                'total_placeholders' => count($textToTranslate)
             ]);
 
-            // Map translations back to placeholders
+            // Map translations back to placeholders using deduplication map
             $translations = [];
-            $index = 0;
+            $uniqueIndex = 0;
             $unchangedCount = 0;
-            foreach ($textToTranslate as $placeholder => $originalText) {
-                $translation = isset($translatedParts[$index]) ? trim($translatedParts[$index]) : $originalText;
+            
+            // First, create translation map for unique texts
+            $uniqueTranslations = [];
+            foreach ($uniqueTexts as $uniqueIndex => $uniqueText) {
+                $translation = isset($translatedParts[$uniqueIndex]) ? trim($translatedParts[$uniqueIndex]) : $uniqueText;
+                
+                // Clean up separator
+                $translation = str_replace('---SPLIT---', '', $translation);
+                $translation = preg_replace('/\s*---SPLIT---\s*/', '', $translation);
+                $translation = preg_replace('/---SPLIT---/i', '', $translation);
+                $translation = preg_replace('/\s*---\s*SPLIT\s*---\s*/i', '', $translation);
+                $translation = preg_replace('/\s*---SPLIT---\s*/u', '', $translation);
+                while (strpos($translation, '---SPLIT---') !== false) {
+                    $translation = str_replace('---SPLIT---', '', $translation);
+                }
+                $translation = preg_replace('/\s+/', ' ', $translation);
+                $translation = trim($translation);
+                
+                $normalizedUniqueText = strtolower(trim($uniqueText));
+                $uniqueTranslations[$normalizedUniqueText] = $translation;
+            }
+            
+            // Now map translations to all placeholders
+            foreach ($textToTranslate as $placeholder => $textData) {
+                // Handle both old format (string) and new format (array)
+                $originalTextData = is_array($textData) ? $textData : ['original' => $textData, 'text' => trim($textData)];
+                $originalText = $originalTextData['original'];
+                $textForComparison = $originalTextData['text'];
+                
+                // Get translation from unique translations map
+                $normalizedText = strtolower(trim($textForComparison));
+                $translation = isset($uniqueTranslations[$normalizedText]) ? $uniqueTranslations[$normalizedText] : $textForComparison;
                 
                 // Aggressively clean up any separator text that might have been translated
                 // Handle multiple variations and occurrences
@@ -835,13 +1072,25 @@ class AngleController extends Controller
                 $translation = preg_replace('/\s+/', ' ', $translation);
                 $translation = trim($translation);
                 
-                // If translation is empty after cleanup, use original
+                // If translation is empty after cleanup, use original text
                 if (empty($translation)) {
-                    $translation = $originalText;
+                    $translation = $textForComparison;
                 }
                 
+                // Preserve original whitespace structure when replacing
+                // If original had leading/trailing whitespace, preserve it
+                $leadingWhitespace = '';
+                $trailingWhitespace = '';
+                if (preg_match('/^(\s*).*?(\s*)$/s', $originalText, $wsMatches)) {
+                    $leadingWhitespace = $wsMatches[1] ?? '';
+                    $trailingWhitespace = $wsMatches[2] ?? '';
+                }
+                
+                // Apply whitespace preservation
+                $finalTranslation = $leadingWhitespace . $translation . $trailingWhitespace;
+                
                 // Detect if translation is unchanged (DeepL sometimes returns original text)
-                $normalizedOriginal = trim($originalText);
+                $normalizedOriginal = trim($textForComparison);
                 $normalizedTranslated = trim($translation);
                 
                 // Check if translation is identical to original (case-insensitive for short texts)
@@ -850,10 +1099,12 @@ class AngleController extends Controller
                     $unchangedCount++;
                     
                     // Try to force translation by retrying with explicit source language detection
-                    if ($unchangedCount <= 5) { // Limit retries to avoid too many API calls
+                    // Only retry for unique texts to avoid duplicate API calls
+                    if ($unchangedCount <= 5 && !isset($retriedTexts[$normalizedText])) {
+                        $retriedTexts[$normalizedText] = true;
                         try {
                             Log::warning("⚠️ Translation unchanged, attempting forced retranslation", [
-                                'index' => $index,
+                                'placeholder' => $placeholder,
                                 'original' => substr($normalizedOriginal, 0, 50),
                                 'target_language' => $targetLanguage
                             ]);
@@ -862,33 +1113,43 @@ class AngleController extends Controller
                             $retryTranslation = $deepLService->translate($normalizedOriginal, $targetLanguage, null, $splitSentences, $preserveFormatting);
                             $retryTranslation = trim($retryTranslation);
                             
-                            // If retry produced different result, use it
+                            // If retry produced different result, update translation for all placeholders with this text
                             if (strtolower($retryTranslation) !== strtolower($normalizedOriginal) && !empty($retryTranslation)) {
                                 $translation = $retryTranslation;
+                                // Update the unique translation map so all placeholders get the new translation
+                                $uniqueTranslations[$normalizedText] = $retryTranslation;
                                 Log::info("✅ Forced retranslation succeeded", [
-                                    'index' => $index,
+                                    'placeholder' => $placeholder,
                                     'new_translation' => substr($translation, 0, 50)
                                 ]);
                             }
                         } catch (\Exception $e) {
                             Log::warning("⚠️ Retry translation failed", [
-                                'index' => $index,
+                                'placeholder' => $placeholder,
                                 'error' => $e->getMessage()
                             ]);
                         }
                     }
                 }
                 
-                $translations[$placeholder] = $translation;
-
-                if ($index < 3) { // Log first 3 translations as samples
-                    Log::info("📋 Translation sample #{$index}", [
-                        'original' => $originalText,
+                $translations[$placeholder] = $finalTranslation;
+            }
+            
+            // Log sample translations (only unique ones)
+            $loggedTranslations = [];
+            foreach ($translations as $placeholder => $translation) {
+                $textData = $textToTranslate[$placeholder];
+                $textForLog = is_array($textData) ? $textData['text'] : trim($textData);
+                $normalizedText = strtolower(trim($textForLog));
+                
+                if (count($loggedTranslations) < 3 && !isset($loggedTranslations[$normalizedText])) {
+                    $loggedTranslations[$normalizedText] = true;
+                    Log::info("📋 Translation sample #" . count($loggedTranslations), [
+                        'original' => $textForLog,
                         'translated' => $translation,
-                        'unchanged' => strtolower($normalizedOriginal) === strtolower($normalizedTranslated)
+                        'placeholder' => $placeholder
                     ]);
                 }
-                $index++;
             }
             
             if ($unchangedCount > 0) {
@@ -900,9 +1161,37 @@ class AngleController extends Controller
             }
 
             // Replace placeholders with translations
+            // Use a single pass with proper escaping to ensure each placeholder is replaced exactly once
+            // Build a pattern that matches all placeholders at once to avoid issues with overlapping replacements
+            $replacementCount = 0;
             foreach ($translations as $placeholder => $translation) {
-                $html = str_replace($placeholder, $translation, $html);
+                // Count occurrences before replacement
+                $beforeCount = substr_count($html, $placeholder);
+                
+                // Escape special regex characters in placeholder
+                $escapedPlaceholder = preg_quote($placeholder, '/');
+                // Replace only the first occurrence of each placeholder
+                $html = preg_replace('/' . $escapedPlaceholder . '/', $translation, $html, 1);
+                
+                // Count occurrences after replacement
+                $afterCount = substr_count($html, $placeholder);
+                $replaced = $beforeCount - $afterCount;
+                
+                if ($beforeCount > 1) {
+                    Log::warning("⚠️ Placeholder appeared multiple times", [
+                        'placeholder' => $placeholder,
+                        'occurrences' => $beforeCount,
+                        'replaced' => $replaced
+                    ]);
+                }
+                
+                $replacementCount += $replaced;
             }
+            
+            Log::info('🔄 Placeholder replacement completed', [
+                'total_replacements' => $replacementCount,
+                'expected_replacements' => count($translations)
+            ]);
             
             // Final aggressive cleanup: Remove any remaining separator text from HTML
             // Multiple passes to catch all variations
