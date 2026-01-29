@@ -443,6 +443,7 @@ export default function Dashboard({ id }) {
     const [data, setData] = useState(false);
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
     const [mainBodies, setMainBodies] = useState([]);
+    const [isRtl, setIsRtl] = useState(false);
     const [editing, setEditing] = useState({
         editID: false,
         currentElement: false,
@@ -615,7 +616,14 @@ export default function Dashboard({ id }) {
                         selected_body: index === 0 // true if index is 0, false otherwise
                     }))
                 setMainBodies(bodiesTemp);
-                setMainHTML([{ html: updateAngleImages(bodiesTemp[0].content, json.data), status: true }]);
+                const firstBodyContent = updateAngleImages(bodiesTemp[0].content, json.data);
+                setMainHTML([{ html: firstBodyContent, status: true }]);
+                
+                // Detect RTL: Check if HTML contains dir="rtl" or if angle name contains RTL language code
+                const isRtlContent = firstBodyContent.includes('dir="rtl"') || 
+                                    firstBodyContent.includes("dir='rtl'") ||
+                                    /\(AR\)|\(HE\)/i.test(json.data.name || '');
+                setIsRtl(isRtlContent);
 
                 setTimeout(() => {
                     fetch("https://ipapi.co/json/")
@@ -3066,7 +3074,14 @@ export default function Dashboard({ id }) {
                                         }))
                                     );
                                     let selectedBody = mainBodies.find(value => value.id == selectedId);
-                                    setMainHTML([{ html: updateAngleImages(selectedBody.content, data), status: true }]);
+                                    const updatedContent = updateAngleImages(selectedBody.content, data);
+                                    setMainHTML([{ html: updatedContent, status: true }]);
+                                    
+                                    // Update RTL detection for selected body
+                                    const isRtlContent = updatedContent.includes('dir="rtl"') || 
+                                                        updatedContent.includes("dir='rtl'") ||
+                                                        /\(AR\)|\(HE\)/i.test(data.name || '');
+                                    setIsRtl(isRtlContent);
                                 }
                                 if (mainHTML.length == 1) {
                                     proceedFurther(selectedId);
@@ -3098,7 +3113,7 @@ export default function Dashboard({ id }) {
                         </Box>
                     </Box>
                     <Box sx={{ border: "1px solid black", ml: 0.5, p: 1, mt: 2 }}>
-                        {data && <div className='mainHTML' dangerouslySetInnerHTML={{ __html: mainHTMLActive.html }} />}
+                        {data && <div className='mainHTML' dir={isRtl ? 'rtl' : 'ltr'} dangerouslySetInnerHTML={{ __html: mainHTMLActive.html }} />}
                     </Box>
                 </div>
             </div>

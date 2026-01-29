@@ -428,6 +428,7 @@ export default function Dashboard({ id }) {
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
     const [mainCSS, setMainCSS] = useState('');
     const [mainJS, setMainJS] = useState('');
+    const [isRtl, setIsRtl] = useState(false);
     const [editing, setEditing] = useState({
         editID: false,
         currentElement: false,
@@ -600,6 +601,12 @@ export default function Dashboard({ id }) {
                 setMainCSS(json.data.main_css);
 
                 setMainJS(json.data.main_js);
+                
+                // Detect RTL: Check if HTML contains dir="rtl" or if template name contains RTL language code
+                const isRtlContent = updated.includes('dir="rtl"') || 
+                                    updated.includes("dir='rtl'") ||
+                                    /\(AR\)|\(HE\)/i.test(json.data.name || '');
+                setIsRtl(isRtlContent);
 
                 setTimeout(() => {
                     fetch("https://ipapi.co/json/")
@@ -3008,7 +3015,7 @@ export default function Dashboard({ id }) {
                             {mainCSS}
                         </style>
                         {/* <pre>{mainHTML}</pre> */}
-                        <div className='mainHTML' dangerouslySetInnerHTML={{ __html: mainHTMLActive.html }} />
+                        <div className='mainHTML' dir={isRtl ? 'rtl' : 'ltr'} dangerouslySetInnerHTML={{ __html: mainHTMLActive.html }} />
                     </div>
                 }
             </div>

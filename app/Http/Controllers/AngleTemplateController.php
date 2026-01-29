@@ -972,6 +972,12 @@ class AngleTemplateController extends Controller
             // Extract and translate text content in batches
             $startTime = microtime(true);
             $translatedHtml = $this->translateHtmlContentMinimal($originalHtml, $targetLanguage, $deepLService, $splitSentences, $preserveFormatting);
+            
+            // Apply RTL support if target language is RTL (Arabic, Hebrew)
+            if ($this->isRtlLanguage($targetLanguage)) {
+                $translatedHtml = $this->applyRtlSupport($translatedHtml);
+            }
+            
             $endTime = microtime(true);
 
             Log::info('✅ Translation completed', [
@@ -1614,6 +1620,14 @@ class AngleTemplateController extends Controller
                 'error_file' => $e->getFile()
             ]);
 
+            return $html;
+        } catch (\Exception $e) {
+            Log::error('❌ Batch translation failed, falling back to original text', [
+                'error_message' => $e->getMessage(),
+                'error_line' => $e->getLine(),
+                'error_file' => $e->getFile()
+            ]);
+
             // If batch translation fails, fallback to original text
             foreach ($textToTranslate as $placeholder => $originalText) {
                 $html = str_replace($placeholder, $originalText, $html);
@@ -1624,6 +1638,127 @@ class AngleTemplateController extends Controller
             'final_html_length' => strlen($html)
         ]);
 
+        return $html;
+    }
+
+    /**
+     * Check if a language code represents an RTL (Right-to-Left) language
+     */
+    private function isRtlLanguage($languageCode)
+    {
+        $rtlLanguages = ['AR', 'HE']; // Arabic, Hebrew
+        return in_array(strtoupper($languageCode), $rtlLanguages);
+    }
+
+    /**
+     * Apply RTL (Right-to-Left) support to HTML content
+     * Adds dir="rtl" attribute and injects RTL-specific CSS
+     */
+    private function applyRtlSupport($html)
+    {
+        Log::info('🔄 Applying RTL support to HTML');
+        
+        // RTL CSS to handle layout properly
+        $rtlCss = '
+        <style>
+            /* RTL Support Styles */
+            [dir="rtl"] {
+                direction: rtl;
+                text-align: right;
+            }
+            
+            [dir="rtl"] body,
+            [dir="rtl"] html {
+                direction: rtl;
+            }
+            
+            /* Flip text alignment for RTL */
+            [dir="rtl"] .text-left {
+                text-align: right !important;
+            }
+            
+            [dir="rtl"] .text-right {
+                text-align: left !important;
+            }
+            
+            /* Flip float directions */
+            [dir="rtl"] .float-left {
+                float: right !important;
+            }
+            
+            [dir="rtl"] .float-right {
+                float: left !important;
+            }
+            
+            /* Adjust margins and padding for RTL */
+            [dir="rtl"] .ml-auto {
+                margin-left: 0 !important;
+                margin-right: auto !important;
+            }
+            
+            [dir="rtl"] .mr-auto {
+                margin-right: 0 !important;
+                margin-left: auto !important;
+            }
+            
+            /* Form elements RTL support */
+            [dir="rtl"] input,
+            [dir="rtl"] textarea,
+            [dir="rtl"] select {
+                direction: rtl;
+                text-align: right;
+            }
+            
+            /* Lists RTL support */
+            [dir="rtl"] ul,
+            [dir="rtl"] ol {
+                padding-right: 0;
+                padding-left: 1.5em;
+            }
+            
+            /* Tables RTL support */
+            [dir="rtl"] table {
+                direction: rtl;
+            }
+            
+            [dir="rtl"] th,
+            [dir="rtl"] td {
+                text-align: right;
+            }
+        </style>
+        ';
+        
+        // Check if HTML already has a <html> tag
+        if (preg_match('/<html[^>]*>/i', $html)) {
+            // Add dir="rtl" to existing html tag
+            $html = preg_replace('/(<html[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
+            
+            // Inject RTL CSS before closing </head> tag, or before </html> if no head tag
+            if (preg_match('/<\/head>/i', $html)) {
+                $html = preg_replace('/<\/head>/i', $rtlCss . '</head>', $html, 1);
+            } else {
+                // If no head tag, add it before html content or at the beginning
+                if (preg_match('/<html[^>]*>/i', $html, $matches, PREG_OFFSET_CAPTURE)) {
+                    $htmlTagPos = $matches[0][1] + strlen($matches[0][0]);
+                    $html = substr_replace($html, '<head>' . $rtlCss . '</head>', $htmlTagPos, 0);
+                }
+            }
+        } else {
+            // If no html tag, wrap content and add RTL support
+            // Check if there's a <body> tag
+            if (preg_match('/<body[^>]*>/i', $html)) {
+                // Add dir="rtl" to body tag
+                $html = preg_replace('/(<body[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
+                
+                // Inject RTL CSS before body tag
+                $html = preg_replace('/(<body[^>]*>)/i', $rtlCss . '$1', $html, 1);
+            } else {
+                // Wrap in html structure with RTL support
+                $html = '<html dir="rtl" lang="ar"><head>' . $rtlCss . '</head><body>' . $html . '</body></html>';
+            }
+        }
+        
+        Log::info('✅ RTL support applied successfully');
         return $html;
     }
 }

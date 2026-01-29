@@ -605,11 +605,6 @@ class AngleController extends Controller
 
     public function translateAngle(Request $request)
     {
-        Log::info('🚀 Angle Translation started', [
-            'angle_id' => $request->angle_id,
-            'target_language' => $request->target_language,
-            'user_id' => Auth::id()
-        ]);
 
         try {
             $request->validate([
@@ -624,12 +619,7 @@ class AngleController extends Controller
             $splitSentences = $request->split_sentences;
             $preserveFormatting = $request->preserve_formatting;
 
-            Log::info('✅ Angle found', [
-                'angle_id' => $angle->id,
-                'angle_name' => $angle->name,
-                'user_id' => $angle->user_id,
-                'target_language' => $targetLanguage
-            ]);
+           
 
             // Check if user has permission to edit this angle
             // if (Auth::user()->role->name !== 'admin' && $angle->user_id !== Auth::id()) {
@@ -641,7 +631,7 @@ class AngleController extends Controller
             //     return sendResponse(false, "You don't have permission to translate this angle", null);
             // }
 
-            Log::info('✅ Permission granted');
+           
 
             // Initialize DeepL service
             $deepLService = new \App\Services\DeepLService();
@@ -670,20 +660,20 @@ class AngleController extends Controller
                     continue;
                 }
 
-                Log::info("🔄 Translating body {$body->id}", [
-                    'body_name' => $body->name,
-                    'content_length' => strlen($originalContent)
-                ]);
+                
 
                 // Extract and translate text content
                 $startTime = microtime(true);
                 $translatedContent = $this->translateHtmlContent($originalContent, $targetLanguage, $deepLService, $splitSentences, $preserveFormatting);
+                
+                // Apply RTL support if target language is RTL (Arabic, Hebrew)
+                if ($this->isRtlLanguage($targetLanguage)) {
+                    $translatedContent = $this->applyRtlSupport($translatedContent);
+                }
+                
                 $endTime = microtime(true);
 
-                Log::info("✅ Body {$body->id} translated", [
-                    'translation_time_seconds' => round($endTime - $startTime, 2),
-                    'translated_content_length' => strlen($translatedContent)
-                ]);
+                
 
                 // Update the content
                 $body->content = $translatedContent;
@@ -696,12 +686,7 @@ class AngleController extends Controller
             $angle->name = $angle->name . " ({$targetLanguage})";
             $angle->save();
 
-            Log::info('✅ Angle updated successfully', [
-                'original_name' => $originalName,
-                'new_name' => $angle->name,
-                'angle_id' => $angle->id,
-                'translated_bodies' => $translatedCount
-            ]);
+            
 
             return sendResponse(true, "Angle translated successfully to {$targetLanguage}. {$translatedCount} bodies were translated.", $angle);
         } catch (\Exception $e) {
@@ -1341,5 +1326,126 @@ class AngleController extends Controller
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Check if a language code represents an RTL (Right-to-Left) language
+     */
+    private function isRtlLanguage($languageCode)
+    {
+        $rtlLanguages = ['AR', 'HE']; // Arabic, Hebrew
+        return in_array(strtoupper($languageCode), $rtlLanguages);
+    }
+
+    /**
+     * Apply RTL (Right-to-Left) support to HTML content
+     * Adds dir="rtl" attribute and injects RTL-specific CSS
+     */
+    private function applyRtlSupport($html)
+    {
+        Log::info('🔄 Applying RTL support to HTML');
+        
+        // RTL CSS to handle layout properly
+        $rtlCss = '
+        <style>
+            /* RTL Support Styles */
+            [dir="rtl"] {
+                direction: rtl;
+                text-align: right;
+            }
+            
+            [dir="rtl"] body,
+            [dir="rtl"] html {
+                direction: rtl;
+            }
+            
+            /* Flip text alignment for RTL */
+            [dir="rtl"] .text-left {
+                text-align: right !important;
+            }
+            
+            [dir="rtl"] .text-right {
+                text-align: left !important;
+            }
+            
+            /* Flip float directions */
+            [dir="rtl"] .float-left {
+                float: right !important;
+            }
+            
+            [dir="rtl"] .float-right {
+                float: left !important;
+            }
+            
+            /* Adjust margins and padding for RTL */
+            [dir="rtl"] .ml-auto {
+                margin-left: 0 !important;
+                margin-right: auto !important;
+            }
+            
+            [dir="rtl"] .mr-auto {
+                margin-right: 0 !important;
+                margin-left: auto !important;
+            }
+            
+            /* Form elements RTL support */
+            [dir="rtl"] input,
+            [dir="rtl"] textarea,
+            [dir="rtl"] select {
+                direction: rtl;
+                text-align: right;
+            }
+            
+            /* Lists RTL support */
+            [dir="rtl"] ul,
+            [dir="rtl"] ol {
+                padding-right: 0;
+                padding-left: 1.5em;
+            }
+            
+            /* Tables RTL support */
+            [dir="rtl"] table {
+                direction: rtl;
+            }
+            
+            [dir="rtl"] th,
+            [dir="rtl"] td {
+                text-align: right;
+            }
+        </style>
+        ';
+        
+        // Check if HTML already has a <html> tag
+        if (preg_match('/<html[^>]*>/i', $html)) {
+            // Add dir="rtl" to existing html tag
+            $html = preg_replace('/(<html[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
+            
+            // Inject RTL CSS before closing </head> tag, or before </html> if no head tag
+            if (preg_match('/<\/head>/i', $html)) {
+                $html = preg_replace('/<\/head>/i', $rtlCss . '</head>', $html, 1);
+            } else {
+                // If no head tag, add it before html content or at the beginning
+                if (preg_match('/<html[^>]*>/i', $html, $matches, PREG_OFFSET_CAPTURE)) {
+                    $htmlTagPos = $matches[0][1] + strlen($matches[0][0]);
+                    $html = substr_replace($html, '<head>' . $rtlCss . '</head>', $htmlTagPos, 0);
+                }
+            }
+        } else {
+            // If no html tag, wrap content and add RTL support
+            // Check if there's a <body> tag
+            if (preg_match('/<body[^>]*>/i', $html)) {
+                // Add dir="rtl" to body tag
+                $html = preg_replace('/(<body[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
+                
+                // Inject RTL CSS before body tag
+                $html = preg_replace('/(<body[^>]*>)/i', $rtlCss . '$1', $html, 1);
+            } else {
+                // Wrap in html structure with RTL support
+                $html = '<html dir="rtl" lang="ar"><head>' . $rtlCss . '</head><body>' . $html . '</body></html>';
+            }
+        }
+        
+        Log::info('✅ RTL support applied successfully');
+        return $html;
     }
 }
