@@ -1208,31 +1208,61 @@ class AngleTemplateController extends Controller
         Log::info('📝 Extracting text from HTML attributes...');
 
         // Find common attributes that should be translated
-        $attributePattern = '/(alt|title|placeholder)=["\']([^"\']{3,})["\']i/';
+        // Pattern matches: attribute="value" or attribute='value' (handles both single and double quotes)
+        // Also handles whitespace around the equals sign
+        $attributePattern = '/(alt|title|placeholder)\s*=\s*["\']([^"\']{2,})["\']/i';
         $html = preg_replace_callback($attributePattern, function ($matches) use (&$textToTranslate, &$placeholders, &$placeholderIndex) {
             $attribute = $matches[1];
             $text = $matches[2];
+            $fullMatch = $matches[0];
+            // Extract the quote character used (single or double)
+            preg_match('/=\s*(["\'])/', $fullMatch, $quoteMatch);
+            $quoteChar = $quoteMatch[1] ?? '"';
 
             // Skip if text contains URLs or looks like code
             if (preg_match('/^https?:\/\//', $text) ||
                 preg_match('/[{}()<>\/\\\\]/', $text) ||
-                strlen($text) < 3) {
+                strlen(trim($text)) < 2) {
+                return $matches[0];
+            }
+            
+            // Skip if text is mostly numbers or special characters (but allow some numbers for placeholders like "Enter 5 digits")
+            $nonAlphaChars = preg_replace('/[a-zA-Z\s]/', '', $text);
+            if (strlen($nonAlphaChars) >= strlen($text) * 0.8 && strlen($text) > 5) {
+                return $matches[0];
+            }
+            
+            // Skip if it's already a placeholder (avoid double-processing)
+            if (preg_match('/^##TRANSLATE_|^PLACEHOLDER_|^##PROTECTED_/i', $text)) {
                 return $matches[0];
             }
 
             $placeholder = "##TRANSLATE_" . $placeholderIndex . "##";
-            $textToTranslate[$placeholder] = $text;
+            $textToTranslate[$placeholder] = [
+                'original' => $text,
+                'text' => trim($text),
+                'attribute' => strtolower($attribute) // Store which attribute this is for
+            ];
             $placeholders[] = $placeholder;
             $placeholderIndex++;
 
-            return $attribute . '="' . $placeholder . '"';
+            // Preserve the original quote style (single or double)
+            return $attribute . '=' . $quoteChar . $placeholder . $quoteChar;
         }, $html);
 
+            $attributeCount = 0;
+            foreach ($textToTranslate as $item) {
+                if (is_array($item) && isset($item['attribute'])) {
+                    $attributeCount++;
+                }
+            }
+            
             Log::info('✅ Attribute extraction completed', [
                 'total_texts_to_translate' => count($textToTranslate),
-                'sample_attribute_texts' => array_slice(array_map(function($item) {
-                    return is_array($item) ? $item['text'] : $item;
-                }, array_values($textToTranslate)), -3)
+                'attributes_found' => $attributeCount,
+                'sample_attribute_texts' => array_slice(array_filter(array_map(function($item) {
+                    return (is_array($item) && isset($item['attribute'])) ? $item['text'] : null;
+                }, array_values($textToTranslate))), 0, 3)
             ]);
 
         // If no text to translate, return original
@@ -1380,17 +1410,22 @@ class AngleTemplateController extends Controller
                     $translation = $textForComparison;
                 }
                 
-                // Preserve original whitespace structure when replacing
-                // If original had leading/trailing whitespace, preserve it
-                $leadingWhitespace = '';
-                $trailingWhitespace = '';
-                if (preg_match('/^(\s*).*?(\s*)$/s', $originalText, $wsMatches)) {
-                    $leadingWhitespace = $wsMatches[1] ?? '';
-                    $trailingWhitespace = $wsMatches[2] ?? '';
+                // For attributes, don't preserve whitespace - just use the translation directly
+                // For text content, preserve original whitespace structure
+                if (isset($textData['attribute'])) {
+                    // This is an attribute (placeholder, alt, title) - use translation directly
+                    $finalTranslation = $translation;
+                } else {
+                    // This is text content - preserve original whitespace structure
+                    $leadingWhitespace = '';
+                    $trailingWhitespace = '';
+                    if (preg_match('/^(\s*).*?(\s*)$/s', $originalText, $wsMatches)) {
+                        $leadingWhitespace = $wsMatches[1] ?? '';
+                        $trailingWhitespace = $wsMatches[2] ?? '';
+                    }
+                    // Apply whitespace preservation
+                    $finalTranslation = $leadingWhitespace . $translation . $trailingWhitespace;
                 }
-                
-                // Apply whitespace preservation
-                $finalTranslation = $leadingWhitespace . $translation . $trailingWhitespace;
                 
                 // Detect if translation is unchanged (DeepL sometimes returns original text)
                 $normalizedOriginal = trim($textForComparison);
@@ -1468,14 +1503,36 @@ class AngleTemplateController extends Controller
             // Replace placeholders with translations
             // Use a single pass with proper escaping to ensure each placeholder is replaced exactly once
             $replacementCount = 0;
-            foreach ($translations as $placeholder => $translation) {
+            foreach ($translations as $placeholder => $finalTranslation) {
                 // Count occurrences before replacement
                 $beforeCount = substr_count($html, $placeholder);
                 
+                // For attributes, escape HTML entities in translation to prevent breaking HTML
+                $textData = $textToTranslate[$placeholder] ?? null;
+                $replacementText = $finalTranslation;
+                $isAttribute = false;
+                if ($textData && is_array($textData) && isset($textData['attribute'])) {
+                    $isAttribute = true;
+                    // This is an attribute - escape HTML entities but preserve quotes
+                    $replacementText = htmlspecialchars($finalTranslation, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
+                }
+                
                 // Escape special regex characters in placeholder
                 $escapedPlaceholder = preg_quote($placeholder, '/');
+                // Escape special regex characters in replacement text for preg_replace
+                $escapedReplacement = preg_replace('/([\\\\$])/', '\\\\$1', $replacementText);
                 // Replace only the first occurrence of each placeholder
-                $html = preg_replace('/' . $escapedPlaceholder . '/', $translation, $html, 1);
+                $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html, 1);
+                
+                if ($isAttribute && $beforeCount > 0) {
+                    Log::info("🔄 Attribute placeholder replaced", [
+                        'placeholder' => $placeholder,
+                        'attribute' => $textData['attribute'],
+                        'original' => $textData['text'],
+                        'translated' => $finalTranslation,
+                        'before_count' => $beforeCount
+                    ]);
+                }
                 
                 // Count occurrences after replacement
                 $afterCount = substr_count($html, $placeholder);
