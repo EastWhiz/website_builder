@@ -1566,9 +1566,44 @@ class AngleTemplateController extends Controller
                 $html = str_replace('---SPLIT---', '', $html);
             }
             // Clean up any double spaces or whitespace issues
+            // BUT preserve whitespace inside style and script tags to prevent breaking CSS/JS selectors
+            // This protects ALL CSS selectors (not just SVG) - e.g., #story .hero-deposit-svg, #story .some-div, etc.
+            // Temporarily replace style/script tags with placeholders
+            $styleScriptPlaceholders = [];
+            $html = preg_replace_callback('/(<style[^>]*>.*?<\/style>|<script[^>]*>.*?<\/script>)/is', function($matches) use (&$styleScriptPlaceholders) {
+                $placeholder = '##STYLE_SCRIPT_' . count($styleScriptPlaceholders) . '##';
+                $styleScriptPlaceholders[$placeholder] = $matches[0];
+                return $placeholder;
+            }, $html);
+            
+            // Also protect inline style attributes to preserve CSS property formatting
+            // This ensures inline styles like style="display: block; width: 100%;" maintain proper spacing
+            $inlineStylePlaceholders = [];
+            $html = preg_replace_callback('/style\s*=\s*["\']([^"\']*)["\']/i', function($matches) use (&$inlineStylePlaceholders) {
+                $fullMatch = $matches[0];
+                $styleContent = $matches[1];
+                $quoteChar = substr($fullMatch, strpos($fullMatch, '=') + 1);
+                $quoteChar = trim($quoteChar)[0]; // Get quote character
+                
+                $placeholder = '##INLINE_STYLE_' . count($inlineStylePlaceholders) . '##';
+                $inlineStylePlaceholders[$placeholder] = $styleContent;
+                return 'style=' . $quoteChar . $placeholder . $quoteChar;
+            }, $html);
+            
+            // Clean up whitespace (this won't affect style/script content or inline styles now)
             $html = preg_replace('/\s+/', ' ', $html);
             // Clean up spaces before/after punctuation that might have been created
             $html = preg_replace('/\s+([.,!?;:])/', '$1', $html);
+            
+            // Restore inline style attributes with their original formatting preserved
+            foreach ($inlineStylePlaceholders as $placeholder => $originalContent) {
+                $html = str_replace($placeholder, $originalContent, $html);
+            }
+            
+            // Restore style/script tags with their original whitespace preserved
+            foreach ($styleScriptPlaceholders as $placeholder => $originalContent) {
+                $html = str_replace($placeholder, $originalContent, $html);
+            }
 
             Log::info('✅ Translation replacement completed successfully');
 
