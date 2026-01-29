@@ -828,12 +828,16 @@ class AngleController extends Controller
             }
             
             // Skip text with no letters (but allow in list items if it's part of structured content)
-            if (!$isInsideListItem && preg_match('/^[^a-zA-Z]*$/', $text)) {
+            // IMPORTANT: Don't skip text that contains accented characters (like Spanish, German, French)
+            // These are valid translatable content even if they don't match standard ASCII letters
+            $hasLetters = preg_match('/[a-zA-ZÀ-ÿĀ-ž]/u', $text);
+            if (!$isInsideListItem && !$hasLetters && preg_match('/^[^a-zA-ZÀ-ÿĀ-ž]*$/u', $text)) {
                 return $matches[0];
             }
             
             // For very short text, only translate if it's in a list item or has meaningful content
-            if (strlen($text) < 3 && (!$isInsideListItem || (!preg_match('/[a-zA-Z]/', $text) && !preg_match('/[%£$€¥]/', $text)))) {
+            // Allow accented characters and non-ASCII letters
+            if (strlen($text) < 3 && (!$isInsideListItem || (!$hasLetters && !preg_match('/[%£$€¥]/', $text)))) {
                 return $matches[0];
             }
             
@@ -1038,22 +1042,21 @@ class AngleController extends Controller
                 // Try splitting by any variation of the separator (with or without newlines, with spaces)
                 $translatedParts = preg_split('/\s*---SPLIT---\s*/', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
                 
-                // If still doesn't match, try more aggressive splitting
+                // If still doesn't match, try more aggressive splitting with variations
                 if (count($translatedParts) !== count($uniqueTexts)) {
                     Log::warning('⚠️ Recovery attempt failed, trying alternative separator patterns', [
                         'expected' => count($uniqueTexts),
                         'received' => count($translatedParts)
                     ]);
                     
-                    // Try with case-insensitive and various spacing
-                    $translatedParts = preg_split('/\s*---\s*SPLIT\s*---\s*/i', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
+                    // Try with case-insensitive and various spacing, including variations like ---SPLIT--
+                    $translatedParts = preg_split('/\s*-{1,5}\s*SPLIT\s*-{1,5}\s*/i', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
                 }
             }
             
             // Clean separator from each part before processing (preventive measure)
             foreach ($translatedParts as $key => $part) {
-                $translatedParts[$key] = str_replace('---SPLIT---', '', $part);
-                $translatedParts[$key] = preg_replace('/\s*---SPLIT---\s*/', '', $translatedParts[$key]);
+                $translatedParts[$key] = $this->cleanSeparator($part);
             }
 
             Log::info('🔄 Processing translation results', [
@@ -1073,14 +1076,7 @@ class AngleController extends Controller
                 $translation = isset($translatedParts[$uniqueIndex]) ? trim($translatedParts[$uniqueIndex]) : $uniqueText;
                 
                 // Clean up separator
-                $translation = str_replace('---SPLIT---', '', $translation);
-                $translation = preg_replace('/\s*---SPLIT---\s*/', '', $translation);
-                $translation = preg_replace('/---SPLIT---/i', '', $translation);
-                $translation = preg_replace('/\s*---\s*SPLIT\s*---\s*/i', '', $translation);
-                $translation = preg_replace('/\s*---SPLIT---\s*/u', '', $translation);
-                while (strpos($translation, '---SPLIT---') !== false) {
-                    $translation = str_replace('---SPLIT---', '', $translation);
-                }
+                $translation = $this->cleanSeparator($translation);
                 $translation = preg_replace('/\s+/', ' ', $translation);
                 $translation = trim($translation);
                 
@@ -1101,15 +1097,7 @@ class AngleController extends Controller
                 
                 // Aggressively clean up any separator text that might have been translated
                 // Handle multiple variations and occurrences
-                $translation = str_replace('---SPLIT---', '', $translation);
-                $translation = preg_replace('/\s*---SPLIT---\s*/', '', $translation);
-                $translation = preg_replace('/---SPLIT---/i', '', $translation); // Case insensitive
-                $translation = preg_replace('/\s*---\s*SPLIT\s*---\s*/i', '', $translation); // With spaces in separator
-                $translation = preg_replace('/\s*---SPLIT---\s*/u', '', $translation); // Unicode mode
-                // Remove multiple consecutive separators
-                while (strpos($translation, '---SPLIT---') !== false) {
-                    $translation = str_replace('---SPLIT---', '', $translation);
-                }
+                $translation = $this->cleanSeparator($translation);
                 // Clean up any remaining whitespace issues
                 $translation = preg_replace('/\s+/', ' ', $translation);
                 $translation = trim($translation);
@@ -1230,8 +1218,9 @@ class AngleController extends Controller
                 $escapedPlaceholder = preg_quote($placeholder, '/');
                 // Escape special regex characters in replacement text for preg_replace
                 $escapedReplacement = preg_replace('/([\\\\$])/', '\\\\$1', $replacementText);
-                // Replace only the first occurrence of each placeholder
-                $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html, 1);
+                // Replace ALL occurrences of this placeholder (not just the first)
+                // This ensures that if the same text appears multiple times, all occurrences get translated
+                $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html);
                 
                 // Count occurrences after replacement
                 $afterCount = substr_count($html, $placeholder);
@@ -1268,15 +1257,7 @@ class AngleController extends Controller
             
             // Final aggressive cleanup: Remove any remaining separator text from HTML
             // Multiple passes to catch all variations
-            $html = str_replace('---SPLIT---', '', $html);
-            $html = preg_replace('/\s*---SPLIT---\s*/', '', $html);
-            $html = preg_replace('/---SPLIT---/i', '', $html); // Case insensitive
-            $html = preg_replace('/\s*---\s*SPLIT\s*---\s*/i', '', $html); // With spaces
-            $html = preg_replace('/\s*---SPLIT---\s*/u', '', $html); // Unicode mode
-            // Remove multiple consecutive separators
-            while (strpos($html, '---SPLIT---') !== false) {
-                $html = str_replace('---SPLIT---', '', $html);
-            }
+            $html = $this->cleanSeparator($html);
             // Clean up any double spaces or whitespace issues
             // BUT preserve whitespace inside style and script tags to prevent breaking CSS/JS selectors
             // This protects ALL CSS selectors (not just SVG) - e.g., #story .hero-deposit-svg, #story .some-div, etc.
@@ -1447,5 +1428,75 @@ class AngleController extends Controller
         
         Log::info('✅ RTL support applied successfully');
         return $html;
+    }
+
+    /**
+     * Clean all variations of the separator from text
+     * Handles variations like ---SPLIT---, ---SPLIT--, --SPLIT---, etc.
+     */
+    private function cleanSeparator($text)
+    {
+        if (empty($text)) {
+            return $text;
+        }
+        
+        // Remove all variations of the separator with different numbers of dashes
+        // Pattern: -{1,5}SPLIT-{1,5} (1 to 5 dashes before and after SPLIT)
+        $patterns = [
+            // Exact matches first
+            '/---SPLIT---/i',
+            '/---SPLIT--/i',   // Three before, two after
+            '/--SPLIT---/i',   // Two before, three after
+            '/--SPLIT--/i',    // Two before, two after
+            '/-SPLIT-/i',      // One before, one after
+            
+            // With whitespace variations
+            '/\s*---\s*SPLIT\s*---\s*/i',
+            '/\s*---\s*SPLIT\s*--\s*/i',
+            '/\s*--\s*SPLIT\s*---\s*/i',
+            '/\s*--\s*SPLIT\s*--\s*/i',
+            '/\s*-\s*SPLIT\s*-\s*/i',
+            
+            // Flexible pattern: any number of dashes (1-5) before and after SPLIT
+            '/-{1,5}\s*SPLIT\s*-{1,5}/i',
+            
+            // Unicode mode variations
+            '/\s*---SPLIT---\s*/u',
+            '/\s*---SPLIT--\s*/u',
+            '/\s*--SPLIT---\s*/u',
+            '/\s*--SPLIT--\s*/u',
+        ];
+        
+        foreach ($patterns as $pattern) {
+            $text = preg_replace($pattern, '', $text);
+        }
+        
+        // Also use str_replace for common variations (faster)
+        $replacements = [
+            '---SPLIT---',
+            '---SPLIT--',
+            '--SPLIT---',
+            '--SPLIT--',
+            '-SPLIT-',
+            '--- SPLIT ---',
+            '--- SPLIT --',
+            '-- SPLIT ---',
+            '-- SPLIT --',
+            '- SPLIT -',
+        ];
+        
+        foreach ($replacements as $replacement) {
+            $text = str_ireplace($replacement, '', $text);
+        }
+        
+        // Loop to catch any remaining variations
+        $maxIterations = 10;
+        $iteration = 0;
+        while ($iteration < $maxIterations && preg_match('/-{1,5}\s*SPLIT\s*-{1,5}/i', $text)) {
+            $text = preg_replace('/-{1,5}\s*SPLIT\s*-{1,5}/i', '', $text);
+            $iteration++;
+        }
+        
+        return $text;
     }
 }

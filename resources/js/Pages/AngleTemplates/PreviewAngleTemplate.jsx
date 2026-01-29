@@ -253,6 +253,61 @@ export default function Dashboard({ id }) {
     //     return "rgb(255, 255, 255)"; // no element found at all
     // }
 
+    // Clean separator variations from HTML content
+    function cleanSeparator(html) {
+        if (!html || typeof html !== 'string') {
+            return html;
+        }
+        
+        // Remove all variations of the separator with different numbers of dashes
+        const patterns = [
+            /---SPLIT---/gi,
+            /---SPLIT--/gi,
+            /--SPLIT---/gi,
+            /--SPLIT--/gi,
+            /-SPLIT-/gi,
+            /\s*---\s*SPLIT\s*---\s*/gi,
+            /\s*---\s*SPLIT\s*--\s*/gi,
+            /\s*--\s*SPLIT\s*---\s*/gi,
+            /\s*--\s*SPLIT\s*--\s*/gi,
+            /\s*-\s*SPLIT\s*-\s*/gi,
+            /-{1,5}\s*SPLIT\s*-{1,5}/gi,
+        ];
+        
+        let cleaned = html;
+        patterns.forEach(pattern => {
+            cleaned = cleaned.replace(pattern, '');
+        });
+        
+        // Also use string replacements for common variations
+        const replacements = [
+            '---SPLIT---',
+            '---SPLIT--',
+            '--SPLIT---',
+            '--SPLIT--',
+            '-SPLIT-',
+            '--- SPLIT ---',
+            '--- SPLIT --',
+            '-- SPLIT ---',
+            '-- SPLIT --',
+            '- SPLIT -',
+        ];
+        
+        replacements.forEach(replacement => {
+            cleaned = cleaned.split(replacement).join('');
+        });
+        
+        // Loop to catch any remaining variations
+        let maxIterations = 10;
+        let iteration = 0;
+        while (iteration < maxIterations && /-{1,5}\s*SPLIT\s*-{1,5}/i.test(cleaned)) {
+            cleaned = cleaned.replace(/-{1,5}\s*SPLIT\s*-{1,5}/gi, '');
+            iteration++;
+        }
+        
+        return cleaned;
+    }
+
     function getClickedWordFromElement() {
         const selection = window.getSelection();
         if (!selection.rangeCount) return null;
@@ -596,6 +651,10 @@ export default function Dashboard({ id }) {
                 setData(json.data);
 
                 let updated = json.data.main_html;
+                
+                // Clean any separator variations that might have slipped through
+                updated = cleanSeparator(updated);
+                
                 setMainHTML([{ html: updated, status: true }]);
 
                 setMainCSS(json.data.main_css);

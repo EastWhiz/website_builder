@@ -253,6 +253,61 @@ export default function Dashboard({ id }) {
     //     return "rgb(255, 255, 255)"; // no element found at all
     // }
 
+    // Clean separator variations from HTML content
+    function cleanSeparator(html) {
+        if (!html || typeof html !== 'string') {
+            return html;
+        }
+        
+        // Remove all variations of the separator with different numbers of dashes
+        const patterns = [
+            /---SPLIT---/gi,
+            /---SPLIT--/gi,
+            /--SPLIT---/gi,
+            /--SPLIT--/gi,
+            /-SPLIT-/gi,
+            /\s*---\s*SPLIT\s*---\s*/gi,
+            /\s*---\s*SPLIT\s*--\s*/gi,
+            /\s*--\s*SPLIT\s*---\s*/gi,
+            /\s*--\s*SPLIT\s*--\s*/gi,
+            /\s*-\s*SPLIT\s*-\s*/gi,
+            /-{1,5}\s*SPLIT\s*-{1,5}/gi,
+        ];
+        
+        let cleaned = html;
+        patterns.forEach(pattern => {
+            cleaned = cleaned.replace(pattern, '');
+        });
+        
+        // Also use string replacements for common variations
+        const replacements = [
+            '---SPLIT---',
+            '---SPLIT--',
+            '--SPLIT---',
+            '--SPLIT--',
+            '-SPLIT-',
+            '--- SPLIT ---',
+            '--- SPLIT --',
+            '-- SPLIT ---',
+            '-- SPLIT --',
+            '- SPLIT -',
+        ];
+        
+        replacements.forEach(replacement => {
+            cleaned = cleaned.split(replacement).join('');
+        });
+        
+        // Loop to catch any remaining variations
+        let maxIterations = 10;
+        let iteration = 0;
+        while (iteration < maxIterations && /-{1,5}\s*SPLIT\s*-{1,5}/i.test(cleaned)) {
+            cleaned = cleaned.replace(/-{1,5}\s*SPLIT\s*-{1,5}/gi, '');
+            iteration++;
+        }
+        
+        return cleaned;
+    }
+
     function updateAngleImages(htmlString, currentAngle) {
         return htmlString.replace(
             /src="angle_images\//g,
@@ -616,7 +671,11 @@ export default function Dashboard({ id }) {
                         selected_body: index === 0 // true if index is 0, false otherwise
                     }))
                 setMainBodies(bodiesTemp);
-                const firstBodyContent = updateAngleImages(bodiesTemp[0].content, json.data);
+                let firstBodyContent = updateAngleImages(bodiesTemp[0].content, json.data);
+                
+                // Clean any separator variations that might have slipped through
+                firstBodyContent = cleanSeparator(firstBodyContent);
+                
                 setMainHTML([{ html: firstBodyContent, status: true }]);
                 
                 // Detect RTL: Check if HTML contains dir="rtl" or if angle name contains RTL language code
