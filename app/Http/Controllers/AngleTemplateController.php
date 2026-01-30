@@ -1380,6 +1380,23 @@ class AngleTemplateController extends Controller
                 'received_parts' => count($translatedParts),
                 'total_placeholders' => count($textToTranslate)
             ]);
+            
+            // CRITICAL: Ensure counts match before mapping to prevent wrong translations
+            if (count($translatedParts) !== count($uniqueTexts)) {
+                Log::error('❌ CRITICAL: Cannot safely map translations - count mismatch', [
+                    'expected' => count($uniqueTexts),
+                    'received' => count($translatedParts),
+                    'difference' => count($uniqueTexts) - count($translatedParts)
+                ]);
+                // Pad or trim to match counts to prevent index misalignment
+                while (count($translatedParts) < count($uniqueTexts)) {
+                    $missingIndex = count($translatedParts);
+                    $translatedParts[] = $uniqueTexts[$missingIndex]; // Use original text
+                }
+                if (count($translatedParts) > count($uniqueTexts)) {
+                    $translatedParts = array_slice($translatedParts, 0, count($uniqueTexts));
+                }
+            }
 
             // Map translations back to placeholders using deduplication map
             $translations = [];
@@ -1409,7 +1426,31 @@ class AngleTemplateController extends Controller
                 
                 // Get translation from unique translations map
                 $normalizedText = strtolower(trim($textForComparison));
-                $translation = isset($uniqueTranslations[$normalizedText]) ? $uniqueTranslations[$normalizedText] : $textForComparison;
+                if (isset($uniqueTranslations[$normalizedText])) {
+                    $translation = $uniqueTranslations[$normalizedText];
+                    
+                    // CRITICAL FIX: Validate button text translations
+                    // If button text gets a very long translation (like banner text), it's wrong
+                    if ((stripos($textForComparison, 'anmelden') !== false || stripos($textForComparison, 'jetzt') !== false) && 
+                        strlen($translation) > strlen($textForComparison) * 2.5) {
+                        // Button text got wrong translation - use original instead
+                        Log::error("❌ Button text translation validation failed", [
+                            'placeholder' => $placeholder,
+                            'original' => $textForComparison,
+                            'wrong_translation_length' => strlen($translation),
+                            'original_length' => strlen($textForComparison)
+                        ]);
+                        $translation = $textForComparison;
+                    }
+                } else {
+                    // If not found in map, use original text (shouldn't happen but safety fallback)
+                    $translation = $textForComparison;
+                    Log::warning("⚠️ Translation not found in map", [
+                        'normalized_text' => $normalizedText,
+                        'original_text' => substr($textForComparison, 0, 50),
+                        'placeholder' => $placeholder
+                    ]);
+                }
                 
                 // Aggressively clean up any separator text that might have been translated
                 // Handle multiple variations and occurrences
@@ -1559,6 +1600,17 @@ class AngleTemplateController extends Controller
                 $escapedPlaceholder = preg_quote($placeholder, '/');
                 // Escape special regex characters in replacement text for preg_replace
                 $escapedReplacement = preg_replace('/([\\\\$])/', '\\\\$1', $replacementText);
+                
+                // Log button text replacement for debugging
+                if (isset($textData['text']) && (stripos($textData['text'], 'anmelden') !== false || stripos($textData['text'], 'jetzt') !== false)) {
+                    Log::info("🔘 Button text replacement", [
+                        'placeholder' => $placeholder,
+                        'original' => $textData['text'],
+                        'translated' => $finalTranslation,
+                        'before_count' => $beforeCount
+                    ]);
+                }
+                
                 // Replace ONLY the first occurrence of this placeholder
                 // Each placeholder should only appear once in the HTML, so we replace it once
                 // This prevents duplicate replacements that could cause content duplication

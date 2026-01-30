@@ -933,6 +933,16 @@ class AngleController extends Controller
                 'original' => $originalText, // Keep original with whitespace
                 'text' => $text // Trimmed version for translation
             ];
+            
+            // Log button text extraction for debugging
+            if (stripos($text, 'anmelden') !== false || stripos($text, 'jetzt') !== false) {
+                Log::info("🔘 Button text extracted", [
+                    'text' => $text,
+                    'placeholder' => $placeholder,
+                    'context' => substr($fullMatch, 0, 100)
+                ]);
+            }
+            
             return '>' . $placeholder . '<';
         }, $html);
         
@@ -1083,6 +1093,23 @@ class AngleController extends Controller
                 'received_parts' => count($translatedParts),
                 'total_placeholders' => count($textToTranslate)
             ]);
+            
+            // CRITICAL: Ensure counts match before mapping to prevent wrong translations
+            if (count($translatedParts) !== count($uniqueTexts)) {
+                Log::error('❌ CRITICAL: Cannot safely map translations - count mismatch', [
+                    'expected' => count($uniqueTexts),
+                    'received' => count($translatedParts),
+                    'difference' => count($uniqueTexts) - count($translatedParts)
+                ]);
+                // Pad or trim to match counts to prevent index misalignment
+                while (count($translatedParts) < count($uniqueTexts)) {
+                    $missingIndex = count($translatedParts);
+                    $translatedParts[] = $uniqueTexts[$missingIndex]; // Use original text
+                }
+                if (count($translatedParts) > count($uniqueTexts)) {
+                    $translatedParts = array_slice($translatedParts, 0, count($uniqueTexts));
+                }
+            }
 
             // Map translations back to placeholders using deduplication map
             $translations = [];
@@ -1112,7 +1139,36 @@ class AngleController extends Controller
                 
                 // Get translation from unique translations map
                 $normalizedText = strtolower(trim($textForComparison));
-                $translation = isset($uniqueTranslations[$normalizedText]) ? $uniqueTranslations[$normalizedText] : $textForComparison;
+                if (isset($uniqueTranslations[$normalizedText])) {
+                    $translation = $uniqueTranslations[$normalizedText];
+                    
+                    // CRITICAL: Verify the translation matches the original text's meaning
+                    // If translation is completely different (like banner text for button text), log error
+                    if (stripos($textForComparison, 'anmelden') !== false || stripos($textForComparison, 'jetzt') !== false) {
+                        // This is button text - verify translation is reasonable
+                        $translationLower = strtolower($translation);
+                        $originalLower = strtolower($textForComparison);
+                        // If translation is very long (like banner text), it's wrong
+                        if (strlen($translation) > strlen($textForComparison) * 3) {
+                            Log::error("❌ Button text got wrong translation!", [
+                                'placeholder' => $placeholder,
+                                'original' => $textForComparison,
+                                'wrong_translation' => substr($translation, 0, 100),
+                                'normalized_key' => $normalizedText
+                            ]);
+                            // Use original text instead of wrong translation
+                            $translation = $textForComparison;
+                        }
+                    }
+                } else {
+                    // If not found in map, use original text (shouldn't happen but safety fallback)
+                    $translation = $textForComparison;
+                    Log::warning("⚠️ Translation not found in map", [
+                        'normalized_text' => $normalizedText,
+                        'original_text' => substr($textForComparison, 0, 50),
+                        'placeholder' => $placeholder
+                    ]);
+                }
                 
                 // Aggressively clean up any separator text that might have been translated
                 // Handle multiple variations and occurrences
