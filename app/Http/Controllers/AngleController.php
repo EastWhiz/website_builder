@@ -1055,7 +1055,7 @@ class AngleController extends Controller
                 // Try splitting by any variation of the separator (with or without newlines, with spaces)
                 $translatedParts = preg_split('/\s*---SPLIT---\s*/', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
                 
-+++                // If still doesn't match, try more aggressive splitting with variations
+                // If still doesn't match, try more aggressive splitting with variations
                 if (count($translatedParts) !== count($uniqueTexts)) {
                     Log::warning('⚠️ Recovery attempt failed, trying alternative separator patterns', [
                         'expected' => count($uniqueTexts),
