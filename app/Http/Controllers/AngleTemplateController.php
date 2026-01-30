@@ -1150,6 +1150,12 @@ class AngleTemplateController extends Controller
                 return $matches[0];
             }
             
+            // Skip time patterns like "18 min", "5 horas", "23 hrs" - these are not translatable
+            // Pattern: number followed by time unit (min, minuten, horas, hrs, hours, etc.)
+            if (preg_match('/^\d+\s*(min|minuten|horas|hrs|hours|h|stunden|sekunden|seconds|sec|tage|days|d)$/i', $text)) {
+                return $matches[0];
+            }
+            
             // Skip text that contains mostly numbers/currency/dates (preserve formatting)
             // Check if text is mostly numeric or currency symbols
             $nonNumericChars = preg_replace('/[\d\s\$€£¥,\-\.:]/', '', $text);
@@ -1553,9 +1559,10 @@ class AngleTemplateController extends Controller
                 $escapedPlaceholder = preg_quote($placeholder, '/');
                 // Escape special regex characters in replacement text for preg_replace
                 $escapedReplacement = preg_replace('/([\\\\$])/', '\\\\$1', $replacementText);
-                // Replace ALL occurrences of this placeholder (not just the first)
-                // This ensures that if the same text appears multiple times, all occurrences get translated
-                $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html);
+                // Replace ONLY the first occurrence of this placeholder
+                // Each placeholder should only appear once in the HTML, so we replace it once
+                // This prevents duplicate replacements that could cause content duplication
+                $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html, 1);
                 
                 if ($isAttribute && $beforeCount > 0) {
                     Log::info("🔄 Attribute placeholder replaced", [

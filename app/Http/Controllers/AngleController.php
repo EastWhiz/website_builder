@@ -854,6 +854,12 @@ class AngleController extends Controller
                 return $matches[0];
             }
             
+            // Skip time patterns like "18 min", "5 horas", "23 hrs" - these are not translatable
+            // Pattern: number followed by time unit (min, minuten, horas, hrs, hours, etc.)
+            if (preg_match('/^\d+\s*(min|minuten|horas|hrs|hours|h|stunden|sekunden|seconds|sec|tage|days|d)$/i', $text)) {
+                return $matches[0];
+            }
+            
             // For list items, allow text that starts with numbers/percentages (like "92% of users...")
             if ($isInsideListItem && preg_match('/^\d+%?\s+/', $text)) {
                 // This is a list item starting with a number/percentage - translate it
@@ -1256,9 +1262,10 @@ class AngleController extends Controller
                 $escapedPlaceholder = preg_quote($placeholder, '/');
                 // Escape special regex characters in replacement text for preg_replace
                 $escapedReplacement = preg_replace('/([\\\\$])/', '\\\\$1', $replacementText);
-                // Replace ALL occurrences of this placeholder (not just the first)
-                // This ensures that if the same text appears multiple times, all occurrences get translated
-                $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html);
+                // Replace ONLY the first occurrence of this placeholder
+                // Each placeholder should only appear once in the HTML, so we replace it once
+                // This prevents duplicate replacements that could cause content duplication
+                $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html, 1);
                 
                 // Count occurrences after replacement
                 $afterCount = substr_count($html, $placeholder);
