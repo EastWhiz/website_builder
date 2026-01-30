@@ -1107,6 +1107,74 @@ class AngleController extends Controller
                     $translation = $textForComparison;
                 }
                 
+                // Detect if translation is unchanged (DeepL sometimes returns original text)
+                // Check BEFORE setting finalTranslation so we can retry if needed
+                $normalizedOriginal = trim($textForComparison);
+                $normalizedTranslated = trim($translation);
+                
+                // Check if translation is identical to original (case-insensitive for short texts)
+                if (strtolower($normalizedOriginal) === strtolower($normalizedTranslated) && 
+                    strlen($normalizedOriginal) > 3) { // Only check for meaningful text
+                    $unchangedCount++;
+                    
+                    // Try to force translation by retrying with explicit source language detection
+                    // Only retry for unique texts to avoid duplicate API calls
+                    if (!isset($retriedTexts[$normalizedText])) {
+                        $retriedTexts[$normalizedText] = true;
+                        try {
+                            Log::warning("⚠️ Translation unchanged, attempting forced retranslation", [
+                                'placeholder' => $placeholder,
+                                'original' => substr($normalizedOriginal, 0, 50),
+                                'target_language' => $targetLanguage
+                            ]);
+                            
+                            // Retry translation with explicit source language (let DeepL detect)
+                            $retryTranslation = $deepLService->translate($normalizedOriginal, $targetLanguage, null, $splitSentences, $preserveFormatting);
+                            $retryTranslation = trim($retryTranslation);
+                            $retryTranslation = $this->cleanSeparator($retryTranslation);
+                            $retryTranslation = preg_replace('/\s+/', ' ', $retryTranslation);
+                            $retryTranslation = trim($retryTranslation);
+                            
+                            // If retry produced different result, update translation for all placeholders with this text
+                            if (strtolower($retryTranslation) !== strtolower($normalizedOriginal) && !empty($retryTranslation)) {
+                                // Update the unique translation map so all placeholders get the new translation
+                                $uniqueTranslations[$normalizedText] = $retryTranslation;
+                                // Update current translation
+                                $translation = $retryTranslation;
+                                Log::info("✅ Forced retranslation succeeded", [
+                                    'placeholder' => $placeholder,
+                                    'original' => substr($normalizedOriginal, 0, 50),
+                                    'new_translation' => substr($translation, 0, 50)
+                                ]);
+                            } else {
+                                // Even if retry didn't change, log it for debugging
+                                Log::warning("⚠️ Retry translation still returned unchanged text", [
+                                    'placeholder' => $placeholder,
+                                    'original' => substr($normalizedOriginal, 0, 50),
+                                    'retry_result' => substr($retryTranslation, 0, 50),
+                                    'target_language' => $targetLanguage
+                                ]);
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning("⚠️ Retry translation failed", [
+                                'placeholder' => $placeholder,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                }
+                
+                // Re-fetch translation from map after potential retry updates (in case it was updated)
+                // This ensures we get the latest translation if it was retried
+                if (isset($uniqueTranslations[$normalizedText])) {
+                    $latestTranslation = $this->cleanSeparator($uniqueTranslations[$normalizedText]);
+                    $latestTranslation = preg_replace('/\s+/', ' ', $latestTranslation);
+                    $latestTranslation = trim($latestTranslation);
+                    if (!empty($latestTranslation) && strtolower($latestTranslation) !== strtolower($normalizedOriginal)) {
+                        $translation = $latestTranslation;
+                    }
+                }
+                
                 // For attributes, don't preserve whitespace - just use the translation directly
                 // For text content, preserve original whitespace structure
                 if (isset($textData['attribute'])) {
@@ -1122,49 +1190,6 @@ class AngleController extends Controller
                     }
                     // Apply whitespace preservation
                     $finalTranslation = $leadingWhitespace . $translation . $trailingWhitespace;
-                }
-                
-                // Detect if translation is unchanged (DeepL sometimes returns original text)
-                $normalizedOriginal = trim($textForComparison);
-                $normalizedTranslated = trim($translation);
-                
-                // Check if translation is identical to original (case-insensitive for short texts)
-                if (strtolower($normalizedOriginal) === strtolower($normalizedTranslated) && 
-                    strlen($normalizedOriginal) > 3) { // Only check for meaningful text
-                    $unchangedCount++;
-                    
-                    // Try to force translation by retrying with explicit source language detection
-                    // Only retry for unique texts to avoid duplicate API calls
-                    if ($unchangedCount <= 5 && !isset($retriedTexts[$normalizedText])) {
-                        $retriedTexts[$normalizedText] = true;
-                        try {
-                            Log::warning("⚠️ Translation unchanged, attempting forced retranslation", [
-                                'placeholder' => $placeholder,
-                                'original' => substr($normalizedOriginal, 0, 50),
-                                'target_language' => $targetLanguage
-                            ]);
-                            
-                            // Retry translation with explicit source language (let DeepL detect)
-                            $retryTranslation = $deepLService->translate($normalizedOriginal, $targetLanguage, null, $splitSentences, $preserveFormatting);
-                            $retryTranslation = trim($retryTranslation);
-                            
-                            // If retry produced different result, update translation for all placeholders with this text
-                            if (strtolower($retryTranslation) !== strtolower($normalizedOriginal) && !empty($retryTranslation)) {
-                                $translation = $retryTranslation;
-                                // Update the unique translation map so all placeholders get the new translation
-                                $uniqueTranslations[$normalizedText] = $retryTranslation;
-                                Log::info("✅ Forced retranslation succeeded", [
-                                    'placeholder' => $placeholder,
-                                    'new_translation' => substr($translation, 0, 50)
-                                ]);
-                            }
-                        } catch (\Exception $e) {
-                            Log::warning("⚠️ Retry translation failed", [
-                                'placeholder' => $placeholder,
-                                'error' => $e->getMessage()
-                            ]);
-                        }
-                    }
                 }
                 
                 $translations[$placeholder] = $finalTranslation;
