@@ -254,12 +254,15 @@ export default function Dashboard({ id }) {
     // }
 
     // Clean separator variations from HTML content
+    // Note: This function only removes separator strings (---SPLIT--- variations)
+    // Names and other content are preserved - they should be handled by the backend translation
     function cleanSeparator(html) {
         if (!html || typeof html !== 'string') {
             return html;
         }
         
         // Remove all variations of the separator with different numbers of dashes
+        // This only targets the specific separator pattern and won't affect names or other content
         const patterns = [
             /---SPLIT---/gi,
             /---SPLIT--/gi,

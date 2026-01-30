@@ -827,6 +827,19 @@ class AngleController extends Controller
                 return $matches[0];
             }
             
+            // Skip proper names (e.g., "Joseph Farley", "Steve Collins", "Liam O'Brien")
+            // Pattern: 2-4 words, each starting with capital letter, may contain apostrophes/hyphens
+            // This prevents names from being translated
+            // Multi-word names (first and last name) are most common
+            if (preg_match('/^[A-ZÀ-ŸĀ-Ž][a-zà-ÿā-ž]*[\'\-]?[a-zà-ÿā-ž]*(?:\s+[A-ZÀ-ŸĀ-Ž][a-zà-ÿā-ž]*[\'\-]?[a-zà-ÿā-ž]*){1,3}$/u', $text) && 
+                strlen($text) >= 3 && 
+                strlen($text) <= 50 && // Names are typically not longer than 50 chars
+                !preg_match('/\d/', $text) && // Names don't contain numbers
+                preg_match('/\s/', $text)) { // Must contain at least one space (first and last name)
+                // Multi-word name pattern - skip it (don't translate names)
+                return $matches[0];
+            }
+            
             // Skip text with no letters (but allow in list items if it's part of structured content)
             // IMPORTANT: Don't skip text that contains accented characters (like Spanish, German, French)
             // These are valid translatable content even if they don't match standard ASCII letters
@@ -1042,7 +1055,7 @@ class AngleController extends Controller
                 // Try splitting by any variation of the separator (with or without newlines, with spaces)
                 $translatedParts = preg_split('/\s*---SPLIT---\s*/', $translatedText, -1, PREG_SPLIT_NO_EMPTY);
                 
-                // If still doesn't match, try more aggressive splitting with variations
++++                // If still doesn't match, try more aggressive splitting with variations
                 if (count($translatedParts) !== count($uniqueTexts)) {
                     Log::warning('⚠️ Recovery attempt failed, trying alternative separator patterns', [
                         'expected' => count($uniqueTexts),
