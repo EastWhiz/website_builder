@@ -914,14 +914,18 @@ class AngleTemplateController extends Controller
 
     public function translateAngleTemplate(Request $request)
     {
-        $request->validate([
-            'angle_template_id' => 'required|exists:angle_templates,id',
+            $request->validate([
+                'angle_template_id' => 'required|exists:angle_templates,id',
             'target_language'   => 'required|string|max:10',
-        ]);
-    
+                'split_sentences' => 'nullable|string',
+                'preserve_formatting' => 'nullable|integer'
+            ]);
+
         $angleTemplate   = AngleTemplate::findOrFail($request->angle_template_id);
         $targetLanguage  = strtoupper($request->target_language);
-    
+            $splitSentences = $request->split_sentences;
+            $preserveFormatting = $request->preserve_formatting;
+
         if (empty(trim($angleTemplate->main_html))) {
             return sendResponse(false, 'No HTML content to translate');
         }
@@ -934,7 +938,9 @@ class AngleTemplateController extends Controller
             $translatedHtml = $this->translateHtmlUsingDOM(
                 $angleTemplate->main_html,
                 $targetLanguage,
-                $deepLService
+                $deepLService,
+                $splitSentences,
+                $preserveFormatting
             );
     
             // RTL support
@@ -1240,14 +1246,14 @@ class AngleTemplateController extends Controller
                     $attributeCount++;
                 }
             }
-            
-            Log::info('✅ Attribute extraction completed', [
-                'total_texts_to_translate' => count($textToTranslate),
+
+        Log::info('✅ Attribute extraction completed', [
+            'total_texts_to_translate' => count($textToTranslate),
                 'attributes_found' => $attributeCount,
                 'sample_attribute_texts' => array_slice(array_filter(array_map(function($item) {
                     return (is_array($item) && isset($item['attribute'])) ? $item['text'] : null;
                 }, array_values($textToTranslate))), 0, 3)
-            ]);
+        ]);
 
         // If no text to translate, return original
         if (empty($textToTranslate)) {
@@ -1666,7 +1672,7 @@ class AngleTemplateController extends Controller
             if (isset($textToTranslate) && is_array($textToTranslate)) {
                 foreach ($textToTranslate as $placeholder => $textData) {
                     $originalText = is_array($textData) ? (isset($textData['original']) ? $textData['original'] : (isset($textData['text']) ? $textData['text'] : $textData)) : $textData;
-                    $html = str_replace($placeholder, $originalText, $html);
+                $html = str_replace($placeholder, $originalText, $html);
                 }
             }
         }
@@ -1686,15 +1692,110 @@ class AngleTemplateController extends Controller
     return in_array(strtoupper($lang), ['AR', 'HE', 'FA', 'UR']);
 }
 
-private function applyRtlSupport($html)
-{
-    return preg_replace(
-        '/<html(.*?)>/i',
-        '<html$1 dir="rtl" style="direction:rtl;">',
-        $html,
-        1
-    );
-}
+    private function applyRtlSupport($html)
+    {
+        // RTL CSS to handle layout properly
+        $rtlCss = '
+        <style>
+            /* RTL Support Styles */
+            [dir="rtl"] {
+                direction: rtl;
+                text-align: right;
+            }
+            
+            [dir="rtl"] body,
+            [dir="rtl"] html {
+                direction: rtl;
+            }
+            
+            /* Flip text alignment for RTL */
+            [dir="rtl"] .text-left {
+                text-align: right !important;
+            }
+            
+            [dir="rtl"] .text-right {
+                text-align: left !important;
+            }
+            
+            /* Flip float directions */
+            [dir="rtl"] .float-left {
+                float: right !important;
+            }
+            
+            [dir="rtl"] .float-right {
+                float: left !important;
+            }
+            
+            /* Adjust margins and padding for RTL */
+            [dir="rtl"] .ml-auto {
+                margin-left: 0 !important;
+                margin-right: auto !important;
+            }
+            
+            [dir="rtl"] .mr-auto {
+                margin-right: 0 !important;
+                margin-left: auto !important;
+            }
+            
+            /* Form elements RTL support */
+            [dir="rtl"] input,
+            [dir="rtl"] textarea,
+            [dir="rtl"] select {
+                direction: rtl;
+                text-align: right;
+            }
+            
+            /* Lists RTL support */
+            [dir="rtl"] ul,
+            [dir="rtl"] ol {
+                padding-right: 0;
+                padding-left: 1.5em;
+            }
+            
+            /* Tables RTL support */
+            [dir="rtl"] table {
+                direction: rtl;
+            }
+            
+            [dir="rtl"] th,
+            [dir="rtl"] td {
+                text-align: right;
+            }
+        </style>
+        ';
+        
+        // Check if HTML already has a <html> tag
+        if (preg_match('/<html[^>]*>/i', $html)) {
+            // Add dir="rtl" to existing html tag
+            $html = preg_replace('/(<html[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
+            
+            // Inject RTL CSS before closing </head> tag, or before </html> if no head tag
+            if (preg_match('/<\/head>/i', $html)) {
+                $html = preg_replace('/<\/head>/i', $rtlCss . '</head>', $html, 1);
+            } else {
+                // If no head tag, add it before html content or at the beginning
+                if (preg_match('/<html[^>]*>/i', $html, $matches, PREG_OFFSET_CAPTURE)) {
+                    $htmlTagPos = $matches[0][1] + strlen($matches[0][0]);
+                    $html = substr_replace($html, '<head>' . $rtlCss . '</head>', $htmlTagPos, 0);
+                }
+            }
+        } else {
+            // If no html tag, wrap content and add RTL support
+            // Check if there's a <body> tag
+            if (preg_match('/<body[^>]*>/i', $html)) {
+                // Add dir="rtl" to body tag
+                $html = preg_replace('/(<body[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
+                
+                // Inject RTL CSS before body tag
+                $html = preg_replace('/(<body[^>]*>)/i', $rtlCss . '$1', $html, 1);
+            } else {
+                // Wrap in html structure with RTL support
+                $html = '<html dir="rtl" lang="ar"><head>' . $rtlCss . '</head><body>' . $html . '</body></html>';
+            }
+        }
+        
+        return $html;
+    }
 
 
     /**
@@ -1767,79 +1868,229 @@ private function applyRtlSupport($html)
         return $text;
     }
 
-    private function translateHtmlUsingDOM($html, $targetLanguage, $deepLService)
-{
-    libxml_use_internal_errors(true);
+    private function translateHtmlUsingDOM($html, $targetLanguage, $deepLService, $splitSentences = null, $preserveFormatting = null)
+    {
+        libxml_use_internal_errors(true);
 
-    $dom = new \DOMDocument('1.0', 'UTF-8');
-    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html,
-        LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
-    );
+        // Better encoding handling - use mb_convert_encoding if needed
+        $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
+        
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        @$dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
 
-    $xpath = new \DOMXPath($dom);
+        $xpath = new \DOMXPath($dom);
 
-    $textNodes = [];
-    $nodeMap   = [];
+        $textNodes = [];
+        $nodeMap   = [];
+        $attributeNodes = []; // For alt, title, placeholder, aria-label
+        $attributeTexts = []; // Separate array for attribute texts to translate
 
-    foreach ($xpath->query('//text()[normalize-space()]') as $node) {
+        // Extract text nodes
+        foreach ($xpath->query('//text()[normalize-space()]') as $node) {
+            if ($this->shouldSkipNode($node)) {
+                continue;
+            }
 
-        if ($this->shouldSkipNode($node)) {
-            continue;
+            $text = trim($node->nodeValue);
+
+            // Skip numbers / symbols
+            if (!preg_match('/[A-Za-zÀ-ÿ]/u', $text)) {
+                continue;
+            }
+
+            // Skip likely names
+            if ($this->looksLikePersonName($text)) {
+                continue;
+            }
+
+            // Skip initials used for avatar boxes
+            if ($this->looksLikeInitials($text)) {
+                continue;
+            }
+            
+            $hash = md5($text);
+            $nodeMap[$hash][] = $node;
+            $textNodes[$hash] = $text;
         }
 
-        $text = trim($node->nodeValue);
-
-        // Skip numbers / symbols
-        if (!preg_match('/[A-Za-zÀ-ÿ]/u', $text)) {
-            continue;
+        // Extract translatable attributes
+        // Note: We use shouldSkipNodeForAttributes instead of shouldSkipNode
+        // because we want to translate attributes of input/textarea/select elements
+        // even though we skip their text content
+        $attributesToTranslate = ['alt', 'title', 'placeholder', 'aria-label'];
+        foreach ($attributesToTranslate as $attrName) {
+            // Use XPath to find all elements with this attribute
+            $query = "//*[@{$attrName}]";
+            $elements = $xpath->query($query);
+            
+            foreach ($elements as $element) {
+                /** @var \DOMElement $element */
+                // For input/textarea/select, we want to translate their attributes
+                // So we check if the element itself should be skipped (not its parent)
+                $tagName = strtolower($element->nodeName);
+                
+                // Skip script, style, svg completely
+                if (in_array($tagName, ['script', 'style', 'noscript', 'svg', 'path', 'defs', 'symbol'])) {
+                    continue;
+                }
+                
+                // Check if element is hidden
+                if ($element->hasAttribute('hidden') || 
+                    $element->getAttribute('aria-hidden') === 'true') {
+                    continue;
+                }
+                
+                // Check inline styles for hidden
+                $style = strtolower($element->getAttribute('style'));
+                if (str_contains($style, 'display:none') ||
+                    str_contains($style, 'visibility:hidden') ||
+                    str_contains($style, 'opacity:0')) {
+                    continue;
+                }
+                
+                $attrValue = trim($element->getAttribute($attrName));
+                
+                // Skip empty
+                if (empty($attrValue)) {
+                    continue;
+                }
+                
+                // Skip URLs
+                if (preg_match('/^https?:\/\//', $attrValue)) {
+                    continue;
+                }
+                
+                // For placeholder attributes, be more lenient - translate any text that looks translatable
+                // Support all languages (Latin, Arabic, Chinese, Japanese, Cyrillic, etc.)
+                if ($attrName === 'placeholder') {
+                    // For placeholders, translate if it has any Unicode letters from any language
+                    // This includes: Latin, Arabic, Chinese, Japanese, Cyrillic, Hebrew, etc.
+                    if (!preg_match('/[\p{L}]/u', $attrValue)) {
+                        continue;
+                    }
+                } else {
+                    // For other attributes, require Unicode letters (supports all languages)
+                    if (!preg_match('/[\p{L}]/u', $attrValue)) {
+                        continue;
+                    }
+                }
+                
+                // Skip likely names (but be less strict for placeholders)
+                if ($attrName !== 'placeholder' && $this->looksLikePersonName($attrValue)) {
+                    continue;
+                }
+                
+                // Use a unique hash that includes element position to avoid collisions
+                // This ensures each attribute gets its own translation even if text is the same
+                $uniqueId = uniqid('attr_', true);
+                $hash = md5($attrValue . '|' . $attrName . '|' . $uniqueId);
+                
+                $attributeNodes[$hash] = [
+                    'element' => $element,
+                    'attribute' => $attrName,
+                    'text' => $attrValue,
+                    'original_text' => $attrValue // Keep original for deduplication
+                ];
+                
+                // Store in separate array to avoid conflicts with text nodes
+                $attributeTexts[$hash] = $attrValue;
+            }
         }
 
-        // Skip likely names
-        if ($this->looksLikePersonName($text)) {
-            continue;
+        // Batch translate text nodes
+        $translations = [];
+        if (!empty($textNodes)) {
+            $chunks = array_chunk($textNodes, 20, true);
+            foreach ($chunks as $chunk) {
+                $translated = $deepLService->translateBatch(
+                    array_values($chunk),
+                    $targetLanguage,
+                    null,
+                    $splitSentences,
+                    $preserveFormatting
+                );
+
+                foreach (array_keys($chunk) as $i => $hash) {
+                    $translations[$hash] = $translated[$i] ?? $chunk[$hash];
+                }
+            }
         }
 
-        // Skip initials used for avatar boxes
-        if ($this->looksLikeInitials($text)) {
-            continue;
+        // Batch translate attributes separately to ensure all get translated
+        if (!empty($attributeTexts)) {
+            // Deduplicate attribute texts for translation (translate each unique text once)
+            $uniqueAttributeTexts = [];
+            $attributeTextMap = []; // Maps unique text to all hashes that use it
+            foreach ($attributeTexts as $hash => $text) {
+                $normalizedText = strtolower(trim($text));
+                if (!isset($uniqueAttributeTexts[$normalizedText])) {
+                    $uniqueAttributeTexts[$normalizedText] = $text;
+                }
+                $attributeTextMap[$normalizedText][] = $hash;
+            }
+
+            // Translate unique attribute texts
+            if (!empty($uniqueAttributeTexts)) {
+                $chunks = array_chunk($uniqueAttributeTexts, 20, true);
+                foreach ($chunks as $chunk) {
+                    // Get the texts in order for translation
+                    $textsToTranslate = array_values($chunk);
+                    $normalizedKeys = array_keys($chunk);
+                    
+                    $translated = $deepLService->translateBatch(
+                        $textsToTranslate,
+                        $targetLanguage,
+                        null,
+                        $splitSentences,
+                        $preserveFormatting
+                    );
+
+                    // Map translations back using the correct indices
+                    foreach ($normalizedKeys as $i => $normalizedText) {
+                        $translatedText = $translated[$i] ?? $textsToTranslate[$i];
+                        // Map translation back to all hashes that use this text
+                        if (isset($attributeTextMap[$normalizedText])) {
+                            foreach ($attributeTextMap[$normalizedText] as $hash) {
+                                $translations[$hash] = $translatedText;
+                            }
+                        }
+                    }
+                }
+            }
         }
-        $hash = md5($text);
-        $nodeMap[$hash][] = $node;
-        $textNodes[$hash] = $text;
+
+        // Replace text nodes
+        foreach ($nodeMap as $hash => $nodes) {
+            if (isset($translations[$hash])) {
+                foreach ($nodes as $node) {
+                    $node->nodeValue = $translations[$hash];
+                }
+            }
+        }
+
+        // Replace attribute values
+        foreach ($attributeNodes as $hash => $attrData) {
+            if (isset($translations[$hash])) {
+                /** @var \DOMElement $element */
+                $element = $attrData['element'];
+                $element->setAttribute($attrData['attribute'], $translations[$hash]);
+            }
+        }
+
+        // Get HTML with proper encoding
+        $html = $dom->saveHTML();
+        
+        // Fix encoding issues if any
+        $html = mb_convert_encoding($html, 'UTF-8', 'HTML-ENTITIES');
+        
+        return $html;
     }
-
-    // Batch translate
-    $translations = [];
-    $chunks = array_chunk($textNodes, 20, true);
-
-    foreach ($chunks as $chunk) {
-        $translated = $deepLService->translateBatch(
-            array_values($chunk),
-            $targetLanguage,
-            null,
-            null,
-            true
-        );
-
-        foreach (array_keys($chunk) as $i => $hash) {
-            $translations[$hash] = $translated[$i] ?? $chunk[$hash];
-        }
-    }
-
-    // Replace text nodes ONLY
-    foreach ($nodeMap as $hash => $nodes) {
-        foreach ($nodes as $node) {
-            $node->nodeValue = $translations[$hash];
-        }
-    }
-
-    return $dom->saveHTML();
-}
 
 private function shouldSkipNode(\DOMNode $node): bool
 {
     while ($node) {
         if ($node->nodeType === XML_ELEMENT_NODE) {
+            /** @var \DOMElement $node */
             $tag = strtolower($node->nodeName);
 
             // Never touch these
@@ -1876,6 +2127,53 @@ private function shouldSkipNode(\DOMNode $node): bool
     return false;
 }
 
+    /**
+     * Check if a node should be skipped when extracting attributes
+     * This is different from shouldSkipNode because we want to translate
+     * attributes of input/textarea/select elements (like placeholder)
+     * even though we skip their text content
+     */
+    private function shouldSkipNodeForAttributes(\DOMNode $node): bool
+    {
+        while ($node) {
+            if ($node->nodeType === XML_ELEMENT_NODE) {
+                /** @var \DOMElement $node */
+                $tag = strtolower($node->nodeName);
+
+                // Never touch these (but allow their attributes to be checked)
+                // We only skip script/style/svg completely
+                if (in_array($tag, [
+                    'script', 'style', 'noscript',
+                    'svg', 'path', 'defs', 'symbol'
+                ])) {
+                    return true;
+                }
+
+                // Hidden elements - skip their attributes too
+                if ($node->hasAttribute('hidden')) {
+                    return true;
+                }
+
+                if ($node->getAttribute('aria-hidden') === 'true') {
+                    return true;
+                }
+
+                $style = strtolower($node->getAttribute('style'));
+                if (
+                    str_contains($style, 'display:none') ||
+                    str_contains($style, 'visibility:hidden') ||
+                    str_contains($style, 'opacity:0')
+                ) {
+                    return true;
+                }
+            }
+
+            $node = $node->parentNode;
+        }
+
+        return false;
+    }
+
 private function looksLikePersonName(string $text): bool
 {
     $text = trim($text);
@@ -1911,69 +2209,5 @@ private function looksLikeInitials(string $text): bool
     return false;
 }
 
-    private function isHiddenNode(\DOMNode $node, \DOMXPath $xpath): bool
-    {
-        $hiddenClassKeywords = [
-            'hidden',
-            'd-none',
-            'invisible',
-            'sr-only',
-            'visually-hidden',
-            'collapse',
-            'comment',
-            'comments',
-        ];
-    
-        while ($node) {
-            if ($node->nodeType === XML_ELEMENT_NODE) {
-    
-                /** @var \DOMElement $node */
-    
-                // ❌ Skip script/style/svg/input/textarea
-                if (in_array(strtolower($node->nodeName), [
-                    'script', 'style', 'noscript',
-                    'svg', 'path',
-                    'input', 'textarea', 'select',
-                    'option'
-                ])) {
-                    return true;
-                }
-    
-                // ❌ Hidden attribute
-                if ($node->hasAttribute('hidden')) {
-                    return true;
-                }
-    
-                // ❌ aria-hidden
-                if ($node->getAttribute('aria-hidden') === 'true') {
-                    return true;
-                }
-    
-                // ❌ Inline styles
-                $style = strtolower($node->getAttribute('style'));
-                if (
-                    str_contains($style, 'display:none') ||
-                    str_contains($style, 'visibility:hidden') ||
-                    str_contains($style, 'opacity:0') ||
-                    str_contains($style, 'height:0') ||
-                    str_contains($style, 'width:0')
-                ) {
-                    return true;
-                }
-    
-                // ❌ CSS hidden classes
-                $class = strtolower($node->getAttribute('class'));
-                foreach ($hiddenClassKeywords as $keyword) {
-                    if (str_contains($class, $keyword)) {
-                        return true;
-                    }
-                }
-            }
-    
-            $node = $node->parentNode;
-        }
-    
-        return false;
-    }
 
 }
