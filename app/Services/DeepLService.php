@@ -16,12 +16,45 @@ class DeepLService
         $this->endpoint = 'https://api.deepl.com/v2/translate';
     }
 
-    public function translate($text, $targetLang = 'EN', $sourceLang = null, $splitSentences = null, $preserveFormatting = null)
-    {
+    /**
+     * Translate a single text (backward compatible)
+     */
+    public function translate(
+        $text,
+        $targetLang = 'EN',
+        $sourceLang = null,
+        $splitSentences = null,
+        $preserveFormatting = null
+    ) {
+        $result = $this->translateBatch(
+            [$text],
+            $targetLang,
+            $sourceLang,
+            $splitSentences,
+            $preserveFormatting
+        );
+
+        return $result[0] ?? $text;
+    }
+
+    /**
+     * Translate multiple texts in ONE API request (FAST)
+     */
+    public function translateBatch(
+        array $texts,
+        $targetLang = 'EN',
+        $sourceLang = null,
+        $splitSentences = null,
+        $preserveFormatting = null
+    ): array {
+        if (empty($texts)) {
+            return [];
+        }
+
         $data = [
-            'auth_key' => $this->apiKey,
-            'text' => $text,
-            'target_lang' => $targetLang,
+            'auth_key'    => $this->apiKey,
+            'text'        => array_values($texts),
+            'target_lang' => strtoupper($targetLang),
         ];
 
         if ($sourceLang) {
@@ -36,13 +69,9 @@ class DeepLService
             $data['preserve_formatting'] = (int) $preserveFormatting;
         }
 
-        // logger(json_encode($data, JSON_PRETTY_PRINT));
+        // Configure HTTP client (same logic as your original)
+        $httpClient = Http::asForm()->timeout(30);
 
-        // Configure HTTP client with SSL verification based on environment
-        $httpClient = Http::asForm();
-        
-        // Disable SSL verification only for localhost (WAMP/Windows local development)
-        // On server, SSL verification should be enabled for security
         $appUrl = env('APP_URL', 'http://localhost');
         $isLocalhost = (
             strpos($appUrl, 'localhost') !== false ||
@@ -54,68 +83,40 @@ class DeepLService
                 $_SERVER['HTTP_HOST'] === '::1'
             ))
         );
-        
+
         if ($isLocalhost) {
             $httpClient = $httpClient->withoutVerifying();
         }
 
         $response = $httpClient->post($this->endpoint, $data);
 
-        if ($response->successful()) {
-            $data = $response->json();
-            // logger("RESPONSE: " . json_encode($data, JSON_PRETTY_PRINT));
-            $translationData = $data['translations'][0];
-            $translatedText = $translationData['text'];
-            $detectedSourceLang = $translationData['detected_source_language'] ?? null;
-            
-            // Check if translation is identical to original (DeepL sometimes returns unchanged text)
-            // Normalize both texts for comparison (trim whitespace, case-insensitive for short texts)
-            $normalizedOriginal = trim($text);
-            $normalizedTranslated = trim($translatedText);
-            
-            // If translation is identical and we didn't specify source language, try forcing translation
-            if ($normalizedOriginal === $normalizedTranslated && !$sourceLang && $detectedSourceLang) {
-                // If detected language matches target, DeepL won't translate
-                // Try with explicit source language to force translation
-                if (strtoupper($detectedSourceLang) === strtoupper($targetLang)) {
-                    // Text is already in target language - log warning but return as-is
-                    Log::warning('⚠️ DeepL detected text is already in target language', [
-                        'detected_source' => $detectedSourceLang,
-                        'target' => $targetLang,
-                        'text_preview' => substr($text, 0, 100)
-                    ]);
-                } else {
-                    // Retry with explicit source language to force translation
-                    Log::info('🔄 Retrying translation with explicit source language', [
-                        'detected_source' => $detectedSourceLang,
-                        'target' => $targetLang
-                    ]);
-                    
-                    $data['source_lang'] = $detectedSourceLang;
-                    $retryResponse = $httpClient->post($this->endpoint, $data);
-                    
-                    if ($retryResponse->successful()) {
-                        $retryData = $retryResponse->json();
-                        $retryTranslated = $retryData['translations'][0]['text'];
-                        
-                        // If retry still returns same text, log and return
-                        if (trim($retryTranslated) === $normalizedOriginal) {
-                            Log::warning('⚠️ Translation retry returned unchanged text', [
-                                'source' => $detectedSourceLang,
-                                'target' => $targetLang
-                            ]);
-                        } else {
-                            Log::info('✅ Retry translation succeeded');
-                            return $retryTranslated;
-                        }
-                    }
-                }
-            }
-            
-            // logger("TRANSLATED: " . json_encode($translatedText));
-            return $translatedText;
+        if (!$response->successful()) {
+            throw new \Exception('DeepL API Error: ' . $response->body());
         }
 
-        throw new \Exception('DeepL API Error: ' . $response->body());
+        $responseData = $response->json();
+        $translations = $responseData['translations'] ?? [];
+
+        $results = [];
+
+        foreach ($translations as $index => $translationData) {
+            $original   = $texts[$index];
+            $translated = $translationData['text'] ?? $original;
+            $detected   = $translationData['detected_source_language'] ?? null;
+
+            // Normalize for comparison
+            if (trim($original) === trim($translated) && !$sourceLang && $detected) {
+                if (strtoupper($detected) === strtoupper($targetLang)) {
+                    Log::warning('⚠️ Text already in target language', [
+                        'lang' => $detected,
+                        'preview' => substr($original, 0, 80),
+                    ]);
+                }
+            }
+
+            $results[] = $translated;
+        }
+
+        return $results;
     }
 }

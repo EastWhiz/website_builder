@@ -914,100 +914,55 @@ class AngleTemplateController extends Controller
 
     public function translateAngleTemplate(Request $request)
     {
-        Log::info('🚀 Translation started', [
-            'angle_template_id' => $request->angle_template_id,
-            'target_language' => $request->target_language,
-            'user_id' => Auth::id()
+        $request->validate([
+            'angle_template_id' => 'required|exists:angle_templates,id',
+            'target_language'   => 'required|string|max:10',
         ]);
-
+    
+        $angleTemplate   = AngleTemplate::findOrFail($request->angle_template_id);
+        $targetLanguage  = strtoupper($request->target_language);
+    
+        if (empty(trim($angleTemplate->main_html))) {
+            return sendResponse(false, 'No HTML content to translate');
+        }
+    
         try {
-            $request->validate([
-                'angle_template_id' => 'required|exists:angle_templates,id',
-                'target_language' => 'required|string|max:10',
-                'split_sentences' => 'nullable|string',
-                'preserve_formatting' => 'nullable|integer'
-            ]);
-
-            $angleTemplate = AngleTemplate::findOrFail($request->angle_template_id);
-            $targetLanguage = $request->target_language;
-            $splitSentences = $request->split_sentences;
-            $preserveFormatting = $request->preserve_formatting;
-
-            Log::info('✅ Template found', [
-                'template_id' => $angleTemplate->id,
-                'template_name' => $angleTemplate->name,
-                'user_id' => $angleTemplate->user_id,
-                'html_length' => strlen($angleTemplate->main_html)
-            ]);
-
-            // Check if user has permission to edit this template
-            // if (Auth::user()->role->name !== 'admin' && $angleTemplate->user_id !== Auth::id()) {
-            //     Log::warning('❌ Permission denied', [
-            //         'user_role' => Auth::user()->role->name,
-            //         'template_owner' => $angleTemplate->user_id,
-            //         'current_user' => Auth::id()
-            //     ]);
-            //     return sendResponse(false, "You don't have permission to translate this template", null);
-            // }
-
-            Log::info('✅ Permission granted');
-
-            // Initialize DeepL service
             $deepLService = new \App\Services\DeepLService();
-            Log::info('✅ DeepL service initialized');
-
-            // Get the main_html content
-            $originalHtml = $angleTemplate->main_html;
-
-            if (empty($originalHtml)) {
-                Log::warning('❌ No HTML content to translate');
-                return sendResponse(false, "No content to translate", null);
-            }
-
-            Log::info('📝 Starting HTML content translation', [
-                'original_html_length' => strlen($originalHtml),
-                'target_language' => $targetLanguage
-            ]);
-
-            // Extract and translate text content in batches
-            $startTime = microtime(true);
-            $translatedHtml = $this->translateHtmlContentMinimal($originalHtml, $targetLanguage, $deepLService, $splitSentences, $preserveFormatting);
-            
-            // Apply RTL support if target language is RTL (Arabic, Hebrew)
+    
+            $start = microtime(true);
+    
+            $translatedHtml = $this->translateHtmlUsingDOM(
+                $angleTemplate->main_html,
+                $targetLanguage,
+                $deepLService
+            );
+    
+            // RTL support
             if ($this->isRtlLanguage($targetLanguage)) {
                 $translatedHtml = $this->applyRtlSupport($translatedHtml);
             }
-            
-            $endTime = microtime(true);
-
-            Log::info('✅ Translation completed', [
-                'translation_time_seconds' => round($endTime - $startTime, 2),
-                'translated_html_length' => strlen($translatedHtml)
+    
+            $angleTemplate->update([
+                'main_html' => $translatedHtml,
+                'name'      => $angleTemplate->name . " ({$targetLanguage})",
             ]);
-
-            // Update the angle template with translated content
-            $originalName = $angleTemplate->name;
-            $angleTemplate->main_html = $translatedHtml;
-            $angleTemplate->name = $angleTemplate->name . " ({$targetLanguage})";
-            $angleTemplate->save();
-
-            Log::info('✅ Template updated successfully', [
-                'original_name' => $originalName,
-                'new_name' => $angleTemplate->name,
-                'template_id' => $angleTemplate->id
+    
+            Log::info('Translation completed', [
+                'time_sec' => round(microtime(true) - $start, 2),
+                'chars'    => strlen($translatedHtml)
             ]);
-
-            return sendResponse(true, "Sales page translated successfully to {$targetLanguage}", $angleTemplate);
-        } catch (\Exception $e) {
-            Log::error('❌ Translation failed', [
-                'error_message' => $e->getMessage(),
-                'error_line' => $e->getLine(),
-                'error_file' => $e->getFile(),
-                'trace' => $e->getTraceAsString()
+    
+            return sendResponse(true, "Translated successfully", $angleTemplate);
+    
+        } catch (\Throwable $e) {
+            Log::error('Translation failed', [
+                'error' => $e->getMessage()
             ]);
-            return sendResponse(false, "Translation failed: " . $e->getMessage(), null);
+    
+            return sendResponse(false, 'Translation failed: ' . $e->getMessage());
         }
     }
+    
 
     private function translateHtmlContentMinimal($html, $targetLanguage, $deepLService, $splitSentences = null, $preserveFormatting = null)
     {
@@ -1726,123 +1681,21 @@ class AngleTemplateController extends Controller
     /**
      * Check if a language code represents an RTL (Right-to-Left) language
      */
-    private function isRtlLanguage($languageCode)
-    {
-        $rtlLanguages = ['AR', 'HE']; // Arabic, Hebrew
-        return in_array(strtoupper($languageCode), $rtlLanguages);
-    }
+    private function isRtlLanguage($lang)
+{
+    return in_array(strtoupper($lang), ['AR', 'HE', 'FA', 'UR']);
+}
 
-    /**
-     * Apply RTL (Right-to-Left) support to HTML content
-     * Adds dir="rtl" attribute and injects RTL-specific CSS
-     */
-    private function applyRtlSupport($html)
-    {
-        Log::info('🔄 Applying RTL support to HTML');
-        
-        // RTL CSS to handle layout properly
-        $rtlCss = '
-        <style>
-            /* RTL Support Styles */
-            [dir="rtl"] {
-                direction: rtl;
-                text-align: right;
-            }
-            
-            [dir="rtl"] body,
-            [dir="rtl"] html {
-                direction: rtl;
-            }
-            
-            /* Flip text alignment for RTL */
-            [dir="rtl"] .text-left {
-                text-align: right !important;
-            }
-            
-            [dir="rtl"] .text-right {
-                text-align: left !important;
-            }
-            
-            /* Flip float directions */
-            [dir="rtl"] .float-left {
-                float: right !important;
-            }
-            
-            [dir="rtl"] .float-right {
-                float: left !important;
-            }
-            
-            /* Adjust margins and padding for RTL */
-            [dir="rtl"] .ml-auto {
-                margin-left: 0 !important;
-                margin-right: auto !important;
-            }
-            
-            [dir="rtl"] .mr-auto {
-                margin-right: 0 !important;
-                margin-left: auto !important;
-            }
-            
-            /* Form elements RTL support */
-            [dir="rtl"] input,
-            [dir="rtl"] textarea,
-            [dir="rtl"] select {
-                direction: rtl;
-                text-align: right;
-            }
-            
-            /* Lists RTL support */
-            [dir="rtl"] ul,
-            [dir="rtl"] ol {
-                padding-right: 0;
-                padding-left: 1.5em;
-            }
-            
-            /* Tables RTL support */
-            [dir="rtl"] table {
-                direction: rtl;
-            }
-            
-            [dir="rtl"] th,
-            [dir="rtl"] td {
-                text-align: right;
-            }
-        </style>
-        ';
-        
-        // Check if HTML already has a <html> tag
-        if (preg_match('/<html[^>]*>/i', $html)) {
-            // Add dir="rtl" to existing html tag
-            $html = preg_replace('/(<html[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
-            
-            // Inject RTL CSS before closing </head> tag, or before </html> if no head tag
-            if (preg_match('/<\/head>/i', $html)) {
-                $html = preg_replace('/<\/head>/i', $rtlCss . '</head>', $html, 1);
-            } else {
-                // If no head tag, add it before html content or at the beginning
-                if (preg_match('/<html[^>]*>/i', $html, $matches, PREG_OFFSET_CAPTURE)) {
-                    $htmlTagPos = $matches[0][1] + strlen($matches[0][0]);
-                    $html = substr_replace($html, '<head>' . $rtlCss . '</head>', $htmlTagPos, 0);
-                }
-            }
-        } else {
-            // If no html tag, wrap content and add RTL support
-            // Check if there's a <body> tag
-            if (preg_match('/<body[^>]*>/i', $html)) {
-                // Add dir="rtl" to body tag
-                $html = preg_replace('/(<body[^>]*)(>)/i', '$1 dir="rtl"$2', $html, 1);
-                
-                // Inject RTL CSS before body tag
-                $html = preg_replace('/(<body[^>]*>)/i', $rtlCss . '$1', $html, 1);
-            } else {
-                // Wrap in html structure with RTL support
-                $html = '<html dir="rtl" lang="ar"><head>' . $rtlCss . '</head><body>' . $html . '</body></html>';
-            }
-        }
-        
-        Log::info('✅ RTL support applied successfully');
-        return $html;
-    }
+private function applyRtlSupport($html)
+{
+    return preg_replace(
+        '/<html(.*?)>/i',
+        '<html$1 dir="rtl" style="direction:rtl;">',
+        $html,
+        1
+    );
+}
+
 
     /**
      * Clean all variations of the separator from text
@@ -1913,4 +1766,195 @@ class AngleTemplateController extends Controller
         
         return $text;
     }
+
+    private function translateHtmlUsingDOM($html, $targetLanguage, $deepLService)
+{
+    libxml_use_internal_errors(true);
+
+    $dom = new \DOMDocument('1.0', 'UTF-8');
+    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html,
+        LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+    );
+
+    $xpath = new \DOMXPath($dom);
+
+    $textNodes = [];
+    $nodeMap   = [];
+
+    foreach ($xpath->query('//text()[normalize-space()]') as $node) {
+
+        if ($this->shouldSkipNode($node)) {
+            continue;
+        }
+
+        $text = trim($node->nodeValue);
+
+        // Skip numbers / symbols
+        if (!preg_match('/[A-Za-zÀ-ÿ]/u', $text)) {
+            continue;
+        }
+
+        // Skip likely names
+        if ($this->looksLikePersonName($text)) {
+            continue;
+        }
+
+        $hash = md5($text);
+        $nodeMap[$hash][] = $node;
+        $textNodes[$hash] = $text;
+    }
+
+    // Batch translate
+    $translations = [];
+    $chunks = array_chunk($textNodes, 20, true);
+
+    foreach ($chunks as $chunk) {
+        $translated = $deepLService->translateBatch(
+            array_values($chunk),
+            $targetLanguage,
+            null,
+            null,
+            true
+        );
+
+        foreach (array_keys($chunk) as $i => $hash) {
+            $translations[$hash] = $translated[$i] ?? $chunk[$hash];
+        }
+    }
+
+    // Replace text nodes ONLY
+    foreach ($nodeMap as $hash => $nodes) {
+        foreach ($nodes as $node) {
+            $node->nodeValue = $translations[$hash];
+        }
+    }
+
+    return $dom->saveHTML();
+}
+
+private function shouldSkipNode(\DOMNode $node): bool
+{
+    while ($node) {
+        if ($node->nodeType === XML_ELEMENT_NODE) {
+            $tag = strtolower($node->nodeName);
+
+            // Never touch these
+            if (in_array($tag, [
+                'script', 'style', 'noscript',
+                'svg', 'path', 'defs', 'symbol',
+                'input', 'textarea', 'select', 'option'
+            ])) {
+                return true;
+            }
+
+            // Hidden
+            if ($node->hasAttribute('hidden')) {
+                return true;
+            }
+
+            if ($node->getAttribute('aria-hidden') === 'true') {
+                return true;
+            }
+
+            $style = strtolower($node->getAttribute('style'));
+            if (
+                str_contains($style, 'display:none') ||
+                str_contains($style, 'visibility:hidden') ||
+                str_contains($style, 'opacity:0')
+            ) {
+                return true;
+            }
+        }
+
+        $node = $node->parentNode;
+    }
+
+    return false;
+}
+
+private function looksLikePersonName(string $text): bool
+{
+    $text = trim($text);
+
+    // Short strings only
+    if (str_word_count($text) > 3) {
+        return false;
+    }
+
+    $words = preg_split('/\s+/', $text);
+
+    foreach ($words as $word) {
+        if (!preg_match('/^[A-ZÀ-Ý][a-zà-ÿ]+$/u', $word)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+    private function isHiddenNode(\DOMNode $node, \DOMXPath $xpath): bool
+    {
+        $hiddenClassKeywords = [
+            'hidden',
+            'd-none',
+            'invisible',
+            'sr-only',
+            'visually-hidden',
+            'collapse',
+            'comment',
+            'comments',
+        ];
+    
+        while ($node) {
+            if ($node->nodeType === XML_ELEMENT_NODE) {
+    
+                /** @var \DOMElement $node */
+    
+                // ❌ Skip script/style/svg/input/textarea
+                if (in_array(strtolower($node->nodeName), [
+                    'script', 'style', 'noscript',
+                    'svg', 'path',
+                    'input', 'textarea', 'select',
+                    'option'
+                ])) {
+                    return true;
+                }
+    
+                // ❌ Hidden attribute
+                if ($node->hasAttribute('hidden')) {
+                    return true;
+                }
+    
+                // ❌ aria-hidden
+                if ($node->getAttribute('aria-hidden') === 'true') {
+                    return true;
+                }
+    
+                // ❌ Inline styles
+                $style = strtolower($node->getAttribute('style'));
+                if (
+                    str_contains($style, 'display:none') ||
+                    str_contains($style, 'visibility:hidden') ||
+                    str_contains($style, 'opacity:0') ||
+                    str_contains($style, 'height:0') ||
+                    str_contains($style, 'width:0')
+                ) {
+                    return true;
+                }
+    
+                // ❌ CSS hidden classes
+                $class = strtolower($node->getAttribute('class'));
+                foreach ($hiddenClassKeywords as $keyword) {
+                    if (str_contains($class, $keyword)) {
+                        return true;
+                    }
+                }
+            }
+    
+            $node = $node->parentNode;
+        }
+    
+        return false;
+    }
+
 }
