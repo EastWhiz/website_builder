@@ -1799,6 +1799,10 @@ private function applyRtlSupport($html)
             continue;
         }
 
+        // Skip initials used for avatar boxes
+        if ($this->looksLikeInitials($text)) {
+            continue;
+        }
         $hash = md5($text);
         $nodeMap[$hash][] = $node;
         $textNodes[$hash] = $text;
@@ -1890,6 +1894,21 @@ private function looksLikePersonName(string $text): bool
     }
 
     return true;
+}
+
+private function looksLikeInitials(string $text): bool
+{
+    $text = trim($text);
+
+    // Remove spaces for checking (e.g. "R K")
+    $compact = str_replace(' ', '', $text);
+
+    // Length 1–4, all uppercase letters
+    if (strlen($compact) >= 1 && strlen($compact) <= 4) {
+        return preg_match('/^[A-ZÀ-Ý]+$/u', $compact) === 1;
+    }
+
+    return false;
 }
 
     private function isHiddenNode(\DOMNode $node, \DOMXPath $xpath): bool
