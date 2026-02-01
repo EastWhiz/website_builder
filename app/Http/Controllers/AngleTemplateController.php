@@ -1876,7 +1876,10 @@ class AngleTemplateController extends Controller
         $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
         
         $dom = new \DOMDocument('1.0', 'UTF-8');
-        @$dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $dom->loadHTML(
+            '<?xml encoding="utf-8" ?><body>' . $html . '</body>',
+            LIBXML_HTML_NODEFDTD
+        );
 
         $xpath = new \DOMXPath($dom);
 
@@ -2077,12 +2080,17 @@ class AngleTemplateController extends Controller
             }
         }
 
-        // Get HTML with proper encoding
-        $html = $dom->saveHTML();
-        
-        // Fix encoding issues if any
-        $html = mb_convert_encoding($html, 'UTF-8', 'HTML-ENTITIES');
-        
+       // Extract only BODY content to preserve structure (prevents header loss)
+        $body = $dom->getElementsByTagName('body')->item(0);
+
+        $html = '';
+        foreach ($body->childNodes as $child) {
+            $html .= $dom->saveHTML($child);
+        }
+
+        // Ensure UTF-8 encoding
+        $html = mb_convert_encoding($html, 'UTF-8', 'UTF-8');
+
         return $html;
     }
 
