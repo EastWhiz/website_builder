@@ -75,7 +75,7 @@ export default function Dashboard() {
 
     const [currentThing, setCurrentThing] = useState('');
 
-    const steps = ['Publisher', 'Contents', 'Files'];
+    const steps = ['Theme', 'Contents', 'Files'];
 
     const [activeStep, setActiveStep] = useState(0);
     const [skipped, setSkipped] = useState(new Set());
@@ -305,11 +305,11 @@ export default function Dashboard() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Publishers
+                    Themes
                 </h2>
             }
         >
-            <Head title="Publishers" />
+            <Head title="Themes" />
 
             <div className="py-16">
                 {/* sm:px-6 lg:px-8 */}
@@ -415,7 +415,7 @@ export default function Dashboard() {
                                             <Box sx={{ mb: 0, background: "#707070", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                                 <Box mt={3} mb={2}><img src={Doc1}></img></Box>
                                                 <Typography variant="h3" component="div" color="white" mb={1} sx={{ fontSize: { xs: '30px', sm: '30px', md: '40px', lg: '40px', xl: '40px' } }}>
-                                                    Insert Publisher
+                                                    Insert Theme
                                                 </Typography>
                                                 <Typography variant="body" color="white" mb={3}>
                                                     Insert head, body content below
@@ -443,7 +443,7 @@ export default function Dashboard() {
 
                                                                 }}
                                                                 fullWidth
-                                                                placeholder="Enter Publisher Name..."
+                                                                placeholder="Enter Theme Name..."
                                                                 size="small"
                                                                 value={template.name}
                                                                 onChange={(e) => {

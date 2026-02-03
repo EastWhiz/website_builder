@@ -26,8 +26,8 @@ export default function Dashboard() {
     let timeout = null;
 
     const resourceName = {
-        singular: 'Publisher',
-        plural: 'Publishers',
+        singular: 'Theme',
+        plural: 'Themes',
     };
 
     const pageOptions = [
@@ -181,7 +181,7 @@ export default function Dashboard() {
 
     const renameTemplateHandler = (template) => {
         Swal.fire({
-            title: 'Rename Publisher',
+            title: 'Rename Theme',
             input: 'text',
             inputLabel: 'New name',
             inputValue: template.name,
@@ -292,11 +292,11 @@ export default function Dashboard() {
             <AuthenticatedLayout
                 header={
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Publishers
+                        Themes
                     </h2>
                 }
             >
-                <Head title="Publishers" />
+                <Head title="Themes" />
 
                 <div className="py-16">
                     {/* sm:px-6 lg:px-8 */}
@@ -325,7 +325,7 @@ export default function Dashboard() {
                                                 sortOptions={sortOptions}
                                                 sortSelected={sortSelected}
                                                 queryValue={queryValue}
-                                                queryPlaceholder="Search Publishers..."
+                                                queryPlaceholder="Search Themes..."
                                                 onQueryChange={handleFiltersQueryChange}
                                                 onQueryClear={handleQueryValueRemove}
                                                 onSort={setSortSelected}

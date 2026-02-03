@@ -315,12 +315,12 @@ class TemplateController extends Controller
         $template = Template::find($request->template_id);
 
         if (!$template) {
-            return sendResponse(false, "Publisher Not Found");
+            return sendResponse(false, "Theme Not Found");
         }
 
         $angleTemplates = AngleTemplate::where('template_id', $template->id)->get();
         if (count($angleTemplates) > 0) {
-            return sendResponse(false, "Publisher is assigned to different Landing Pages. Cannot delete it.");
+            return sendResponse(false, "Theme is assigned to different Landing Pages. Cannot delete it.");
         }
 
         Storage::disk('public')->deleteDirectory("templates/$template->uuid");
@@ -328,11 +328,11 @@ class TemplateController extends Controller
         TemplateContent::where('template_uuid', $template->uuid)->delete();
         $template->delete();
 
-        return sendResponse(true, "Publisher is deleted Successfully.");
+        return sendResponse(true, "Theme is deleted Successfully.");
     }
 
     /**
-     * Rename a template (publisher) by id
+     * Rename a template (theme) by id
      */
     public function renameTemplate(Request $request)
     {
@@ -347,12 +347,12 @@ class TemplateController extends Controller
         $template = Template::find($request->template_id);
 
         if (!$template) {
-            return sendResponse(false, "Publisher Not Found");
+            return sendResponse(false, "Theme Not Found");
         }
 
         $template->name = $request->name;
         $template->save();
 
-        return sendResponse(true, "Publisher renamed successfully.", $template);
+        return sendResponse(true, "Theme renamed successfully.", $template);
     }
 }

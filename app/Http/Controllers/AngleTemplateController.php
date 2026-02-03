@@ -102,7 +102,7 @@ class AngleTemplateController extends Controller
                 }
             }
             DB::commit();
-            return sendResponse(true, 'Angle Applied to Selected Publishers.');
+            return sendResponse(true, 'Angle Applied to Selected Themes.');
             //
         } catch (\Exception $e) {
             return sendResponse(false, 'Angle applying facing issues: ' . $e->getMessage());

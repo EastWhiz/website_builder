@@ -36,7 +36,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     href={route('templates')}
                                     active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
                                 >
-                                    Publishers
+                                    Themes
                                 </NavLink>
                             </div>
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
@@ -177,7 +177,7 @@ export default function AuthenticatedLayout({ header, children }) {
                             href={route('templates')}
                             active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
                         >
-                            Publishers
+                            Themes
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('angles')}

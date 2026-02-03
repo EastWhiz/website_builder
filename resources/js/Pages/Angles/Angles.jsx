@@ -247,7 +247,7 @@ export default function Dashboard() {
         [tableRows]
     );
 
-    const selectPublishersHandler = () => {
+    const selectThemesHandler = () => {
         const formData = new FormData();
         formData.append('angles_ids', JSON.stringify(selectedResources));
         formData.append('all_check', allResourcesSelected);
@@ -326,7 +326,7 @@ export default function Dashboard() {
 
     const promotedBulkActions = [
         {
-            content: 'Select Publishers',
+            content: 'Select Themes',
             onAction: () => { setActive(true) },
         },
         {
@@ -610,10 +610,10 @@ export default function Dashboard() {
                     open={active}
                     size='fullScreen'
                     onClose={() => setActive(false)}
-                    title="Publishers List"
+                    title="Themes List"
                     primaryAction={{
                         content: 'Done',
-                        onAction: () => selectPublishersHandler(),
+                        onAction: () => selectThemesHandler(),
                     }}
                     secondaryActions={[
                         {
@@ -628,7 +628,7 @@ export default function Dashboard() {
                             styles={{
                                 menuPortal: base => ({ ...base, zIndex: 9999 }),
                             }}
-                            placeholder="Select Publishers..."
+                            placeholder="Select Themes..."
                             options={templateOptions}
                             value={selectedTemplateOptions}
                             onChange={(e) => setSelectedTemplateOptions(e)}
