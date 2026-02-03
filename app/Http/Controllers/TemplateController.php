@@ -320,7 +320,7 @@ class TemplateController extends Controller
 
         $angleTemplates = AngleTemplate::where('template_id', $template->id)->get();
         if (count($angleTemplates) > 0) {
-            return sendResponse(false, "Publisher is assigned to different Sales Pages. Cannot delete it.");
+            return sendResponse(false, "Publisher is assigned to different Landing Pages. Cannot delete it.");
         }
 
         Storage::disk('public')->deleteDirectory("templates/$template->uuid");

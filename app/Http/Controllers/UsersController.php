@@ -37,7 +37,7 @@ class UsersController extends Controller
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
         })->select(['id', 'name', 'created_at'])->cursorPaginate($request->page_count);
-        return sendResponse(true, 'Sales Pages retrieved successfully!', $templates);
+        return sendResponse(true, 'Landing Pages retrieved successfully!', $templates);
     }
 
     public function store(Request $request)

@@ -235,7 +235,7 @@ class AngleTemplateController extends Controller
         $fontPaths = $template->contents()->where('type', 'font')->get()->pluck('name')->toArray();
         $imagePaths = array_merge($templateImages, $angleImages, $extraImages, $angleContentImages);
 
-        $zipFileName = 'SalesPage_' . $angleTemplate->name . '.zip';
+        $zipFileName = 'LandingPage_' . $angleTemplate->name . '.zip';
         $zipPath = storage_path('app/' . $zipFileName);
 
         $zip = new ZipArchive;
@@ -648,7 +648,7 @@ class AngleTemplateController extends Controller
         $angleTemplate = AngleTemplate::find($request->angle_template_id);
 
         if (!$angleTemplate) {
-            return sendResponse(false, "Sales Page Not Found");
+            return sendResponse(false, "Landing Page Not Found");
         }
 
         $extraContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
@@ -659,11 +659,11 @@ class AngleTemplateController extends Controller
 
         $angleTemplate->delete();
 
-        return sendResponse(true, "Sales Page is deleted Successfully.");
+        return sendResponse(true, "Landing Page is deleted Successfully.");
     }
 
     /**
-     * Rename an AngleTemplate (Sales Page)
+     * Rename an AngleTemplate (Landing Page)
      */
     public function renameAngleTemplate(Request $request)
     {
@@ -674,13 +674,13 @@ class AngleTemplateController extends Controller
 
         $angleTemplate = AngleTemplate::find($request->angle_template_id);
         if (!$angleTemplate) {
-            return sendResponse(false, 'Sales Page Not Found');
+            return sendResponse(false, 'Landing Page Not Found');
         }
 
         $angleTemplate->name = $request->name;
         $angleTemplate->save();
 
-        return sendResponse(true, 'Sales Page renamed successfully.', $angleTemplate);
+        return sendResponse(true, 'Landing Page renamed successfully.', $angleTemplate);
     }
 
     /**

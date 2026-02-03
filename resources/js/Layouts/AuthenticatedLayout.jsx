@@ -63,7 +63,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                             href={route('userThemes', { id: user.id })}
                                             active={route().current('userThemes')}
                                         >
-                                            Sales Pages
+                                            Landing Pages
                                         </NavLink>
                                     </div>
                                 </>
@@ -198,7 +198,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     href={route('userThemes', { id: user.id })}
                                     active={route().current('userThemes')}
                                 >
-                                    Sales Pages
+                                    Landing Pages
                                 </ResponsiveNavLink>
                             </>
                         }

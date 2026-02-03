@@ -44,8 +44,8 @@ export default function Dashboard() {
     let timeout = null;
 
     const resourceName = {
-        singular: 'Sales Page',
-        plural: 'Sales Pages',
+        singular: 'Landing Page',
+        plural: 'Landing Pages',
     };
 
     const pageOptions = [
@@ -295,7 +295,7 @@ export default function Dashboard() {
     const duplicateAngleTemplateHandler = (angleTemplateId) => {
         Swal.fire({
             title: "Are you sure?",
-            text: "Do you want to duplicate this Sales Page?",
+            text: "Do you want to duplicate this Landing Page?",
             icon: "question",
             showCancelButton: true,
             confirmButtonColor: "#51a70a",
@@ -324,7 +324,7 @@ export default function Dashboard() {
                         console.error('Error:', error);
                         Swal.fire({
                             title: "Error!",
-                            text: "An error occurred while duplicating the Sales Page.",
+                            text: "An error occurred while duplicating the Landing Page.",
                             icon: "error"
                         });
                     });
@@ -451,7 +451,7 @@ export default function Dashboard() {
                     Swal.close();
                     Swal.fire({
                         title: "Error!",
-                        text: "An error occurred while duplicating the Sales Page.",
+                        text: "An error occurred while duplicating the Landing Page.",
                         icon: "error"
                     });
                     setTranslating(false);
@@ -499,7 +499,7 @@ export default function Dashboard() {
                 Swal.close(); // Close loading overlay
                 Swal.fire({
                     title: "Error!",
-                    text: "An error occurred while translating the Sales Page.",
+                    text: "An error occurred while translating the Landing Page.",
                     icon: "error"
                 });
                 // Reset states
@@ -512,7 +512,7 @@ export default function Dashboard() {
 
     const openRenameModal = (angleTemplateId, currentName) => {
         Swal.fire({
-            title: 'Rename Sales Page',
+            title: 'Rename Landing Page',
             input: 'text',
             inputValue: currentName,
             showCancelButton: true,
@@ -547,7 +547,7 @@ export default function Dashboard() {
             if (result.isConfirmed && result.value) {
                 Swal.fire({
                     title: 'Renamed!',
-                    text: result.value.message || 'Sales Page renamed successfully.',
+                    text: result.value.message || 'Landing Page renamed successfully.',
                     icon: 'success'
                 });
                 setReload(!reload);
@@ -560,11 +560,11 @@ export default function Dashboard() {
             <AuthenticatedLayout
                 header={
                     <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Sales Pages
+                        Landing Pages
                     </h2>
                 }
             >
-                <Head title="Sales Pages" />
+                <Head title="Landing Pages" />
 
                 <div className="py-16">
                     {/* sm:px-6 lg:px-8 */}
@@ -734,7 +734,7 @@ export default function Dashboard() {
                 <Modal.Section>
                     <p>Choose how you want to proceed with the translation:</p>
                     <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-                        <li><strong>Translate Only:</strong> Translate the current sales page directly</li>
+                        <li><strong>Translate Only:</strong> Translate the current landing page directly</li>
                         <li><strong>Duplicate & Translate:</strong> Create a copy first, then translate the copy</li>
                     </ul>
                 </Modal.Section>
@@ -757,7 +757,7 @@ export default function Dashboard() {
                 ]}
             >
                 <Modal.Section>
-                    <p>Choose how you want to export this sales page:</p>
+                    <p>Choose how you want to export this landing page:</p>
                     <div style={{ marginTop: '20px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                             <input

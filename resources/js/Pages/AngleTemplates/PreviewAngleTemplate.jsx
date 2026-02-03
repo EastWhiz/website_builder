@@ -1558,7 +1558,7 @@ export default function Dashboard({ id }) {
 
             Swal.fire({
                 title: 'Success',
-                text: "Sales Page Updated Successfully",
+                text: "Landing Page Updated Successfully",
                 icon: 'success',
                 timer: 1000,
                 showConfirmButton: false,

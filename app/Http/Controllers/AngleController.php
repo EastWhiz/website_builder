@@ -335,7 +335,7 @@ class AngleController extends Controller
 
         $angleTemplates = AngleTemplate::where('angle_id', $angle->id)->get();
         if (count($angleTemplates) > 0) {
-            return sendResponse(false, "Angle is assigned to different Sales Pages. Cannot delete it.");
+            return sendResponse(false, "Angle is assigned to different Landing Pages. Cannot delete it.");
         }
 
         Storage::disk('public')->deleteDirectory("angles/$angle->uuid");
