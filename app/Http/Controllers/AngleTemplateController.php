@@ -786,6 +786,10 @@ class AngleTemplateController extends Controller
                     $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->seamediaone_api_key ?? '') . '";', $content);
                     break;
 
+                case 'nauta.php':
+                    $content = str_replace('$nautaApiToken = "";', '$nautaApiToken = "' . ($userApiCredentials->nauta_api_token ?? '') . '";', $content);
+                    break;
+
                 case 'thank_you.php':
                     $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
                     $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);

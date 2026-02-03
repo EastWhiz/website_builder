@@ -145,6 +145,7 @@ export default function Dashboard({ id }) {
         { label: 'Meeseeksmedia', value: 'https://mskmd-api.com/api/v2/leads' },
         { label: 'Dark', value: 'https://tb.connnecto.com/api/signup/procform' },
         { label: 'Pastile', value: 'https://tb.pastile.net/api/signup/procform' },
+        { label: 'Nauta', value: 'https://yourleads.org/api/affiliates/v2/leads' },
     ];
 
     const apiTypes = [
@@ -159,6 +160,7 @@ export default function Dashboard({ id }) {
         { label: 'RiceLeads', value: 'riceleads' },
         { label: 'NewMedis', value: 'newmedis' },
         { label: 'Seamediaone', value: 'seamediaone' },
+        { label: 'Nauta', value: 'nauta' },
     ];
 
     const commonInputTypes = [
