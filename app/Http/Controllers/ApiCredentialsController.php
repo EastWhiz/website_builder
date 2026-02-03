@@ -15,7 +15,7 @@ class ApiCredentialsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,seamediaone,facebook,second',
+                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,seamediaone,nauta,facebook,second',
                 'aweber_client_id' => 'nullable|string|max:255',
                 'aweber_client_secret' => 'nullable|string|max:255',
                 'aweber_account_id' => 'nullable|string|max:255',
@@ -66,6 +66,7 @@ class ApiCredentialsController extends Controller
                 'seamediaone_ai' => 'nullable|string|max:255',
                 'seamediaone_ci' => 'nullable|string|max:255',
                 'seamediaone_gi' => 'nullable|string|max:255',
+                'nauta_api_token' => 'nullable|string|max:255',
             ]);
 
             $user = Auth::user();
@@ -287,7 +288,13 @@ class ApiCredentialsController extends Controller
                             'api_key' => $credentials->riceleads_api_key,
                         'endpoint' => 'https://ridapi.net/leads',
                         ];
-                    break;    
+                    break;
+                case 'nauta':
+                    $providerData = [
+                        'api_token' => $credentials->nauta_api_token,
+                        'endpoint' => 'https://yourleads.org/api/affiliates/v2/leads',
+                    ];
+                    break;
                 default:
                     return response()->json([
                         'success' => false,
@@ -452,6 +459,10 @@ class ApiCredentialsController extends Controller
                 $payload['affiliateId'] = $credentials->riceleads_affid ?? '';
                 $payload['apiKey'] = $credentials->riceleads_api_key ?? '';
                 $payload['endpointUrl'] = 'https://ridapi.net/leads';
+                break;
+            case 'nauta':
+                $payload['apiToken'] = $credentials->nauta_api_token ?? '';
+                $payload['endpointUrl'] = 'https://yourleads.org/api/affiliates/v2/leads';
                 break;
         }
 

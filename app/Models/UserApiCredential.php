@@ -59,6 +59,7 @@ class UserApiCredential extends Model
         'seamediaone_ai',
         'seamediaone_ci',
         'seamediaone_gi',
+        'nauta_api_token',
     ];
 
     // protected $casts = [

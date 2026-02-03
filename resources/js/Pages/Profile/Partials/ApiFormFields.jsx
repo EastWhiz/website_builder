@@ -66,6 +66,7 @@ export default function ApiFormFields({
             seamediaone_ai: '',
             seamediaone_ci: '',
             seamediaone_gi: '',
+            nauta_api_token: '',
         });
 
     // Load existing credentials on component mount
@@ -136,6 +137,7 @@ export default function ApiFormFields({
                     seamediaone_ai: credentials.seamediaone_ai || '',
                     seamediaone_ci: credentials.seamediaone_ci || '',
                     seamediaone_gi: credentials.seamediaone_gi || '',
+                    nauta_api_token: credentials.nauta_api_token || '',
                 });
             }
         } catch (error) {
@@ -259,6 +261,7 @@ export default function ApiFormFields({
         { key: 'riceleads', name: 'Rice Leads', icon: '⚡' },
         { key: 'newmedis', name: 'NewMedis', icon: '💉' },
         { key: 'seamediaone', name: 'Seamediaone', icon: '🌊' },
+        { key: 'nauta', name: 'Nauta', icon: '🚀' },
     ];
 
     const renderApiFields = () => {
@@ -998,6 +1001,37 @@ export default function ApiFormFields({
                             </div>
                         </div>
                     );
+
+            case 'nauta':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="nauta_api_token" value="API Token" />
+                            <TextInput
+                                id="nauta_api_token"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.nauta_api_token}
+                                onChange={(e) => setData('nauta_api_token', e.target.value)}
+                                placeholder="oxgtpml2uppsz1tnlop3saq0z3u7pm0u"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.nauta_api_token} />
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <p className="text-blue-800 text-sm">
+                                <strong>Endpoint:</strong> https://yourleads.org/api/affiliates/v2/leads
+                            </p>
+                            <p className="text-blue-800 text-sm mt-1">
+                                <strong>Method:</strong> POST
+                            </p>
+                            <p className="text-blue-800 text-sm mt-1">
+                                <strong>Authorization:</strong> Bearer {data.nauta_api_token || 'YOUR_API_TOKEN'}
+                            </p>
+                        </div>
+                    </div>
+                );
+
             default:
                 return null;
         }
