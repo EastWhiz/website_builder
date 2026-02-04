@@ -41,11 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Add optional fields if available
     if (!empty($dynamicCid)) {
-        $data['affiliate_id'] = $dynamicCid;
+        $data['aff_sub'] = $dynamicCid;
     }
-    if (!empty($dynamicPid)) {
-        $data['offer_id'] = $dynamicPid;
-    }
+    
 
     $nautaApiToken = "";
 
