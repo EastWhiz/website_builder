@@ -461,7 +461,7 @@ class ApiCredentialsController extends Controller
                 $payload['endpointUrl'] = 'https://ridapi.net/leads';
                 break;
             case 'nauta':
-                $payload['apiToken'] = $credentials->nauta_api_token ?? '';
+                $payload['apiKey'] = $credentials->nauta_api_token ?? '';
                 $payload['endpointUrl'] = 'https://yourleads.org/api/affiliates/v2/leads';
                 break;
         }
