@@ -6,6 +6,7 @@ use App\Http\Controllers\ApiCredentialsController;
 use App\Http\Controllers\DeepLControlller;
 use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\GrokController;
+use App\Http\Controllers\OtpServiceCredentialController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
@@ -93,6 +94,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/api/credentials', [ApiCredentialsController::class, 'show'])->name('api.credentials.show');
         Route::delete('/api/credentials', [ApiCredentialsController::class, 'destroy'])->name('api.credentials.destroy');
         Route::get('/api/credentials/{provider}', [ApiCredentialsController::class, 'getProviderCredentials'])->name('api.credentials.provider');
+
+        // OTP Service Credentials routes
+        Route::get('/otp-service-credentials', [OtpServiceCredentialController::class, 'index'])->name('otp.service.credentials.index');
+        Route::post('/otp-service-credentials', [OtpServiceCredentialController::class, 'store'])->name('otp.service.credentials.store');
+        Route::get('/otp-service-credentials/{id}', [OtpServiceCredentialController::class, 'show'])->name('otp.service.credentials.show');
+        Route::get('/otp-service-credentials/service/{serviceName}', [OtpServiceCredentialController::class, 'getByServiceName'])->name('otp.service.credentials.byService');
+        Route::put('/otp-service-credentials/{id}', [OtpServiceCredentialController::class, 'update'])->name('otp.service.credentials.update');
+        Route::delete('/otp-service-credentials/{id}', [OtpServiceCredentialController::class, 'destroy'])->name('otp.service.credentials.destroy');
+        Route::delete('/otp-service-credentials', [OtpServiceCredentialController::class, 'destroyAll'])->name('otp.service.credentials.destroyAll');
 
         Route::get('/users/{id}/themes', function ($id) {
             return Inertia::render('Users/UserThemes', [

@@ -5,6 +5,7 @@ import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 import ApiFormFields from './Partials/ApiFormFields';
 import PixelFormFields from './Partials/PixelFormFields';
+import OtpServicesFormFields from './Partials/OtpServicesFormFields';
 
 export default function Edit({ mustVerifyEmail, status }) {
     return (
@@ -37,6 +38,12 @@ export default function Edit({ mustVerifyEmail, status }) {
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
                         <PixelFormFields
+                            className=""
+                        />
+                    </div>
+
+                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                        <OtpServicesFormFields
                             className=""
                         />
                     </div>
