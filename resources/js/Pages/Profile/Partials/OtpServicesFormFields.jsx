@@ -159,14 +159,6 @@ export default function OtpServicesFormFields({
             [fieldName]: value
         };
 
-        // Handle UniMatrix endpoint URL auto-construction
-        if (selectedServiceId && data.service_id) {
-            const service = availableServices.find(s => s.id === data.service_id);
-            if (service && service.name === 'unimatrix' && fieldName === 'access_key' && value) {
-                updatedCredentials.endpoint_url = `https://api.unimtx.com/?action=sms.message.send&accessKeyId=${value}`;
-            }
-        }
-
         setData('credentials', updatedCredentials);
     };
 
@@ -390,9 +382,6 @@ export default function OtpServicesFormFields({
 
         return selectedService.map((field) => {
             const fieldValue = data.credentials?.[field.name] || '';
-            const isUnimatrixEndpoint = data.service_id && 
-                availableServices.find(s => s.id === data.service_id)?.name === 'unimatrix' &&
-                field.name === 'endpoint_url';
 
             return (
                 <div key={field.name} className="mt-4">
@@ -409,14 +398,8 @@ export default function OtpServicesFormFields({
                         placeholder={field.placeholder || ''}
                         required={field.required}
                         autoComplete="off"
-                        disabled={isUnimatrixEndpoint}
                     />
                     <InputError className="mt-2" message={errors[`credentials.${field.name}`]} />
-                    {isUnimatrixEndpoint && (
-                        <p className="mt-1 text-sm text-gray-500">
-                            For UniMatrix, the endpoint URL is automatically constructed from your access key.
-                        </p>
-                    )}
                 </div>
             );
         });

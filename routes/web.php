@@ -54,6 +54,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/users', [UsersController::class, 'destroy'])->name('deleteUser');
 
         Route::post('/angles/assign-to-users', [AngleController::class, 'assignToUsers'])->name('assign.to.users');
+
+        // OTP Services Management (Admin Only)
+        Route::inertia('/otp-services', 'OtpServices/OtpServices')->name('otp.services.manage');
+        Route::get('/otp-services/list', [OtpServiceController::class, 'adminIndex'])->name('otp.services.admin.index');
+        Route::post('/otp-services', [OtpServiceController::class, 'store'])->name('otp.services.admin.store');
+        Route::put('/otp-services/{id}', [OtpServiceController::class, 'update'])->name('otp.services.admin.update');
+        Route::delete('/otp-services/{id}', [OtpServiceController::class, 'destroy'])->name('otp.services.admin.destroy');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {
