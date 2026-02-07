@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OtpService;
 use App\Models\OtpServiceCredential;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,8 +18,17 @@ class OtpServiceCredentialController extends Controller
         try {
             $user = Auth::user();
             $credentials = OtpServiceCredential::where('user_id', $user->id)
+                ->with('service:id,name')
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->get()
+                ->map(function ($credential) {
+                    return [
+                        'id' => $credential->id,
+                        'service_id' => $credential->service_id,
+                        'service_name' => $credential->service->name ?? null,
+                        'credentials' => $credential->decrypted_credentials, // Auto-decrypted
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -41,32 +51,48 @@ class OtpServiceCredentialController extends Controller
     {
         try {
             $validated = $request->validate([
-                'service_name' => 'required|string|max:255',
-                'access_key' => 'nullable|string|max:255',
-                'endpoint_url' => 'nullable|url|max:1000',
+                'service_id' => 'required|exists:otp_services,id',
+                'credentials' => 'required|array',
             ]);
 
             $user = Auth::user();
+            $service = OtpService::findOrFail($validated['service_id']);
 
-            // Update or create OTP service credentials for the authenticated user
-            // Using updateOrCreate to handle both create and update scenarios
-            $credentials = OtpServiceCredential::updateOrCreate(
+            // Build dynamic validation rules from service field definitions
+            $validationRules = $this->buildValidationRules($service->fields);
+            
+            // Build nested validation rules for credentials.*
+            $credentialsRules = [];
+            foreach ($validationRules as $fieldName => $rules) {
+                $credentialsRules['credentials.' . $fieldName] = $rules;
+            }
+            
+            // Validate credentials against service field definitions
+            $validatedCredentials = $request->validate($credentialsRules);
+
+            // Update or create credentials
+            $credential = OtpServiceCredential::updateOrCreate(
                 [
                     'user_id' => $user->id,
-                    'service_name' => $validated['service_name']
+                    'service_id' => $validated['service_id']
                 ],
                 [
-                    'user_id' => $user->id,
-                    'service_name' => $validated['service_name'],
-                    'access_key' => $validated['access_key'] ?? null,
-                    'endpoint_url' => $validated['endpoint_url'] ?? null,
+                    'credentials' => $request->input('credentials') // Will be encrypted by mutator
                 ]
             );
+
+            // Load service relationship for response
+            $credential->load('service');
 
             return response()->json([
                 'success' => true,
                 'message' => 'OTP service credentials saved successfully.',
-                'data' => $credentials
+                'data' => [
+                    'id' => $credential->id,
+                    'service_id' => $credential->service_id,
+                    'service_name' => $credential->service->name,
+                    'credentials' => $credential->decrypted_credentials
+                ]
             ], 200);
         } catch (ValidationException $e) {
             return response()->json([
@@ -92,6 +118,7 @@ class OtpServiceCredentialController extends Controller
             $user = Auth::user();
             $credential = OtpServiceCredential::where('id', $id)
                 ->where('user_id', $user->id)
+                ->with('service:id,name,fields')
                 ->first();
 
             if (!$credential) {
@@ -105,7 +132,13 @@ class OtpServiceCredentialController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'OTP service credential retrieved successfully.',
-                'data' => $credential
+                'data' => [
+                    'id' => $credential->id,
+                    'service_id' => $credential->service_id,
+                    'service_name' => $credential->service->name,
+                    'service_fields' => $credential->service->fields,
+                    'credentials' => $credential->decrypted_credentials
+                ]
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -117,14 +150,15 @@ class OtpServiceCredentialController extends Controller
     }
 
     /**
-     * Get OTP service credentials by service name
+     * Get OTP service credentials by service ID
      */
-    public function getByServiceName(string $serviceName)
+    public function getByServiceId(string $serviceId)
     {
         try {
             $user = Auth::user();
             $credential = OtpServiceCredential::where('user_id', $user->id)
-                ->where('service_name', $serviceName)
+                ->where('service_id', $serviceId)
+                ->with('service:id,name,fields')
                 ->first();
 
             if (!$credential) {
@@ -138,7 +172,13 @@ class OtpServiceCredentialController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'OTP service credential retrieved successfully.',
-                'data' => $credential
+                'data' => [
+                    'id' => $credential->id,
+                    'service_id' => $credential->service_id,
+                    'service_name' => $credential->service->name,
+                    'service_fields' => $credential->service->fields,
+                    'credentials' => $credential->decrypted_credentials
+                ]
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -156,14 +196,13 @@ class OtpServiceCredentialController extends Controller
     {
         try {
             $validated = $request->validate([
-                'service_name' => 'sometimes|required|string|max:255',
-                'access_key' => 'nullable|string|max:255',
-                'endpoint_url' => 'nullable|url|max:1000',
+                'credentials' => 'required|array',
             ]);
 
             $user = Auth::user();
             $credential = OtpServiceCredential::where('id', $id)
                 ->where('user_id', $user->id)
+                ->with('service')
                 ->first();
 
             if (!$credential) {
@@ -173,27 +212,30 @@ class OtpServiceCredentialController extends Controller
                 ], 404);
             }
 
-            // Check if service_name is being changed and if it conflicts with existing record
-            if (isset($validated['service_name']) && $validated['service_name'] !== $credential->service_name) {
-                $existing = OtpServiceCredential::where('user_id', $user->id)
-                    ->where('service_name', $validated['service_name'])
-                    ->where('id', '!=', $id)
-                    ->first();
-
-                if ($existing) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'A credential for this service already exists.',
-                    ], 422);
-                }
+            // Build dynamic validation rules from service field definitions
+            $validationRules = $this->buildValidationRules($credential->service->fields);
+            
+            // Build nested validation rules for credentials.*
+            $credentialsRules = [];
+            foreach ($validationRules as $fieldName => $rules) {
+                $credentialsRules['credentials.' . $fieldName] = $rules;
             }
+            
+            // Validate credentials
+            $validatedCredentials = $request->validate($credentialsRules);
 
-            $credential->update($validated);
+            $credential->credentials = $request->input('credentials'); // Will be encrypted by mutator
+            $credential->save();
 
             return response()->json([
                 'success' => true,
                 'message' => 'OTP service credential updated successfully.',
-                'data' => $credential
+                'data' => [
+                    'id' => $credential->id,
+                    'service_id' => $credential->service_id,
+                    'service_name' => $credential->service->name,
+                    'credentials' => $credential->decrypted_credentials
+                ]
             ], 200);
         } catch (ValidationException $e) {
             return response()->json([
@@ -264,5 +306,39 @@ class OtpServiceCredentialController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Build dynamic validation rules from service fields definition
+     */
+    private function buildValidationRules($fields)
+    {
+        $rules = [];
+        
+        if (!is_array($fields)) {
+            return $rules;
+        }
+        
+        foreach ($fields as $field) {
+            $fieldRules = [];
+            
+            if ($field['required'] ?? false) {
+                $fieldRules[] = 'required';
+            } else {
+                $fieldRules[] = 'nullable';
+            }
+            
+            // Default to string validation
+            $fieldRules[] = 'string';
+            
+            // Max length if specified
+            if (isset($field['max_length'])) {
+                $fieldRules[] = 'max:' . $field['max_length'];
+            }
+            
+            $rules[$field['name']] = implode('|', $fieldRules);
+        }
+        
+        return $rules;
     }
 }

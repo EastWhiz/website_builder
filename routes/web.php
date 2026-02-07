@@ -6,6 +6,7 @@ use App\Http\Controllers\ApiCredentialsController;
 use App\Http\Controllers\DeepLControlller;
 use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\GrokController;
+use App\Http\Controllers\OtpServiceController;
 use App\Http\Controllers\OtpServiceCredentialController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
@@ -95,11 +96,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/api/credentials', [ApiCredentialsController::class, 'destroy'])->name('api.credentials.destroy');
         Route::get('/api/credentials/{provider}', [ApiCredentialsController::class, 'getProviderCredentials'])->name('api.credentials.provider');
 
-        // OTP Service Credentials routes
+        // OTP Services routes (service definitions)
+        Route::get('/otp-services', [OtpServiceController::class, 'index'])->name('otp.services.index');
+        Route::get('/otp-services/{id}', [OtpServiceController::class, 'show'])->name('otp.services.show');
+
+        // OTP Service Credentials routes (user-specific credentials)
         Route::get('/otp-service-credentials', [OtpServiceCredentialController::class, 'index'])->name('otp.service.credentials.index');
         Route::post('/otp-service-credentials', [OtpServiceCredentialController::class, 'store'])->name('otp.service.credentials.store');
         Route::get('/otp-service-credentials/{id}', [OtpServiceCredentialController::class, 'show'])->name('otp.service.credentials.show');
-        Route::get('/otp-service-credentials/service/{serviceName}', [OtpServiceCredentialController::class, 'getByServiceName'])->name('otp.service.credentials.byService');
+        Route::get('/otp-service-credentials/service/{serviceId}', [OtpServiceCredentialController::class, 'getByServiceId'])->name('otp.service.credentials.byService');
         Route::put('/otp-service-credentials/{id}', [OtpServiceCredentialController::class, 'update'])->name('otp.service.credentials.update');
         Route::delete('/otp-service-credentials/{id}', [OtpServiceCredentialController::class, 'destroy'])->name('otp.service.credentials.destroy');
         Route::delete('/otp-service-credentials', [OtpServiceCredentialController::class, 'destroyAll'])->name('otp.service.credentials.destroyAll');

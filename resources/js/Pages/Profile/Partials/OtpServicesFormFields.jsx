@@ -12,34 +12,44 @@ export default function OtpServicesFormFields({
 }) {
     const user = usePage().props.auth.user;
     const [loading, setLoading] = useState(true);
-    const [services, setServices] = useState([]);
-    const [activeServiceId, setActiveServiceId] = useState(null);
+    const [availableServices, setAvailableServices] = useState([]);
+    const [userCredentials, setUserCredentials] = useState([]);
+    const [selectedServiceId, setSelectedServiceId] = useState(null);
+    const [selectedService, setSelectedService] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newServiceName, setNewServiceName] = useState('');
 
     const { data, setData, errors, processing, recentlySuccessful, reset } =
         useForm({
-            service_name: '',
-            access_key: '',
-            endpoint_url: '',
+            service_id: null,
+            credentials: {},
         });
 
-    // Load all existing OTP service credentials on component mount
+    // Load available services and user credentials on component mount
     useEffect(() => {
-        loadAllOtpServices();
+        loadAvailableServices();
+        loadUserCredentials();
     }, []);
 
-    // Auto-construct endpoint URL for UniMatrix when access key changes
-    useEffect(() => {
-        if (data.service_name && data.service_name.toLowerCase() === 'unimatrix' && data.access_key) {
-            const constructedUrl = `https://api.unimtx.com/?action=sms.message.send&accessKeyId=${data.access_key}`;
-            if (data.endpoint_url !== constructedUrl) {
-                setData('endpoint_url', constructedUrl);
-            }
-        }
-    }, [data.access_key, data.service_name]);
+    const loadAvailableServices = async () => {
+        try {
+            const response = await fetch(route('otp.services.index'), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
 
-    const loadAllOtpServices = async () => {
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                setAvailableServices(result.data);
+            }
+        } catch (error) {
+            console.error('Error loading available OTP services:', error);
+        }
+    };
+
+    const loadUserCredentials = async () => {
         try {
             const response = await fetch(route('otp.service.credentials.index'), {
                 method: 'GET',
@@ -51,63 +61,127 @@ export default function OtpServicesFormFields({
             const result = await response.json();
 
             if (result.success && result.data) {
-                setServices(result.data);
-                if (result.data.length > 0 && !activeServiceId) {
-                    setActiveServiceId(result.data[0].id);
-                    loadServiceData(result.data[0]);
+                setUserCredentials(result.data);
+                if (result.data.length > 0 && !selectedServiceId) {
+                    // Load first credential
+                    loadServiceCredential(result.data[0].service_id);
                 }
             }
         } catch (error) {
-            console.error('Error loading OTP service credentials:', error);
+            console.error('Error loading user OTP service credentials:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const loadServiceData = (service) => {
-        setData({
-            service_name: service.service_name,
-            access_key: service.access_key || '',
-            endpoint_url: service.endpoint_url || '',
-        });
-        setActiveServiceId(service.id);
-        setShowAddForm(false);
+    const loadServiceCredential = async (serviceId) => {
+        try {
+            const response = await fetch(route('otp.service.credentials.byService', { serviceId }), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                setSelectedServiceId(serviceId);
+                setSelectedService(result.data.service_fields);
+                setData({
+                    service_id: serviceId,
+                    credentials: result.data.credentials || {},
+                });
+                setShowAddForm(false);
+            } else {
+                // No credential exists, load service definition
+                loadServiceDefinition(serviceId);
+            }
+        } catch (error) {
+            console.error('Error loading service credential:', error);
+        }
     };
 
-    const handleTabClick = (service) => {
-        loadServiceData(service);
+    const loadServiceDefinition = async (serviceId) => {
+        try {
+            const response = await fetch(route('otp.services.show', { id: serviceId }), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                setSelectedServiceId(serviceId);
+                setSelectedService(result.data.fields);
+                setData({
+                    service_id: serviceId,
+                    credentials: {},
+                });
+                setShowAddForm(false);
+            }
+        } catch (error) {
+            console.error('Error loading service definition:', error);
+        }
+    };
+
+    const handleServiceClick = (serviceId) => {
+        loadServiceCredential(serviceId);
     };
 
     const handleAddNewService = () => {
         setShowAddForm(true);
-        setActiveServiceId(null);
+        setSelectedServiceId(null);
+        setSelectedService(null);
         setData({
-            service_name: '',
-            access_key: '',
-            endpoint_url: '',
+            service_id: null,
+            credentials: {},
         });
+    };
+
+    const handleServiceSelect = (serviceId) => {
+        const service = availableServices.find(s => s.id === parseInt(serviceId));
+        if (service) {
+            setSelectedServiceId(service.id);
+            setSelectedService(service.fields);
+            setData({
+                service_id: service.id,
+                credentials: {},
+            });
+        }
+    };
+
+    const handleFieldChange = (fieldName, value) => {
+        const updatedCredentials = {
+            ...data.credentials,
+            [fieldName]: value
+        };
+
+        // Handle UniMatrix endpoint URL auto-construction
+        if (selectedServiceId && data.service_id) {
+            const service = availableServices.find(s => s.id === data.service_id);
+            if (service && service.name === 'unimatrix' && fieldName === 'access_key' && value) {
+                updatedCredentials.endpoint_url = `https://api.unimtx.com/?action=sms.message.send&accessKeyId=${value}`;
+            }
+        }
+
+        setData('credentials', updatedCredentials);
     };
 
     const submit = (e) => {
         e.preventDefault();
 
-        if (!data.service_name || data.service_name.trim() === '') {
+        if (!data.service_id) {
             Swal.fire({
                 title: 'Error!',
-                text: 'Please enter a service name.',
+                text: 'Please select a service.',
                 icon: 'error',
                 timer: 1500,
                 showConfirmButton: false
             });
             return;
-        }
-
-        // For UniMatrix, construct the endpoint URL with access key
-        let endpointUrl = data.endpoint_url;
-        const serviceName = data.service_name.trim().toLowerCase();
-        
-        if (serviceName === 'unimatrix' && data.access_key) {
-            endpointUrl = `https://api.unimtx.com/?action=sms.message.send&accessKeyId=${data.access_key}`;
         }
 
         // Send data to Laravel backend
@@ -117,9 +191,8 @@ export default function OtpServicesFormFields({
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                service_name: serviceName,
-                access_key: data.access_key,
-                endpoint_url: endpointUrl,
+                service_id: data.service_id,
+                credentials: data.credentials,
             }),
         })
             .then(response => response.json())
@@ -132,8 +205,8 @@ export default function OtpServicesFormFields({
                         timer: 1500,
                         showConfirmButton: false
                     });
-                    // Reload all services
-                    loadAllOtpServices();
+                    // Reload user credentials
+                    loadUserCredentials();
                     setShowAddForm(false);
                 } else {
                     Swal.fire({
@@ -158,6 +231,9 @@ export default function OtpServicesFormFields({
     };
 
     const deleteService = async (serviceId, serviceName) => {
+        const credential = userCredentials.find(c => c.service_id === serviceId);
+        if (!credential) return;
+
         Swal.fire({
             title: 'Are you sure?',
             text: `This will permanently delete the "${serviceName}" OTP service. This action cannot be undone!`,
@@ -168,7 +244,7 @@ export default function OtpServicesFormFields({
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    const response = await fetch(route('otp.service.credentials.destroy', { id: serviceId }), {
+                    const response = await fetch(route('otp.service.credentials.destroy', { id: credential.id }), {
                         method: 'DELETE',
                         headers: {
                             'Content-Type': 'application/json',
@@ -186,16 +262,16 @@ export default function OtpServicesFormFields({
                             showConfirmButton: false
                         });
                         
-                        // Reload all services
-                        loadAllOtpServices();
+                        // Reload user credentials
+                        loadUserCredentials();
                         
                         // Clear form if deleted service was active
-                        if (activeServiceId === serviceId) {
-                            setActiveServiceId(null);
+                        if (selectedServiceId === serviceId) {
+                            setSelectedServiceId(null);
+                            setSelectedService(null);
                             setData({
-                                service_name: '',
-                                access_key: '',
-                                endpoint_url: '',
+                                service_id: null,
+                                credentials: {},
                             });
                         }
                     } else {
@@ -242,13 +318,13 @@ export default function OtpServicesFormFields({
                     const result = await response.json();
 
                     if (result.success) {
-                        setServices([]);
-                        setActiveServiceId(null);
+                        setUserCredentials([]);
+                        setSelectedServiceId(null);
+                        setSelectedService(null);
                         setShowAddForm(false);
                         setData({
-                            service_name: '',
-                            access_key: '',
-                            endpoint_url: '',
+                            service_id: null,
+                            credentials: {},
                         });
 
                         Swal.fire({
@@ -299,11 +375,51 @@ export default function OtpServicesFormFields({
             'nexmo': '💬',
             'messagebird': '🐦',
         };
-        return icons[serviceName.toLowerCase()] || '🔐';
+        return icons[serviceName?.toLowerCase()] || '🔐';
     };
 
     const formatServiceName = (name) => {
+        if (!name) return '';
         return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
+    const renderDynamicFields = () => {
+        if (!selectedService || !Array.isArray(selectedService)) {
+            return null;
+        }
+
+        return selectedService.map((field) => {
+            const fieldValue = data.credentials?.[field.name] || '';
+            const isUnimatrixEndpoint = data.service_id && 
+                availableServices.find(s => s.id === data.service_id)?.name === 'unimatrix' &&
+                field.name === 'endpoint_url';
+
+            return (
+                <div key={field.name} className="mt-4">
+                    <InputLabel 
+                        htmlFor={field.name} 
+                        value={field.label + (field.required ? ' *' : '')} 
+                    />
+                    <TextInput
+                        id={field.name}
+                        type="text"
+                        className="mt-1 block w-full"
+                        value={fieldValue}
+                        onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                        placeholder={field.placeholder || ''}
+                        required={field.required}
+                        autoComplete="off"
+                        disabled={isUnimatrixEndpoint}
+                    />
+                    <InputError className="mt-2" message={errors[`credentials.${field.name}`]} />
+                    {isUnimatrixEndpoint && (
+                        <p className="mt-1 text-sm text-gray-500">
+                            For UniMatrix, the endpoint URL is automatically constructed from your access key.
+                        </p>
+                    )}
+                </div>
+            );
+        });
     };
 
     return (
@@ -322,29 +438,33 @@ export default function OtpServicesFormFields({
             <div className="mt-6">
                 <div className="border-b border-gray-200">
                     <nav className="-mb-px flex space-x-4 flex-wrap">
-                        {services.map((service) => (
-                            <div key={service.id} className="flex items-center group">
-                                <button
-                                    onClick={() => handleTabClick(service)}
-                                    className={`${activeServiceId === service.id
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        } whitespace-nowrap py-2 px-3 border-b-2 font-medium text-sm flex items-center space-x-2`}
-                                >
-                                    <span>{getServiceIcon(service.service_name)}</span>
-                                    <span>{formatServiceName(service.service_name)}</span>
-                                </button>
-                                <button
-                                    onClick={() => deleteService(service.id, service.service_name)}
-                                    className="ml-2 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title={`Delete ${formatServiceName(service.service_name)}`}
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                        ))}
+                        {userCredentials.map((credential) => {
+                            const service = availableServices.find(s => s.id === credential.service_id);
+                            const serviceName = service?.name || 'Unknown';
+                            return (
+                                <div key={credential.id} className="flex items-center group">
+                                    <button
+                                        onClick={() => handleServiceClick(credential.service_id)}
+                                        className={`${selectedServiceId === credential.service_id
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            } whitespace-nowrap py-2 px-3 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                                    >
+                                        <span>{getServiceIcon(serviceName)}</span>
+                                        <span>{formatServiceName(serviceName)}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => deleteService(credential.service_id, serviceName)}
+                                        className="ml-2 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title={`Delete ${formatServiceName(serviceName)}`}
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            );
+                        })}
                         <button
                             onClick={handleAddNewService}
                             className={`${showAddForm
@@ -369,103 +489,53 @@ export default function OtpServicesFormFields({
                             </h3>
                             <div className="space-y-4">
                                 <div>
-                                    <InputLabel htmlFor="service_name" value="Service Name" />
-                                    <TextInput
-                                        id="service_name"
-                                        type="text"
-                                        className="mt-1 block w-full"
-                                        value={data.service_name}
-                                        onChange={(e) => setData('service_name', e.target.value)}
-                                        placeholder="e.g., unimatrix, twilio, nexmo"
-                                        autoComplete="off"
-                                    />
-                                    <InputError className="mt-2" message={errors.service_name} />
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        Enter a unique name for this OTP service (lowercase, no spaces).
-                                    </p>
+                                    <InputLabel htmlFor="service_select" value="Select Service" />
+                                    <select
+                                        id="service_select"
+                                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        value={data.service_id || ''}
+                                        onChange={(e) => handleServiceSelect(e.target.value)}
+                                    >
+                                        <option value="">-- Select a service --</option>
+                                        {availableServices.map((service) => {
+                                            // Check if user already has this service
+                                            const hasService = userCredentials.some(c => c.service_id === service.id);
+                                            
+                                            return (
+                                                <option 
+                                                    key={service.id} 
+                                                    value={service.id}
+                                                    disabled={hasService}
+                                                >
+                                                    {formatServiceName(service.name)}{hasService ? ' (Already configured)' : ''}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    <InputError className="mt-2" message={errors.service_id} />
+                                    {availableServices.length > 0 && availableServices.every(service => 
+                                        userCredentials.some(c => c.service_id === service.id)
+                                    ) && (
+                                        <p className="mt-2 text-sm text-amber-600">
+                                            All available OTP services have been configured. To add more services, please contact your administrator.
+                                        </p>
+                                    )}
+                                    {availableServices.length === 0 && (
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            No OTP services are currently available. Please contact your administrator.
+                                        </p>
+                                    )}
                                 </div>
-                                <div>
-                                    <InputLabel htmlFor="access_key" value="Access Key" />
-                                    <TextInput
-                                        id="access_key"
-                                        type="text"
-                                        className="mt-1 block w-full"
-                                        value={data.access_key}
-                                        onChange={(e) => setData('access_key', e.target.value)}
-                                        placeholder="Enter your Access Key"
-                                        autoComplete="off"
-                                    />
-                                    <InputError className="mt-2" message={errors.access_key} />
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        Your service Access Key for authentication. Keep this secure and never share it publicly.
-                                    </p>
-                                </div>
-                                <div>
-                                    <InputLabel htmlFor="endpoint_url" value="End Point URL" />
-                                    <TextInput
-                                        id="endpoint_url"
-                                        type="url"
-                                        className="mt-1 block w-full"
-                                        value={data.endpoint_url}
-                                        onChange={(e) => setData('endpoint_url', e.target.value)}
-                                        placeholder={data.service_name && data.service_name.toLowerCase() === 'unimatrix' 
-                                            ? 'https://api.unimtx.com/?action=sms.message.send&accessKeyId=YOUR_ACCESS_KEY'
-                                            : 'https://api.example.com/v1/otp'}
-                                        autoComplete="off"
-                                        disabled={data.service_name && data.service_name.toLowerCase() === 'unimatrix'}
-                                    />
-                                    <InputError className="mt-2" message={errors.endpoint_url} />
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        {data.service_name && data.service_name.toLowerCase() === 'unimatrix' 
-                                            ? 'For UniMatrix, the endpoint URL will be automatically constructed with your access key.'
-                                            : 'The API endpoint URL for OTP services.'}
-                                    </p>
-                                </div>
+                                {selectedService && renderDynamicFields()}
                             </div>
                         </>
-                    ) : activeServiceId ? (
+                    ) : selectedServiceId && selectedService ? (
                         <>
                             <h3 className="text-md font-medium text-gray-900 mb-4">
-                                {formatServiceName(data.service_name)} Configuration
+                                {formatServiceName(availableServices.find(s => s.id === selectedServiceId)?.name)} Configuration
                             </h3>
                             <div className="space-y-4">
-                                <div>
-                                    <InputLabel htmlFor="access_key" value="Access Key" />
-                                    <TextInput
-                                        id="access_key"
-                                        type="text"
-                                        className="mt-1 block w-full"
-                                        value={data.access_key}
-                                        onChange={(e) => setData('access_key', e.target.value)}
-                                        placeholder="Enter your Access Key"
-                                        autoComplete="off"
-                                    />
-                                    <InputError className="mt-2" message={errors.access_key} />
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        Your service Access Key for authentication. Keep this secure and never share it publicly.
-                                    </p>
-                                </div>
-                                <div>
-                                    <InputLabel htmlFor="endpoint_url" value="End Point URL" />
-                                    <TextInput
-                                        id="endpoint_url"
-                                        type="url"
-                                        className="mt-1 block w-full"
-                                        value={data.endpoint_url}
-                                        onChange={(e) => setData('endpoint_url', e.target.value)}
-                                        placeholder={data.service_name && data.service_name.toLowerCase() === 'unimatrix' 
-                                            ? 'https://api.unimtx.com/?action=sms.message.send&accessKeyId=YOUR_ACCESS_KEY'
-                                            : 'https://api.example.com/v1/otp'}
-                                        autoComplete="off"
-                                        disabled={data.service_name && data.service_name.toLowerCase() === 'unimatrix'}
-                                    />
-                                    <InputError className="mt-2" message={errors.endpoint_url} />
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        {data.service_name && data.service_name.toLowerCase() === 'unimatrix' 
-                                            ? 'For UniMatrix, the endpoint URL will be automatically constructed with your access key.'
-                                            : 'The API endpoint URL for OTP services.'}
-                                    </p>
-                                </div>
+                                {renderDynamicFields()}
                             </div>
                         </>
                     ) : (
@@ -476,13 +546,13 @@ export default function OtpServicesFormFields({
                     )}
                 </div>
 
-                {(showAddForm || activeServiceId) && (
+                {(showAddForm || selectedServiceId) && (
                     <div className="flex items-center gap-4 mt-6">
                         <PrimaryButton disabled={processing}>
                             {showAddForm ? 'Add Service' : 'Save Credentials'}
                         </PrimaryButton>
 
-                        {services.length > 0 && (
+                        {userCredentials.length > 0 && (
                             <button
                                 type="button"
                                 onClick={deleteAllOtpServices}
