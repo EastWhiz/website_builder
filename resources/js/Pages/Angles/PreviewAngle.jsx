@@ -574,6 +574,7 @@ export default function Dashboard({ id }) {
         submitBackgroundColor: "#ff7800",
         apiType: "elps",
         project_directory: "",
+        otp_service_id: "",
         margin: "0px 0px 0px 0px",
         padding: "20px 20px 20px 20px",
         border: "solid",
@@ -637,6 +638,7 @@ export default function Dashboard({ id }) {
     const [formManagement, setFormManagement] = useState(INITIAL_FORM_MANAGEMENT);
     const [selectedFormLanguage, setSelectedFormLanguage] = useState(false);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
+    const [userOtpServices, setUserOtpServices] = useState([]);
 
     // Replace functionality state
     const [replaceModalOpen, setReplaceModalOpen] = useState(false);
@@ -833,7 +835,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id") return null;
+                    if (!name || name == "form_type" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -858,6 +860,7 @@ export default function Dashboard({ id }) {
                 submitBackgroundColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.backgroundColor))}` || "",
                 apiType: formEl.getAttribute("data-api-type"),
                 project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
+                otp_service_id: formEl.querySelector('[name="otp_service_id"]')?.value || '',
                 inputs: inputs,
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
@@ -873,6 +876,30 @@ export default function Dashboard({ id }) {
             setSelectedFormLanguage(false);
         }
     }, [editing]);
+
+    // Fetch user's OTP services
+    useEffect(() => {
+        async function loadUserOtpServices() {
+            try {
+                const response = await fetch(route('otp.service.credentials.index'), {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    setUserOtpServices(result.data);
+                }
+            } catch (error) {
+                console.error('Error loading user OTP services:', error);
+            }
+        }
+
+        loadUserOtpServices();
+    }, []);
 
     useEffect(() => {
         function handleMouseEnter(e) {
@@ -1283,6 +1310,7 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="web_builder_user_id" value="${mainQuery.auth.user.id}" />`;
             formHTML += ` <input type="hidden" name="project_directory" value="${formManagement.project_directory}" />`;
             formHTML += ` <input type="hidden" name="sales_page_id" value="A${id || ''}" />`;
+            formHTML += ` <input type="hidden" name="otp_service_id" value="${formManagement.otp_service_id || ''}" />`;
             // Add submit button
             const submitButtonStyles = {
                 backgroundColor: formManagement.submitBackgroundColor || '#007bff',
@@ -2703,6 +2731,36 @@ export default function Dashboard({ id }) {
                                                                     setFormManagement({ ...formManagement, project_directory: e.target.value })
                                                                 }}
                                                             />
+                                                        </Box>
+                                                        <Box mt={2}>
+                                                            <FormControl fullWidth>
+                                                                <InputLabel id="otp-service-select-label" shrink>
+                                                                    OTP Service (Optional)
+                                                                </InputLabel>
+                                                                <MuiSelect
+                                                                    labelId="otp-service-select-label"
+                                                                    value={formManagement.otp_service_id || ''}
+                                                                    label="OTP Service (Optional)"
+                                                                    size="small"
+                                                                    onChange={(e) => {
+                                                                        setFormManagement({ ...formManagement, otp_service_id: e.target.value })
+                                                                    }}
+                                                                    displayEmpty
+                                                                    renderValue={(value) =>
+                                                                        !value ? <Typography color="grey">Select OTP Service...</Typography> : 
+                                                                        userOtpServices.find(s => s.id.toString() === value.toString())?.service_name || value
+                                                                    }
+                                                                >
+                                                                    <MenuItem value="" className="doNotAct">
+                                                                        <em>None</em>
+                                                                    </MenuItem>
+                                                                    {userOtpServices.map((service) => (
+                                                                        <MenuItem key={service.id} value={service.id.toString()} className="doNotAct">
+                                                                            {service.service_name ? service.service_name.charAt(0).toUpperCase() + service.service_name.slice(1) : `Service ${service.id}`}
+                                                                        </MenuItem>
+                                                                    ))}
+                                                                </MuiSelect>
+                                                            </FormControl>
                                                         </Box>
                                                         <TextField
                                                             sx={{ mt: 2.1 }}
