@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $input['email'] ?? '';
     $otpServiceId = $input['otp_service_id'] ?? '';
     $formIdentifier = $input['form_identifier'] ?? '';
+    $phone = $input['phone'] ?? ''; // Get phone from request if session doesn't exist
 
     // Validate required fields
     if (empty($formIdentifier)) {
@@ -40,12 +41,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sessionKey = 'otp_verification_' . $formIdentifier;
     $otpData = $_SESSION[$sessionKey] ?? null;
 
+    // If session doesn't exist (e.g., after max attempts or expiry), allow regeneration with request data
     if (!$otpData) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'No active OTP session found. Please try submitting the form again.',
-        ]);
-        exit();
+        // Validate that we have required data to create a new session
+        if (empty($phone) || empty($email) || empty($otpServiceId)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No active OTP session found. Please try submitting the form again.',
+            ]);
+            exit();
+        }
+        
+        // Create new session for regeneration after max attempts/expiry
+        $otpData = [
+            'phone' => $phone,
+            'email' => $email,
+            'otp_service_id' => $otpServiceId,
+        ];
     }
 
     // Generate new OTP
@@ -53,7 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $otpData['otp'] = $newOtp;
     $otpData['expires_at'] = time() + (5 * 60); // 5 minutes from now
     $otpData['verified'] = false;
-    $otpData['attempts'] = 0;
+    $otpData['attempts'] = 0; // Reset attempts
+    $otpData['max_attempts'] = 5;
     $_SESSION[$sessionKey] = $otpData;
 
     // Send new OTP via SMS

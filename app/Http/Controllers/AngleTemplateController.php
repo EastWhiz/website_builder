@@ -941,7 +941,7 @@ class AngleTemplateController extends Controller
                  * Regenerate OTP with comprehensive error handling (Step 11)
                  * Handles: network errors, timeouts, SMS service failures
                  */
-                async function regenerateOtp(email, otpServiceId, webBuilderUserId, formIdentifier) {
+                async function regenerateOtp(email, otpServiceId, webBuilderUserId, formIdentifier, phone) {
                     try {
                         const endpoint = getOtpEndpoint('otp_regenerate.php');
                         
@@ -958,7 +958,8 @@ class AngleTemplateController extends Controller
                                 email: email,
                                 otp_service_id: otpServiceId,
                                 web_builder_user_id: webBuilderUserId,
-                                form_identifier: formIdentifier
+                                form_identifier: formIdentifier,
+                                phone: phone // Include phone for regeneration after max attempts/expiry
                             }),
                             signal: controller.signal
                         });
@@ -1184,7 +1185,8 @@ class AngleTemplateController extends Controller
                                 otpFormData.email,
                                 otpFormData.otp_service_id,
                                 otpFormData.web_builder_user_id,
-                                otpFormData.form_identifier
+                                otpFormData.form_identifier,
+                                otpFormData.phone || otpFormData.temp_phone // Include phone for regeneration after max attempts
                             );
 
                             if (regenerateResult.success) {

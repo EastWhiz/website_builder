@@ -172,6 +172,7 @@ class OtpVerificationController extends Controller
             'otp_service_id' => 'required|integer|exists:otp_services,id',
             'form_identifier' => 'required|string',
             'web_builder_user_id' => 'required|string',
+            'phone' => 'nullable|string', // Phone is optional if session exists, required if regenerating after max attempts
         ]);
 
         if ($validator->fails()) {
@@ -186,20 +187,28 @@ class OtpVerificationController extends Controller
         $serviceId = $request->otp_service_id;
         $formIdentifier = $request->form_identifier;
         $userId = str_replace('U', '', $request->web_builder_user_id);
+        $phone = $request->phone ?? ''; // Get phone from request if session doesn't exist
 
         // Get existing session data to preserve phone
         // Form identifier is already MD5 hash generated on frontend (Step 9)
         $sessionKey = 'otp_verification_' . $formIdentifier;
         $existingData = Session::get($sessionKey);
 
+        // If session doesn't exist (e.g., after max attempts or expiry), allow regeneration with request data
         if (!$existingData) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No existing OTP session found.'
-            ], 404);
+            // Validate that we have required data to create a new session
+            if (empty($phone) || empty($email) || empty($serviceId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No active OTP session found. Please try submitting the form again.'
+                ], 404);
+            }
+            
+            // Use request data for regeneration after max attempts/expiry
+            $phone = $phone;
+        } else {
+            $phone = $existingData['phone'];
         }
-
-        $phone = $existingData['phone'];
 
         // Generate new OTP
         $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
