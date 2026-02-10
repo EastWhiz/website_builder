@@ -8,6 +8,7 @@ use App\Http\Controllers\EditedTemplateController;
 use App\Http\Controllers\GrokController;
 use App\Http\Controllers\OtpServiceController;
 use App\Http\Controllers\OtpServiceCredentialController;
+use App\Http\Controllers\OtpVerificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
@@ -28,6 +29,11 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+
+// Public OTP API routes (no auth required - forms are public-facing)
+Route::post('/api/otp/generate', [OtpVerificationController::class, 'generate'])->name('otp.generate');
+Route::post('/api/otp/verify', [OtpVerificationController::class, 'verify'])->name('otp.verify');
+Route::post('/api/otp/regenerate', [OtpVerificationController::class, 'regenerate'])->name('otp.regenerate');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 

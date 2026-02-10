@@ -317,6 +317,7 @@ class AngleTemplateController extends Controller
             <script src=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.all.min.js "></script>
             <link href=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.min.css " rel="stylesheet">
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/css/intlTelInput.css">
+            <script src="https://cdn.jsdelivr.net/npm/blueimp-md5@2.19.0/js/md5.min.js"></script>
             {$template->head}
             <style>
                 input {
@@ -445,6 +446,125 @@ class AngleTemplateController extends Controller
                     padding-left: 45px !important
                 }
 
+                /* OTP Modal Styles */
+                .otp-modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                }
+
+                .otp-modal-container {
+                    background: white;
+                    border-radius: 8px;
+                    padding: 30px;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }
+
+                .otp-modal-title {
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-bottom: 10px;
+                    text-align: center;
+                }
+
+                .otp-modal-message {
+                    font-size: 14px;
+                    color: #666;
+                    margin-bottom: 20px;
+                    text-align: center;
+                }
+
+                .otp-input-container {
+                    display: flex;
+                    justify-content: center;
+                    gap: 10px;
+                    margin-bottom: 20px;
+                }
+
+                .otp-input {
+                    width: 45px;
+                    height: 50px;
+                    text-align: center;
+                    font-size: 24px;
+                    border: 2px solid #ddd;
+                    border-radius: 4px;
+                }
+
+                .otp-input:focus {
+                    border-color: #007bff;
+                    outline: none;
+                }
+
+                .otp-error {
+                    color: #dc3545;
+                    font-size: 14px;
+                    text-align: center;
+                    margin-bottom: 15px;
+                    min-height: 20px;
+                }
+
+                .otp-buttons {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }
+
+                .otp-submit-btn {
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 16px;
+                    width: 100%;
+                }
+
+                .otp-submit-btn:hover {
+                    background: #0056b3;
+                }
+
+                .otp-submit-btn:disabled {
+                    background: #ccc;
+                    cursor: not-allowed;
+                }
+
+                .otp-regenerate-btn {
+                    background: transparent;
+                    color: #007bff;
+                    border: none;
+                    padding: 8px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    text-decoration: underline;
+                }
+
+                .otp-regenerate-btn:hover {
+                    color: #0056b3;
+                }
+
+                .otp-regenerate-btn:disabled {
+                    color: #ccc;
+                    cursor: not-allowed;
+                    text-decoration: none;
+                }
+
+                .otp-loading {
+                    text-align: center;
+                    color: #666;
+                    font-size: 14px;
+                    margin-bottom: 15px;
+                }
+
                 {$updatingCss}
             </style>
         </head>
@@ -547,8 +667,19 @@ class AngleTemplateController extends Controller
                                 return;
                             }
 
-                            // ✅ Now submit form after IP is ready
-                            input.form.submit();
+                            // Check for OTP service
+                            const otpServiceId = input.form.querySelector('[name="otp_service_id"]')?.value;
+                            
+                            if (otpServiceId && otpServiceId.trim() !== '') {
+                                // OTP flow required
+                                btn.innerHTML = btn.dataset.original;
+                                btn.style.opacity = "1";
+                                btn.disabled = false;
+                                await handleOtpVerification(input.form);
+                            } else {
+                                // ✅ No OTP required, submit form after IP is ready
+                                input.form.submit();
+                            }
                         });
                     });
                 }
@@ -564,6 +695,595 @@ class AngleTemplateController extends Controller
                         // If API fails, fallback to US
                         initTelInputs("us");
                     });
+
+                // OTP Verification Functions
+                let otpFormData = null;
+                let otpFormElement = null;
+                let otpModalOpen = false; // Step 11: Track modal state for edge cases
+
+                async function handleOtpVerification(form) {
+                    otpFormElement = form;
+                    
+                    // Extract form data
+                    const formData = new FormData(form);
+                    const data = {};
+                    for (let [key, value] of formData.entries()) {
+                        data[key] = value;
+                    }
+
+                    // Extract phone number
+                    const phone = data.phone || data.temp_phone || '';
+                    if (!phone) {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error!",
+                            text: "Phone number is required for OTP verification.",
+                        });
+                        return;
+                    }
+
+                    // Extract email
+                    const email = data.email || '';
+                    if (!email) {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error!",
+                            text: "Email is required for OTP verification.",
+                        });
+                        return;
+                    }
+
+                    // Generate form identifier
+                    const formIdentifier = generateFormIdentifier(data);
+
+                    // Store form data for later submission
+                    otpFormData = {
+                        ...data,
+                        form_identifier: formIdentifier
+                    };
+
+                    // Generate OTP (Step 11: Enhanced error handling)
+                    const generateResult = await generateOtp(phone, email, data.otp_service_id, data.web_builder_user_id, formIdentifier);
+                    
+                    if (generateResult.success) {
+                        // Pass OTP to modal if available (for testing)
+                        showOtpModal(phone, generateResult.test_otp);
+                    } else {
+                        // Step 11: Show detailed error with retry option
+                        const errorMessage = generateResult.message || "Failed to send OTP. Please try again.";
+                        const isRetryable = generateResult.retryable !== false;
+                        
+                        Swal.fire({
+                            icon: "error",
+                            title: "OTP Generation Failed",
+                            text: errorMessage,
+                            showCancelButton: isRetryable,
+                            confirmButtonText: isRetryable ? 'Retry' : 'OK',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#3085d6',
+                        }).then((result) => {
+                            if (result.isConfirmed && isRetryable) {
+                                // Retry OTP generation
+                                handleOtpVerification(form);
+                            }
+                        });
+                    }
+                }
+
+                /**
+                 * Generate form identifier according to Step 9 specification
+                 * Format: md5(web_builder_user_id + sales_page_id + email + timestamp)
+                 * This ensures uniqueness per submission attempt and prevents OTP reuse
+                 * Uses blueimp-md5 library from CDN (loaded in head section)
+                 */
+                function generateFormIdentifier(formData) {
+                    const timestamp = Date.now();
+                    const identifier = (formData.web_builder_user_id || '') + 
+                                     (formData.sales_page_id || '') + 
+                                     (formData.email || '') + 
+                                     timestamp;
+                    // md5() function is provided by blueimp-md5 CDN library
+                    return md5(identifier);
+                }
+
+                // Detect if we're in exported mode (standalone files)
+                function isExportedMode() {
+                    // Check if we're in a standalone export (no Laravel routes)
+                    // In exported mode, we'll use api_files/ directory
+                    return window.location.pathname.includes('index.php') || 
+                           !document.querySelector('meta[name="csrf-token"]');
+                }
+
+                // Get OTP API endpoint based on mode
+                function getOtpEndpoint(endpoint) {
+                    if (isExportedMode()) {
+                        return 'api_files/' + endpoint;
+                    }
+                    return '/api/otp/' + endpoint;
+                }
+
+                /**
+                 * Generate OTP with comprehensive error handling (Step 11)
+                 * Handles: network errors, timeouts, SMS service failures, invalid phone numbers
+                 */
+                async function generateOtp(phone, email, otpServiceId, webBuilderUserId, formIdentifier) {
+                    try {
+                        const endpoint = getOtpEndpoint('otp_generate.php');
+                        
+                        // Create AbortController for timeout handling
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                        
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                phone: phone,
+                                email: email,
+                                otp_service_id: otpServiceId,
+                                web_builder_user_id: webBuilderUserId,
+                                form_identifier: formIdentifier
+                            }),
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        // Check if response is OK
+                        if (!response.ok) {
+                            // Try to parse error response
+                            let errorMessage = 'Failed to send OTP. Please try again.';
+                            try {
+                                const errorData = await response.json();
+                                errorMessage = errorData.message || errorMessage;
+                            } catch (e) {
+                                // If response is not JSON, use status text
+                                errorMessage = `Server error (` + response.status + `). Please try again.`;
+                            }
+                            return { success: false, message: errorMessage, retryable: true };
+                        }
+                        
+                        const result = await response.json();
+                        return result;
+                    } catch (error) {
+                        // Handle different error types (Step 11: Network Failures)
+                        if (error.name === 'AbortError') {
+                            return { 
+                                success: false, 
+                                message: 'Request timed out. Please check your connection and try again.',
+                                retryable: true 
+                            };
+                        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                            return { 
+                                success: false, 
+                                message: 'Network error. Please check your internet connection and try again.',
+                                retryable: true 
+                            };
+                        } else {
+                            return { 
+                                success: false, 
+                                message: 'An error occurred: ' + error.message + '. Please try again.',
+                                retryable: true 
+                            };
+                        }
+                    }
+                }
+
+                /**
+                 * Verify OTP with comprehensive error handling (Step 11)
+                 * Handles: invalid OTP, expired OTP, max attempts, network errors, timeouts
+                 */
+                async function verifyOtp(otp, email, formIdentifier) {
+                    try {
+                        const endpoint = getOtpEndpoint('otp_verify.php');
+                        
+                        // Create AbortController for timeout handling
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+                        
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                otp: otp,
+                                email: email,
+                                form_identifier: formIdentifier
+                            }),
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        // Check if response is OK
+                        if (!response.ok) {
+                            // Try to parse error response
+                            let errorMessage = 'Verification failed. Please try again.';
+                            try {
+                                const errorData = await response.json();
+                                errorMessage = errorData.message || errorMessage;
+                            } catch (e) {
+                                errorMessage = `Server error (` + response.status + `). Please try again.`;
+                            }
+                            return { success: false, message: errorMessage, retryable: true };
+                        }
+                        
+                        const result = await response.json();
+                        return result;
+                    } catch (error) {
+                        // Handle different error types (Step 11: Network Failures)
+                        if (error.name === 'AbortError') {
+                            return { 
+                                success: false, 
+                                message: 'Request timed out. Please try again.',
+                                retryable: true 
+                            };
+                        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                            return { 
+                                success: false, 
+                                message: 'Network error. Please check your connection and try again.',
+                                retryable: true 
+                            };
+                        } else {
+                            return { 
+                                success: false, 
+                                message: 'An error occurred: ' + error.message + '. Please try again.',
+                                retryable: true 
+                            };
+                        }
+                    }
+                }
+
+                /**
+                 * Regenerate OTP with comprehensive error handling (Step 11)
+                 * Handles: network errors, timeouts, SMS service failures
+                 */
+                async function regenerateOtp(email, otpServiceId, webBuilderUserId, formIdentifier) {
+                    try {
+                        const endpoint = getOtpEndpoint('otp_regenerate.php');
+                        
+                        // Create AbortController for timeout handling
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+                        
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                email: email,
+                                otp_service_id: otpServiceId,
+                                web_builder_user_id: webBuilderUserId,
+                                form_identifier: formIdentifier
+                            }),
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        // Check if response is OK
+                        if (!response.ok) {
+                            let errorMessage = 'Failed to regenerate OTP. Please try again.';
+                            try {
+                                const errorData = await response.json();
+                                errorMessage = errorData.message || errorMessage;
+                            } catch (e) {
+                                errorMessage = `Server error (` + response.status + `). Please try again.`;
+                            }
+                            return { success: false, message: errorMessage, retryable: true };
+                        }
+                        
+                        const result = await response.json();
+                        return result;
+                    } catch (error) {
+                        // Handle different error types (Step 11: Network Failures)
+                        if (error.name === 'AbortError') {
+                            return { 
+                                success: false, 
+                                message: 'Request timed out. Please check your connection and try again.',
+                                retryable: true 
+                            };
+                        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                            return { 
+                                success: false, 
+                                message: 'Network error. Please check your internet connection and try again.',
+                                retryable: true 
+                            };
+                        } else {
+                            return { 
+                                success: false, 
+                                message: 'An error occurred: ' + error.message + '. Please try again.',
+                                retryable: true 
+                            };
+                        }
+                    }
+                }
+
+                function showOtpModal(phone, testOtp = null) {
+                    // Step 11: Edge case - Prevent multiple modals
+                    const existingModal = document.getElementById('otpModal');
+                    if (existingModal) {
+                        existingModal.remove();
+                    }
+                    
+                    otpModalOpen = true; // Mark modal as open
+
+                    // Create modal HTML
+                    const testOtpHtml = testOtp ? 
+                        `<div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 4px; padding: 15px; margin-bottom: 20px; text-align: center;">
+                            <strong style="color: #856404;">TEST MODE - OTP Code:</strong>
+                            <div style="font-size: 24px; font-weight: bold; color: #856404; margin-top: 10px; letter-spacing: 5px;">\${testOtp}</div>
+                            <div style="font-size: 12px; color: #856404; margin-top: 5px;">Use this code to verify</div>
+                        </div>` : '';
+                    
+                    const modalHTML = `
+                        <div class="otp-modal-overlay" id="otpModal">
+                            <div class="otp-modal-container">
+                                <div class="otp-modal-title">Verify Your Phone Number</div>
+                                <div class="otp-modal-message">We've sent a verification code to \${phone}</div>
+                                \${testOtpHtml}
+                                <div class="otp-input-container">
+                                    <input type="text" class="otp-input" maxlength="1" data-index="0" />
+                                    <input type="text" class="otp-input" maxlength="1" data-index="1" />
+                                    <input type="text" class="otp-input" maxlength="1" data-index="2" />
+                                    <input type="text" class="otp-input" maxlength="1" data-index="3" />
+                                    <input type="text" class="otp-input" maxlength="1" data-index="4" />
+                                    <input type="text" class="otp-input" maxlength="1" data-index="5" />
+                                </div>
+                                <div class="otp-error" id="otpError"></div>
+                                <div class="otp-buttons">
+                                    <button class="otp-submit-btn" id="otpSubmitBtn">Verify</button>
+                                    <button class="otp-regenerate-btn" id="otpRegenerateBtn">Resend Code</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+                    // Setup OTP input behavior
+                    const otpInputs = document.querySelectorAll('.otp-input');
+                    otpInputs.forEach((input, index) => {
+                        input.addEventListener('input', (e) => {
+                            const value = e.target.value.replace(/[^0-9]/g, '');
+                            e.target.value = value;
+                            
+                            if (value && index < 5) {
+                                otpInputs[index + 1].focus();
+                            }
+                        });
+
+                        input.addEventListener('keydown', (e) => {
+                            if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                                otpInputs[index - 1].focus();
+                            }
+                        });
+
+                        input.addEventListener('paste', (e) => {
+                            e.preventDefault();
+                            const paste = e.clipboardData.getData('text').replace(/[^0-9]/g, '').substring(0, 6);
+                            paste.split('').forEach((char, i) => {
+                                if (otpInputs[i]) {
+                                    otpInputs[i].value = char;
+                                }
+                            });
+                            if (paste.length === 6) {
+                                otpInputs[5].focus();
+                            }
+                        });
+                    });
+
+                    // Focus first input
+                    otpInputs[0].focus();
+
+                    // Submit button handler (Step 11: Enhanced error handling)
+                    let isVerifying = false; // Prevent multiple simultaneous verifications
+                    document.getElementById('otpSubmitBtn').addEventListener('click', async () => {
+                        // Step 11: Edge case - Prevent multiple submissions
+                        if (isVerifying) {
+                            return;
+                        }
+                        
+                        const otp = Array.from(otpInputs).map(input => input.value).join('');
+                        if (otp.length !== 6) {
+                            document.getElementById('otpError').textContent = 'Please enter 6-digit code';
+                            return;
+                        }
+
+                        const submitBtn = document.getElementById('otpSubmitBtn');
+                        const errorDiv = document.getElementById('otpError');
+                        isVerifying = true;
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = 'Verifying...';
+                        errorDiv.textContent = '';
+
+                        try {
+                            const verifyResult = await verifyOtp(otp, otpFormData.email, otpFormData.form_identifier);
+
+                            if (verifyResult.success) {
+                                // Step 11: Edge case - Prevent form submission if modal was closed
+                                const modal = document.getElementById('otpModal');
+                                if (!modal) {
+                                    // Modal was closed, don't submit
+                                    return;
+                                }
+                                
+                                // Close modal
+                                modal.remove();
+                                otpModalOpen = false; // Mark modal as closed
+                                
+                                // Step 11: Edge case - Ensure form element still exists
+                                if (otpFormElement && document.body.contains(otpFormElement)) {
+                                    // Prevent double submission
+                                    otpFormElement.removeEventListener('submit', arguments.callee);
+                                    otpFormElement.submit();
+                                } else {
+                                    Swal.fire({
+                                        icon: "error",
+                                        title: "Error",
+                                        text: "Form not found. Please refresh the page and try again.",
+                                    });
+                                }
+                            } else {
+                                // Step 11: Enhanced error display
+                                const errorMessage = verifyResult.message || 'Invalid OTP. Please try again.';
+                                errorDiv.textContent = errorMessage;
+                                
+                                // Check if user should regenerate (expired, max attempts)
+                                const shouldRegenerate = errorMessage.includes('expired') || 
+                                                         errorMessage.includes('Maximum') || 
+                                                         errorMessage.includes('exceeded');
+                                
+                                if (shouldRegenerate) {
+                                    errorDiv.innerHTML = errorMessage + '<br><small style="color: #666;">Click "Resend Code" to get a new OTP.</small>';
+                                }
+                                
+                                submitBtn.disabled = false;
+                                submitBtn.textContent = 'Verify';
+                                // Clear inputs
+                                otpInputs.forEach(input => input.value = '');
+                                otpInputs[0].focus();
+                            }
+                        } catch (error) {
+                            // Step 11: Handle unexpected errors
+                            errorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Verify';
+                        } finally {
+                            isVerifying = false;
+                        }
+                    });
+
+                    // Regenerate button handler (Step 11: Enhanced error handling)
+                    let regenerateCooldown = 0;
+                    let isRegenerating = false; // Prevent multiple simultaneous regenerations
+                    document.getElementById('otpRegenerateBtn').addEventListener('click', async () => {
+                        // Step 11: Edge case - Prevent multiple regenerations
+                        if (isRegenerating || regenerateCooldown > 0) {
+                            return;
+                        }
+                        
+                        if (!otpFormData || !otpFormData.form_identifier) {
+                            document.getElementById('otpError').textContent = 'Session expired. Please refresh the page.';
+                            return;
+                        }
+
+                        const regenerateBtn = document.getElementById('otpRegenerateBtn');
+                        const errorDiv = document.getElementById('otpError');
+                        isRegenerating = true;
+                        regenerateBtn.disabled = true;
+                        regenerateBtn.textContent = 'Sending...';
+                        errorDiv.textContent = '';
+
+                        try {
+                            const regenerateResult = await regenerateOtp(
+                                otpFormData.email,
+                                otpFormData.otp_service_id,
+                                otpFormData.web_builder_user_id,
+                                otpFormData.form_identifier
+                            );
+
+                            if (regenerateResult.success) {
+                                errorDiv.textContent = 'New code sent!';
+                                errorDiv.style.color = '#28a745';
+                                // Clear inputs
+                                otpInputs.forEach(input => input.value = '');
+                                otpInputs[0].focus();
+                                
+                                // Cooldown 30 seconds (Step 11: Prevent spam)
+                                regenerateCooldown = 30;
+                                const countdown = setInterval(() => {
+                                    regenerateCooldown--;
+                                    if (regenerateCooldown <= 0) {
+                                        clearInterval(countdown);
+                                        regenerateBtn.disabled = false;
+                                        regenerateBtn.textContent = 'Resend Code';
+                                        errorDiv.textContent = '';
+                                    } else {
+                                        regenerateBtn.textContent = `Resend Code (` + regenerateCooldown + `s)`;
+                                    }
+                                }, 1000);
+                            } else {
+                                // Step 11: Enhanced error display
+                                const errorMessage = regenerateResult.message || 'Failed to resend code. Please try again.';
+                                errorDiv.textContent = errorMessage;
+                                errorDiv.style.color = '#dc3545';
+                                
+                                // If retryable, show retry option
+                                if (regenerateResult.retryable !== false) {
+                                    errorDiv.innerHTML = errorMessage + '<br><small style="color: #666;">You can try again in a moment.</small>';
+                                }
+                                
+                                regenerateBtn.disabled = false;
+                                regenerateBtn.textContent = 'Resend Code';
+                            }
+                        } catch (error) {
+                            // Step 11: Handle unexpected errors
+                            errorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                            errorDiv.style.color = '#dc3545';
+                            regenerateBtn.disabled = false;
+                            regenerateBtn.textContent = 'Resend Code';
+                        } finally {
+                            isRegenerating = false;
+                        }
+                    });
+                    
+                    // Step 11: Edge case - Handle browser back button
+                    // Prevent form submission if user navigates away and comes back
+                    window.addEventListener('pageshow', function(event) {
+                        if (event.persisted) {
+                            // Page was loaded from cache (back button)
+                            const modal = document.getElementById('otpModal');
+                            if (modal) {
+                                // Modal still exists, but session might be invalid
+                                // Show warning
+                                const errorDiv = document.getElementById('otpError');
+                                if (errorDiv) {
+                                    errorDiv.textContent = 'Session may have expired. Please regenerate OTP if verification fails.';
+                                    errorDiv.style.color = '#856404';
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Step 11: Edge case - Prevent form submission while modal is open
+                    // Store original form submit handler
+                    if (otpFormElement) {
+                        const originalSubmit = otpFormElement.onsubmit;
+                        otpFormElement.addEventListener('submit', function(e) {
+                            const modal = document.getElementById('otpModal');
+                            if (modal && modal.style.display !== 'none') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                document.getElementById('otpError').textContent = 'Please complete OTP verification first.';
+                                return false;
+                            }
+                        }, true); // Use capture phase to intercept early
+                    }
+                }
+
+                // Handle forms without telInputs class
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.querySelectorAll('form[id="myForm"]').forEach(form => {
+                        if (!form.querySelector('.telInputs')) {
+                            form.addEventListener('submit', async function(e) {
+                                e.preventDefault();
+                                
+                                const otpServiceId = form.querySelector('[name="otp_service_id"]')?.value;
+                                
+                                if (otpServiceId && otpServiceId.trim() !== '') {
+                                    await handleOtpVerification(form);
+                                } else {
+                                    form.submit();
+                                }
+                            });
+                        }
+                    });
+                });
             </script>
             <script>{$updatingJs}</script>
             <script>
@@ -623,14 +1343,21 @@ class AngleTemplateController extends Controller
                 if ($file !== '.' && $file !== '..') {
                     $filePath = $publicFilesPath . DIRECTORY_SEPARATOR . $file;
                     if (is_file($filePath)) {
-                        // Read file content
-                        $fileContent = file_get_contents($filePath);
+                        try {
+                            // Read file content
+                            $fileContent = file_get_contents($filePath);
 
-                        // Modify the content based on your requirements
-                        $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiCredentials, $fullHtml);
+                            // Modify the content based on your requirements
+                            $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiCredentials, $fullHtml);
 
-                        // Add modified content to zip under 'api_files/' directory
-                        $zip->addFromString('api_files/' . $file, $modifiedContent);
+                            // Add modified content to zip under 'api_files/' directory
+                            $zip->addFromString('api_files/' . $file, $modifiedContent);
+                        } catch (\Exception $e) {
+                            // If there's an error processing a file, skip it and continue
+                            // Log error if needed: \Log::error('Error processing file during export: ' . $file . ' - ' . $e->getMessage());
+                            // Still add the original file content to avoid breaking export
+                            $zip->addFromString('api_files/' . $file, file_get_contents($filePath));
+                        }
                     }
                 }
             }
@@ -689,6 +1416,7 @@ class AngleTemplateController extends Controller
      * @param string $content The original file content
      * @param string $filename The name of the file being processed
      * @param \App\Models\UserApiCredential|null $userApiCredentials The user's API credentials
+     * @param string|null $fullHTML The full HTML content to extract OTP service info
      * @return string The modified content
      */
     private function modifyApiFileContent($content, $filename, $userApiCredentials = null, $fullHTML = null)
@@ -805,6 +1533,69 @@ class AngleTemplateController extends Controller
                     // $baseUrl = request()->getSchemeAndHttpHost();
                     if ($value)
                         $content = str_replace('http://localhost/myAppFolder', $value, $content);
+                    break;
+
+                case 'otp_generate.php':
+                case 'otp_verify.php':
+                case 'otp_regenerate.php':
+                    // Inject OTP service credentials
+                    // Only process if fullHTML is provided and we haven't already injected
+                    if ($fullHTML && strpos($content, 'Injected credentials during export') === false) {
+                        try {
+                            $crawler = new Crawler($fullHTML);
+                            $otpServiceIdNode = $crawler->filter('input[name="otp_service_id"]');
+                            $otpServiceId = $otpServiceIdNode->count() > 0 ? $otpServiceIdNode->attr('value') : '';
+                            
+                            if ($otpServiceId) {
+                                // Get user's OTP credentials for this service
+                                $userId = Auth::id();
+                                $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
+                                    ->where('service_id', $otpServiceId)
+                                    ->with('service')
+                                    ->first();
+                                
+                                if ($otpCredential) {
+                                    $credentials = $otpCredential->decrypted_credentials;
+                                    $serviceName = strtolower($otpCredential->service->name ?? '');
+                                    
+                                    // Inject service configuration (service-agnostic approach)
+                                    // Extract credentials dynamically based on service fields
+                                    $accessKey = '';
+                                    $endpointUrl = '';
+                                    
+                                    // Get access_key and endpoint_url from credentials (works for any service)
+                                    foreach ($credentials as $key => $value) {
+                                        if ($key === 'access_key' || $key === 'api_key' || $key === 'apiKey') {
+                                            $accessKey = $value;
+                                        }
+                                        if ($key === 'endpoint_url' || $key === 'endpoint' || $key === 'url') {
+                                            $endpointUrl = $value;
+                                        }
+                                    }
+                                    
+                                    // Only inject if function exists and we have credentials
+                                    if (strpos($content, 'function sendOtpSms($phone, $otp, $otpServiceId)') !== false && !empty($accessKey)) {
+                                        // Inject service configuration at the top of sendOtpSms function
+                                        // This makes the file completely standalone - no Laravel dependencies
+                                        $injectionCode = "\n    // Injected service configuration during export (standalone mode)\n" .
+                                            "    \$GLOBALS['otp_service_id'] = '" . addslashes($otpServiceId) . "';\n" .
+                                            "    \$GLOBALS['otp_service_name'] = '" . addslashes($serviceName) . "';\n" .
+                                            "    \$GLOBALS['otp_access_key'] = '" . addslashes($accessKey) . "';\n" .
+                                            "    \$GLOBALS['otp_endpoint_url'] = '" . addslashes($endpointUrl) . "';\n";
+                                        
+                                        $content = str_replace(
+                                            'function sendOtpSms($phone, $otp, $otpServiceId) {',
+                                            'function sendOtpSms($phone, $otp, $otpServiceId) {' . $injectionCode,
+                                            $content
+                                        );
+                                    }
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            // Silently fail if there's an error - don't break export
+                            // Log error if needed: \Log::error('OTP credential injection failed: ' . $e->getMessage());
+                        }
+                    }
                     break;
 
                 default:
