@@ -61,7 +61,19 @@ class OtpVerificationController extends Controller
             'otp_service_id' => $serviceId,
         ]);
 
-        // Send SMS
+        // Check if testing mode is enabled
+        $testingMode = config('otp.testing_mode', false);
+        
+        if ($testingMode) {
+            // Testing mode: Bypass SMS and return OTP in response
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP generated successfully (TEST MODE - SMS bypassed)',
+                'test_otp' => $otp
+            ], 200);
+        }
+        
+        // Production mode: Send SMS
         $smsResult = $this->otpService->sendSms($phone, $otp, $serviceId, $userId);
 
         if (!$smsResult['success']) {
@@ -226,7 +238,19 @@ class OtpVerificationController extends Controller
             'otp_service_id' => $serviceId,
         ]);
 
-        // Send SMS
+        // Check if testing mode is enabled
+        $testingMode = config('otp.testing_mode', false);
+        
+        if ($testingMode) {
+            // Testing mode: Bypass SMS and return OTP in response
+            return response()->json([
+                'success' => true,
+                'message' => 'New OTP generated successfully (TEST MODE - SMS bypassed)',
+                'test_otp' => $otp
+            ], 200);
+        }
+        
+        // Production mode: Send SMS
         $smsResult = $this->otpService->sendSms($phone, $otp, $serviceId, $userId);
 
         if (!$smsResult['success']) {

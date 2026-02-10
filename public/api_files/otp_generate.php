@@ -1,6 +1,12 @@
 <?php
 include_once 'config.php';
 
+// OTP Testing Mode (injected during export or set manually)
+// Set $GLOBALS['otp_testing_mode'] = true; to enable testing mode
+if (!isset($GLOBALS['otp_testing_mode'])) {
+    $GLOBALS['otp_testing_mode'] = false;
+}
+
 // Set headers for CORS and JSON content
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -79,7 +85,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'otp_service_id' => $otpServiceId,
     ];
 
-    // Send SMS using OTP service
+    // Check if testing mode is enabled (injected during export or set via GLOBAL)
+    $testingMode = isset($GLOBALS['otp_testing_mode']) ? $GLOBALS['otp_testing_mode'] : false;
+    
+    if ($testingMode) {
+        // Testing mode: Bypass SMS and return OTP in response
+        echo json_encode([
+            'success' => true,
+            'message' => 'OTP generated successfully (TEST MODE - SMS bypassed)',
+            'form_identifier' => $formIdentifier,
+            'test_otp' => $otp
+        ]);
+        exit();
+    }
+    
+    // Production mode: Send SMS using OTP service
     // OTP service credentials will be injected during export
     $smsResult = sendOtpSms($phone, $otp, $otpServiceId);
 

@@ -1192,6 +1192,16 @@ class AngleTemplateController extends Controller
                             if (regenerateResult.success) {
                                 errorDiv.textContent = 'New code sent!';
                                 errorDiv.style.color = '#28a745';
+                                
+                                // Display test OTP if available (testing mode)
+                                if (regenerateResult.test_otp) {
+                                    const testOtpHtml = `<div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 4px; padding: 15px; margin-top: 10px; text-align: center;">
+                                        <strong style="color: #856404;">TEST MODE - New OTP Code:</strong>
+                                        <div style="font-size: 24px; font-weight: bold; color: #856404; margin-top: 10px; letter-spacing: 5px;">` + regenerateResult.test_otp + `</div>
+                                    </div>`;
+                                    errorDiv.innerHTML = errorDiv.textContent + testOtpHtml;
+                                }
+                                
                                 // Clear inputs
                                 otpInputs.forEach(input => input.value = '');
                                 otpInputs[0].focus();
@@ -1540,9 +1550,47 @@ class AngleTemplateController extends Controller
                 case 'otp_generate.php':
                 case 'otp_verify.php':
                 case 'otp_regenerate.php':
-                    // Inject OTP service credentials
-                    // Only process if fullHTML is provided and we haven't already injected
-                    if ($fullHTML && strpos($content, 'Injected credentials during export') === false) {
+                    // Always inject OTP testing mode flag (independent of credentials)
+                    // This ensures exported files respect the OTP_TESTING_MODE config
+                    $testingMode = config('otp.testing_mode', false) ? 'true' : 'false';
+                    
+                    // Replace the default testing mode initialization with the actual config value
+                    // Pattern 1: Replace existing initialization block
+                    if (preg_match('/if\s*\(!isset\(\$GLOBALS\[\'otp_testing_mode\'\]\)\)\s*\{[^}]*\$GLOBALS\[\'otp_testing_mode\'\]\s*=\s*(true|false);[^}]*\}/', $content)) {
+                        $content = preg_replace(
+                            '/if\s*\(!isset\(\$GLOBALS\[\'otp_testing_mode\'\]\)\)\s*\{[^}]*\$GLOBALS\[\'otp_testing_mode\'\]\s*=\s*(true|false);[^}]*\}/',
+                            "if (!isset(\$GLOBALS['otp_testing_mode'])) {\n    \$GLOBALS['otp_testing_mode'] = " . $testingMode . ";\n}",
+                            $content
+                        );
+                    } else {
+                        // Pattern 2: Inject after config include if not already present
+                        if (strpos($content, "include_once 'config.php';") !== false) {
+                            // Check if testing mode block already exists
+                            if (strpos($content, '// OTP Testing Mode') === false) {
+                                $testingModeInjection = "\n// OTP Testing Mode (injected during export)\n" .
+                                    "if (!isset(\$GLOBALS['otp_testing_mode'])) {\n" .
+                                    "    \$GLOBALS['otp_testing_mode'] = " . $testingMode . ";\n" .
+                                    "}\n";
+                                
+                                $content = str_replace(
+                                    "include_once 'config.php';",
+                                    "include_once 'config.php';" . $testingModeInjection,
+                                    $content
+                                );
+                            } else {
+                                // Update existing testing mode value
+                                $content = preg_replace(
+                                    '/\$GLOBALS\[\'otp_testing_mode\'\]\s*=\s*(true|false);/',
+                                    "\$GLOBALS['otp_testing_mode'] = " . $testingMode . ";",
+                                    $content
+                                );
+                            }
+                        }
+                    }
+                    
+                    // Inject OTP service credentials (if available)
+                    // Only process if fullHTML is provided and we haven't already injected credentials
+                    if ($fullHTML && strpos($content, 'Injected service configuration during export') === false) {
                         try {
                             $crawler = new Crawler($fullHTML);
                             $otpServiceIdNode = $crawler->filter('input[name="otp_service_id"]');
@@ -1583,7 +1631,8 @@ class AngleTemplateController extends Controller
                                             "    \$GLOBALS['otp_service_id'] = '" . addslashes($otpServiceId) . "';\n" .
                                             "    \$GLOBALS['otp_service_name'] = '" . addslashes($serviceName) . "';\n" .
                                             "    \$GLOBALS['otp_access_key'] = '" . addslashes($accessKey) . "';\n" .
-                                            "    \$GLOBALS['otp_endpoint_url'] = '" . addslashes($endpointUrl) . "';\n";
+                                            "    \$GLOBALS['otp_endpoint_url'] = '" . addslashes($endpointUrl) . "';\n" .
+                                            "    \$GLOBALS['otp_testing_mode'] = " . $testingMode . ";\n";
                                         
                                         $content = str_replace(
                                             'function sendOtpSms($phone, $otp, $otpServiceId) {',
