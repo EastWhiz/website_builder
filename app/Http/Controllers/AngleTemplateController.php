@@ -446,41 +446,159 @@ class AngleTemplateController extends Controller
                     padding-left: 45px !important
                 }
 
-                /* OTP Modal Styles */
+                /* OTP Modal Styles - Based on Reference Design */
                 .otp-modal-overlay {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
                     position: fixed;
                     top: 0;
                     left: 0;
                     width: 100%;
                     height: 100%;
                     background: rgba(0, 0, 0, 0.5);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
                     z-index: 10000;
                 }
 
                 .otp-modal-container {
                     background: white;
-                    border-radius: 8px;
+                    border-radius: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    width: 890px;
+                    max-width: 90%;
                     padding: 30px;
-                    max-width: 400px;
-                    width: 90%;
-                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    position: relative;
+                    z-index: 10001;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    min-height: 400px;
                 }
 
-                .otp-modal-title {
-                    font-size: 20px;
+                .otp-modal-content {
+                    display: flex;
+                    align-items: stretch;
+                    justify-content: space-between;
+                    min-height: 100%;
+                }
+
+                .otp-modal-left {
+                    width: 50%;
+                    text-align: center;
+                    border-right: 1px solid #ccc;
+                    padding-right: 30px;
+                    padding-left: 10px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .otp-modal-custom-heading {
+                    font-size: 24px;
                     font-weight: bold;
-                    margin-bottom: 10px;
+                    color: #006ed2;
+                    margin-bottom: 20px;
+                    line-height: 1.4;
+                    width: 100%;
+                }
+
+                .otp-modal-default-heading {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #006ed2;
+                    margin-bottom: 20px;
+                    line-height: 1.4;
+                    width: 100%;
+                }
+
+                .otp-modal-image-container {
+                    margin: 15px 0 20px 0;
+                }
+
+                .otp-modal-image {
+                    width: 170px;
+                    height: 170px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                    border: 3px solid #90EE90;
+                    margin: 0 auto;
+                    display: block;
+                }
+
+                .otp-modal-custom-content {
+                    margin-top: 15px;
+                    font-size: 14px;
+                    line-height: 1.6;
+                    color: #333;
+                    text-align: center;
+                    width: 100%;
+                }
+
+                .otp-modal-custom-content p {
+                    margin: 10px 0;
                     text-align: center;
                 }
 
-                .otp-modal-message {
+                .otp-modal-custom-content a {
+                    font-weight: bold;
+                    color: #006ed2;
+                    text-decoration: none;
+                }
+
+                .otp-modal-default-message {
+                    font-size: 14px;
+                    color: #666;
+                    margin-top: 10px;
+                    line-height: 1.6;
+                    text-align: center;
+                }
+
+                .otp-modal-right {
+                    width: 50%;
+                    padding: 0 20px 0 30px;
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: flex-start;
+                    align-items: center;
+                }
+
+                .otp-modal-close-btn {
+                    position: absolute;
+                    top: 15px;
+                    right: 20px;
+                    font-size: 28px;
+                    cursor: pointer;
+                    color: #666;
+                    background: none;
+                    border: none;
+                    line-height: 1;
+                    padding: 0;
+                    width: 30px;
+                    height: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .otp-modal-close-btn:hover {
+                    color: #000;
+                }
+
+                .otp-modal-right-title {
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #333;
+                    margin-bottom: 10px;
+                    margin-top: 0;
+                    width: 100%;
+                }
+
+                .otp-modal-right-instruction {
                     font-size: 14px;
                     color: #666;
                     margin-bottom: 20px;
-                    text-align: center;
+                    width: 100%;
                 }
 
                 .otp-input-container {
@@ -488,20 +606,28 @@ class AngleTemplateController extends Controller
                     justify-content: center;
                     gap: 10px;
                     margin-bottom: 20px;
+                    width: 100%;
                 }
 
                 .otp-input {
-                    width: 45px;
+                    width: 50px;
                     height: 50px;
                     text-align: center;
-                    font-size: 24px;
-                    border: 2px solid #ddd;
-                    border-radius: 4px;
+                    font-size: 22px;
+                    border: 1px solid #ccc;
+                    border-radius: 5px;
+                    padding: 0;
+                    font-weight: 500;
                 }
 
                 .otp-input:focus {
-                    border-color: #007bff;
+                    border-color: #006ed2;
                     outline: none;
+                    box-shadow: 0 0 0 2px rgba(0, 110, 210, 0.2);
+                }
+
+                .otp-input:not(:placeholder-shown) {
+                    border-color: #006ed2;
                 }
 
                 .otp-error {
@@ -512,40 +638,45 @@ class AngleTemplateController extends Controller
                     min-height: 20px;
                 }
 
-                .otp-buttons {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                }
-
                 .otp-submit-btn {
-                    background: #007bff;
-                    color: white;
-                    border: none;
+                    border-radius: 5px;
+                    background: #006ed2 !important;
+                    border-color: #006ed2 !important;
+                    border-style: solid;
+                    border-width: 2px;
+                    font-weight: 700;
+                    font-size: 18px;
                     padding: 12px;
-                    border-radius: 4px;
+                    margin-top: 20px;
+                    transition: all 0.3s ease 0s;
+                    text-decoration: none;
+                    color: white;
                     cursor: pointer;
-                    font-size: 16px;
                     width: 100%;
+                    box-shadow: 2.91px 2.91px 14.53px 2.91px rgba(0, 0, 0, 0.1);
                 }
 
                 .otp-submit-btn:hover {
-                    background: #0056b3;
+                    background: #0056b3 !important;
+                    border-color: #0056b3 !important;
                 }
 
                 .otp-submit-btn:disabled {
-                    background: #ccc;
+                    background: #ccc !important;
+                    border-color: #ccc !important;
                     cursor: not-allowed;
                 }
 
                 .otp-regenerate-btn {
                     background: transparent;
-                    color: #007bff;
+                    color: #006ed2;
                     border: none;
                     padding: 8px;
                     cursor: pointer;
                     font-size: 14px;
                     text-decoration: underline;
+                    margin-top: 15px;
+                    width: 100%;
                 }
 
                 .otp-regenerate-btn:hover {
@@ -563,6 +694,44 @@ class AngleTemplateController extends Controller
                     color: #666;
                     font-size: 14px;
                     margin-bottom: 15px;
+                }
+
+                @media (max-width: 768px) {
+                    .otp-modal-content {
+                        flex-direction: column;
+                    }
+
+                    .otp-modal-left,
+                    .otp-modal-right {
+                        width: 100%;
+                        border-right: none;
+                        padding: 15px 0;
+                    }
+
+                    .otp-modal-left {
+                        border-bottom: 1px solid #ccc;
+                        padding-bottom: 20px;
+                        padding-right: 0;
+                    }
+
+                    .otp-modal-right {
+                        padding-left: 0;
+                    }
+
+                    .otp-modal-container {
+                        padding: 20px;
+                    }
+
+                    .otp-modal-image {
+                        width: 120px;
+                        height: 120px;
+                    }
+
+                    .otp-input {
+                        width: 40px;
+                        height: 40px;
+                        font-size: 18px;
+                    }
                 }
 
                 {$updatingCss}
@@ -1013,38 +1182,77 @@ class AngleTemplateController extends Controller
                     
                     otpModalOpen = true; // Mark modal as open
 
-                    // Create modal HTML
+                    // Get custom modal content from form (if available)
+                    const modalHeading = otpFormElement?.querySelector('[name="otp_modal_heading"]')?.value || '';
+                    const modalImage = otpFormElement?.querySelector('[name="otp_modal_image"]')?.value || '';
+                    const modalContent = otpFormElement?.querySelector('[name="otp_modal_content"]')?.value || '';
+
+                    // Build left side content (custom or default)
+                    let leftSideContent = '';
+                    if (modalHeading || modalImage || modalContent) {
+                        // Custom content
+                        leftSideContent = `
+                            <div class="otp-modal-left">
+                                ` + (modalHeading ? `<div class="otp-modal-custom-heading">` + modalHeading + `</div>` : '') + `
+                                ` + (modalImage ? `<div class="otp-modal-image-container"><img src="` + modalImage + `" alt="OTP Verification" class="otp-modal-image" /></div>` : '') + `
+                                ` + (modalContent ? `<div class="otp-modal-custom-content">` + modalContent + `</div>` : '') + `
+                            </div>
+                        `;
+                    } else {
+                        // Default content
+                        leftSideContent = `
+                            <div class="otp-modal-left">
+                                <div class="otp-modal-default-heading">Verify Your Phone Number</div>
+                                <div class="otp-modal-default-message">We've sent a verification code to ` + phone + `</div>
+                            </div>
+                        `;
+                    }
+
+                    // Test mode OTP display (shown in right panel if available)
                     const testOtpHtml = testOtp ? 
-                        `<div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 4px; padding: 15px; margin-bottom: 20px; text-align: center;">
+                        `<div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 4px; padding: 15px; margin-bottom: 15px; text-align: center;">
                             <strong style="color: #856404;">TEST MODE - OTP Code:</strong>
-                            <div style="font-size: 24px; font-weight: bold; color: #856404; margin-top: 10px; letter-spacing: 5px;">\${testOtp}</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #856404; margin-top: 10px; letter-spacing: 5px;">` + testOtp + `</div>
                             <div style="font-size: 12px; color: #856404; margin-top: 5px;">Use this code to verify</div>
                         </div>` : '';
                     
                     const modalHTML = `
                         <div class="otp-modal-overlay" id="otpModal">
                             <div class="otp-modal-container">
-                                <div class="otp-modal-title">Verify Your Phone Number</div>
-                                <div class="otp-modal-message">We've sent a verification code to \${phone}</div>
-                                \${testOtpHtml}
-                                <div class="otp-input-container">
-                                    <input type="text" class="otp-input" maxlength="1" data-index="0" />
-                                    <input type="text" class="otp-input" maxlength="1" data-index="1" />
-                                    <input type="text" class="otp-input" maxlength="1" data-index="2" />
-                                    <input type="text" class="otp-input" maxlength="1" data-index="3" />
-                                    <input type="text" class="otp-input" maxlength="1" data-index="4" />
-                                    <input type="text" class="otp-input" maxlength="1" data-index="5" />
-                                </div>
-                                <div class="otp-error" id="otpError"></div>
-                                <div class="otp-buttons">
-                                    <button class="otp-submit-btn" id="otpSubmitBtn">Verify</button>
-                                    <button class="otp-regenerate-btn" id="otpRegenerateBtn">Resend Code</button>
+                                <button class="otp-modal-close-btn" id="otpModalCloseBtn" aria-label="Close">&times;</button>
+                                <div class="otp-modal-content">
+                                    ` + leftSideContent + `
+                                    <div class="otp-modal-right">
+                                        <h2 class="otp-modal-right-title">Verify OTP</h2>
+                                        <p class="otp-modal-right-instruction">Enter the 6-digit OTP sent to your phone.</p>
+                                        ` + testOtpHtml + `
+                                        <div class="otp-input-container">
+                                            <input type="text" class="otp-input" maxlength="1" data-index="0" />
+                                            <input type="text" class="otp-input" maxlength="1" data-index="1" />
+                                            <input type="text" class="otp-input" maxlength="1" data-index="2" />
+                                            <input type="text" class="otp-input" maxlength="1" data-index="3" />
+                                            <input type="text" class="otp-input" maxlength="1" data-index="4" />
+                                            <input type="text" class="otp-input" maxlength="1" data-index="5" />
+                                        </div>
+                                        <div class="otp-error" id="otpError"></div>
+                                        <button class="otp-submit-btn" id="otpSubmitBtn">Verify OTP</button>
+                                        <button class="otp-regenerate-btn" id="otpRegenerateBtn">Resend Code</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     `;
 
                     document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+                    // Close button handler
+                    document.getElementById('otpModalCloseBtn').addEventListener('click', () => {
+                        const modal = document.getElementById('otpModal');
+                        if (modal) {
+                            modal.remove();
+                            otpModalOpen = false;
+                        }
+                    });
 
                     // Setup OTP input behavior
                     const otpInputs = document.querySelectorAll('.otp-input');
