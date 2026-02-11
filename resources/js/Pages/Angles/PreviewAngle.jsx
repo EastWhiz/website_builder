@@ -575,6 +575,7 @@ export default function Dashboard({ id }) {
         apiType: "elps",
         project_directory: "",
         otp_service_id: "",
+        otp_modal_image: "",
         margin: "0px 0px 0px 0px",
         padding: "20px 20px 20px 20px",
         border: "solid",
@@ -725,8 +726,11 @@ export default function Dashboard({ id }) {
         getData()
 
         document.addEventListener("click", function (event) {
-            const isHiddenFileInput = event.target.id === "hiddenFileUpload";
-            if (!isHiddenFileInput) {
+            // Allow file inputs to work (both existing and new OTP modal image upload)
+            const isFileInput = event.target.type === 'file' || 
+                               event.target.id === "hiddenFileUpload" || 
+                               event.target.id === "otpModalImageUpload";
+            if (!isFileInput) {
                 event.preventDefault();
             }
             handleClick(event);
@@ -861,6 +865,7 @@ export default function Dashboard({ id }) {
                 apiType: formEl.getAttribute("data-api-type"),
                 project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
                 otp_service_id: formEl.querySelector('[name="otp_service_id"]')?.value || '',
+                otp_modal_image: formEl.querySelector('[name="otp_modal_image"]')?.value || '',
                 inputs: inputs,
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
@@ -1311,6 +1316,7 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="project_directory" value="${formManagement.project_directory}" />`;
             formHTML += ` <input type="hidden" name="sales_page_id" value="A${id || ''}" />`;
             formHTML += ` <input type="hidden" name="otp_service_id" value="${formManagement.otp_service_id || ''}" />`;
+            formHTML += ` <input type="hidden" name="otp_modal_image" value="${formManagement.otp_modal_image || ''}" />`;
             // Add submit button
             const submitButtonStyles = {
                 backgroundColor: formManagement.submitBackgroundColor || '#007bff',
@@ -2762,6 +2768,80 @@ export default function Dashboard({ id }) {
                                                                 </MuiSelect>
                                                             </FormControl>
                                                         </Box>
+                                                        
+                                                        {/* OTP Modal Image Upload - Show when OTP Service is selected */}
+                                                        {formManagement.otp_service_id && (
+                                                            <Box mt={2}>
+                                                                <Typography variant="body2" sx={{ mb: 1 }}>
+                                                                    OTP Modal Image (Optional)
+                                                                </Typography>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    style={{ display: 'none' }}
+                                                                    id="otpModalImageUpload"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            const reader = new FileReader();
+                                                                            reader.onloadend = () => {
+                                                                                setFormManagement({ 
+                                                                                    ...formManagement, 
+                                                                                    otp_modal_image: reader.result 
+                                                                                });
+                                                                            };
+                                                                            reader.readAsDataURL(file);
+                                                                        }
+                                                                        // Reset input value to allow selecting the same file again
+                                                                        e.target.value = '';
+                                                                    }}
+                                                                />
+                                                                <Button
+                                                                    variant="outlined"
+                                                                    size="small"
+                                                                    className="doNotAct"
+                                                                    sx={{ textTransform: 'capitalize' }}
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        document.getElementById('otpModalImageUpload')?.click();
+                                                                    }}
+                                                                >
+                                                                    {formManagement.otp_modal_image ? 'Change Image' : 'Upload Image'}
+                                                                </Button>
+                                                                
+                                                                {formManagement.otp_modal_image && (
+                                                                    <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                        <img
+                                                                            src={formManagement.otp_modal_image}
+                                                                            alt="OTP Modal"
+                                                                            style={{ 
+                                                                                maxWidth: '150px', 
+                                                                                maxHeight: '150px', 
+                                                                                borderRadius: '4px',
+                                                                                objectFit: 'contain'
+                                                                            }}
+                                                                        />
+                                                                        <Button
+                                                                            size="small"
+                                                                            color="error"
+                                                                            className="doNotAct"
+                                                                            sx={{ textTransform: 'capitalize' }}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setFormManagement({ 
+                                                                                    ...formManagement, 
+                                                                                    otp_modal_image: '' 
+                                                                                });
+                                                                            }}
+                                                                        >
+                                                                            Remove
+                                                                        </Button>
+                                                                    </Box>
+                                                                )}
+                                                            </Box>
+                                                        )}
+                                                        
                                                         <TextField
                                                             sx={{ mt: 2.1 }}
                                                             type="text"
