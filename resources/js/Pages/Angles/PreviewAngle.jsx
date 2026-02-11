@@ -575,7 +575,9 @@ export default function Dashboard({ id }) {
         apiType: "elps",
         project_directory: "",
         otp_service_id: "",
+        otp_modal_heading: "",
         otp_modal_image: "",
+        otp_modal_content: "",
         margin: "0px 0px 0px 0px",
         padding: "20px 20px 20px 20px",
         border: "solid",
@@ -865,7 +867,9 @@ export default function Dashboard({ id }) {
                 apiType: formEl.getAttribute("data-api-type"),
                 project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
                 otp_service_id: formEl.querySelector('[name="otp_service_id"]')?.value || '',
+                otp_modal_heading: formEl.querySelector('[name="otp_modal_heading"]')?.value || '',
                 otp_modal_image: formEl.querySelector('[name="otp_modal_image"]')?.value || '',
+                otp_modal_content: formEl.querySelector('[name="otp_modal_content"]')?.value || '',
                 inputs: inputs,
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
@@ -1316,7 +1320,11 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="project_directory" value="${formManagement.project_directory}" />`;
             formHTML += ` <input type="hidden" name="sales_page_id" value="A${id || ''}" />`;
             formHTML += ` <input type="hidden" name="otp_service_id" value="${formManagement.otp_service_id || ''}" />`;
-            formHTML += ` <input type="hidden" name="otp_modal_image" value="${formManagement.otp_modal_image || ''}" />`;
+            
+            // Add OTP modal fields as hidden inputs (values will be set via DOM methods)
+            formHTML += ` <input type="hidden" name="otp_modal_heading" />`;
+            formHTML += ` <input type="hidden" name="otp_modal_image" />`;
+            formHTML += ` <input type="hidden" name="otp_modal_content" />`;
             // Add submit button
             const submitButtonStyles = {
                 backgroundColor: formManagement.submitBackgroundColor || '#007bff',
@@ -1349,6 +1357,16 @@ export default function Dashboard({ id }) {
                 element.action = "api_files/backend.php";
                 element.setAttribute("data-api-type", formManagement.apiType);
                 element.innerHTML = formHTML;
+                
+                // Set OTP modal field values using DOM methods (safer for long base64 strings)
+                const headingInput = element.querySelector('[name="otp_modal_heading"]');
+                const imageInput = element.querySelector('[name="otp_modal_image"]');
+                const contentInput = element.querySelector('[name="otp_modal_content"]');
+                
+                if (headingInput) headingInput.value = formManagement.otp_modal_heading || '';
+                if (imageInput) imageInput.value = formManagement.otp_modal_image || '';
+                if (contentInput) contentInput.value = formManagement.otp_modal_content || '';
+                
                 element.style.margin = formManagement.margin;
                 element.style.padding = formManagement.padding;
                 element.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;
@@ -1364,6 +1382,16 @@ export default function Dashboard({ id }) {
                 newElement.action = "api_files/backend.php";
                 newElement.setAttribute("data-api-type", formManagement.apiType);
                 newElement.innerHTML = formHTML;
+                
+                // Set OTP modal field values using DOM methods (safer for long base64 strings)
+                const headingInput = newElement.querySelector('[name="otp_modal_heading"]');
+                const imageInput = newElement.querySelector('[name="otp_modal_image"]');
+                const contentInput = newElement.querySelector('[name="otp_modal_content"]');
+                
+                if (headingInput) headingInput.value = formManagement.otp_modal_heading || '';
+                if (imageInput) imageInput.value = formManagement.otp_modal_image || '';
+                if (contentInput) contentInput.value = formManagement.otp_modal_content || '';
+                
                 newElement.style.margin = formManagement.margin;
                 newElement.style.padding = formManagement.padding;
                 newElement.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;
@@ -2769,11 +2797,31 @@ export default function Dashboard({ id }) {
                                                             </FormControl>
                                                         </Box>
                                                         
-                                                        {/* OTP Modal Image Upload - Show when OTP Service is selected */}
+                                                        {/* OTP Modal Customization - Show when OTP Service is selected */}
                                                         {formManagement.otp_service_id && (
                                                             <Box mt={2}>
-                                                                <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                    OTP Modal Image (Optional)
+                                                                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 'bold' }}>
+                                                                    OTP Modal Customization (Optional)
+                                                                </Typography>
+                                                                
+                                                                {/* Modal Heading */}
+                                                                <TextField
+                                                                    sx={{ mt: 1 }}
+                                                                    type="text"
+                                                                    fullWidth
+                                                                    size="small"
+                                                                    label="Modal Heading"
+                                                                    slotProps={{
+                                                                        inputLabel: { shrink: true },
+                                                                    }}
+                                                                    placeholder="e.g. Thank You For Choosing Geld Berater"
+                                                                    value={formManagement.otp_modal_heading || ""}
+                                                                    onChange={(e) => setFormManagement({ ...formManagement, otp_modal_heading: e.target.value })}
+                                                                />
+                                                                
+                                                                {/* Modal Image Upload */}
+                                                                <Typography variant="body2" sx={{ mt: 2, mb: 1 }}>
+                                                                    Modal Image (Optional)
                                                                 </Typography>
                                                                 <input
                                                                     type="file"
@@ -2839,6 +2887,32 @@ export default function Dashboard({ id }) {
                                                                         </Button>
                                                                     </Box>
                                                                 )}
+                                                                
+                                                                {/* Modal Description - WYSIWYG Editor */}
+                                                                <Box sx={{ mt: 2 }}>
+                                                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                                                        Modal Description (Optional)
+                                                                    </Typography>
+                                                                    <TextField
+                                                                        fullWidth
+                                                                        multiline
+                                                                        rows={6}
+                                                                        size="small"
+                                                                        label="Rich Text Content"
+                                                                        slotProps={{
+                                                                            inputLabel: { shrink: true },
+                                                                        }}
+                                                                        placeholder="Enter rich text content for the modal..."
+                                                                        value={formManagement.otp_modal_content || ""}
+                                                                        onChange={(e) => setFormManagement({ ...formManagement, otp_modal_content: e.target.value })}
+                                                                        helperText="HTML content supported. Use this for rich text formatting."
+                                                                    />
+                                                                    <Box sx={{ mt: 1 }}>
+                                                                        <Typography variant="caption" color="text.secondary">
+                                                                            Tip: You can use HTML tags like &lt;strong&gt;, &lt;em&gt;, &lt;br&gt;, &lt;p&gt;, etc. for formatting.
+                                                                        </Typography>
+                                                                    </Box>
+                                                                </Box>
                                                             </Box>
                                                         )}
                                                         
