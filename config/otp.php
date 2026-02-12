@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'testing_mode' => env('OTP_TESTING_MODE', true),
+    'testing_mode' => env('OTP_TESTING_MODE', false),
 
 ];
 

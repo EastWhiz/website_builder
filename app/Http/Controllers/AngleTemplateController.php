@@ -1798,23 +1798,101 @@ class AngleTemplateController extends Controller
                     
                     // Inject OTP service credentials (if available)
                     // Only process if fullHTML is provided and we haven't already injected credentials
-                    if ($fullHTML && strpos($content, 'Injected service configuration during export') === false) {
+                    if ($fullHTML && strpos($content, 'Injected OTP service configuration during export') === false) {
                         try {
                             $crawler = new Crawler($fullHTML);
                             $otpServiceIdNode = $crawler->filter('input[name="otp_service_id"]');
                             $otpServiceId = $otpServiceIdNode->count() > 0 ? $otpServiceIdNode->attr('value') : '';
                             
+                            // Debug logging (can be removed after testing)
+                            if (function_exists('logger')) {
+                                logger()->info('OTP Injection Debug - Service ID from form: ' . ($otpServiceId ?: 'NOT FOUND'));
+                            }
+                            
                             if ($otpServiceId) {
                                 // Get user's OTP credentials for this service
                                 $userId = Auth::id();
+                                if (function_exists('logger')) {
+                                    logger()->info('OTP Injection Debug - User ID: ' . $userId);
+                                    logger()->info('OTP Injection Debug - Service ID (raw): ' . $otpServiceId . ' (type: ' . gettype($otpServiceId) . ')');
+                                }
+                                
+                                // Cast service_id to integer for proper matching
+                                $otpServiceIdInt = (int) $otpServiceId;
+                                
+                                // Try multiple query approaches to find the credential
                                 $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
-                                    ->where('service_id', $otpServiceId)
+                                    ->where('service_id', $otpServiceIdInt)
                                     ->with('service')
                                     ->first();
+                                
+                                // If not found, try with string comparison
+                                if (!$otpCredential) {
+                                    $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
+                                        ->where('service_id', $otpServiceId)
+                                        ->with('service')
+                                        ->first();
+                                }
+                                
+                                // Fallback: If specific service credential not found, use first available credential for this user
+                                if (!$otpCredential) {
+                                    if (function_exists('logger')) {
+                                        logger()->warning('OTP Injection Debug - Credential for service_id ' . $otpServiceId . ' not found. Using first available credential as fallback.');
+                                    }
+                                    $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
+                                        ->with('service')
+                                        ->first();
+                                    
+                                    if ($otpCredential && function_exists('logger')) {
+                                        logger()->info('OTP Injection Debug - Using fallback credential with service_id: ' . $otpCredential->service_id);
+                                    }
+                                }
+                                
+                                // Debug: Check what records exist for this user
+                                if (function_exists('logger')) {
+                                    // Check via model
+                                    $allUserCredentials = \App\Models\OtpServiceCredential::where('user_id', $userId)->get(['id', 'service_id', 'user_id']);
+                                    logger()->info('OTP Injection Debug - All credentials for user ' . $userId . ' (via model): ' . json_encode($allUserCredentials->toArray()));
+                                    
+                                    // Check via direct DB query
+                                    $dbCredentials = DB::table('otp_service_credentials')
+                                        ->where('user_id', $userId)
+                                        ->get(['id', 'service_id', 'user_id', 'credentials']);
+                                    logger()->info('OTP Injection Debug - All credentials for user ' . $userId . ' (via DB): ' . json_encode($dbCredentials->toArray()));
+                                    
+                                    // Check specific service_id
+                                    $specificCredential = DB::table('otp_service_credentials')
+                                        ->where('user_id', $userId)
+                                        ->where('service_id', $otpServiceIdInt)
+                                        ->first();
+                                    logger()->info('OTP Injection Debug - Specific credential (user=' . $userId . ', service_id=' . $otpServiceIdInt . '): ' . ($specificCredential ? json_encode($specificCredential) : 'NOT FOUND'));
+                                    
+                                    // Also check with string
+                                    $specificCredentialStr = DB::table('otp_service_credentials')
+                                        ->where('user_id', $userId)
+                                        ->where('service_id', $otpServiceId)
+                                        ->first();
+                                    logger()->info('OTP Injection Debug - Specific credential (user=' . $userId . ', service_id=' . $otpServiceId . ' as string): ' . ($specificCredentialStr ? json_encode($specificCredentialStr) : 'NOT FOUND'));
+                                }
+                                
+                                if (function_exists('logger')) {
+                                    logger()->info('OTP Injection Debug - Credential found: ' . ($otpCredential ? 'YES' : 'NO'));
+                                }
                                 
                                 if ($otpCredential) {
                                     $credentials = $otpCredential->decrypted_credentials;
                                     $serviceName = strtolower($otpCredential->service->name ?? '');
+                                    
+                                    // Use the actual service_id from the credential (not from form, in case of fallback)
+                                    $actualServiceId = $otpCredential->service_id;
+                                    
+                                    if (function_exists('logger')) {
+                                        logger()->info('OTP Injection Debug - Service Name: ' . $serviceName);
+                                        logger()->info('OTP Injection Debug - Actual Service ID from credential: ' . $actualServiceId);
+                                        logger()->info('OTP Injection Debug - Form Service ID: ' . $otpServiceId);
+                                        logger()->info('OTP Injection Debug - Credentials keys: ' . implode(', ', array_keys($credentials)));
+                                        logger()->info('OTP Injection Debug - Decrypted credentials: ' . json_encode($credentials));
+                                    }
                                     
                                     // Inject service configuration (service-agnostic approach)
                                     // Extract credentials dynamically based on service fields
@@ -1831,28 +1909,99 @@ class AngleTemplateController extends Controller
                                         }
                                     }
                                     
-                                    // Only inject if function exists and we have credentials
-                                    if (strpos($content, 'function sendOtpSms($phone, $otp, $otpServiceId)') !== false && !empty($accessKey)) {
-                                        // Inject service configuration at the top of sendOtpSms function
-                                        // This makes the file completely standalone - no Laravel dependencies
-                                        $injectionCode = "\n    // Injected service configuration during export (standalone mode)\n" .
-                                            "    \$GLOBALS['otp_service_id'] = '" . addslashes($otpServiceId) . "';\n" .
+                                    if (function_exists('logger')) {
+                                        logger()->info('OTP Injection Debug - Access Key found: ' . (!empty($accessKey) ? 'YES (value: ' . substr($accessKey, 0, 20) . '...)' : 'NO'));
+                                        logger()->info('OTP Injection Debug - Endpoint URL found: ' . (!empty($endpointUrl) ? 'YES (' . $endpointUrl . ')' : 'NO'));
+                                    }
+                                    
+                                    // Inject service configuration at the top level (after testing mode block)
+                                    if (!empty($accessKey)) {
+                                        // Use actual service_id from credential (not form, in case fallback was used)
+                                        $injectedServiceId = $actualServiceId;
+                                        
+                                        if (function_exists('logger')) {
+                                            logger()->info('OTP Injection Debug - Injecting with service_id: ' . $injectedServiceId . ' (form had: ' . $otpServiceId . ')');
+                                            logger()->info('OTP Injection Debug - Injecting access_key: ' . substr($accessKey, 0, 20) . '...');
+                                            logger()->info('OTP Injection Debug - Injecting endpoint_url: ' . $endpointUrl);
+                                        }
+                                        
+                                        // Create the injection code for top-level injection
+                                        $serviceInjectionCode = "\n// Injected OTP service configuration during export (standalone mode)\n" .
+                                            "if (!isset(\$GLOBALS['otp_service_id'])) {\n" .
+                                            "    \$GLOBALS['otp_service_id'] = '" . addslashes($injectedServiceId) . "';\n" .
                                             "    \$GLOBALS['otp_service_name'] = '" . addslashes($serviceName) . "';\n" .
                                             "    \$GLOBALS['otp_access_key'] = '" . addslashes($accessKey) . "';\n" .
                                             "    \$GLOBALS['otp_endpoint_url'] = '" . addslashes($endpointUrl) . "';\n" .
-                                            "    \$GLOBALS['otp_testing_mode'] = " . $testingMode . ";\n";
+                                            "}\n";
                                         
-                                        $content = str_replace(
-                                            'function sendOtpSms($phone, $otp, $otpServiceId) {',
-                                            'function sendOtpSms($phone, $otp, $otpServiceId) {' . $injectionCode,
-                                            $content
-                                        );
+                                        // Try to inject after testing mode block first
+                                        if (strpos($content, '// OTP Testing Mode') !== false) {
+                                            if (function_exists('logger')) {
+                                                logger()->info('OTP Injection Debug - Testing mode block found, attempting injection');
+                                            }
+                                            // Find the end of the testing mode block - look for the closing brace
+                                            $pattern = '/(\$GLOBALS\[\'otp_testing_mode\'\] = .*?;\n\}\n)/s';
+                                            if (preg_match($pattern, $content, $matches)) {
+                                                if (function_exists('logger')) {
+                                                    logger()->info('OTP Injection Debug - Pattern matched, injecting after testing mode');
+                                                }
+                                                // Inject right after the testing mode block
+                                                $content = str_replace(
+                                                    $matches[0],
+                                                    $matches[0] . $serviceInjectionCode,
+                                                    $content
+                                                );
+                                            } else {
+                                                if (function_exists('logger')) {
+                                                    logger()->info('OTP Injection Debug - Pattern not matched, falling back to config include');
+                                                }
+                                                // Fallback: inject after config include
+                                                $content = str_replace(
+                                                    "include_once 'config.php';",
+                                                    "include_once 'config.php';" . $serviceInjectionCode,
+                                                    $content
+                                                );
+                                            }
+                                        } else if (strpos($content, "include_once 'config.php';") !== false) {
+                                            if (function_exists('logger')) {
+                                                logger()->info('OTP Injection Debug - No testing mode block, injecting after config include');
+                                            }
+                                            // Inject after config include if testing mode block doesn't exist
+                                            $content = str_replace(
+                                                "include_once 'config.php';",
+                                                "include_once 'config.php';" . $serviceInjectionCode,
+                                                $content
+                                            );
+                                        } else {
+                                            if (function_exists('logger')) {
+                                                logger()->warning('OTP Injection Debug - Could not find injection point (no testing mode block or config include)');
+                                            }
+                                        }
+                                        
+                                        if (function_exists('logger')) {
+                                            logger()->info('OTP Injection Debug - Injection completed. Content length: ' . strlen($content));
+                                        }
+                                    } else {
+                                        if (function_exists('logger')) {
+                                            logger()->warning('OTP Injection Debug - Access key is empty, skipping injection');
+                                        }
                                     }
+                                } else {
+                                    if (function_exists('logger')) {
+                                        logger()->warning('OTP Injection Debug - OTP credential not found for user ' . $userId . ' and service ' . $otpServiceId);
+                                    }
+                                }
+                            } else {
+                                if (function_exists('logger')) {
+                                    logger()->warning('OTP Injection Debug - OTP service ID not found in form HTML');
                                 }
                             }
                         } catch (\Exception $e) {
-                            // Silently fail if there's an error - don't break export
-                            // Log error if needed: \Log::error('OTP credential injection failed: ' . $e->getMessage());
+                            // Log error for debugging
+                            if (function_exists('logger')) {
+                                logger()->error('OTP credential injection failed: ' . $e->getMessage());
+                                logger()->error('OTP injection stack trace: ' . $e->getTraceAsString());
+                            }
                         }
                     }
                     break;

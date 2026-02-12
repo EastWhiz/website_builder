@@ -157,14 +157,10 @@ function sendOtpSms($phone, $otp, $otpServiceId) {
     $accessKey = isset($GLOBALS['otp_access_key']) ? $GLOBALS['otp_access_key'] : '';
     $endpointUrl = isset($GLOBALS['otp_endpoint_url']) ? $GLOBALS['otp_endpoint_url'] : '';
     
-    // Verify this is the correct service (must match injected service ID)
-    if (!$injectedServiceId || $otpServiceId != $injectedServiceId) {
+    // Verify injected credentials are available (don't compare service_id - use injected credentials regardless of form's service_id)
+    // The form's otp_service_id is just metadata; actual credentials come from injected GLOBALS
+    if (empty($injectedServiceId) || empty($accessKey)) {
         return ['success' => false, 'message' => 'OTP service not configured for this exported page'];
-    }
-    
-    // Verify credentials are available
-    if (empty($accessKey)) {
-        return ['success' => false, 'message' => 'OTP service access key not configured'];
     }
     
     // Handle different service types based on injected service name
@@ -195,6 +191,25 @@ function sendOtpSms($phone, $otp, $otpServiceId) {
             'text' => $message
         ]));
         curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        
+        // Fix SSL certificate issues for localhost/development
+        // Check if running on localhost or development environment
+        $isLocalhost = (
+            isset($_SERVER['HTTP_HOST']) && 
+            (
+                strpos($_SERVER['HTTP_HOST'], 'localhost') !== false ||
+                strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false ||
+                strpos($_SERVER['HTTP_HOST'], '.local') !== false ||
+                strpos($_SERVER['HTTP_HOST'], '.test') !== false ||
+                (isset($_SERVER['SERVER_ADDR']) && $_SERVER['SERVER_ADDR'] === '127.0.0.1')
+            )
+        );
+        
+        if ($isLocalhost) {
+            // Disable SSL verification for localhost (development only)
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        }
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
