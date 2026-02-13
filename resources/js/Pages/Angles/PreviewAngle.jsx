@@ -2766,39 +2766,41 @@ export default function Dashboard({ id }) {
                                                                 }}
                                                             />
                                                         </Box>
-                                                        <Box mt={2}>
-                                                            <FormControl fullWidth>
-                                                                <InputLabel id="otp-service-select-label" shrink>
-                                                                    OTP Service (Optional)
-                                                                </InputLabel>
-                                                                <MuiSelect
-                                                                    labelId="otp-service-select-label"
-                                                                    value={formManagement.otp_service_id || ''}
-                                                                    label="OTP Service (Optional)"
-                                                                    size="small"
-                                                                    onChange={(e) => {
-                                                                        setFormManagement({ ...formManagement, otp_service_id: e.target.value })
-                                                                    }}
-                                                                    displayEmpty
-                                                                    renderValue={(value) =>
-                                                                        !value ? <Typography color="grey">Select OTP Service...</Typography> : 
-                                                                        userOtpServices.find(s => s.id.toString() === value.toString())?.service_name || value
-                                                                    }
-                                                                >
-                                                                    <MenuItem value="" className="doNotAct">
-                                                                        <em>None</em>
-                                                                    </MenuItem>
-                                                                    {userOtpServices.map((service) => (
-                                                                        <MenuItem key={service.id} value={service.id.toString()} className="doNotAct">
-                                                                            {service.service_name ? service.service_name.charAt(0).toUpperCase() + service.service_name.slice(1) : `Service ${service.id}`}
+                                                        {userOtpServices.length > 0 && (
+                                                            <Box mt={2}>
+                                                                <FormControl fullWidth>
+                                                                    <InputLabel id="otp-service-select-label" shrink>
+                                                                        OTP Service (Optional)
+                                                                    </InputLabel>
+                                                                    <MuiSelect
+                                                                        labelId="otp-service-select-label"
+                                                                        value={formManagement.otp_service_id || ''}
+                                                                        label="OTP Service (Optional)"
+                                                                        size="small"
+                                                                        onChange={(e) => {
+                                                                            setFormManagement({ ...formManagement, otp_service_id: e.target.value })
+                                                                        }}
+                                                                        displayEmpty
+                                                                        renderValue={(value) =>
+                                                                            !value ? <Typography color="grey">Select OTP Service...</Typography> : 
+                                                                            userOtpServices.find(s => s.id.toString() === value.toString())?.service_name || value
+                                                                        }
+                                                                    >
+                                                                        <MenuItem value="" className="doNotAct">
+                                                                            <em>None</em>
                                                                         </MenuItem>
-                                                                    ))}
-                                                                </MuiSelect>
-                                                            </FormControl>
-                                                        </Box>
+                                                                        {userOtpServices.map((service) => (
+                                                                            <MenuItem key={service.id} value={service.id.toString()} className="doNotAct">
+                                                                                {service.service_name ? service.service_name.charAt(0).toUpperCase() + service.service_name.slice(1) : `Service ${service.id}`}
+                                                                            </MenuItem>
+                                                                        ))}
+                                                                    </MuiSelect>
+                                                                </FormControl>
+                                                            </Box>
+                                                        )}
                                                         
                                                         {/* OTP Modal Customization - Show when OTP Service is selected */}
-                                                        {formManagement.otp_service_id && (
+                                                        {userOtpServices.length > 0 && formManagement.otp_service_id && (
                                                             <Box mt={2}>
                                                                 <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 'bold' }}>
                                                                     OTP Modal Customization (Optional)
