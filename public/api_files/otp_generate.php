@@ -7,6 +7,26 @@ if (!isset($GLOBALS['otp_testing_mode'])) {
     $GLOBALS['otp_testing_mode'] = false;
 }
 
+/**
+ * Log OTP errors with service ID and user ID
+ * @param string $errorMessage Original error message
+ * @param string $serviceId Service ID
+ * @param string $userId User ID (optional)
+ * @param string $context Additional context (optional)
+ */
+function logOtpError($errorMessage, $serviceId = '', $userId = '', $context = '') {
+    $logDir = __DIR__ . '/../storage/logs';
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0755, true);
+    }
+    
+    $logFile = $logDir . '/otp_errors.log';
+    $timestamp = date('Y-m-d H:i:s');
+    $logMessage = "[{$timestamp}] OTP Error - Service ID: {$serviceId}, User ID: {$userId}, Context: {$context}, Error: {$errorMessage}" . PHP_EOL;
+    
+    @file_put_contents($logFile, $logMessage, FILE_APPEND | LOCK_EX);
+}
+
 // Set headers for CORS and JSON content
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -29,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!$input) {
-        echo json_encode(['success' => false, 'message' => 'Invalid request data']);
+        logOtpError('Invalid request data - JSON decode failed', '', '', 'otp_generate - input validation');
+        echo json_encode(['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.']);
         exit();
     }
 
@@ -37,31 +58,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $input['email'] ?? '';
     $otpServiceId = $input['otp_service_id'] ?? '';
     $formIdentifier = $input['form_identifier'] ?? '';
+    $webBuilderUserId = $input['web_builder_user_id'] ?? '';
 
-    // Step 11: Enhanced validation with specific error messages
+    // Step 11: Enhanced validation with generic error messages
     if (empty($phone)) {
-        echo json_encode(['success' => false, 'message' => 'Phone number is required for OTP verification.']);
+        logOtpError('Phone number is empty', $otpServiceId, $webBuilderUserId, 'otp_generate - validation');
+        echo json_encode(['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.']);
         exit();
     }
     
     if (empty($email)) {
-        echo json_encode(['success' => false, 'message' => 'Email is required for OTP verification.']);
+        logOtpError('Email is empty', $otpServiceId, $webBuilderUserId, 'otp_generate - validation');
+        echo json_encode(['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.']);
         exit();
     }
     
     if (empty($otpServiceId)) {
-        echo json_encode(['success' => false, 'message' => 'OTP service is not configured.']);
+        logOtpError('OTP service ID is empty', '', $webBuilderUserId, 'otp_generate - validation');
+        echo json_encode(['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.']);
         exit();
     }
     
     if (empty($formIdentifier)) {
-        echo json_encode(['success' => false, 'message' => 'Form identifier is missing. Please refresh the page and try again.']);
+        logOtpError('Form identifier is empty', $otpServiceId, $webBuilderUserId, 'otp_generate - validation');
+        echo json_encode(['success' => false, 'message' => 'Something went wrong. Please refresh the page and try again.']);
         exit();
     }
     
     // Step 11: Validate phone number format (basic validation)
     if (!preg_match('/^\+?[1-9]\d{1,14}$/', $phone)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid phone number format. Please enter a valid phone number.']);
+        logOtpError('Invalid phone number format: ' . $phone, $otpServiceId, $webBuilderUserId, 'otp_generate - validation');
+        echo json_encode(['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.']);
         exit();
     }
 
@@ -108,17 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Clean up session on failure
         unset($_SESSION[$sessionKey]);
         
-        // Provide user-friendly error messages
-        $errorMessage = $smsResult['message'] ?? 'Failed to send OTP. Please try again.';
+        // Get original error message for logging
+        $originalError = $smsResult['message'] ?? 'Unknown SMS error';
         
-        // Categorize errors for better user feedback
-        if (strpos($errorMessage, 'not configured') !== false) {
-            $errorMessage = 'OTP service is not properly configured. Please contact support.';
-        } elseif (strpos($errorMessage, 'timeout') !== false || strpos($errorMessage, 'timed out') !== false) {
-            $errorMessage = 'SMS service timeout. Please try again in a moment.';
-        } elseif (strpos($errorMessage, 'HTTP Code') !== false) {
-            $errorMessage = 'SMS service temporarily unavailable. Please try again later.';
-        }
+        // Log the original error with service ID and user ID
+        logOtpError($originalError, $otpServiceId, $webBuilderUserId, 'otp_generate - SMS failure');
+        
+        // Always return generic error message to user
+        $errorMessage = 'Something went wrong. Please try again or contact us for assistance.';
         
         echo json_encode([
             'success' => false,
@@ -134,8 +158,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'form_identifier' => $formIdentifier,
     ]);
 } else {
+    logOtpError('Invalid request method: ' . $_SERVER['REQUEST_METHOD'], '', '', 'otp_generate - method validation');
     http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    echo json_encode(['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.']);
 }
 
 /**
@@ -160,7 +185,8 @@ function sendOtpSms($phone, $otp, $otpServiceId) {
     // Verify injected credentials are available (don't compare service_id - use injected credentials regardless of form's service_id)
     // The form's otp_service_id is just metadata; actual credentials come from injected GLOBALS
     if (empty($injectedServiceId) || empty($accessKey)) {
-        return ['success' => false, 'message' => 'OTP service not configured for this exported page'];
+        logOtpError('OTP service not configured - injectedServiceId or accessKey is empty', $otpServiceId, '', 'sendOtpSms - credential validation');
+        return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
     }
     
     // Handle different service types based on injected service name
@@ -217,17 +243,20 @@ function sendOtpSms($phone, $otp, $otpServiceId) {
         curl_close($ch);
         
         if ($error) {
-            return ['success' => false, 'message' => 'SMS service error: ' . $error];
+            logOtpError('SMS service cURL error: ' . $error, $otpServiceId, '', 'sendOtpSms - unimatrix cURL');
+            return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
         }
         
         if ($httpCode >= 200 && $httpCode < 300) {
             return ['success' => true, 'message' => 'SMS sent successfully'];
         }
         
-        return ['success' => false, 'message' => 'Failed to send SMS. HTTP Code: ' . $httpCode];
+        logOtpError('SMS service HTTP error - Code: ' . $httpCode . ', Response: ' . substr($response, 0, 200), $otpServiceId, '', 'sendOtpSms - unimatrix HTTP');
+        return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
     }
     
     // Add support for other services here in the future
-    return ['success' => false, 'message' => 'Unsupported OTP service type: ' . $injectedServiceName];
+    logOtpError('Unsupported OTP service type: ' . $injectedServiceName, $otpServiceId, '', 'sendOtpSms - unsupported service');
+    return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
 }
 

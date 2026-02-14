@@ -435,11 +435,63 @@ class AngleTemplateController extends Controller
                     width: 25px;
                     height: 25px;
                     animation: spin 1s linear infinite;
+                    margin: 0 auto;
                 }
 
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
+                }
+
+                /* Full-page loader overlay */
+                .full-page-loader {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 99999;
+                    flex-direction: column;
+                }
+
+                .full-page-loader .loader {
+                    width: 50px;
+                    height: 50px;
+                    border: 4px solid #f3f3f3;
+                    border-top: 4px solid #ffffff;
+                }
+
+                .full-page-loader .loader-text {
+                    color: white;
+                    margin-top: 20px;
+                    font-size: 16px;
+                    font-weight: 500;
+                }
+
+                /* OTP Modal Loader */
+                .otp-modal-loader {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 20px;
+                    flex-direction: column;
+                }
+
+                .otp-modal-loader .loader {
+                    width: 40px;
+                    height: 40px;
+                    border: 3px solid #f3f3f3;
+                    border-top: 3px solid #006ed2;
+                }
+
+                .otp-modal-loader .loader-text {
+                    margin-top: 15px;
+                    color: #666;
+                    font-size: 14px;
                 }
 
                 .telInputs {
@@ -840,10 +892,7 @@ class AngleTemplateController extends Controller
                             const otpServiceId = input.form.querySelector('[name="otp_service_id"]')?.value;
                             
                             if (otpServiceId && otpServiceId.trim() !== '') {
-                                // OTP flow required
-                                btn.innerHTML = btn.dataset.original;
-                                btn.style.opacity = "1";
-                                btn.disabled = false;
+                                // OTP flow required - keep loader active
                                 await handleOtpVerification(input.form);
                             } else {
                                 // ✅ No OTP required, submit form after IP is ready
@@ -869,6 +918,38 @@ class AngleTemplateController extends Controller
                 let otpFormData = null;
                 let otpFormElement = null;
                 let otpModalOpen = false; // Step 11: Track modal state for edge cases
+
+                // Show full-page loader
+                function showFullPageLoader(text = 'Processing...') {
+                    try {
+                        // Remove existing loader if any
+                        hideFullPageLoader();
+                        
+                        if (document.body) {
+                            const loaderHTML = `
+                                <div class="full-page-loader" id="fullPageLoader">
+                                    <div class="loader"></div>
+                                    <div class="loader-text">` + text + `</div>
+                                </div>
+                            `;
+                            document.body.insertAdjacentHTML('beforeend', loaderHTML);
+                        }
+                    } catch (e) {
+                        console.error('Error showing loader:', e);
+                    }
+                }
+
+                // Hide full-page loader
+                function hideFullPageLoader() {
+                    try {
+                        const loader = document.getElementById('fullPageLoader');
+                        if (loader) {
+                            loader.remove();
+                        }
+                    } catch (e) {
+                        console.error('Error hiding loader:', e);
+                    }
+                }
 
                 async function handleOtpVerification(form) {
                     otpFormElement = form;
@@ -911,21 +992,42 @@ class AngleTemplateController extends Controller
                         form_identifier: formIdentifier
                     };
 
+                    // Show full-page loader immediately when OTP generation starts
+                    showFullPageLoader('Sending verification code...');
+
                     // Generate OTP (Step 11: Enhanced error handling)
                     const generateResult = await generateOtp(phone, email, data.otp_service_id, data.web_builder_user_id, formIdentifier);
+                    
+                    // Hide full-page loader
+                    hideFullPageLoader();
                     
                     if (generateResult.success) {
                         // Pass OTP to modal if available (for testing)
                         showOtpModal(phone, generateResult.test_otp);
+                        // Reset submit button
+                        const btn = form.querySelector('[type="submit"]');
+                        if (btn && btn.dataset.original) {
+                            btn.innerHTML = btn.dataset.original;
+                            btn.style.opacity = "1";
+                            btn.disabled = false;
+                        }
                     } else {
                         // Step 11: Show detailed error with retry option
                         const errorMessage = generateResult.message || "Failed to send OTP. Please try again.";
                         const isRetryable = generateResult.retryable !== false;
                         
+                        // Reset submit button
+                        const btn = form.querySelector('[type="submit"]');
+                        if (btn && btn.dataset.original) {
+                            btn.innerHTML = btn.dataset.original;
+                            btn.style.opacity = "1";
+                            btn.disabled = false;
+                        }
+                        
                         Swal.fire({
                             icon: "error",
-                            title: "OTP Generation Failed",
-                            text: errorMessage,
+                            title: "Error",
+                            text: "Something went wrong. Please try again or contact us for assistance.",
                             showCancelButton: isRetryable,
                             confirmButtonText: isRetryable ? 'Retry' : 'OK',
                             cancelButtonText: 'Cancel',
@@ -1000,19 +1102,11 @@ class AngleTemplateController extends Controller
                         
                         clearTimeout(timeoutId);
                         
-                        // Check if response is OK
-                        if (!response.ok) {
-                            // Try to parse error response
-                            let errorMessage = 'Failed to send OTP. Please try again.';
-                            try {
-                                const errorData = await response.json();
-                                errorMessage = errorData.message || errorMessage;
-                            } catch (e) {
-                                // If response is not JSON, use status text
-                                errorMessage = `Server error (` + response.status + `). Please try again.`;
+                            // Check if response is OK
+                            if (!response.ok) {
+                                // Always return generic error message
+                                return { success: false, message: 'Something went wrong. Please try again or contact us for assistance.', retryable: true };
                             }
-                            return { success: false, message: errorMessage, retryable: true };
-                        }
                         
                         const result = await response.json();
                         return result;
@@ -1021,19 +1115,19 @@ class AngleTemplateController extends Controller
                         if (error.name === 'AbortError') {
                             return { 
                                 success: false, 
-                                message: 'Request timed out. Please check your connection and try again.',
+                                message: 'Something went wrong. Please check your connection and try again.',
                                 retryable: true 
                             };
                         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                             return { 
                                 success: false, 
-                                message: 'Network error. Please check your internet connection and try again.',
+                                message: 'Something went wrong. Please check your internet connection and try again.',
                                 retryable: true 
                             };
                         } else {
                             return { 
                                 success: false, 
-                                message: 'An error occurred: ' + error.message + '. Please try again.',
+                                message: 'Something went wrong. Please try again or contact us for assistance.',
                                 retryable: true 
                             };
                         }
@@ -1069,15 +1163,8 @@ class AngleTemplateController extends Controller
                         
                         // Check if response is OK
                         if (!response.ok) {
-                            // Try to parse error response
-                            let errorMessage = 'Verification failed. Please try again.';
-                            try {
-                                const errorData = await response.json();
-                                errorMessage = errorData.message || errorMessage;
-                            } catch (e) {
-                                errorMessage = `Server error (` + response.status + `). Please try again.`;
-                            }
-                            return { success: false, message: errorMessage, retryable: true };
+                            // Always return generic error message
+                            return { success: false, message: 'Something went wrong. Please try again or contact us for assistance.', retryable: true };
                         }
                         
                         const result = await response.json();
@@ -1087,19 +1174,19 @@ class AngleTemplateController extends Controller
                         if (error.name === 'AbortError') {
                             return { 
                                 success: false, 
-                                message: 'Request timed out. Please try again.',
+                                message: 'Something went wrong. Please check your connection and try again.',
                                 retryable: true 
                             };
                         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                             return { 
                                 success: false, 
-                                message: 'Network error. Please check your connection and try again.',
+                                message: 'Something went wrong. Please check your internet connection and try again.',
                                 retryable: true 
                             };
                         } else {
                             return { 
                                 success: false, 
-                                message: 'An error occurred: ' + error.message + '. Please try again.',
+                                message: 'Something went wrong. Please try again or contact us for assistance.',
                                 retryable: true 
                             };
                         }
@@ -1137,14 +1224,8 @@ class AngleTemplateController extends Controller
                         
                         // Check if response is OK
                         if (!response.ok) {
-                            let errorMessage = 'Failed to regenerate OTP. Please try again.';
-                            try {
-                                const errorData = await response.json();
-                                errorMessage = errorData.message || errorMessage;
-                            } catch (e) {
-                                errorMessage = `Server error (` + response.status + `). Please try again.`;
-                            }
-                            return { success: false, message: errorMessage, retryable: true };
+                            // Always return generic error message
+                            return { success: false, message: 'Something went wrong. Please try again or contact us for assistance.', retryable: true };
                         }
                         
                         const result = await response.json();
@@ -1154,19 +1235,19 @@ class AngleTemplateController extends Controller
                         if (error.name === 'AbortError') {
                             return { 
                                 success: false, 
-                                message: 'Request timed out. Please check your connection and try again.',
+                                message: 'Something went wrong. Please check your connection and try again.',
                                 retryable: true 
                             };
                         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                             return { 
                                 success: false, 
-                                message: 'Network error. Please check your internet connection and try again.',
+                                message: 'Something went wrong. Please check your internet connection and try again.',
                                 retryable: true 
                             };
                         } else {
                             return { 
                                 success: false, 
-                                message: 'An error occurred: ' + error.message + '. Please try again.',
+                                message: 'Something went wrong. Please try again or contact us for assistance.',
                                 retryable: true 
                             };
                         }
@@ -1307,7 +1388,10 @@ class AngleTemplateController extends Controller
                         const errorDiv = document.getElementById('otpError');
                         isVerifying = true;
                         submitBtn.disabled = true;
-                        submitBtn.textContent = 'Verifying...';
+                        submitBtn.innerHTML = '<div class="loader" style="width: 20px; height: 20px; border-width: 2px; margin: 0 auto;"></div>';
+                        submitBtn.style.display = 'flex';
+                        submitBtn.style.justifyContent = 'center';
+                        submitBtn.style.alignItems = 'center';
                         errorDiv.textContent = '';
 
                         try {
@@ -1325,12 +1409,19 @@ class AngleTemplateController extends Controller
                                 modal.remove();
                                 otpModalOpen = false; // Mark modal as closed
                                 
+                                // Show loader during form submission
+                                showFullPageLoader('Submitting form...');
+                                
                                 // Step 11: Edge case - Ensure form element still exists
                                 if (otpFormElement && document.body.contains(otpFormElement)) {
                                     // Prevent double submission
                                     otpFormElement.removeEventListener('submit', arguments.callee);
-                                    otpFormElement.submit();
+                                    // Small delay to ensure loader is visible
+                                    setTimeout(() => {
+                                        otpFormElement.submit();
+                                    }, 100);
                                 } else {
+                                    hideFullPageLoader();
                                     Swal.fire({
                                         icon: "error",
                                         title: "Error",
@@ -1338,30 +1429,26 @@ class AngleTemplateController extends Controller
                                     });
                                 }
                             } else {
-                                // Step 11: Enhanced error display
-                                const errorMessage = verifyResult.message || 'Invalid OTP. Please try again.';
-                                errorDiv.textContent = errorMessage;
-                                
-                                // Check if user should regenerate (expired, max attempts)
-                                const shouldRegenerate = errorMessage.includes('expired') || 
-                                                         errorMessage.includes('Maximum') || 
-                                                         errorMessage.includes('exceeded');
-                                
-                                if (shouldRegenerate) {
-                                    errorDiv.innerHTML = errorMessage + '<br><small style="color: #666;">Click "Resend Code" to get a new OTP.</small>';
-                                }
+                                // Step 11: Enhanced error display - always show generic message
+                                errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
                                 
                                 submitBtn.disabled = false;
-                                submitBtn.textContent = 'Verify';
+                                submitBtn.textContent = 'Verify OTP';
+                                submitBtn.style.display = '';
+                                submitBtn.style.justifyContent = '';
+                                submitBtn.style.alignItems = '';
                                 // Clear inputs
                                 otpInputs.forEach(input => input.value = '');
                                 otpInputs[0].focus();
                             }
                         } catch (error) {
                             // Step 11: Handle unexpected errors
-                            errorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                            errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
                             submitBtn.disabled = false;
-                            submitBtn.textContent = 'Verify';
+                            submitBtn.textContent = 'Verify OTP';
+                            submitBtn.style.display = '';
+                            submitBtn.style.justifyContent = '';
+                            submitBtn.style.alignItems = '';
                         } finally {
                             isVerifying = false;
                         }
@@ -1377,7 +1464,7 @@ class AngleTemplateController extends Controller
                         }
                         
                         if (!otpFormData || !otpFormData.form_identifier) {
-                            document.getElementById('otpError').textContent = 'Session expired. Please refresh the page.';
+                            document.getElementById('otpError').textContent = 'Something went wrong. Please refresh the page and try again.';
                             return;
                         }
 
@@ -1385,7 +1472,10 @@ class AngleTemplateController extends Controller
                         const errorDiv = document.getElementById('otpError');
                         isRegenerating = true;
                         regenerateBtn.disabled = true;
-                        regenerateBtn.textContent = 'Sending...';
+                        regenerateBtn.innerHTML = '<div class="loader" style="width: 18px; height: 18px; border-width: 2px; margin: 0 auto;"></div>';
+                        regenerateBtn.style.display = 'flex';
+                        regenerateBtn.style.justifyContent = 'center';
+                        regenerateBtn.style.alignItems = 'center';
                         errorDiv.textContent = '';
 
                         try {
@@ -1422,31 +1512,37 @@ class AngleTemplateController extends Controller
                                         clearInterval(countdown);
                                         regenerateBtn.disabled = false;
                                         regenerateBtn.textContent = 'Resend Code';
+                                        regenerateBtn.style.display = '';
+                                        regenerateBtn.style.justifyContent = '';
+                                        regenerateBtn.style.alignItems = '';
                                         errorDiv.textContent = '';
                                     } else {
                                         regenerateBtn.textContent = `Resend Code (` + regenerateCooldown + `s)`;
+                                        regenerateBtn.style.display = '';
+                                        regenerateBtn.style.justifyContent = '';
+                                        regenerateBtn.style.alignItems = '';
                                     }
                                 }, 1000);
                             } else {
-                                // Step 11: Enhanced error display
-                                const errorMessage = regenerateResult.message || 'Failed to resend code. Please try again.';
-                                errorDiv.textContent = errorMessage;
+                                // Step 11: Enhanced error display - always show generic message
+                                errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
                                 errorDiv.style.color = '#dc3545';
-                                
-                                // If retryable, show retry option
-                                if (regenerateResult.retryable !== false) {
-                                    errorDiv.innerHTML = errorMessage + '<br><small style="color: #666;">You can try again in a moment.</small>';
-                                }
                                 
                                 regenerateBtn.disabled = false;
                                 regenerateBtn.textContent = 'Resend Code';
+                                regenerateBtn.style.display = '';
+                                regenerateBtn.style.justifyContent = '';
+                                regenerateBtn.style.alignItems = '';
                             }
                         } catch (error) {
                             // Step 11: Handle unexpected errors
-                            errorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                            errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
                             errorDiv.style.color = '#dc3545';
                             regenerateBtn.disabled = false;
                             regenerateBtn.textContent = 'Resend Code';
+                            regenerateBtn.style.display = '';
+                            regenerateBtn.style.justifyContent = '';
+                            regenerateBtn.style.alignItems = '';
                         } finally {
                             isRegenerating = false;
                         }
@@ -1492,6 +1588,14 @@ class AngleTemplateController extends Controller
                         if (!form.querySelector('.telInputs')) {
                             form.addEventListener('submit', async function(e) {
                                 e.preventDefault();
+                                
+                                const btn = form.querySelector('[type="submit"]');
+                                if (btn) {
+                                    btn.dataset.original = btn.innerHTML;
+                                    btn.innerHTML = `<div class="loader"></div>`;
+                                    btn.style.opacity = "0.6";
+                                    btn.disabled = true;
+                                }
                                 
                                 const otpServiceId = form.querySelector('[name="otp_service_id"]')?.value;
                                 
@@ -1804,18 +1908,9 @@ class AngleTemplateController extends Controller
                             $otpServiceIdNode = $crawler->filter('input[name="otp_service_id"]');
                             $otpServiceId = $otpServiceIdNode->count() > 0 ? $otpServiceIdNode->attr('value') : '';
                             
-                            // Debug logging (can be removed after testing)
-                            if (function_exists('logger')) {
-                                logger()->info('OTP Injection Debug - Service ID from form: ' . ($otpServiceId ?: 'NOT FOUND'));
-                            }
-                            
                             if ($otpServiceId) {
                                 // Get user's OTP credentials for this service
                                 $userId = Auth::id();
-                                if (function_exists('logger')) {
-                                    logger()->info('OTP Injection Debug - User ID: ' . $userId);
-                                    logger()->info('OTP Injection Debug - Service ID (raw): ' . $otpServiceId . ' (type: ' . gettype($otpServiceId) . ')');
-                                }
                                 
                                 // Cast service_id to integer for proper matching
                                 $otpServiceIdInt = (int) $otpServiceId;
@@ -1836,47 +1931,9 @@ class AngleTemplateController extends Controller
                                 
                                 // Fallback: If specific service credential not found, use first available credential for this user
                                 if (!$otpCredential) {
-                                    if (function_exists('logger')) {
-                                        logger()->warning('OTP Injection Debug - Credential for service_id ' . $otpServiceId . ' not found. Using first available credential as fallback.');
-                                    }
                                     $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
                                         ->with('service')
                                         ->first();
-                                    
-                                    if ($otpCredential && function_exists('logger')) {
-                                        logger()->info('OTP Injection Debug - Using fallback credential with service_id: ' . $otpCredential->service_id);
-                                    }
-                                }
-                                
-                                // Debug: Check what records exist for this user
-                                if (function_exists('logger')) {
-                                    // Check via model
-                                    $allUserCredentials = \App\Models\OtpServiceCredential::where('user_id', $userId)->get(['id', 'service_id', 'user_id']);
-                                    logger()->info('OTP Injection Debug - All credentials for user ' . $userId . ' (via model): ' . json_encode($allUserCredentials->toArray()));
-                                    
-                                    // Check via direct DB query
-                                    $dbCredentials = DB::table('otp_service_credentials')
-                                        ->where('user_id', $userId)
-                                        ->get(['id', 'service_id', 'user_id', 'credentials']);
-                                    logger()->info('OTP Injection Debug - All credentials for user ' . $userId . ' (via DB): ' . json_encode($dbCredentials->toArray()));
-                                    
-                                    // Check specific service_id
-                                    $specificCredential = DB::table('otp_service_credentials')
-                                        ->where('user_id', $userId)
-                                        ->where('service_id', $otpServiceIdInt)
-                                        ->first();
-                                    logger()->info('OTP Injection Debug - Specific credential (user=' . $userId . ', service_id=' . $otpServiceIdInt . '): ' . ($specificCredential ? json_encode($specificCredential) : 'NOT FOUND'));
-                                    
-                                    // Also check with string
-                                    $specificCredentialStr = DB::table('otp_service_credentials')
-                                        ->where('user_id', $userId)
-                                        ->where('service_id', $otpServiceId)
-                                        ->first();
-                                    logger()->info('OTP Injection Debug - Specific credential (user=' . $userId . ', service_id=' . $otpServiceId . ' as string): ' . ($specificCredentialStr ? json_encode($specificCredentialStr) : 'NOT FOUND'));
-                                }
-                                
-                                if (function_exists('logger')) {
-                                    logger()->info('OTP Injection Debug - Credential found: ' . ($otpCredential ? 'YES' : 'NO'));
                                 }
                                 
                                 if ($otpCredential) {
@@ -1885,14 +1942,6 @@ class AngleTemplateController extends Controller
                                     
                                     // Use the actual service_id from the credential (not from form, in case of fallback)
                                     $actualServiceId = $otpCredential->service_id;
-                                    
-                                    if (function_exists('logger')) {
-                                        logger()->info('OTP Injection Debug - Service Name: ' . $serviceName);
-                                        logger()->info('OTP Injection Debug - Actual Service ID from credential: ' . $actualServiceId);
-                                        logger()->info('OTP Injection Debug - Form Service ID: ' . $otpServiceId);
-                                        logger()->info('OTP Injection Debug - Credentials keys: ' . implode(', ', array_keys($credentials)));
-                                        logger()->info('OTP Injection Debug - Decrypted credentials: ' . json_encode($credentials));
-                                    }
                                     
                                     // Inject service configuration (service-agnostic approach)
                                     // Extract credentials dynamically based on service fields
@@ -1909,21 +1958,10 @@ class AngleTemplateController extends Controller
                                         }
                                     }
                                     
-                                    if (function_exists('logger')) {
-                                        logger()->info('OTP Injection Debug - Access Key found: ' . (!empty($accessKey) ? 'YES (value: ' . substr($accessKey, 0, 20) . '...)' : 'NO'));
-                                        logger()->info('OTP Injection Debug - Endpoint URL found: ' . (!empty($endpointUrl) ? 'YES (' . $endpointUrl . ')' : 'NO'));
-                                    }
-                                    
                                     // Inject service configuration at the top level (after testing mode block)
                                     if (!empty($accessKey)) {
                                         // Use actual service_id from credential (not form, in case fallback was used)
                                         $injectedServiceId = $actualServiceId;
-                                        
-                                        if (function_exists('logger')) {
-                                            logger()->info('OTP Injection Debug - Injecting with service_id: ' . $injectedServiceId . ' (form had: ' . $otpServiceId . ')');
-                                            logger()->info('OTP Injection Debug - Injecting access_key: ' . substr($accessKey, 0, 20) . '...');
-                                            logger()->info('OTP Injection Debug - Injecting endpoint_url: ' . $endpointUrl);
-                                        }
                                         
                                         // Create the injection code for top-level injection
                                         $serviceInjectionCode = "\n// Injected OTP service configuration during export (standalone mode)\n" .
@@ -1936,15 +1974,9 @@ class AngleTemplateController extends Controller
                                         
                                         // Try to inject after testing mode block first
                                         if (strpos($content, '// OTP Testing Mode') !== false) {
-                                            if (function_exists('logger')) {
-                                                logger()->info('OTP Injection Debug - Testing mode block found, attempting injection');
-                                            }
                                             // Find the end of the testing mode block - look for the closing brace
                                             $pattern = '/(\$GLOBALS\[\'otp_testing_mode\'\] = .*?;\n\}\n)/s';
                                             if (preg_match($pattern, $content, $matches)) {
-                                                if (function_exists('logger')) {
-                                                    logger()->info('OTP Injection Debug - Pattern matched, injecting after testing mode');
-                                                }
                                                 // Inject right after the testing mode block
                                                 $content = str_replace(
                                                     $matches[0],
@@ -1952,9 +1984,6 @@ class AngleTemplateController extends Controller
                                                     $content
                                                 );
                                             } else {
-                                                if (function_exists('logger')) {
-                                                    logger()->info('OTP Injection Debug - Pattern not matched, falling back to config include');
-                                                }
                                                 // Fallback: inject after config include
                                                 $content = str_replace(
                                                     "include_once 'config.php';",
@@ -1963,37 +1992,14 @@ class AngleTemplateController extends Controller
                                                 );
                                             }
                                         } else if (strpos($content, "include_once 'config.php';") !== false) {
-                                            if (function_exists('logger')) {
-                                                logger()->info('OTP Injection Debug - No testing mode block, injecting after config include');
-                                            }
                                             // Inject after config include if testing mode block doesn't exist
                                             $content = str_replace(
                                                 "include_once 'config.php';",
                                                 "include_once 'config.php';" . $serviceInjectionCode,
                                                 $content
                                             );
-                                        } else {
-                                            if (function_exists('logger')) {
-                                                logger()->warning('OTP Injection Debug - Could not find injection point (no testing mode block or config include)');
-                                            }
-                                        }
-                                        
-                                        if (function_exists('logger')) {
-                                            logger()->info('OTP Injection Debug - Injection completed. Content length: ' . strlen($content));
-                                        }
-                                    } else {
-                                        if (function_exists('logger')) {
-                                            logger()->warning('OTP Injection Debug - Access key is empty, skipping injection');
                                         }
                                     }
-                                } else {
-                                    if (function_exists('logger')) {
-                                        logger()->warning('OTP Injection Debug - OTP credential not found for user ' . $userId . ' and service ' . $otpServiceId);
-                                    }
-                                }
-                            } else {
-                                if (function_exists('logger')) {
-                                    logger()->warning('OTP Injection Debug - OTP service ID not found in form HTML');
                                 }
                             }
                         } catch (\Exception $e) {
