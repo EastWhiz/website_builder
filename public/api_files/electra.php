@@ -32,12 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => 'Tr5yLo92',
         'phone' => $postData['phone'] ?? '',
         'source' => BASE_URL,
-        'hitid' => $dynamicCid,
+        //'hitid' => $dynamicCid,
         '_ip' => $postData['userip'] ?? '',
         'area_code' => $postData['area_code'] ?? '',
         'funnel'     => $dynamicSO,
         'aff_sub'    => $dynamicCid,
         'aff_sub2'   => 'aff_sub2',
+        'aff_sub5' => $dynamicCid,
     );
 
     // Check if self-hosted mode
