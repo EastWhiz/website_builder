@@ -2900,7 +2900,7 @@ export default function Dashboard({ id }) {
                                                                         slotProps={{
                                                                             inputLabel: { shrink: true },
                                                                         }}
-                                                                        placeholder="Enter rich text content for the modal..."
+                                                                        placeholder="Due to heavy demand, as well as user fraud, we are now asking all users to verify their phone numbers. <a href='https://yourcompanyname.com'>Your Company Name</a> values your time as well as our advisors."
                                                                         value={formManagement.otp_modal_content || ""}
                                                                         onChange={(e) => setFormManagement({ ...formManagement, otp_modal_content: e.target.value })}
                                                                         helperText="HTML content supported. Use this for rich text formatting."
