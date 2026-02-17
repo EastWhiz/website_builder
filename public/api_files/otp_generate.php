@@ -261,14 +261,35 @@ function sendOtpSms($phone, $otp, $otpServiceId) {
         // Parse error response from API
         $errorMessage = 'SMS service error';
         $responseData = json_decode($response, true);
-        if ($responseData && isset($responseData['message'])) {
-            $errorMessage = $responseData['message'];
-        } elseif ($responseData && isset($responseData['error'])) {
-            $errorMessage = $responseData['error'];
-        } elseif (!empty($response)) {
-            $errorMessage = 'HTTP ' . $httpCode . ': ' . substr(strip_tags($response), 0, 200);
-        } else {
-            $errorMessage = 'HTTP ' . $httpCode . ': SMS service returned an error';
+        
+        // Check for specific error codes/messages
+        if ($responseData) {
+            // Check for InvalidPhoneNumbers error (common in SMS APIs)
+            if (isset($responseData['code']) && stripos($responseData['code'], 'InvalidPhoneNumbers') !== false) {
+                $errorMessage = 'Invalid phone number format. Please check your phone number and try again.';
+            } elseif (isset($responseData['error']) && stripos($responseData['error'], 'InvalidPhoneNumbers') !== false) {
+                $errorMessage = 'Invalid phone number format. Please check your phone number and try again.';
+            } elseif (isset($responseData['message']) && stripos($responseData['message'], 'InvalidPhoneNumbers') !== false) {
+                $errorMessage = 'Invalid phone number format. Please check your phone number and try again.';
+            } elseif (isset($responseData['message'])) {
+                $errorMessage = $responseData['message'];
+            } elseif (isset($responseData['error'])) {
+                $errorMessage = $responseData['error'];
+            }
+        }
+        
+        // Also check raw response string for InvalidPhoneNumbers
+        if (stripos($response, 'InvalidPhoneNumbers') !== false && $errorMessage === 'SMS service error') {
+            $errorMessage = 'Invalid phone number format. Please check your phone number and try again.';
+        }
+        
+        // Fallback to generic error if no specific message found
+        if ($errorMessage === 'SMS service error') {
+            if (!empty($response)) {
+                $errorMessage = 'HTTP ' . $httpCode . ': ' . substr(strip_tags($response), 0, 200);
+            } else {
+                $errorMessage = 'HTTP ' . $httpCode . ': SMS service returned an error';
+            }
         }
         
         logOtpError('SMS service HTTP error - Code: ' . $httpCode . ', Response: ' . substr($response, 0, 200), $otpServiceId, '', 'sendOtpSms - unimatrix HTTP');
