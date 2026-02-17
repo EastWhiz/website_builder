@@ -80,10 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userEmail = $otpData['email'] ?? '';
 
     if (!$otpData) {
+        $errorMessage = 'OTP session expired or not found. Please request a new code.';
         logOtpError('OTP session not found for form identifier: ' . $formIdentifier, '', '', 'otp_verify - session');
         echo json_encode([
             'success' => false,
-            'message' => 'Something went wrong. Please try again or contact us for assistance.',
+            'message' => $errorMessage,
         ]);
         exit();
     }
@@ -94,32 +95,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Check max attempts (Step 10: Cleanup on max attempts)
     if ($otpData['attempts'] > $otpData['max_attempts']) {
+        $errorMessage = 'Maximum verification attempts exceeded. Please request a new code.';
         logOtpError('Maximum OTP attempts exceeded - attempts: ' . $otpData['attempts'] . ', max: ' . $otpData['max_attempts'], $serviceId, '', 'otp_verify - max attempts');
         cleanupOtpSession($formIdentifier);
         echo json_encode([
             'success' => false,
-            'message' => 'Something went wrong. Please try again or contact us for assistance.',
+            'message' => $errorMessage,
         ]);
         exit();
     }
 
     // Check expiry (Step 10: Cleanup on expiry)
     if ($otpData['expires_at'] < time()) {
+        $errorMessage = 'OTP code has expired. Please request a new code.';
         logOtpError('OTP expired - expires_at: ' . $otpData['expires_at'] . ', current: ' . time(), $serviceId, '', 'otp_verify - expiry');
         cleanupOtpSession($formIdentifier);
         echo json_encode([
             'success' => false,
-            'message' => 'Something went wrong. Please try again or contact us for assistance.',
+            'message' => $errorMessage,
         ]);
         exit();
     }
 
     // Check if already verified
     if ($otpData['verified']) {
+        $errorMessage = 'This OTP code has already been used. Please request a new code.';
         logOtpError('OTP already verified', $serviceId, '', 'otp_verify - already verified');
         echo json_encode([
             'success' => false,
-            'message' => 'Something went wrong. Please try again or contact us for assistance.',
+            'message' => $errorMessage,
         ]);
         exit();
     }
@@ -138,10 +142,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
     } else {
         $remainingAttempts = $otpData['max_attempts'] - $otpData['attempts'];
+        $errorMessage = 'Invalid OTP code. ' . ($remainingAttempts > 0 ? 'You have ' . $remainingAttempts . ' attempt(s) remaining.' : 'Please request a new code.');
         logOtpError('Invalid OTP provided - remaining attempts: ' . $remainingAttempts, $serviceId, '', 'otp_verify - invalid OTP');
         echo json_encode([
             'success' => false,
-            'message' => 'Something went wrong. Please try again or contact us for assistance.',
+            'message' => $errorMessage,
         ]);
     }
 } else {

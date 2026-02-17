@@ -1092,7 +1092,7 @@ class AngleTemplateController extends Controller
                             btn.disabled = false;
                         }
                     } else {
-                        // Step 11: Show detailed error with retry option
+                        // Step 11: Show actual error message from API response
                         const errorMessage = generateResult.message || "Failed to send OTP. Please try again.";
                         const isRetryable = generateResult.retryable !== false;
                         
@@ -1107,7 +1107,7 @@ class AngleTemplateController extends Controller
                         Swal.fire({
                             icon: "error",
                             title: "Error",
-                            text: "Something went wrong. Please try again or contact us for assistance.",
+                            text: errorMessage,
                             showCancelButton: isRetryable,
                             confirmButtonText: isRetryable ? 'Retry' : 'OK',
                             cancelButtonText: 'Cancel',
@@ -1182,11 +1182,25 @@ class AngleTemplateController extends Controller
                         
                         clearTimeout(timeoutId);
                         
-                            // Check if response is OK
-                            if (!response.ok) {
-                                // Always return generic error message
-                                return { success: false, message: 'Something went wrong. Please try again or contact us for assistance.', retryable: true };
+                        // Check if response is OK
+                        if (!response.ok) {
+                            // Try to parse error response to get actual error message
+                            try {
+                                const errorResult = await response.json();
+                                return { 
+                                    success: false, 
+                                    message: errorResult.message || 'Something went wrong. Please try again or contact us for assistance.', 
+                                    retryable: true 
+                                };
+                            } catch (e) {
+                                // If JSON parsing fails, return generic error
+                                return { 
+                                    success: false, 
+                                    message: 'HTTP ' + response.status + ': ' + response.statusText, 
+                                    retryable: true 
+                                };
                             }
+                        }
                         
                         const result = await response.json();
                         return result;
@@ -1304,8 +1318,22 @@ class AngleTemplateController extends Controller
                         
                         // Check if response is OK
                         if (!response.ok) {
-                            // Always return generic error message
-                            return { success: false, message: 'Something went wrong. Please try again or contact us for assistance.', retryable: true };
+                            // Try to parse error response to get actual error message
+                            try {
+                                const errorResult = await response.json();
+                                return { 
+                                    success: false, 
+                                    message: errorResult.message || 'Something went wrong. Please try again or contact us for assistance.', 
+                                    retryable: true 
+                                };
+                            } catch (e) {
+                                // If JSON parsing fails, return generic error
+                                return { 
+                                    success: false, 
+                                    message: 'HTTP ' + response.status + ': ' + response.statusText, 
+                                    retryable: true 
+                                };
+                            }
                         }
                         
                         const result = await response.json();
@@ -1315,19 +1343,19 @@ class AngleTemplateController extends Controller
                         if (error.name === 'AbortError') {
                             return { 
                                 success: false, 
-                                message: 'Something went wrong. Please check your connection and try again.',
+                                message: 'Request timeout. Please check your connection and try again.',
                                 retryable: true 
                             };
                         } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
                             return { 
                                 success: false, 
-                                message: 'Something went wrong. Please check your internet connection and try again.',
+                                message: 'Network error. Please check your internet connection and try again.',
                                 retryable: true 
                             };
                         } else {
                             return { 
                                 success: false, 
-                                message: 'Something went wrong. Please try again or contact us for assistance.',
+                                message: error.message || 'Something went wrong. Please try again or contact us for assistance.',
                                 retryable: true 
                             };
                         }
@@ -1509,8 +1537,9 @@ class AngleTemplateController extends Controller
                                     });
                                 }
                             } else {
-                                // Step 11: Enhanced error display - always show generic message
-                                errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
+                                // Step 11: Show actual error message from API response
+                                const errorMessage = verifyResult.message || 'Something went wrong. Please try again or contact us for assistance.';
+                                errorDiv.textContent = errorMessage;
                                 
                                 submitBtn.disabled = false;
                                 submitBtn.textContent = 'Verify OTP';
@@ -1523,7 +1552,7 @@ class AngleTemplateController extends Controller
                             }
                         } catch (error) {
                             // Step 11: Handle unexpected errors
-                            errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
+                            errorDiv.textContent = error.message || 'Something went wrong. Please try again or contact us for assistance.';
                             submitBtn.disabled = false;
                             submitBtn.textContent = 'Verify OTP';
                             submitBtn.style.display = '';
@@ -1604,8 +1633,9 @@ class AngleTemplateController extends Controller
                                     }
                                 }, 1000);
                             } else {
-                                // Step 11: Enhanced error display - always show generic message
-                                errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
+                                // Step 11: Show actual error message from API response
+                                const errorMessage = regenerateResult.message || 'Something went wrong. Please try again or contact us for assistance.';
+                                errorDiv.textContent = errorMessage;
                                 errorDiv.style.color = '#dc3545';
                                 
                                 regenerateBtn.disabled = false;
@@ -1616,7 +1646,7 @@ class AngleTemplateController extends Controller
                             }
                         } catch (error) {
                             // Step 11: Handle unexpected errors
-                            errorDiv.textContent = 'Something went wrong. Please try again or contact us for assistance.';
+                            errorDiv.textContent = error.message || 'Something went wrong. Please try again or contact us for assistance.';
                             errorDiv.style.color = '#dc3545';
                             regenerateBtn.disabled = false;
                             regenerateBtn.textContent = 'Resend Code';

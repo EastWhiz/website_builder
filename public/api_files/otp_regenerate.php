@@ -123,10 +123,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Log the original error with service ID and user ID
         logOtpError($originalError, $otpData['otp_service_id'], $webBuilderUserId, 'otp_regenerate - SMS failure');
         
-        // Return generic error message to user
+        // Return actual error message from API response
+        $errorMessage = $smsResult['message'] ?? 'Something went wrong. Please try again or contact us for assistance.';
+        
         echo json_encode([
             'success' => false,
-            'message' => 'Something went wrong. Please try again or contact us for assistance.',
+            'message' => $errorMessage,
         ]);
         exit();
     }
@@ -164,8 +166,9 @@ function sendOtpSms($phone, $otp, $otpServiceId) {
     // Verify injected credentials are available (don't compare service_id - use injected credentials regardless of form's service_id)
     // The form's otp_service_id is just metadata; actual credentials come from injected GLOBALS
     if (empty($injectedServiceId) || empty($accessKey)) {
+        $errorMessage = 'OTP service is not configured. Please contact support.';
         logOtpError('OTP service not configured - injectedServiceId or accessKey is empty', $otpServiceId, '', 'sendOtpSms - credential validation');
-        return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
+        return ['success' => false, 'message' => $errorMessage];
     }
     
     // Handle different service types based on injected service name
@@ -222,20 +225,40 @@ function sendOtpSms($phone, $otp, $otpServiceId) {
         curl_close($ch);
         
         if ($error) {
+            $errorMessage = 'SMS service error: ' . $error;
             logOtpError('SMS service cURL error: ' . $error, $otpServiceId, '', 'sendOtpSms - unimatrix cURL');
-            return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
+            return ['success' => false, 'message' => $errorMessage];
         }
         
         if ($httpCode >= 200 && $httpCode < 300) {
+            // Try to parse response to get actual API message if available
+            $responseData = json_decode($response, true);
+            if ($responseData && isset($responseData['message'])) {
+                return ['success' => true, 'message' => $responseData['message']];
+            }
             return ['success' => true, 'message' => 'SMS sent successfully'];
         }
         
+        // Parse error response from API
+        $errorMessage = 'SMS service error';
+        $responseData = json_decode($response, true);
+        if ($responseData && isset($responseData['message'])) {
+            $errorMessage = $responseData['message'];
+        } elseif ($responseData && isset($responseData['error'])) {
+            $errorMessage = $responseData['error'];
+        } elseif (!empty($response)) {
+            $errorMessage = 'HTTP ' . $httpCode . ': ' . substr(strip_tags($response), 0, 200);
+        } else {
+            $errorMessage = 'HTTP ' . $httpCode . ': SMS service returned an error';
+        }
+        
         logOtpError('SMS service HTTP error - Code: ' . $httpCode . ', Response: ' . substr($response, 0, 200), $otpServiceId, '', 'sendOtpSms - unimatrix HTTP');
-        return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
+        return ['success' => false, 'message' => $errorMessage];
     }
     
     // Add support for other services here in the future
+    $errorMessage = 'Unsupported OTP service type: ' . $injectedServiceName;
     logOtpError('Unsupported OTP service type: ' . $injectedServiceName, $otpServiceId, '', 'sendOtpSms - unsupported service');
-    return ['success' => false, 'message' => 'Something went wrong. Please try again or contact us for assistance.'];
+    return ['success' => false, 'message' => $errorMessage];
 }
 
