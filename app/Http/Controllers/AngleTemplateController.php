@@ -883,6 +883,10 @@ class AngleTemplateController extends Controller
                         input.style.width = "100%";
 
                         input.form?.addEventListener("submit", async e => {
+                            // Allow submission if OTP is already verified
+                            if (input.form.dataset.otpVerified === 'true') {
+                                return; // Let form submit normally
+                            }
                             e.preventDefault(); // stop immediate submission
 
                             const btn = input.form.querySelector('[type="submit"]');
@@ -1522,11 +1526,24 @@ class AngleTemplateController extends Controller
                                 
                                 // Step 11: Edge case - Ensure form element still exists
                                 if (otpFormElement && document.body.contains(otpFormElement)) {
-                                    // Prevent double submission
-                                    otpFormElement.removeEventListener('submit', arguments.callee);
-                                    // Small delay to ensure loader is visible
+                                    // Mark form as OTP verified to bypass submit prevention
+                                    otpFormElement.dataset.otpVerified = 'true';
+                                    
+                                    // Small delay to ensure loader is visible and modal is removed
                                     setTimeout(() => {
-                                        otpFormElement.submit();
+                                        // Use requestSubmit() if available (modern browsers) to trigger validation
+                                        // Otherwise use submit() - the flag will allow it through
+                                        if (typeof otpFormElement.requestSubmit === 'function') {
+                                            const submitBtn = otpFormElement.querySelector('[type="submit"]');
+                                            if (submitBtn) {
+                                                otpFormElement.requestSubmit(submitBtn);
+                                            } else {
+                                                otpFormElement.submit();
+                                            }
+                                        } else {
+                                            // Direct submit - flag will bypass preventDefault in listeners
+                                            otpFormElement.submit();
+                                        }
                                     }, 100);
                                 } else {
                                     hideFullPageLoader();
@@ -1681,11 +1698,18 @@ class AngleTemplateController extends Controller
                     if (otpFormElement) {
                         const originalSubmit = otpFormElement.onsubmit;
                         otpFormElement.addEventListener('submit', function(e) {
+                            // Allow submission if OTP is already verified
+                            if (otpFormElement.dataset.otpVerified === 'true') {
+                                return; // Let form submit normally
+                            }
                             const modal = document.getElementById('otpModal');
                             if (modal && modal.style.display !== 'none') {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                document.getElementById('otpError').textContent = 'Please complete OTP verification first.';
+                                const errorDiv = document.getElementById('otpError');
+                                if (errorDiv) {
+                                    errorDiv.textContent = 'Please complete OTP verification first.';
+                                }
                                 return false;
                             }
                         }, true); // Use capture phase to intercept early
@@ -1697,6 +1721,10 @@ class AngleTemplateController extends Controller
                     document.querySelectorAll('form[id="myForm"]').forEach(form => {
                         if (!form.querySelector('.telInputs')) {
                             form.addEventListener('submit', async function(e) {
+                                // Allow submission if OTP is already verified
+                                if (form.dataset.otpVerified === 'true') {
+                                    return; // Let form submit normally
+                                }
                                 e.preventDefault();
                                 
                                 const btn = form.querySelector('[type="submit"]');
