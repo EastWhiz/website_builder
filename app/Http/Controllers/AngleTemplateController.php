@@ -235,12 +235,92 @@ class AngleTemplateController extends Controller
         $fontPaths = $template->contents()->where('type', 'font')->get()->pluck('name')->toArray();
         $imagePaths = array_merge($templateImages, $angleImages, $extraImages, $angleContentImages);
 
-        $zipFileName = 'LandingPage_' . $angleTemplate->name . '.zip';
-        $zipPath = storage_path('app/' . $zipFileName);
+        // Ensure storage/app directory exists and is writable
+        $storageAppPath = storage_path('app');
+        if (!is_dir($storageAppPath)) {
+            if (!mkdir($storageAppPath, 0755, true)) {
+                \Log::error('Failed to create storage/app directory', ['path' => $storageAppPath]);
+                return response()->json(['error' => 'Could not create storage directory.'], 500);
+            }
+        }
+        
+        // Check if directory is writable, if not try system temp directory
+        $zipDirectory = $storageAppPath;
+        if (!is_writable($storageAppPath)) {
+            \Log::warning('storage/app directory is not writable, trying system temp directory', [
+                'storage_path' => $storageAppPath,
+                'permissions' => substr(sprintf('%o', fileperms($storageAppPath)), -4),
+                'temp_dir' => sys_get_temp_dir()
+            ]);
+            
+            // Try system temp directory as fallback
+            $tempDir = sys_get_temp_dir();
+            if (is_writable($tempDir)) {
+                $zipDirectory = $tempDir;
+            } else {
+                \Log::error('Both storage/app and system temp directory are not writable', [
+                    'storage_path' => $storageAppPath,
+                    'temp_dir' => $tempDir,
+                    'temp_dir_writable' => is_writable($tempDir)
+                ]);
+                return response()->json([
+                    'error' => 'Storage directory is not writable. Please check permissions.',
+                    'details' => 'Storage: ' . $storageAppPath . ', Temp: ' . $tempDir
+                ], 500);
+            }
+        }
+        
+        // Use a unique filename to avoid conflicts
+        $zipFileName = 'LandingPage_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $angleTemplate->name) . '_' . time() . '_' . uniqid() . '.zip';
+        $zipPath = $zipDirectory . DIRECTORY_SEPARATOR . $zipFileName;
 
         $zip = new ZipArchive;
-        if ($zip->open($zipPath, ZipArchive::CREATE) !== TRUE) {
-            return response()->json(['error' => 'Could not create zip file.'], 500);
+        $result = $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+        if ($result !== TRUE) {
+            $errorMessages = [
+                ZipArchive::ER_OK => 'No error',
+                ZipArchive::ER_MULTIDISK => 'Multi-disk zip archives not supported',
+                ZipArchive::ER_RENAME => 'Renaming temporary file failed',
+                ZipArchive::ER_CLOSE => 'Closing zip archive failed',
+                ZipArchive::ER_SEEK => 'Seek error',
+                ZipArchive::ER_READ => 'Read error',
+                ZipArchive::ER_WRITE => 'Write error',
+                ZipArchive::ER_CRC => 'CRC error',
+                ZipArchive::ER_ZIPCLOSED => 'Containing zip archive was closed',
+                ZipArchive::ER_NOENT => 'No such file',
+                ZipArchive::ER_EXISTS => 'File already exists',
+                ZipArchive::ER_OPEN => 'Can\'t open file',
+                ZipArchive::ER_TMPOPEN => 'Failure to create temporary file',
+                ZipArchive::ER_ZLIB => 'Zlib error',
+                ZipArchive::ER_MEMORY => 'Memory allocation failure',
+                ZipArchive::ER_CHANGED => 'Entry has been changed',
+                ZipArchive::ER_COMPNOTSUPP => 'Compression method not supported',
+                ZipArchive::ER_EOF => 'Premature EOF',
+                ZipArchive::ER_INVAL => 'Invalid argument',
+                ZipArchive::ER_NOZIP => 'Not a zip archive',
+                ZipArchive::ER_INTERNAL => 'Internal error',
+                ZipArchive::ER_INCONS => 'Zip archive inconsistent',
+                ZipArchive::ER_REMOVE => 'Can\'t remove file',
+                ZipArchive::ER_DELETED => 'Entry has been deleted',
+            ];
+            
+            $errorMessage = $errorMessages[$result] ?? 'Unknown error';
+            
+            \Log::error('ZipArchive open failed', [
+                'error_code' => $result,
+                'error_message' => $errorMessage,
+                'zip_path' => $zipPath,
+                'storage_path' => $storageAppPath,
+                'is_writable' => is_writable($storageAppPath),
+                'exists' => file_exists($storageAppPath),
+                'temp_dir' => sys_get_temp_dir(),
+                'temp_dir_writable' => is_writable(sys_get_temp_dir())
+            ]);
+            return response()->json([
+                'error' => 'Could not create zip file.',
+                'error_code' => $result,
+                'error_message' => $errorMessage
+            ], 500);
         }
 
         // Add image files under images/ folder
@@ -1687,7 +1767,32 @@ class AngleTemplateController extends Controller
             }
         }
 
-        $zip->close();
+        // Close the zip archive and handle errors
+        if (!$zip->close()) {
+            \Log::error('ZipArchive close failed', [
+                'zip_path' => $zipPath,
+                'status' => $zip->getStatusString(),
+                'temp_dir' => sys_get_temp_dir(),
+                'temp_dir_writable' => is_writable(sys_get_temp_dir()),
+                'storage_app_writable' => is_writable(storage_path('app'))
+            ]);
+            
+            // Try to clean up
+            if (file_exists($zipPath)) {
+                @unlink($zipPath);
+            }
+            
+            return response()->json([
+                'error' => 'Failed to finalize zip file. Please check server permissions.',
+                'details' => 'Temp directory: ' . sys_get_temp_dir() . ' (writable: ' . (is_writable(sys_get_temp_dir()) ? 'yes' : 'no') . ')'
+            ], 500);
+        }
+
+        // Verify the zip file was created successfully
+        if (!file_exists($zipPath)) {
+            \Log::error('Zip file not found after close', ['zip_path' => $zipPath]);
+            return response()->json(['error' => 'Zip file was not created successfully.'], 500);
+        }
 
         return response()->download($zipPath)->deleteFileAfterSend(true);
     }
