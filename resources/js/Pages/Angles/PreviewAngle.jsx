@@ -1182,7 +1182,7 @@ export default function Dashboard({ id }) {
                     newElement.className = element.className;
                     newElement.setAttribute('href', textManagement.link);
                 } else {
-                    newElement = document.createElement('div');
+                    newElement = document.createElement('p');
                     newElement.className = element.className;
                     newElement.classList.add('editableDiv');
                     Object.assign(newElement.style, styles);

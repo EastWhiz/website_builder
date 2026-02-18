@@ -1167,7 +1167,7 @@ export default function Dashboard({ id }) {
                     newElement.innerHTML = textManagement.textInput;
                     newElement.setAttribute('href', textManagement.link);
                 } else {
-                    newElement = document.createElement('div');
+                    newElement = document.createElement('p');
                     newElement.classList.add('editableDiv');
                     Object.assign(newElement.style, styles);
                     newElement.innerHTML = textManagement.textInput;
