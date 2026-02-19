@@ -12,6 +12,8 @@ use App\Http\Controllers\OtpVerificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
+use App\Http\Controllers\Admin\ApiCategoryController;
+use App\Http\Controllers\Admin\ApiCategoryFieldController;
 use App\Models\Angle;
 use App\Models\AngleTemplate;
 use App\Models\Template;
@@ -67,6 +69,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/otp-services', [OtpServiceController::class, 'store'])->name('otp.services.admin.store');
         Route::put('/otp-services/{id}', [OtpServiceController::class, 'update'])->name('otp.services.admin.update');
         Route::delete('/otp-services/{id}', [OtpServiceController::class, 'destroy'])->name('otp.services.admin.destroy');
+
+        // API Categories Management (Admin Only)
+        Route::get('/api-categories', [ApiCategoryController::class, 'index'])->name('api.categories.index');
+        Route::post('/api-categories', [ApiCategoryController::class, 'store'])->name('api.categories.store');
+        Route::get('/api-categories/{id}', [ApiCategoryController::class, 'show'])->name('api.categories.show');
+        Route::put('/api-categories/{id}', [ApiCategoryController::class, 'update'])->name('api.categories.update');
+        Route::delete('/api-categories/{id}', [ApiCategoryController::class, 'destroy'])->name('api.categories.destroy');
+        Route::post('/api-categories/{id}/toggle-active', [ApiCategoryController::class, 'toggleActive'])->name('api.categories.toggleActive');
+        
+        // API Category Fields Management
+        Route::post('/api-categories/{categoryId}/fields', [ApiCategoryFieldController::class, 'store'])->name('api.category.fields.store');
+        Route::put('/api-categories/{categoryId}/fields/{fieldId}', [ApiCategoryFieldController::class, 'update'])->name('api.category.fields.update');
+        Route::delete('/api-categories/{categoryId}/fields/{fieldId}', [ApiCategoryFieldController::class, 'destroy'])->name('api.category.fields.destroy');
+        Route::post('/api-categories/{categoryId}/fields/reorder', [ApiCategoryFieldController::class, 'reorder'])->name('api.category.fields.reorder');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {

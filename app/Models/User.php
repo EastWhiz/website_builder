@@ -62,4 +62,22 @@ class User extends Authenticatable
     {
         return $this->hasOne(UserApiCredential::class);
     }
+
+    public function apiInstances()
+    {
+        return $this->hasMany(UserApiInstance::class);
+    }
+
+    public function activeApiInstances()
+    {
+        return $this->hasMany(UserApiInstance::class)->where('is_active', true);
+    }
+
+    public function getApiInstanceByCategory($categoryId)
+    {
+        return $this->apiInstances()
+            ->where('api_category_id', $categoryId)
+            ->where('is_active', true)
+            ->first();
+    }
 }
