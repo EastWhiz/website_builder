@@ -65,13 +65,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // OTP Services Management (Admin Only)
         Route::inertia('/otp-services', 'OtpServices/OtpServices')->name('otp.services.manage');
+        
+        // OTP Services Management (Admin Only)
+        Route::inertia('/otp-services', 'OtpServices/OtpServices')->name('otp.services.manage');
         Route::get('/otp-services/list', [OtpServiceController::class, 'adminIndex'])->name('otp.services.admin.index');
         Route::post('/otp-services', [OtpServiceController::class, 'store'])->name('otp.services.admin.store');
         Route::put('/otp-services/{id}', [OtpServiceController::class, 'update'])->name('otp.services.admin.update');
         Route::delete('/otp-services/{id}', [OtpServiceController::class, 'destroy'])->name('otp.services.admin.destroy');
 
         // API Categories Management (Admin Only)
-        Route::get('/api-categories', [ApiCategoryController::class, 'index'])->name('api.categories.index');
+        Route::inertia('/api-categories', 'Admin/ApiCategories')->name('api.categories.manage');
+        Route::get('/api-categories/list', [ApiCategoryController::class, 'index'])->name('api.categories.index');
         Route::post('/api-categories', [ApiCategoryController::class, 'store'])->name('api.categories.store');
         Route::get('/api-categories/{id}', [ApiCategoryController::class, 'show'])->name('api.categories.show');
         Route::put('/api-categories/{id}', [ApiCategoryController::class, 'update'])->name('api.categories.update');

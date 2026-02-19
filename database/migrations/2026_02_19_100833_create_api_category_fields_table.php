@@ -24,7 +24,8 @@ return new class extends Migration
             $table->timestamps();
             
             $table->index('api_category_id');
-            $table->index('name');
+            // Note: Index on 'name' removed to avoid MySQL key length issue with utf8mb4 charset
+            // The api_category_id index is sufficient for most queries
         });
     }
 

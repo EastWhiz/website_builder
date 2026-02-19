@@ -18,7 +18,7 @@ return new class extends Migration
             $table->text('value')->nullable();
             $table->timestamps();
             
-            $table->unique(['user_api_instance_id', 'api_category_field_id']);
+            $table->unique(['user_api_instance_id', 'api_category_field_id'], 'uai_values_instance_field_unique');
         });
     }
 
