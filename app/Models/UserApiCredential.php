@@ -60,6 +60,12 @@ class UserApiCredential extends Model
         'seamediaone_ci',
         'seamediaone_gi',
         'nauta_api_token',
+        'magicads_username',
+        'magicads_password',
+        'magicads_api_key',
+        'magicads_ai',
+        'magicads_ci',
+        'magicads_gi',
     ];
 
     // protected $casts = [
