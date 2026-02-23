@@ -1983,6 +1983,11 @@ class AngleTemplateController extends Controller
                     //$content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->riceleads_api_key ?? '') . '";', $content);
                     break;
 
+                case 'adzentric.php':
+                    $content = str_replace("'affid' => '',", "'affid' => '" . ($userApiCredentials->adzentric_affid ?? '') . "',", $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->adzentric_api_key ?? '') . '";', $content);
+                    break;
+
                 case 'newmedis.php':
                     $content = str_replace("'ai' => '',", "'ai' => '" . ($userApiCredentials->newmedis_ai ?? '') . "',", $content);
                     $content = str_replace("'ci' => '',", "'ci' => '" . ($userApiCredentials->newmedis_ci ?? '') . "',", $content);

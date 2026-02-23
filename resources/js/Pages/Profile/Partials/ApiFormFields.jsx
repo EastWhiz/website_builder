@@ -73,6 +73,8 @@ export default function ApiFormFields({
             magicads_ai: '',
             magicads_ci: '',
             magicads_gi: '',
+            adzentric_affid: '',
+            adzentric_api_key: '',
         });
 
     // Load existing credentials on component mount
@@ -150,6 +152,8 @@ export default function ApiFormFields({
                     magicads_ai: credentials.magicads_ai || '',
                     magicads_ci: credentials.magicads_ci || '',
                     magicads_gi: credentials.magicads_gi || '',
+                    adzentric_affid: credentials.adzentric_affid || '',
+                    adzentric_api_key: credentials.adzentric_api_key || '',
                 });
             }
         } catch (error) {
@@ -275,6 +279,7 @@ export default function ApiFormFields({
         { key: 'seamediaone', name: 'Seamediaone', icon: '🌊' },
         { key: 'nauta', name: 'Nauta', icon: '🚀' },
         { key: 'magicads', name: 'MagicAds', icon: '✨' },
+        { key: 'adzentric', name: 'AdZentric', icon: '🎯' },
     ];
 
     const renderApiFields = () => {
@@ -1010,6 +1015,42 @@ export default function ApiFormFields({
                             <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                                 <p className="text-blue-800 text-sm">
                                     <strong>Endpoint:</strong> https://ridapi.net/leads
+                                </p>
+                            </div>
+                        </div>
+                    );
+
+                case 'adzentric':
+                    return (
+                        <div className="space-y-4">
+                            <div>
+                                <InputLabel htmlFor="adzentric_affid" value="Affiliate ID" />
+                                <TextInput
+                                    id="adzentric_affid"
+                                    className="mt-1 block w-full"
+                                    value={data.adzentric_affid}
+                                    onChange={(e) => setData('adzentric_affid', e.target.value)}
+                                    placeholder="Enter affiliate ID"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.adzentric_affid} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="adzentric_api_key" value="API Key (Optional)" />
+                                <TextInput
+                                    id="adzentric_api_key"
+                                    type="text"
+                                    className="mt-1 block w-full"
+                                    value={data.adzentric_api_key}
+                                    onChange={(e) => setData('adzentric_api_key', e.target.value)}
+                                    placeholder="Enter API key if available"
+                                    autoComplete="new-password"
+                                />
+                                <InputError className="mt-2" message={errors.adzentric_api_key} />
+                            </div>
+                            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                                <p className="text-blue-800 text-sm">
+                                    <strong>Endpoint:</strong> https://ldlgapi.com/leads
                                 </p>
                             </div>
                         </div>

@@ -66,6 +66,8 @@ class UserApiCredential extends Model
         'magicads_ai',
         'magicads_ci',
         'magicads_gi',
+        'adzentric_affid',
+        'adzentric_api_key',
     ];
 
     // protected $casts = [
