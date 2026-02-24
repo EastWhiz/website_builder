@@ -1983,6 +1983,11 @@ class AngleTemplateController extends Controller
                     //$content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->riceleads_api_key ?? '') . '";', $content);
                     break;
 
+                case 'adzentric.php':
+                    $content = str_replace("'affid' => '',", "'affid' => '" . ($userApiCredentials->adzentric_affid ?? '') . "',", $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->adzentric_api_key ?? '') . '";', $content);
+                    break;
+
                 case 'newmedis.php':
                     $content = str_replace("'ai' => '',", "'ai' => '" . ($userApiCredentials->newmedis_ai ?? '') . "',", $content);
                     $content = str_replace("'ci' => '',", "'ci' => '" . ($userApiCredentials->newmedis_ci ?? '') . "',", $content);
@@ -2003,6 +2008,15 @@ class AngleTemplateController extends Controller
 
                 case 'nauta.php':
                     $content = str_replace('$nautaApiToken = "";', '$nautaApiToken = "' . ($userApiCredentials->nauta_api_token ?? '') . '";', $content);
+                    break;
+
+                case 'magicads.php':
+                    $content = str_replace("'ai' => '',", "'ai' => '" . ($userApiCredentials->magicads_ai ?? '') . "',", $content);
+                    $content = str_replace("'ci' => '',", "'ci' => '" . ($userApiCredentials->magicads_ci ?? '') . "',", $content);
+                    $content = str_replace("'gi' => '',", "'gi' => '" . ($userApiCredentials->magicads_gi ?? '') . "',", $content);
+                    $content = str_replace('$username = "";', '$username = "' . ($userApiCredentials->magicads_username ?? '') . '";', $content);
+                    $content = str_replace('$password = "";', '$password = "' . ($userApiCredentials->magicads_password ?? '') . '";', $content);
+                    $content = str_replace('$xapikey = "";', '$xapikey = "' . ($userApiCredentials->magicads_api_key ?? '') . '";', $content);
                     break;
 
                 case 'thank_you.php':

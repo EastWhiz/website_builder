@@ -40,6 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'newmedis' => 'newmedis.php',
         'seamediaone' => 'seamediaone.php',
         'nauta' => 'nauta.php',
+        'magicads' => 'magicads.php',
+        'adzentric' => 'adzentric.php',
     ];
 
     // Check if the form type has a corresponding API file

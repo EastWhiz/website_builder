@@ -15,7 +15,7 @@ class ApiCredentialsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,seamediaone,nauta,facebook,second',
+                'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,seamediaone,nauta,magicads,adzentric,facebook,second',
                 'aweber_client_id' => 'nullable|string|max:255',
                 'aweber_client_secret' => 'nullable|string|max:255',
                 'aweber_account_id' => 'nullable|string|max:255',
@@ -67,6 +67,14 @@ class ApiCredentialsController extends Controller
                 'seamediaone_ci' => 'nullable|string|max:255',
                 'seamediaone_gi' => 'nullable|string|max:255',
                 'nauta_api_token' => 'nullable|string|max:255',
+                'magicads_username' => 'nullable|string|max:255',
+                'magicads_password' => 'nullable|string|max:255',
+                'magicads_api_key' => 'nullable|string|max:255',
+                'magicads_ai' => 'nullable|string|max:255',
+                'magicads_ci' => 'nullable|string|max:255',
+                'magicads_gi' => 'nullable|string|max:255',
+                'adzentric_affid' => 'nullable|string|max:255',
+                'adzentric_api_key' => 'nullable|string|max:255',
             ]);
 
             $user = Auth::user();
@@ -295,6 +303,24 @@ class ApiCredentialsController extends Controller
                         'endpoint' => 'https://yourleads.org/api/affiliates/v2/leads',
                     ];
                     break;
+                case 'magicads':
+                    $providerData = [
+                        'username' => $credentials->magicads_username,
+                        'password' => $credentials->magicads_password,
+                        'api_key' => $credentials->magicads_api_key,
+                        'ai' => $credentials->magicads_ai,
+                        'ci' => $credentials->magicads_ci,
+                        'gi' => $credentials->magicads_gi,
+                        'endpoint' => 'https://mb.magicadsoffers.com/api/signup/procform',
+                    ];
+                    break;
+                case 'adzentric':
+                    $providerData = [
+                        'affid' => $credentials->adzentric_affid,
+                        'api_key' => $credentials->adzentric_api_key,
+                        'endpoint' => 'https://ldlgapi.com/leads',
+                    ];
+                    break;
                 default:
                     return response()->json([
                         'success' => false,
@@ -463,6 +489,20 @@ class ApiCredentialsController extends Controller
             case 'nauta':
                 $payload['apiKey'] = $credentials->nauta_api_token ?? '';
                 $payload['endpointUrl'] = 'https://yourleads.org/api/affiliates/v2/leads';
+                break;
+            case 'magicads':
+                $payload['userName'] = $credentials->magicads_username ?? '';
+                $payload['password'] = $credentials->magicads_password ?? '';
+                $payload['apiKey'] = $credentials->magicads_api_key ?? '';
+                $payload['aiParam'] = $credentials->magicads_ai ?? '';
+                $payload['ciParam'] = $credentials->magicads_ci ?? '';
+                $payload['giParam'] = $credentials->magicads_gi ?? '';
+                $payload['endpointUrl'] = 'https://mb.magicadsoffers.com/api/signup/procform';
+                break;
+            case 'adzentric':
+                $payload['affiliateId'] = $credentials->adzentric_affid ?? '';
+                $payload['apiKey'] = $credentials->adzentric_api_key ?? '';
+                $payload['endpointUrl'] = 'https://ldlgapi.com/leads';
                 break;
         }
 

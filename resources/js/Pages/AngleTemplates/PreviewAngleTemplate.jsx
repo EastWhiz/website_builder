@@ -146,6 +146,8 @@ export default function Dashboard({ id }) {
         { label: 'Dark', value: 'https://tb.connnecto.com/api/signup/procform' },
         { label: 'Pastile', value: 'https://tb.pastile.net/api/signup/procform' },
         { label: 'Nauta', value: 'https://yourleads.org/api/affiliates/v2/leads' },
+        { label: 'MagicAds', value: 'https://mb.magicadsoffers.com/api/signup/procform' },
+        { label: 'AdZentric', value: 'https://ldlgapi.com/leads' },
     ];
 
     const apiTypes = [
@@ -161,6 +163,8 @@ export default function Dashboard({ id }) {
         { label: 'NewMedis', value: 'newmedis' },
         { label: 'Seamediaone', value: 'seamediaone' },
         { label: 'Nauta', value: 'nauta' },
+        { label: 'MagicAds', value: 'magicads' },
+        { label: 'AdZentric', value: 'adzentric' },
     ];
 
     const commonInputTypes = [

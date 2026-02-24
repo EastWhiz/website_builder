@@ -67,6 +67,14 @@ export default function ApiFormFields({
             seamediaone_ci: '',
             seamediaone_gi: '',
             nauta_api_token: '',
+            magicads_username: '',
+            magicads_password: '',
+            magicads_api_key: '',
+            magicads_ai: '',
+            magicads_ci: '',
+            magicads_gi: '',
+            adzentric_affid: '',
+            adzentric_api_key: '',
         });
 
     // Load existing credentials on component mount
@@ -138,6 +146,14 @@ export default function ApiFormFields({
                     seamediaone_ci: credentials.seamediaone_ci || '',
                     seamediaone_gi: credentials.seamediaone_gi || '',
                     nauta_api_token: credentials.nauta_api_token || '',
+                    magicads_username: credentials.magicads_username || '',
+                    magicads_password: credentials.magicads_password || '',
+                    magicads_api_key: credentials.magicads_api_key || '',
+                    magicads_ai: credentials.magicads_ai || '',
+                    magicads_ci: credentials.magicads_ci || '',
+                    magicads_gi: credentials.magicads_gi || '',
+                    adzentric_affid: credentials.adzentric_affid || '',
+                    adzentric_api_key: credentials.adzentric_api_key || '',
                 });
             }
         } catch (error) {
@@ -262,6 +278,8 @@ export default function ApiFormFields({
         { key: 'newmedis', name: 'NewMedis', icon: '💉' },
         { key: 'seamediaone', name: 'Seamediaone', icon: '🌊' },
         { key: 'nauta', name: 'Nauta', icon: '🚀' },
+        { key: 'magicads', name: 'MagicAds', icon: '✨' },
+        { key: 'adzentric', name: 'AdZentric', icon: '🎯' },
     ];
 
     const renderApiFields = () => {
@@ -1002,6 +1020,42 @@ export default function ApiFormFields({
                         </div>
                     );
 
+                case 'adzentric':
+                    return (
+                        <div className="space-y-4">
+                            <div>
+                                <InputLabel htmlFor="adzentric_affid" value="Affiliate ID" />
+                                <TextInput
+                                    id="adzentric_affid"
+                                    className="mt-1 block w-full"
+                                    value={data.adzentric_affid}
+                                    onChange={(e) => setData('adzentric_affid', e.target.value)}
+                                    placeholder="Enter affiliate ID"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.adzentric_affid} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="adzentric_api_key" value="API Key (Optional)" />
+                                <TextInput
+                                    id="adzentric_api_key"
+                                    type="text"
+                                    className="mt-1 block w-full"
+                                    value={data.adzentric_api_key}
+                                    onChange={(e) => setData('adzentric_api_key', e.target.value)}
+                                    placeholder="Enter API key if available"
+                                    autoComplete="new-password"
+                                />
+                                <InputError className="mt-2" message={errors.adzentric_api_key} />
+                            </div>
+                            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                                <p className="text-blue-800 text-sm">
+                                    <strong>Endpoint:</strong> https://ldlgapi.com/leads
+                                </p>
+                            </div>
+                        </div>
+                    );
+
             case 'nauta':
                 return (
                     <div className="space-y-4">
@@ -1027,6 +1081,93 @@ export default function ApiFormFields({
                             </p>
                             <p className="text-blue-800 text-sm mt-1">
                                 <strong>Authorization:</strong> Bearer {data.nauta_api_token || 'YOUR_API_TOKEN'}
+                            </p>
+                        </div>
+                    </div>
+                );
+
+            case 'magicads':
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <InputLabel htmlFor="magicads_username" value="Trackbox Username" />
+                            <TextInput
+                                id="magicads_username"
+                                className="mt-1 block w-full"
+                                value={data.magicads_username}
+                                onChange={(e) => setData('magicads_username', e.target.value)}
+                                placeholder="username"
+                                autoComplete="username"
+                            />
+                            <InputError className="mt-2" message={errors.magicads_username} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="magicads_password" value="Trackbox Password" />
+                            <TextInput
+                                id="magicads_password"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.magicads_password}
+                                onChange={(e) => setData('magicads_password', e.target.value)}
+                                placeholder="password"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.magicads_password} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="magicads_api_key" value="API Key" />
+                            <TextInput
+                                id="magicads_api_key"
+                                type="text"
+                                className="mt-1 block w-full"
+                                value={data.magicads_api_key}
+                                onChange={(e) => setData('magicads_api_key', e.target.value)}
+                                placeholder="2643889w34df345676ssdas323tgc738"
+                                autoComplete="new-password"
+                            />
+                            <InputError className="mt-2" message={errors.magicads_api_key} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div>
+                                <InputLabel htmlFor="magicads_ai" value="AI Parameter" />
+                                <TextInput
+                                    id="magicads_ai"
+                                    className="mt-1 block w-full"
+                                    value={data.magicads_ai}
+                                    onChange={(e) => setData('magicads_ai', e.target.value)}
+                                    placeholder="ask from your trackbox partner"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.magicads_ai} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="magicads_ci" value="CI Parameter" />
+                                <TextInput
+                                    id="magicads_ci"
+                                    className="mt-1 block w-full"
+                                    value={data.magicads_ci}
+                                    onChange={(e) => setData('magicads_ci', e.target.value)}
+                                    placeholder="1"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.magicads_ci} />
+                            </div>
+                            <div>
+                                <InputLabel htmlFor="magicads_gi" value="GI Parameter" />
+                                <TextInput
+                                    id="magicads_gi"
+                                    className="mt-1 block w-full"
+                                    value={data.magicads_gi}
+                                    onChange={(e) => setData('magicads_gi', e.target.value)}
+                                    placeholder="ask from your trackbox partner"
+                                    autoComplete="off"
+                                />
+                                <InputError className="mt-2" message={errors.magicads_gi} />
+                            </div>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                            <p className="text-blue-800 text-sm">
+                                <strong>Endpoint:</strong> https://mb.magicadsoffers.com/api/signup/procform
                             </p>
                         </div>
                     </div>
