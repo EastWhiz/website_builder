@@ -86,7 +86,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/api-categories/{categoryId}/fields', [ApiCategoryFieldController::class, 'store'])->name('api.category.fields.store');
         Route::put('/api-categories/{categoryId}/fields/{fieldId}', [ApiCategoryFieldController::class, 'update'])->name('api.category.fields.update');
         Route::delete('/api-categories/{categoryId}/fields/{fieldId}', [ApiCategoryFieldController::class, 'destroy'])->name('api.category.fields.destroy');
-        Route::post('/api-categories/{categoryId}/fields/reorder', [ApiCategoryFieldController::class, 'reorder'])->name('api.category.fields.reorder');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {

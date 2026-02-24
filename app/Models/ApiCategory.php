@@ -20,7 +20,7 @@ class ApiCategory extends Model
 
     public function fields(): HasMany
     {
-        return $this->hasMany(ApiCategoryField::class)->orderBy('sort_order');
+        return $this->hasMany(ApiCategoryField::class)->orderBy('id');
     }
 
     public function userInstances(): HasMany

@@ -29,7 +29,6 @@ export default function ApiCategories({ auth }) {
         placeholder: '',
         is_required: false,
         encrypt: false,
-        sort_order: 0,
     });
 
     useEffect(() => {
@@ -281,7 +280,6 @@ export default function ApiCategories({ auth }) {
             placeholder: '',
             is_required: false,
             encrypt: false,
-            sort_order: fields.length,
         });
         setShowFieldForm(true);
     };
@@ -295,7 +293,6 @@ export default function ApiCategories({ auth }) {
             placeholder: field.placeholder || '',
             is_required: field.is_required,
             encrypt: field.encrypt,
-            sort_order: field.sort_order,
         });
         setShowFieldForm(true);
     };
@@ -310,7 +307,6 @@ export default function ApiCategories({ auth }) {
             placeholder: '',
             is_required: false,
             encrypt: false,
-            sort_order: 0,
         });
     };
 
@@ -424,34 +420,6 @@ export default function ApiCategories({ auth }) {
         }
     };
 
-    const handleReorderFields = async () => {
-        const fieldIds = fields.map((f) => f.id);
-        try {
-            const headers = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            };
-
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (csrfToken) {
-                headers['X-CSRF-TOKEN'] = csrfToken.content;
-            }
-
-            const response = await fetch(route('api.category.fields.reorder', managingFields.id), {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify({ field_ids: fieldIds }),
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                await loadFields(managingFields.id);
-            }
-        } catch (error) {
-            console.error('Error reordering fields:', error);
-        }
-    };
-
     return (
         <AuthenticatedLayout
             user={auth.user}
@@ -549,24 +517,6 @@ export default function ApiCategories({ auth }) {
                                                         </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <InputLabel htmlFor="field_sort_order" value="Sort Order" />
-                                                            <TextInput
-                                                                id="field_sort_order"
-                                                                type="number"
-                                                                className="mt-1 block w-full"
-                                                                value={fieldFormData.sort_order}
-                                                                onChange={(e) =>
-                                                                    setFieldFormData({
-                                                                        ...fieldFormData,
-                                                                        sort_order: parseInt(e.target.value) || 0,
-                                                                    })
-                                                                }
-                                                            />
-                                                        </div>
-                                                    </div>
-
                                                     <div className="flex gap-4">
                                                         <label className="flex items-center">
                                                             <input
@@ -629,9 +579,6 @@ export default function ApiCategories({ auth }) {
                                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                                             Encrypt
                                                         </th>
-                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                                            Sort Order
-                                                        </th>
                                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                                             Actions
                                                         </th>
@@ -639,7 +586,7 @@ export default function ApiCategories({ auth }) {
                                                 </thead>
                                                 <tbody className="bg-white divide-y divide-gray-200">
                                                     {fields
-                                                        .sort((a, b) => a.sort_order - b.sort_order)
+                                                        .sort((a, b) => a.id - b.id)
                                                         .map((field) => (
                                                             <tr key={field.id}>
                                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -672,9 +619,6 @@ export default function ApiCategories({ auth }) {
                                                                             No
                                                                         </span>
                                                                     )}
-                                                                </td>
-                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                                    {field.sort_order}
                                                                 </td>
                                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                                     <button

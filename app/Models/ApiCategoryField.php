@@ -16,13 +16,11 @@ class ApiCategoryField extends Model
         'placeholder',
         'is_required',
         'encrypt',
-        'sort_order',
     ];
 
     protected $casts = [
         'is_required' => 'boolean',
         'encrypt' => 'boolean',
-        'sort_order' => 'integer',
     ];
 
     public function category(): BelongsTo

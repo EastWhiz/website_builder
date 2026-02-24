@@ -62,6 +62,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                         >
                                             OTP Services
                                         </NavLink>
+                                        <NavLink
+                                            href={route('api.categories.manage')}
+                                            active={route().current('api.categories.manage')}
+                                        >
+                                            API Categories
+                                        </NavLink>
                                     </div>
                                 </> : <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
@@ -198,6 +204,18 @@ export default function AuthenticatedLayout({ header, children }) {
                                     active={route().current('users') || route().current('userThemes')}
                                 >
                                     Users
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('otp.services.manage')}
+                                    active={route().current('otp.services.manage')}
+                                >
+                                    OTP Services
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('api.categories.manage')}
+                                    active={route().current('api.categories.manage')}
+                                >
+                                    API Categories
                                 </ResponsiveNavLink>
                             </> : <>
                                 <ResponsiveNavLink
