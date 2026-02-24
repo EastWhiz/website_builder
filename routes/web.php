@@ -14,6 +14,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\ApiCategoryController;
 use App\Http\Controllers\Admin\ApiCategoryFieldController;
+use App\Http\Controllers\UserApiInstanceController;
 use App\Models\Angle;
 use App\Models\AngleTemplate;
 use App\Models\Template;
@@ -93,6 +94,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware('role:admin,member')->group(function () {
+
+        // User API Instances (authenticated users manage their own instances)
+        Route::get('/api/user-api-instances', [UserApiInstanceController::class, 'index'])->name('user.api.instances.index');
+        Route::post('/api/user-api-instances', [UserApiInstanceController::class, 'store'])->name('user.api.instances.store');
+        Route::get('/api/user-api-instances/category/{categoryId}', [UserApiInstanceController::class, 'getByCategory'])->name('user.api.instances.byCategory');
+        Route::get('/api/user-api-instances/{id}', [UserApiInstanceController::class, 'show'])->name('user.api.instances.show');
+        Route::put('/api/user-api-instances/{id}', [UserApiInstanceController::class, 'update'])->name('user.api.instances.update');
+        Route::delete('/api/user-api-instances/{id}', [UserApiInstanceController::class, 'destroy'])->name('user.api.instances.destroy');
+        Route::post('/api/user-api-instances/{id}/toggle-active', [UserApiInstanceController::class, 'toggleActive'])->name('user.api.instances.toggleActive');
 
         // ANGLES ROUTES
         Route::inertia('/angles/add', 'Angles/AddEditAngle')->name('addAngle');

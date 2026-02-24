@@ -269,100 +269,107 @@ This plan outlines the step-by-step process to upgrade the API settings system f
 
 ## Phase 4: User Backend - API Instances (Week 3-4)
 
-### Step 4.1: Create User API Instance Controller
+### Step 4.1: Create User API Instance Controller ✅ COMPLETED
 **Duration**: 4-5 hours  
+**Status**: ✅ Completed  
 **File**: `app/Http/Controllers/UserApiInstanceController.php`
 
 **Tasks**:
-1. `index()` - List user's API instances
-   - Group by category
-   - Include category and field info
-   - Return JSON
+1. ✅ `index()` - List user's API instances
+   - ✅ Group by category
+   - ✅ Include category and field info
+   - ✅ Return JSON
    
-2. `store(Request $request)` - Create new API instance
-   - Validate: api_category_id (required, exists), name (required), field values
-   - Validate field values against category field definitions
-   - Create instance
-   - Create field values (encrypt if needed)
-   - Sync to external API (if enabled)
-   - Return success
+2. ✅ `store(Request $request)` - Create new API instance
+   - ✅ Validate: api_category_id (required, exists), name (required), field values
+   - ✅ Validate field values against category field definitions
+   - ✅ Create instance
+   - ✅ Create field values (encrypt if needed)
+   - ⏸️ Sync to external API (deferred to Phase 9)
+   - ✅ Return success
    
-3. `show($id)` - Get API instance details
-   - Ensure user owns instance
-   - Load with category and values
-   - Return decrypted credentials
+3. ✅ `show($id)` - Get API instance details
+   - ✅ Ensure user owns instance
+   - ✅ Load with category and values
+   - ✅ Return decrypted credentials
    
-4. `update(Request $request, $id)` - Update API instance
-   - Ensure user owns instance
-   - Validate field values
-   - Update instance
-   - Update field values
-   - Sync to external API
-   - Return success
+4. ✅ `update(Request $request, $id)` - Update API instance
+   - ✅ Ensure user owns instance
+   - ✅ Validate field values
+   - ✅ Update instance
+   - ✅ Update field values
+   - ⏸️ Sync to external API (deferred to Phase 9)
+   - ✅ Return success
    
-5. `destroy($id)` - Delete API instance
-   - Ensure user owns instance
-   - Delete instance (cascade deletes values)
-   - Return success
+5. ✅ `destroy($id)` - Delete API instance
+   - ✅ Ensure user owns instance
+   - ✅ Delete instance (cascade deletes values)
+   - ✅ Return success
    
-6. `toggleActive($id)` - Toggle active status
-   - Ensure user owns instance
-   - Toggle is_active
-   - Return success
+6. ✅ `toggleActive($id)` - Toggle active status
+   - ✅ Ensure user owns instance
+   - ✅ Toggle is_active
+   - ✅ Return success
    
-7. `getByCategory($categoryId)` - Get instances for category
-   - Get user's instances for specific category
-   - Return with decrypted credentials
+7. ✅ `getByCategory($categoryId)` - Get instances for category
+   - ✅ Get user's instances for specific category
+   - ✅ Return with decrypted credentials
+
+**Routes added** (in `routes/web.php` under auth): `GET/POST /api/user-api-instances`, `GET /api/user-api-instances/category/{categoryId}`, `GET/PUT/DELETE /api/user-api-instances/{id}`, `POST /api/user-api-instances/{id}/toggle-active`.
 
 **Testing**:
-- Test all CRUD operations
-- Test authorization (user can only access own instances)
-- Test field validation
-- Test encryption
-- Test external API sync
+- ⏳ Test all CRUD operations (pending)
+- ⏳ Test authorization (user can only access own instances) (pending)
+- ⏳ Test field validation (pending)
+- ⏳ Test encryption (pending)
+- ⏸️ Test external API sync (deferred to Phase 9)
 
 ---
 
-### Step 4.2: Create Validation Service
+### Step 4.2: Create Validation Service ✅ COMPLETED
 **Duration**: 2-3 hours  
+**Status**: ✅ Completed  
 **File**: `app/Services/ApiInstanceValidationService.php`
 
 **Tasks**:
-1. `validate($data, $category)` method
-   - Build validation rules from category fields
-   - Apply field-specific rules
-   - Return Validator instance
+1. ✅ `validate($data, $category)` method
+   - ✅ Build validation rules from category fields
+   - ✅ Apply field-specific rules (type: text, email, url, number, textarea, password)
+   - ✅ Return Validator instance
    
-2. `buildRules($category)` method
-   - Loop through category fields
-   - Build Laravel validation rules array
-   - Include custom messages
+2. ✅ `buildRules($category)` method
+   - ✅ Loop through category fields
+   - ✅ Build Laravel validation rules array (`values.{field_name}`)
+   - ✅ Include custom messages (required field message with label)
+
+**Integration**: `UserApiInstanceController` uses the service in `store()` and `update()` for field-value validation.
 
 **Testing**:
-- Test validation with different field types
-- Test required fields
-- Test custom validation rules
+- ⏳ Test validation with different field types (pending)
+- ⏳ Test required fields (pending)
+- ⏳ Test custom validation rules (pending)
 
 ---
 
-### Step 4.3: Add User Routes
+### Step 4.3: Add User Routes ✅ COMPLETED
 **Duration**: 1 hour  
+**Status**: ✅ Completed (routes added in Step 4.1)  
 **File**: `routes/web.php`
 
 **Tasks**:
-1. Add user routes (middleware: auth)
-2. Routes:
-   - `GET /api/user-api-instances` - List instances
-   - `POST /api/user-api-instances` - Create instance
-   - `GET /api/user-api-instances/{id}` - Show instance
-   - `PUT /api/user-api-instances/{id}` - Update instance
-   - `DELETE /api/user-api-instances/{id}` - Delete instance
-   - `POST /api/user-api-instances/{id}/toggle-active` - Toggle active
-   - `GET /api/user-api-instances/category/{categoryId}` - Get by category
+1. ✅ Add user routes (middleware: auth, under role:admin,member)
+2. ✅ Routes:
+   - ✅ `GET /api/user-api-instances` - List instances
+   - ✅ `POST /api/user-api-instances` - Create instance
+   - ✅ `GET /api/user-api-instances/{id}` - Show instance
+   - ✅ `PUT /api/user-api-instances/{id}` - Update instance
+   - ✅ `DELETE /api/user-api-instances/{id}` - Delete instance
+   - ✅ `POST /api/user-api-instances/{id}/toggle-active` - Toggle active
+   - ✅ `GET /api/user-api-instances/category/{categoryId}` - Get by category
 
 **Testing**:
-- Test all routes
-- Test authentication
+- ⏳ Test all routes (pending)
+- ⏳ Test authentication (pending)
 
 ---
 
@@ -893,6 +900,11 @@ private function syncToExternalApi($instance, $userId)
 ### Phase 3 Progress: ✅ COMPLETED
 - [x] Step 3.1: Create Admin API Categories Page ✅
 - [x] Step 3.2: Create Category Fields Manager Component ✅
+
+### Phase 4 Progress: ✅ COMPLETED
+- [x] Step 4.1: Create User API Instance Controller ✅
+- [x] Step 4.2: Create Validation Service ✅
+- [x] Step 4.3: Add User Routes ✅ (added in Step 4.1)
 
 ### Performance:
 - [ ] API instance creation < 500ms
