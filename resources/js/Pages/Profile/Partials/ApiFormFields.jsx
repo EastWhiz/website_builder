@@ -1,66 +1,64 @@
 import DynamicApiForm from '@/Components/Api/DynamicApiForm';
+import InputError from '@/Components/InputError';
+import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import { useEffect, useState } from 'react';
+import TextInput from '@/Components/TextInput';
+import { Fragment, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
 export default function ApiFormFields({ mustVerifyEmail, status, className = '' }) {
+    const [groupedData, setGroupedData] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-    const [instances, setInstances] = useState([]);
-    const [loadingCategories, setLoadingCategories] = useState(true);
-    const [loadingInstances, setLoadingInstances] = useState(false);
-    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [expandedPlatformId, setExpandedPlatformId] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingInstance, setEditingInstance] = useState(null);
+    const [editingCategoryId, setEditingCategoryId] = useState(null);
+    const [addPlatformId, setAddPlatformId] = useState('');
     const [formName, setFormName] = useState('');
     const [formValues, setFormValues] = useState({});
     const [formErrors, setFormErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        loadCategories();
+        loadData();
     }, []);
 
-    useEffect(() => {
-        if (selectedCategoryId) {
-            loadInstances(selectedCategoryId);
-        } else {
-            setInstances([]);
-        }
-    }, [selectedCategoryId]);
-
-    const loadCategories = async () => {
+    const loadData = async () => {
+        setLoading(true);
         try {
-            setLoadingCategories(true);
-            const res = await fetch(route('user.api.categories.index'), {
-                headers: { Accept: 'application/json' },
-            });
-            const result = await res.json();
-            if (result.success && result.data?.length) {
-                setCategories(result.data);
-                if (!selectedCategoryId) setSelectedCategoryId(result.data[0].id);
+            const [groupedRes, categoriesRes] = await Promise.all([
+                fetch(route('user.api.instances.index'), {
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                }),
+                fetch(route('user.api.categories.index'), {
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                }),
+            ]);
+            const groupedResult = groupedRes.ok ? await groupedRes.json() : { success: false, data: null };
+            const categoriesResult = categoriesRes.ok ? await categoriesRes.json() : { success: false, data: null };
+            if (groupedResult.success && groupedResult.data != null) {
+                const raw = groupedResult.data;
+                setGroupedData(Array.isArray(raw) ? raw : Object.values(raw));
+            } else {
+                setGroupedData([]);
+            }
+            if (categoriesResult.success && categoriesResult.data != null) {
+                const raw = categoriesResult.data;
+                setCategories(Array.isArray(raw) ? raw : Object.values(raw));
+            } else {
+                setCategories([]);
             }
         } catch (e) {
-            console.error(e);
+            console.error('API Platforms load error:', e);
+            setGroupedData([]);
+            setCategories([]);
         } finally {
-            setLoadingCategories(false);
-        }
-    };
-
-    const loadInstances = async (categoryId) => {
-        try {
-            setLoadingInstances(true);
-            const res = await fetch(route('user.api.instances.byCategory', { categoryId }), {
-                headers: { Accept: 'application/json' },
-            });
-            const result = await res.json();
-            setInstances(result.success ? result.data : []);
-        } catch (e) {
-            console.error(e);
-            setInstances([]);
-        } finally {
-            setLoadingInstances(false);
+            setLoading(false);
         }
     };
 
@@ -71,36 +69,46 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         return h;
     };
 
-    const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+    const toggleExpand = (categoryId) => {
+        setExpandedPlatformId((prev) => (prev === categoryId ? null : categoryId));
+    };
 
-    const openCreate = () => {
-        setEditingInstance(null);
+    const openAddModal = () => {
+        setAddPlatformId('');
         setFormName('');
-        setFormValues(
-            selectedCategory?.fields?.reduce((acc, f) => ({ ...acc, [f.name]: '' }), {}) || {}
-        );
+        setFormValues({});
         setFormErrors({});
-        setShowCreateModal(true);
+        setShowAddModal(true);
         setShowEditModal(false);
     };
 
-    const openEdit = (instance) => {
+    const openEditModal = (instance, categoryId) => {
         setEditingInstance(instance);
+        setEditingCategoryId(categoryId);
         setFormName(instance.name);
         setFormValues({ ...(instance.credentials || {}) });
         setFormErrors({});
         setShowEditModal(true);
-        setShowCreateModal(false);
+        setShowAddModal(false);
     };
 
     const closeModals = () => {
-        setShowCreateModal(false);
+        setShowAddModal(false);
         setShowEditModal(false);
         setEditingInstance(null);
+        setEditingCategoryId(null);
+        setAddPlatformId('');
     };
 
-    const handleCreate = async (e) => {
+    const selectedCategoryForAdd = categories.find((c) => c.id === parseInt(addPlatformId, 10));
+    const selectedCategoryForEdit = categories.find((c) => c.id === editingCategoryId);
+
+    const handleAdd = async (e) => {
         e.preventDefault();
+        if (!addPlatformId || !selectedCategoryForAdd) {
+            Swal.fire({ title: 'Error', text: 'Please select a platform.', icon: 'error' });
+            return;
+        }
         setFormErrors({});
         setSubmitting(true);
         try {
@@ -108,7 +116,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                 method: 'POST',
                 headers: getHeaders(),
                 body: JSON.stringify({
-                    api_category_id: selectedCategoryId,
+                    api_category_id: parseInt(addPlatformId, 10),
                     name: formName,
                     values: formValues,
                 }),
@@ -117,7 +125,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
             if (result.success) {
                 Swal.fire({ title: 'Success!', text: result.message, icon: 'success', timer: 1500, showConfirmButton: false });
                 closeModals();
-                loadInstances(selectedCategoryId);
+                loadData();
             } else {
                 setFormErrors(result.errors || {});
                 Swal.fire({ title: 'Error', text: result.message || 'Validation failed.', icon: 'error' });
@@ -145,7 +153,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
             if (result.success) {
                 Swal.fire({ title: 'Success!', text: result.message, icon: 'success', timer: 1500, showConfirmButton: false });
                 closeModals();
-                loadInstances(selectedCategoryId);
+                loadData();
             } else {
                 setFormErrors(result.errors || {});
                 Swal.fire({ title: 'Error', text: result.message || 'Validation failed.', icon: 'error' });
@@ -158,7 +166,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         }
     };
 
-    const handleDelete = (instance) => {
+    const handleDelete = (instance, categoryId) => {
         Swal.fire({
             title: 'Are you sure?',
             text: `Delete "${instance.name}"?`,
@@ -177,7 +185,8 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                 const data = await res.json();
                 if (data.success) {
                     Swal.fire({ title: 'Deleted!', text: data.message, icon: 'success', timer: 1500, showConfirmButton: false });
-                    loadInstances(selectedCategoryId);
+                    loadData();
+                    if (expandedPlatformId === categoryId) setExpandedPlatformId(null);
                 } else {
                     Swal.fire({ title: 'Error', text: data.message || 'Delete failed.', icon: 'error' });
                 }
@@ -192,7 +201,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         setFormValues((prev) => ({ ...prev, [fieldName]: value }));
     };
 
-    if (loadingCategories) {
+    if (loading) {
         return (
             <section className={className}>
                 <div className="flex items-center justify-center py-12">
@@ -203,107 +212,177 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         );
     }
 
-    if (!categories.length) {
-        return (
-            <section className={className}>
-                <h3 className="text-lg font-medium text-gray-900">API Instances</h3>
-                <p className="mt-2 text-sm text-gray-500">No API platforms available. An admin can add platforms in API Platforms.</p>
-            </section>
-        );
-    }
-
     return (
         <section className={className}>
-            <h3 className="text-lg font-medium text-gray-900">API Instances</h3>
-            <p className="mt-1 text-sm text-gray-500">Manage your API credentials by category. Create one or more instances per category.</p>
-
-            {/* Category tabs */}
-            <div className="mt-4 border-b border-gray-200">
-                <nav className="-mb-px flex flex-wrap gap-2">
-                    {categories.map((c) => (
-                        <button
-                            key={c.id}
-                            onClick={() => setSelectedCategoryId(c.id)}
-                            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
-                                selectedCategoryId === c.id
-                                    ? 'border-indigo-500 text-indigo-600'
-                                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                            }`}
-                        >
-                            {c.name}
-                        </button>
-                    ))}
-                </nav>
+            <div className="flex items-center justify-between mb-4">
+                <div>
+                    <h3 className="text-lg font-medium text-gray-900">API Platforms</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Platforms under which you have created APIs. Click a row to expand and manage your APIs.
+                    </p>
+                </div>
+                <PrimaryButton onClick={openAddModal}>Add New API</PrimaryButton>
             </div>
 
-            {/* Instance list for selected category */}
-            <div className="mt-6">
-                {selectedCategory && (
-                    <>
-                        <div className="flex items-center justify-between mb-4">
-                            <h4 className="text-sm font-medium text-gray-700">Instances: {selectedCategory.name}</h4>
-                            <PrimaryButton onClick={openCreate}>Create Instance</PrimaryButton>
-                        </div>
+            {groupedData.length === 0 ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+                    You have not added any APIs yet. Click &quot;Add New API&quot; to create one.
+                </div>
+            ) : (
+                <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th scope="col" className="w-8 px-4 py-3 text-left"></th>
+                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                    Platform
+                                </th>
+                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                                    APIs
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                            {groupedData.map((group) => {
+                                const isExpanded = expandedPlatformId === group.category.id;
+                                return (
+                                    <Fragment key={group.category.id}>
+                                        <tr
+                                            key={group.category.id}
+                                            onClick={() => toggleExpand(group.category.id)}
+                                            className="cursor-pointer transition hover:bg-gray-50"
+                                        >
+                                            <td className="px-4 py-3">
+                                                <span
+                                                    className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                                >
+                                                    <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                {group.category.name}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-500">
+                                                {group.instances.length} API{group.instances.length !== 1 ? 's' : ''}
+                                            </td>
+                                        </tr>
+                                        {isExpanded && (
+                                            <tr key={`${group.category.id}-expanded`}>
+                                                <td colSpan={3} className="bg-gray-50 px-4 py-3">
+                                                    <div className="rounded-md border border-gray-200 bg-white">
+                                                        <table className="min-w-full">
+                                                            <thead>
+                                                                <tr className="border-b border-gray-200 bg-gray-50/80">
+                                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">API Name</th>
+                                                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Actions</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100">
+                                                                {group.instances.map((inst) => (
+                                                                    <tr key={inst.id} className="hover:bg-gray-50/50">
+                                                                        <td className="px-4 py-2 text-sm text-gray-900">
+                                                                            {inst.name}
+                                                                            {!inst.is_active && (
+                                                                                <span className="ml-2 text-xs text-amber-600">(inactive)</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-2 text-right">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    openEditModal(inst, group.category.id);
+                                                                                }}
+                                                                                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3"
+                                                                            >
+                                                                                Edit
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleDelete(inst, group.category.id);
+                                                                                }}
+                                                                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                                                            >
+                                                                                Delete
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
-                        {loadingInstances ? (
-                            <div className="py-4 text-gray-500 text-sm">Loading...</div>
-                        ) : instances.length === 0 ? (
-                            <p className="text-sm text-gray-500">No instances yet. Click &quot;Create Instance&quot; to add one.</p>
-                        ) : (
-                            <ul className="divide-y divide-gray-200 rounded-md border border-gray-200">
-                                {instances.map((inst) => (
-                                    <li key={inst.id} className="flex items-center justify-between px-4 py-3">
-                                        <div>
-                                            <span className="font-medium text-gray-900">{inst.name}</span>
-                                            {!inst.is_active && (
-                                                <span className="ml-2 text-xs text-amber-600">(inactive)</span>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => openEdit(inst)}
-                                                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(inst)}
-                                                className="text-red-600 hover:text-red-800 text-sm font-medium"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </>
-                )}
-            </div>
-
-            {/* Create modal */}
-            {showCreateModal && selectedCategory && (
-                <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            {/* Add New API modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
                     <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={closeModals} />
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeModals} />
                         <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Create instance: {selectedCategory.name}</h3>
-                            <form onSubmit={handleCreate}>
-                                <DynamicApiForm
-                                    fields={selectedCategory.fields || []}
-                                    values={formValues}
-                                    errors={formErrors}
-                                    onValueChange={setFormValue}
-                                    name={formName}
-                                    onNameChange={setFormName}
-                                    nameError={formErrors.name}
-                                    nameLabel="Instance name"
-                                    nameId="create_instance_name"
-                                />
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Add New API</h3>
+                            <form onSubmit={handleAdd}>
+                                <div className="space-y-4">
+                                    <div>
+                                        <InputLabel htmlFor="add_platform" value="API Platform" />
+                                        <select
+                                            id="add_platform"
+                                            value={addPlatformId}
+                                            onChange={(e) => {
+                                                setAddPlatformId(e.target.value);
+                                                setFormValues({});
+                                                setFormErrors({});
+                                            }}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                            required
+                                        >
+                                            <option value="">Select a platform</option>
+                                            {categories.map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {categories.length === 0 && (
+                                            <p className="mt-1 text-xs text-gray-500">No active platforms. Ask an admin to add some.</p>
+                                        )}
+                                    </div>
+                                    {selectedCategoryForAdd && (
+                                        <>
+                                            <div>
+                                                <InputLabel htmlFor="add_api_name" value="API Name" />
+                                                <TextInput
+                                                    id="add_api_name"
+                                                    className="mt-1 block w-full"
+                                                    value={formName}
+                                                    onChange={(e) => setFormName(e.target.value)}
+                                                    required
+                                                />
+                                                <InputError className="mt-2" message={formErrors.name} />
+                                            </div>
+                                            <DynamicApiForm
+                                                fields={selectedCategoryForAdd.fields || []}
+                                                values={formValues}
+                                                errors={formErrors}
+                                                onValueChange={setFormValue}
+                                            />
+                                        </>
+                                    )}
+                                </div>
                                 <div className="mt-6 flex gap-3">
-                                    <PrimaryButton type="submit" disabled={submitting}>
+                                    <PrimaryButton type="submit" disabled={submitting || !addPlatformId}>
                                         {submitting ? 'Creating...' : 'Create'}
                                     </PrimaryButton>
                                     <SecondaryButton type="button" onClick={closeModals}>
@@ -316,24 +395,24 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                 </div>
             )}
 
-            {/* Edit modal */}
-            {showEditModal && selectedCategory && editingInstance && (
-                <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            {/* Edit API modal */}
+            {showEditModal && selectedCategoryForEdit && editingInstance && (
+                <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
                     <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={closeModals} />
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeModals} />
                         <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Edit instance: {editingInstance.name}</h3>
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Edit API: {editingInstance.name}</h3>
                             <form onSubmit={handleUpdate}>
                                 <DynamicApiForm
-                                    fields={selectedCategory.fields || []}
+                                    fields={selectedCategoryForEdit.fields || []}
                                     values={formValues}
                                     errors={formErrors}
                                     onValueChange={setFormValue}
                                     name={formName}
                                     onNameChange={setFormName}
                                     nameError={formErrors.name}
-                                    nameLabel="Instance name"
-                                    nameId="edit_instance_name"
+                                    nameLabel="API Name"
+                                    nameId="edit_api_name"
                                 />
                                 <div className="mt-6 flex gap-3">
                                     <PrimaryButton type="submit" disabled={submitting}>

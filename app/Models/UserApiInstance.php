@@ -26,7 +26,7 @@ class UserApiInstance extends Model
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(ApiCategory::class);
+        return $this->belongsTo(ApiCategory::class, 'api_category_id');
     }
 
     public function values(): HasMany

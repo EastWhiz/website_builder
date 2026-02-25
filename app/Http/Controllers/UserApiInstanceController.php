@@ -29,6 +29,9 @@ class UserApiInstanceController extends Controller
 
         $grouped = $instances->groupBy('api_category_id')->map(function ($items) {
             $category = $items->first()->category;
+            if (!$category) {
+                return null;
+            }
             return [
                 'category' => [
                     'id' => $category->id,
@@ -39,9 +42,9 @@ class UserApiInstanceController extends Controller
                     'name' => $i->name,
                     'is_active' => $i->is_active,
                     'credentials' => $i->credentials,
-                ])->values(),
+                ])->values()->all(),
             ];
-        })->values();
+        })->filter()->values()->all();
 
         return response()->json([
             'success' => true,

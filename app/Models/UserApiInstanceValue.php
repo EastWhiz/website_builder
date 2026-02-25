@@ -21,7 +21,7 @@ class UserApiInstanceValue extends Model
 
     public function field(): BelongsTo
     {
-        return $this->belongsTo(ApiCategoryField::class);
+        return $this->belongsTo(ApiCategoryField::class, 'api_category_field_id');
     }
 
     public function getDecryptedValueAttribute(): string
