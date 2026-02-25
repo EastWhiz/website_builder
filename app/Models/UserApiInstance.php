@@ -8,6 +8,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UserApiInstance extends Model
 {
+    protected static function booted(): void
+    {
+        static::deleting(function (UserApiInstance $instance) {
+            $instance->values()->delete();
+        });
+    }
+
     protected $fillable = [
         'user_id',
         'api_category_id',

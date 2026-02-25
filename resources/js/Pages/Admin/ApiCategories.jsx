@@ -439,7 +439,7 @@ export default function ApiCategories({ auth }) {
                                         </div>
                                         <div className="flex gap-2">
                                             <SecondaryButton onClick={() => setManagingFields(null)}>
-                                                Back to Categories
+                                                Back to API Platforms
                                             </SecondaryButton>
                                             <PrimaryButton onClick={handleAddField}>Add Field</PrimaryButton>
                                         </div>
