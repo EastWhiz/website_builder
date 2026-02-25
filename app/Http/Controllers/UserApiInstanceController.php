@@ -212,6 +212,23 @@ class UserApiInstanceController extends Controller
     }
 
     /**
+     * List active API categories with fields (for profile / instance creation).
+     */
+    public function categories()
+    {
+        $categories = ApiCategory::active()
+            ->with('fields')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $categories,
+        ]);
+    }
+
+    /**
      * Get user's instances for a category.
      */
     public function getByCategory($categoryId)

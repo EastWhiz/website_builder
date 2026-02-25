@@ -38,8 +38,10 @@ class UserApiInstance extends Model
     {
         $credentials = [];
         foreach ($this->values as $value) {
-            $fieldName = $value->field->name;
-            $credentials[$fieldName] = $value->decrypted_value;
+            if (!$value->field) {
+                continue;
+            }
+            $credentials[$value->field->name] = $value->decrypted_value;
         }
         return $credentials;
     }

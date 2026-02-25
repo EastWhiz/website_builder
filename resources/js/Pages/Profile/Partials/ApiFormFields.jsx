@@ -1,1253 +1,353 @@
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
+import DynamicApiForm from '@/Components/Api/DynamicApiForm';
 import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
-import { Transition } from '@headlessui/react';
-import { useForm, usePage } from '@inertiajs/react';
+import SecondaryButton from '@/Components/SecondaryButton';
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
-export default function ApiFormFields({
-    mustVerifyEmail,
-    status,
-    className = '',
-}) {
-    const user = usePage().props.auth.user;
-    const [activeTab, setActiveTab] = useState('aweber');
-    const [loading, setLoading] = useState(true);
+export default function ApiFormFields({ mustVerifyEmail, status, className = '' }) {
+    const [categories, setCategories] = useState([]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+    const [instances, setInstances] = useState([]);
+    const [loadingCategories, setLoadingCategories] = useState(true);
+    const [loadingInstances, setLoadingInstances] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingInstance, setEditingInstance] = useState(null);
+    const [formName, setFormName] = useState('');
+    const [formValues, setFormValues] = useState({});
+    const [formErrors, setFormErrors] = useState({});
+    const [submitting, setSubmitting] = useState(false);
 
-    const { data, setData, patch, errors, processing, recentlySuccessful, reset } =
-        useForm({
-            aweber_client_id: '',
-            aweber_client_secret: '',
-            aweber_account_id: '',
-            aweber_list_id: '',
-            electra_affid: '',
-            electra_api_key: '',
-            dark_username: '',
-            dark_password: '',
-            dark_api_key: '',
-            dark_ai: '',
-            dark_ci: '',
-            dark_gi: '',
-            elps_username: '',
-            elps_password: '',
-            elps_api_key: '',
-            elps_ai: '',
-            elps_ci: '',
-            elps_gi: '',
-            meeseeks_api_key: '',
-            novelix_api_key: '',
-            novelix_affid: '',
-            tigloo_username: '',
-            tigloo_password: '',
-            tigloo_api_key: '',
-            tigloo_ai: '',
-            tigloo_ci: '',
-            tigloo_gi: '',
-            koi_api_key: '',
-            pastile_username: '',
-            pastile_password: '',
-            pastile_api_key: '',
-            pastile_ai: '',
-            pastile_ci: '',
-            pastile_gi: '',
-            riceleads_affid: '',
-            riceleads_api_key: '',
-            newmedis_username: '',
-            newmedis_password: '',
-            newmedis_api_key: '',
-            newmedis_ai: '',
-            newmedis_ci: '',
-            newmedis_gi: '',
-            seamediaone_username: '',
-            seamediaone_password: '',
-            seamediaone_api_key: '',
-            seamediaone_ai: '',
-            seamediaone_ci: '',
-            seamediaone_gi: '',
-            nauta_api_token: '',
-            magicads_username: '',
-            magicads_password: '',
-            magicads_api_key: '',
-            magicads_ai: '',
-            magicads_ci: '',
-            magicads_gi: '',
-            adzentric_affid: '',
-            adzentric_api_key: '',
-        });
-
-    // Load existing credentials on component mount
     useEffect(() => {
-        loadExistingCredentials();
+        loadCategories();
     }, []);
 
-    const loadExistingCredentials = async () => {
+    useEffect(() => {
+        if (selectedCategoryId) {
+            loadInstances(selectedCategoryId);
+        } else {
+            setInstances([]);
+        }
+    }, [selectedCategoryId]);
+
+    const loadCategories = async () => {
         try {
-            const response = await fetch(route('api.credentials.show'), {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+            setLoadingCategories(true);
+            const res = await fetch(route('user.api.categories.index'), {
+                headers: { Accept: 'application/json' },
             });
-
-            const result = await response.json();
-
-            if (result.success && result.data) {
-                // Update form data with existing credentials
-                const credentials = result.data;
-                setData({
-                    aweber_client_id: credentials.aweber_client_id || '',
-                    aweber_client_secret: credentials.aweber_client_secret || '',
-                    aweber_account_id: credentials.aweber_account_id || '',
-                    aweber_list_id: credentials.aweber_list_id || '',
-                    electra_affid: credentials.electra_affid || '',
-                    electra_api_key: credentials.electra_api_key || '',
-                    dark_username: credentials.dark_username || '',
-                    dark_password: credentials.dark_password || '',
-                    dark_api_key: credentials.dark_api_key || '',
-                    dark_ai: credentials.dark_ai || '',
-                    dark_ci: credentials.dark_ci || '',
-                    dark_gi: credentials.dark_gi || '',
-                    elps_username: credentials.elps_username || '',
-                    elps_password: credentials.elps_password || '',
-                    elps_api_key: credentials.elps_api_key || '',
-                    elps_ai: credentials.elps_ai || '',
-                    elps_ci: credentials.elps_ci || '',
-                    elps_gi: credentials.elps_gi || '',
-                    meeseeks_api_key: credentials.meeseeks_api_key || '',
-                    novelix_api_key: credentials.novelix_api_key || '',
-                    novelix_affid: credentials.novelix_affid || '',
-                    tigloo_username: credentials.tigloo_username || '',
-                    tigloo_password: credentials.tigloo_password || '',
-                    tigloo_api_key: credentials.tigloo_api_key || '',
-                    tigloo_ai: credentials.tigloo_ai || '',
-                    tigloo_ci: credentials.tigloo_ci || '',
-                    tigloo_gi: credentials.tigloo_gi || '',
-                    koi_api_key: credentials.koi_api_key || '',
-                    pastile_username: credentials.pastile_username || '',
-                    pastile_password: credentials.pastile_password || '',
-                    pastile_api_key: credentials.pastile_api_key || '',
-                    pastile_ai: credentials.pastile_ai || '',
-                    pastile_ci: credentials.pastile_ci || '',
-                    pastile_gi: credentials.pastile_gi || '',
-                    riceleads_affid: credentials.riceleads_affid || '',
-                    riceleads_api_key: credentials.riceleads_api_key || '',
-                    newmedis_username: credentials.newmedis_username || '',
-                    newmedis_password: credentials.newmedis_password || '',
-                    newmedis_api_key: credentials.newmedis_api_key || '',
-                    newmedis_ai: credentials.newmedis_ai || '',
-                    newmedis_ci: credentials.newmedis_ci || '',
-                    newmedis_gi: credentials.newmedis_gi || '',
-                    seamediaone_username: credentials.seamediaone_username || '',
-                    seamediaone_password: credentials.seamediaone_password || '',
-                    seamediaone_api_key: credentials.seamediaone_api_key || '',
-                    seamediaone_ai: credentials.seamediaone_ai || '',
-                    seamediaone_ci: credentials.seamediaone_ci || '',
-                    seamediaone_gi: credentials.seamediaone_gi || '',
-                    nauta_api_token: credentials.nauta_api_token || '',
-                    magicads_username: credentials.magicads_username || '',
-                    magicads_password: credentials.magicads_password || '',
-                    magicads_api_key: credentials.magicads_api_key || '',
-                    magicads_ai: credentials.magicads_ai || '',
-                    magicads_ci: credentials.magicads_ci || '',
-                    magicads_gi: credentials.magicads_gi || '',
-                    adzentric_affid: credentials.adzentric_affid || '',
-                    adzentric_api_key: credentials.adzentric_api_key || '',
-                });
+            const result = await res.json();
+            if (result.success && result.data?.length) {
+                setCategories(result.data);
+                if (!selectedCategoryId) setSelectedCategoryId(result.data[0].id);
             }
-        } catch (error) {
-            console.error('Error loading existing credentials:', error);
+        } catch (e) {
+            console.error(e);
         } finally {
-            setLoading(false);
+            setLoadingCategories(false);
         }
     };
 
-    const submit = (e) => {
-        e.preventDefault();
-
-        // Send data to Laravel backend
-        fetch(route('api.credentials.store'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                ...data,
-                provider: activeTab  // Send the current active tab (provider name)
-            }),
-        })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    // console.log('API credentials saved successfully');
-                    Swal.fire({
-                        title: 'Success!',
-                        text: result.message,
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                } else {
-                    // console.error('Error saving API credentials:', result.errors);
-                    Swal.fire({
-                        title: 'Error!',
-                        text: result.message,
-                        icon: 'error',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+    const loadInstances = async (categoryId) => {
+        try {
+            setLoadingInstances(true);
+            const res = await fetch(route('user.api.instances.byCategory', { categoryId }), {
+                headers: { Accept: 'application/json' },
             });
+            const result = await res.json();
+            setInstances(result.success ? result.data : []);
+        } catch (e) {
+            console.error(e);
+            setInstances([]);
+        } finally {
+            setLoadingInstances(false);
+        }
     };
 
-    const deleteAllCredentials = async () => {
+    const getHeaders = () => {
+        const h = { 'Content-Type': 'application/json', Accept: 'application/json' };
+        const csrf = document.querySelector('meta[name="csrf-token"]');
+        if (csrf) h['X-CSRF-TOKEN'] = csrf.content;
+        return h;
+    };
 
+    const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+
+    const openCreate = () => {
+        setEditingInstance(null);
+        setFormName('');
+        setFormValues(
+            selectedCategory?.fields?.reduce((acc, f) => ({ ...acc, [f.name]: '' }), {}) || {}
+        );
+        setFormErrors({});
+        setShowCreateModal(true);
+        setShowEditModal(false);
+    };
+
+    const openEdit = (instance) => {
+        setEditingInstance(instance);
+        setFormName(instance.name);
+        setFormValues({ ...(instance.credentials || {}) });
+        setFormErrors({});
+        setShowEditModal(true);
+        setShowCreateModal(false);
+    };
+
+    const closeModals = () => {
+        setShowCreateModal(false);
+        setShowEditModal(false);
+        setEditingInstance(null);
+    };
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        setFormErrors({});
+        setSubmitting(true);
+        try {
+            const res = await fetch(route('user.api.instances.store'), {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify({
+                    api_category_id: selectedCategoryId,
+                    name: formName,
+                    values: formValues,
+                }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                Swal.fire({ title: 'Success!', text: result.message, icon: 'success', timer: 1500, showConfirmButton: false });
+                closeModals();
+                loadInstances(selectedCategoryId);
+            } else {
+                setFormErrors(result.errors || {});
+                Swal.fire({ title: 'Error', text: result.message || 'Validation failed.', icon: 'error' });
+            }
+        } catch (e) {
+            console.error(e);
+            Swal.fire({ title: 'Error', text: 'Request failed.', icon: 'error' });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        if (!editingInstance) return;
+        setFormErrors({});
+        setSubmitting(true);
+        try {
+            const res = await fetch(route('user.api.instances.update', { id: editingInstance.id }), {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify({ name: formName, values: formValues }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                Swal.fire({ title: 'Success!', text: result.message, icon: 'success', timer: 1500, showConfirmButton: false });
+                closeModals();
+                loadInstances(selectedCategoryId);
+            } else {
+                setFormErrors(result.errors || {});
+                Swal.fire({ title: 'Error', text: result.message || 'Validation failed.', icon: 'error' });
+            }
+        } catch (e) {
+            console.error(e);
+            Swal.fire({ title: 'Error', text: 'Request failed.', icon: 'error' });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDelete = (instance) => {
         Swal.fire({
             title: 'Are you sure?',
-            text: 'This action cannot be undone.',
+            text: `Delete "${instance.name}"?`,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Yes, delete all!',
-            cancelButtonText: 'No, cancel!'
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete',
         }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    const response = await fetch(route('api.credentials.destroy'), {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        // Reset all form data
-                        reset();
-                        // console.log('All API credentials deleted successfully');
-                        Swal.fire({
-                            title: 'Success!',
-                            text: result.message,
-                            icon: 'success',
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                    } else {
-                        // console.error('Error deleting credentials:', result.message);
-                        Swal.fire({
-                            title: 'Error!',
-                            text: result.message,
-                            icon: 'error',
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
+            if (!result.isConfirmed) return;
+            try {
+                const res = await fetch(route('user.api.instances.destroy', { id: instance.id }), {
+                    method: 'DELETE',
+                    headers: getHeaders(),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    Swal.fire({ title: 'Deleted!', text: data.message, icon: 'success', timer: 1500, showConfirmButton: false });
+                    loadInstances(selectedCategoryId);
+                } else {
+                    Swal.fire({ title: 'Error', text: data.message || 'Delete failed.', icon: 'error' });
                 }
+            } catch (e) {
+                console.error(e);
+                Swal.fire({ title: 'Error', text: 'Request failed.', icon: 'error' });
             }
         });
     };
 
-    if (loading) {
+    const setFormValue = (fieldName, value) => {
+        setFormValues((prev) => ({ ...prev, [fieldName]: value }));
+    };
+
+    if (loadingCategories) {
         return (
             <section className={className}>
                 <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <span className="ml-2 text-gray-600">Loading API credentials...</span>
+                    <span className="ml-2 text-gray-600">Loading API platforms...</span>
                 </div>
             </section>
         );
     }
 
-    const apiProviders = [
-        { key: 'aweber', name: 'AWeber', icon: '📧' },
-        { key: 'dark', name: 'Connecto', icon: '🌑' },
-        { key: 'electra', name: 'Electra', icon: '⚡' },
-        { key: 'elps', name: 'ELPIS', icon: '🔧' },
-        { key: 'meeseeks', name: 'MeeseeksMedia', icon: '👀' },
-        { key: 'novelix', name: 'Novelix', icon: '📚' },
-        { key: 'tigloo', name: 'Online Partners ED', icon: '🐅' },
-        { key: 'koi', name: 'Koi', icon: '🐟' },
-        { key: 'pastile', name: 'Pastile', icon: '💊' },
-        { key: 'riceleads', name: 'Rice Leads', icon: '⚡' },
-        { key: 'newmedis', name: 'NewMedis', icon: '💉' },
-        { key: 'seamediaone', name: 'Seamediaone', icon: '🌊' },
-        { key: 'nauta', name: 'Nauta', icon: '🚀' },
-        { key: 'magicads', name: 'MagicAds', icon: '✨' },
-        { key: 'adzentric', name: 'AdZentric', icon: '🎯' },
-    ];
-
-    const renderApiFields = () => {
-        switch (activeTab) {
-            case 'aweber':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="aweber_client_id" value="Client ID" />
-                            <TextInput
-                                id="aweber_client_id"
-                                className="mt-1 block w-full"
-                                value={data.aweber_client_id}
-                                onChange={(e) => setData('aweber_client_id', e.target.value)}
-                                placeholder="lvrj2RItD1E5CE5YGUyq6akFhehKrvzC"
-                                autoComplete="off"
-                            />
-                            <InputError className="mt-2" message={errors.aweber_client_id} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="aweber_client_secret" value="Client Secret" />
-                            <TextInput
-                                id="aweber_client_secret"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.aweber_client_secret}
-                                onChange={(e) => setData('aweber_client_secret', e.target.value)}
-                                placeholder="aJ5ji1uZKkCFpGoeEeuNPRPMGDTGLf3y"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.aweber_client_secret} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="aweber_account_id" value="Account ID" />
-                            <TextInput
-                                id="aweber_account_id"
-                                className="mt-1 block w-full"
-                                value={data.aweber_account_id}
-                                onChange={(e) => setData('aweber_account_id', e.target.value)}
-                                placeholder="2342136"
-                                autoComplete="off"
-                            />
-                            <InputError className="mt-2" message={errors.aweber_account_id} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="aweber_list_id" value="List ID" />
-                            <TextInput
-                                id="aweber_list_id"
-                                className="mt-1 block w-full"
-                                value={data.aweber_list_id}
-                                onChange={(e) => setData('aweber_list_id', e.target.value)}
-                                placeholder="6858148"
-                                autoComplete="off"
-                            />
-                            <InputError className="mt-2" message={errors.aweber_list_id} />
-                        </div>
-                    </div>
-                );
-
-            case 'dark':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="dark_username" value="Trackbox Username" />
-                            <TextInput
-                                id="dark_username"
-                                className="mt-1 block w-full"
-                                value={data.dark_username}
-                                onChange={(e) => setData('dark_username', e.target.value)}
-                                placeholder="cfff"
-                                autoComplete="username"
-                            />
-                            <InputError className="mt-2" message={errors.dark_username} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="dark_password" value="Trackbox Password" />
-                            <TextInput
-                                id="dark_password"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.dark_password}
-                                onChange={(e) => setData('dark_password', e.target.value)}
-                                placeholder="1YAnplgj!"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.dark_password} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="dark_api_key" value="API Key" />
-                            <TextInput
-                                id="dark_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.dark_api_key}
-                                onChange={(e) => setData('dark_api_key', e.target.value)}
-                                placeholder="2643889w34df345676ssdas323tgc738"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.dark_api_key} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <InputLabel htmlFor="dark_ai" value="AI Parameter" />
-                                <TextInput
-                                    id="dark_ai"
-                                    className="mt-1 block w-full"
-                                    value={data.dark_ai}
-                                    onChange={(e) => setData('dark_ai', e.target.value)}
-                                    placeholder="2958198"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.dark_ai} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="dark_ci" value="CI Parameter" />
-                                <TextInput
-                                    id="dark_ci"
-                                    className="mt-1 block w-full"
-                                    value={data.dark_ci}
-                                    onChange={(e) => setData('dark_ci', e.target.value)}
-                                    placeholder="1"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.dark_ci} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="dark_gi" value="GI Parameter" />
-                                <TextInput
-                                    id="dark_gi"
-                                    className="mt-1 block w-full"
-                                    value={data.dark_gi}
-                                    onChange={(e) => setData('dark_gi', e.target.value)}
-                                    placeholder="173"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.dark_gi} />
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://tb.connnecto.com/api/signup/procform
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'electra':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="electra_affid" value="Affiliate ID" />
-                            <TextInput
-                                id="electra_affid"
-                                className="mt-1 block w-full"
-                                value={data.electra_affid}
-                                onChange={(e) => setData('electra_affid', e.target.value)}
-                                placeholder="13"
-                                autoComplete="off"
-                            />
-                            <InputError className="mt-2" message={errors.electra_affid} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="electra_api_key" value="API Key (Optional)" />
-                            <TextInput
-                                id="electra_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.electra_api_key}
-                                onChange={(e) => setData('electra_api_key', e.target.value)}
-                                placeholder="Enter API key if available"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.electra_api_key} />
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://lcaapi.net/leads
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'elps':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="elps_username" value="Trackbox Username" />
-                            <TextInput
-                                id="elps_username"
-                                className="mt-1 block w-full"
-                                value={data.elps_username}
-                                onChange={(e) => setData('elps_username', e.target.value)}
-                                placeholder="cfff"
-                                autoComplete="username"
-                            />
-                            <InputError className="mt-2" message={errors.elps_username} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="elps_password" value="Trackbox Password" />
-                            <TextInput
-                                id="elps_password"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.elps_password}
-                                onChange={(e) => setData('elps_password', e.target.value)}
-                                placeholder="1YAnplgj!"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.elps_password} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="elps_api_key" value="API Key" />
-                            <TextInput
-                                id="elps_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.elps_api_key}
-                                onChange={(e) => setData('elps_api_key', e.target.value)}
-                                placeholder="2643889w34df345676ssdas323tgc738"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.elps_api_key} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <InputLabel htmlFor="elps_ai" value="AI Parameter" />
-                                <TextInput
-                                    id="elps_ai"
-                                    className="mt-1 block w-full"
-                                    value={data.elps_ai}
-                                    onChange={(e) => setData('elps_ai', e.target.value)}
-                                    placeholder="2958034"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.elps_ai} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="elps_ci" value="CI Parameter" />
-                                <TextInput
-                                    id="elps_ci"
-                                    className="mt-1 block w-full"
-                                    value={data.elps_ci}
-                                    onChange={(e) => setData('elps_ci', e.target.value)}
-                                    placeholder="1"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.elps_ci} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="elps_gi" value="GI Parameter" />
-                                <TextInput
-                                    id="elps_gi"
-                                    className="mt-1 block w-full"
-                                    value={data.elps_gi}
-                                    onChange={(e) => setData('elps_gi', e.target.value)}
-                                    placeholder="17"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.elps_gi} />
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://ep.elpistrack.io/api/signup/procform
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'meeseeks':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="meeseeks_api_key" value="API Key" />
-                            <TextInput
-                                id="meeseeks_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.meeseeks_api_key}
-                                onChange={(e) => setData('meeseeks_api_key', e.target.value)}
-                                placeholder="BA31CB52-2023-0F5E-26F1-17258C7B5CAA"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.meeseeks_api_key} />
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://mskmd-api.com/api/v2/leads
-                            </p>
-                        </div>
-                    </div>
-                );
-            /*
-            case 'novelix':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="novelix_affid" value="Affiliate ID" />
-                            <TextInput
-                                id="novelix_affid"
-                                className="mt-1 block w-full"
-                                value={data.novelix_affid}
-                                onChange={(e) => setData('novelix_affid', e.target.value)}
-                                placeholder="16"
-                                autoComplete="off"
-                            />
-                            <InputError className="mt-2" message={errors.novelix_affid} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="novelix_api_key" value="API Key (Optional)" />
-                            <TextInput
-                                id="novelix_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.novelix_api_key}
-                                onChange={(e) => setData('novelix_api_key', e.target.value)}
-                                placeholder="bANwHGbj4mxQFUdefk1i"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.novelix_api_key} />
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://nexlapi.net/leads
-                            </p>
-                        </div>
-                    </div>
-                );
-            */
-            case 'tigloo':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="tigloo_username" value="Trackbox Username" />
-                            <TextInput
-                                id="tigloo_username"
-                                className="mt-1 block w-full"
-                                value={data.tigloo_username}
-                                onChange={(e) => setData('tigloo_username', e.target.value)}
-                                placeholder="SECH"
-                                autoComplete="username"
-                            />
-                            <InputError className="mt-2" message={errors.tigloo_username} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="tigloo_password" value="Trackbox Password" />
-                            <TextInput
-                                id="tigloo_password"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.tigloo_password}
-                                onChange={(e) => setData('tigloo_password', e.target.value)}
-                                placeholder="Ss1234@"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.tigloo_password} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="tigloo_api_key" value="API Key" />
-                            <TextInput
-                                id="tigloo_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.tigloo_api_key}
-                                onChange={(e) => setData('tigloo_api_key', e.target.value)}
-                                placeholder="2643889w34df345676ssdas323tgc738"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.tigloo_api_key} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <InputLabel htmlFor="tigloo_ai" value="AI Parameter" />
-                                <TextInput
-                                    id="tigloo_ai"
-                                    className="mt-1 block w-full"
-                                    value={data.tigloo_ai}
-                                    onChange={(e) => setData('tigloo_ai', e.target.value)}
-                                    placeholder="2958531"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.tigloo_ai} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="tigloo_ci" value="CI Parameter" />
-                                <TextInput
-                                    id="tigloo_ci"
-                                    className="mt-1 block w-full"
-                                    value={data.tigloo_ci}
-                                    onChange={(e) => setData('tigloo_ci', e.target.value)}
-                                    placeholder="821"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.tigloo_ci} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="tigloo_gi" value="GI Parameter" />
-                                <TextInput
-                                    id="tigloo_gi"
-                                    className="mt-1 block w-full"
-                                    value={data.tigloo_gi}
-                                    onChange={(e) => setData('tigloo_gi', e.target.value)}
-                                    placeholder="545"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.tigloo_gi} />
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://platform.onlinepartnersed.com/api/signup/procform
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'koi':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="koi_api_key" value="API Key" />
-                            <TextInput
-                                id="koi_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.koi_api_key}
-                                onChange={(e) => setData('koi_api_key', e.target.value)}
-                                placeholder="D39501B5-4872-3F35-3463-EC6B258BE52A"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.koi_api_key} />
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://hannyaapi.com/api/v2/leads
-                            </p>
-                            <p className="text-blue-800 text-sm mt-1">
-                                <strong>Note:</strong> This API requires IP whitelisting. Make sure your server IP is whitelisted.
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'pastile':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="pastile_username" value="Trackbox Username" />
-                            <TextInput
-                                id="pastile_username"
-                                className="mt-1 block w-full"
-                                value={data.pastile_username}
-                                onChange={(e) => setData('pastile_username', e.target.value)}
-                                placeholder="CFmeeseeks"
-                                autoComplete="username"
-                            />
-                            <InputError className="mt-2" message={errors.pastile_username} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="pastile_password" value="Trackbox Password" />
-                            <TextInput
-                                id="pastile_password"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.pastile_password}
-                                onChange={(e) => setData('pastile_password', e.target.value)}
-                                placeholder="3OxW)n(8_9"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.pastile_password} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="pastile_api_key" value="API Key" />
-                            <TextInput
-                                id="pastile_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.pastile_api_key}
-                                onChange={(e) => setData('pastile_api_key', e.target.value)}
-                                placeholder="2643889w34df345676ssdas323tgc738"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.pastile_api_key} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <InputLabel htmlFor="pastile_ai" value="AI Parameter" />
-                                <TextInput
-                                    id="pastile_ai"
-                                    className="mt-1 block w-full"
-                                    value={data.pastile_ai}
-                                    onChange={(e) => setData('pastile_ai', e.target.value)}
-                                    placeholder="2958073"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.pastile_ai} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="pastile_ci" value="CI Parameter" />
-                                <TextInput
-                                    id="pastile_ci"
-                                    className="mt-1 block w-full"
-                                    value={data.pastile_ci}
-                                    onChange={(e) => setData('pastile_ci', e.target.value)}
-                                    placeholder="1"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.pastile_ci} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="pastile_gi" value="GI Parameter" />
-                                <TextInput
-                                    id="pastile_gi"
-                                    className="mt-1 block w-full"
-                                    value={data.pastile_gi}
-                                    onChange={(e) => setData('pastile_gi', e.target.value)}
-                                    placeholder="55"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.pastile_gi} />
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://tb.pastile.net/api/signup/procform
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'newmedis':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="newmedis_username" value="Trackbox Username" />
-                            <TextInput
-                                id="newmedis_username"
-                                className="mt-1 block w-full"
-                                value={data.newmedis_username}
-                                onChange={(e) => setData('newmedis_username', e.target.value)}
-                                placeholder="CFmeeseeks"
-                                autoComplete="username"
-                            />
-                            <InputError className="mt-2" message={errors.newmedis_username} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="newmedis_password" value="Trackbox Password" />
-                            <TextInput
-                                id="newmedis_password"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.newmedis_password}
-                                onChange={(e) => setData('newmedis_password', e.target.value)}
-                                placeholder="3OxW)n(8_9"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.newmedis_password} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="newmedis_api_key" value="API Key" />
-                            <TextInput
-                                id="newmedis_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.newmedis_api_key}
-                                onChange={(e) => setData('newmedis_api_key', e.target.value)}
-                                placeholder="2643889w34df345676ssdas323tgc738"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.newmedis_api_key} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <InputLabel htmlFor="newmedis_ai" value="AI Parameter" />
-                                <TextInput
-                                    id="newmedis_ai"
-                                    className="mt-1 block w-full"
-                                    value={data.newmedis_ai}
-                                    onChange={(e) => setData('newmedis_ai', e.target.value)}
-                                    placeholder="2958073"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.newmedis_ai} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="newmedis_ci" value="CI Parameter" />
-                                <TextInput
-                                    id="newmedis_ci"
-                                    className="mt-1 block w-full"
-                                    value={data.newmedis_ci}
-                                    onChange={(e) => setData('newmedis_ci', e.target.value)}
-                                    placeholder="1"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.newmedis_ci} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="newmedis_gi" value="GI Parameter" />
-                                <TextInput
-                                    id="newmedis_gi"
-                                    className="mt-1 block w-full"
-                                    value={data.newmedis_gi}
-                                    onChange={(e) => setData('newmedis_gi', e.target.value)}
-                                    placeholder="55"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.newmedis_gi} />
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://tb.newmedis.live/api/signup/procform
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'seamediaone':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="seamediaone_username" value="Trackbox Username" />
-                            <TextInput
-                                id="seamediaone_username"
-                                className="mt-1 block w-full"
-                                value={data.seamediaone_username}
-                                onChange={(e) => setData('seamediaone_username', e.target.value)}
-                                placeholder="CFmeeseeks"
-                                autoComplete="username"
-                            />
-                            <InputError className="mt-2" message={errors.seamediaone_username} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="seamediaone_password" value="Trackbox Password" />
-                            <TextInput
-                                id="seamediaone_password"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.seamediaone_password}
-                                onChange={(e) => setData('seamediaone_password', e.target.value)}
-                                placeholder="3OxW)n(8_9"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.seamediaone_password} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="seamediaone_api_key" value="API Key" />
-                            <TextInput
-                                id="seamediaone_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.seamediaone_api_key}
-                                onChange={(e) => setData('seamediaone_api_key', e.target.value)}
-                                placeholder="2643889w34df345676ssdas323tgc738"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.seamediaone_api_key} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <InputLabel htmlFor="seamediaone_ai" value="AI Parameter" />
-                                <TextInput
-                                    id="seamediaone_ai"
-                                    className="mt-1 block w-full"
-                                    value={data.seamediaone_ai}
-                                    onChange={(e) => setData('seamediaone_ai', e.target.value)}
-                                    placeholder="2958073"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.seamediaone_ai} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="seamediaone_ci" value="CI Parameter" />
-                                <TextInput
-                                    id="seamediaone_ci"
-                                    className="mt-1 block w-full"
-                                    value={data.seamediaone_ci}
-                                    onChange={(e) => setData('seamediaone_ci', e.target.value)}
-                                    placeholder="1"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.seamediaone_ci} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="seamediaone_gi" value="GI Parameter" />
-                                <TextInput
-                                    id="seamediaone_gi"
-                                    className="mt-1 block w-full"
-                                    value={data.seamediaone_gi}
-                                    onChange={(e) => setData('seamediaone_gi', e.target.value)}
-                                    placeholder="55"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.seamediaone_gi} />
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://tb.seamediaone.net/api/signup/procform
-                            </p>
-                        </div>
-                    </div>
-                );
-
-                case 'riceleads':
-                    return (
-                        <div className="space-y-4">
-                            <div>
-                                <InputLabel htmlFor="riceleads_affid" value="Affiliate ID" />
-                                <TextInput
-                                    id="riceleads_affid"
-                                    className="mt-1 block w-full"
-                                    value={data.riceleads_affid}
-                                    onChange={(e) => setData('riceleads_affid', e.target.value)}
-                                    placeholder="13"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.riceleads_affid} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="riceleads_api_key" value="API Key (Optional)" />
-                                <TextInput
-                                    id="riceleads_api_key"
-                                    type="text"
-                                    className="mt-1 block w-full"
-                                    value={data.riceleads_api_key}
-                                    onChange={(e) => setData('riceleads_api_key', e.target.value)}
-                                    placeholder="Enter API key if available"
-                                    autoComplete="new-password"
-                                />
-                                <InputError className="mt-2" message={errors.riceleads_api_key} />
-                            </div>
-                            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                                <p className="text-blue-800 text-sm">
-                                    <strong>Endpoint:</strong> https://ridapi.net/leads
-                                </p>
-                            </div>
-                        </div>
-                    );
-
-                case 'adzentric':
-                    return (
-                        <div className="space-y-4">
-                            <div>
-                                <InputLabel htmlFor="adzentric_affid" value="Affiliate ID" />
-                                <TextInput
-                                    id="adzentric_affid"
-                                    className="mt-1 block w-full"
-                                    value={data.adzentric_affid}
-                                    onChange={(e) => setData('adzentric_affid', e.target.value)}
-                                    placeholder="Enter affiliate ID"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.adzentric_affid} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="adzentric_api_key" value="API Key (Optional)" />
-                                <TextInput
-                                    id="adzentric_api_key"
-                                    type="text"
-                                    className="mt-1 block w-full"
-                                    value={data.adzentric_api_key}
-                                    onChange={(e) => setData('adzentric_api_key', e.target.value)}
-                                    placeholder="Enter API key if available"
-                                    autoComplete="new-password"
-                                />
-                                <InputError className="mt-2" message={errors.adzentric_api_key} />
-                            </div>
-                            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                                <p className="text-blue-800 text-sm">
-                                    <strong>Endpoint:</strong> https://ldlgapi.com/leads
-                                </p>
-                            </div>
-                        </div>
-                    );
-
-            case 'nauta':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="nauta_api_token" value="API Token" />
-                            <TextInput
-                                id="nauta_api_token"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.nauta_api_token}
-                                onChange={(e) => setData('nauta_api_token', e.target.value)}
-                                placeholder="oxgtpml2uppsz1tnlop3saq0z3u7pm0u"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.nauta_api_token} />
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://yourleads.org/api/affiliates/v2/leads
-                            </p>
-                            <p className="text-blue-800 text-sm mt-1">
-                                <strong>Method:</strong> POST
-                            </p>
-                            <p className="text-blue-800 text-sm mt-1">
-                                <strong>Authorization:</strong> Bearer {data.nauta_api_token || 'YOUR_API_TOKEN'}
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            case 'magicads':
-                return (
-                    <div className="space-y-4">
-                        <div>
-                            <InputLabel htmlFor="magicads_username" value="Trackbox Username" />
-                            <TextInput
-                                id="magicads_username"
-                                className="mt-1 block w-full"
-                                value={data.magicads_username}
-                                onChange={(e) => setData('magicads_username', e.target.value)}
-                                placeholder="username"
-                                autoComplete="username"
-                            />
-                            <InputError className="mt-2" message={errors.magicads_username} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="magicads_password" value="Trackbox Password" />
-                            <TextInput
-                                id="magicads_password"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.magicads_password}
-                                onChange={(e) => setData('magicads_password', e.target.value)}
-                                placeholder="password"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.magicads_password} />
-                        </div>
-                        <div>
-                            <InputLabel htmlFor="magicads_api_key" value="API Key" />
-                            <TextInput
-                                id="magicads_api_key"
-                                type="text"
-                                className="mt-1 block w-full"
-                                value={data.magicads_api_key}
-                                onChange={(e) => setData('magicads_api_key', e.target.value)}
-                                placeholder="2643889w34df345676ssdas323tgc738"
-                                autoComplete="new-password"
-                            />
-                            <InputError className="mt-2" message={errors.magicads_api_key} />
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <InputLabel htmlFor="magicads_ai" value="AI Parameter" />
-                                <TextInput
-                                    id="magicads_ai"
-                                    className="mt-1 block w-full"
-                                    value={data.magicads_ai}
-                                    onChange={(e) => setData('magicads_ai', e.target.value)}
-                                    placeholder="ask from your trackbox partner"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.magicads_ai} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="magicads_ci" value="CI Parameter" />
-                                <TextInput
-                                    id="magicads_ci"
-                                    className="mt-1 block w-full"
-                                    value={data.magicads_ci}
-                                    onChange={(e) => setData('magicads_ci', e.target.value)}
-                                    placeholder="1"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.magicads_ci} />
-                            </div>
-                            <div>
-                                <InputLabel htmlFor="magicads_gi" value="GI Parameter" />
-                                <TextInput
-                                    id="magicads_gi"
-                                    className="mt-1 block w-full"
-                                    value={data.magicads_gi}
-                                    onChange={(e) => setData('magicads_gi', e.target.value)}
-                                    placeholder="ask from your trackbox partner"
-                                    autoComplete="off"
-                                />
-                                <InputError className="mt-2" message={errors.magicads_gi} />
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <p className="text-blue-800 text-sm">
-                                <strong>Endpoint:</strong> https://mb.magicadsoffers.com/api/signup/procform
-                            </p>
-                        </div>
-                    </div>
-                );
-
-            default:
-                return null;
-        }
-    };
+    if (!categories.length) {
+        return (
+            <section className={className}>
+                <h3 className="text-lg font-medium text-gray-900">API Instances</h3>
+                <p className="mt-2 text-sm text-gray-500">No API platforms available. An admin can add platforms in API Platforms.</p>
+            </section>
+        );
+    }
 
     return (
         <section className={className}>
-            <header>
-                <h2 className="text-lg font-medium text-gray-900">
-                    API Credentials Management
-                </h2>
+            <h3 className="text-lg font-medium text-gray-900">API Instances</h3>
+            <p className="mt-1 text-sm text-gray-500">Manage your API credentials by category. Create one or more instances per category.</p>
 
-                <p className="mt-1 text-sm text-gray-600">
-                    Configure your API credentials for various service providers. These credentials will be used for form integrations and data management.
-                </p>
-            </header>
-
-            {/* Tab Navigation */}
-            <div className="mt-6">
-                <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex space-x-8 overflow-x-auto">
-                        {apiProviders.map((provider) => (
-                            provider.name === 'Novelix' ? null : (
-                            <button
-                                key={provider.key}
-                                onClick={() => setActiveTab(provider.key)}
-                                className={`${activeTab === provider.key
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
-                            >
-                                <span>{provider.icon}</span>
-                                <span>{provider.name}</span>
-                            </button>
-                            )
-                        ))}
-                    </nav>
-                </div>
+            {/* Category tabs */}
+            <div className="mt-4 border-b border-gray-200">
+                <nav className="-mb-px flex flex-wrap gap-2">
+                    {categories.map((c) => (
+                        <button
+                            key={c.id}
+                            onClick={() => setSelectedCategoryId(c.id)}
+                            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium ${
+                                selectedCategoryId === c.id
+                                    ? 'border-indigo-500 text-indigo-600'
+                                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                            }`}
+                        >
+                            {c.name}
+                        </button>
+                    ))}
+                </nav>
             </div>
 
-            {/* API Configuration Form */}
-            <form onSubmit={submit} className="mt-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 className="text-md font-medium text-gray-900 mb-4">
-                        {apiProviders.find(p => p.key === activeTab)?.name} Configuration
-                    </h3>
+            {/* Instance list for selected category */}
+            <div className="mt-6">
+                {selectedCategory && (
+                    <>
+                        <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-medium text-gray-700">Instances: {selectedCategory.name}</h4>
+                            <PrimaryButton onClick={openCreate}>Create Instance</PrimaryButton>
+                        </div>
 
-                    {renderApiFields()}
+                        {loadingInstances ? (
+                            <div className="py-4 text-gray-500 text-sm">Loading...</div>
+                        ) : instances.length === 0 ? (
+                            <p className="text-sm text-gray-500">No instances yet. Click &quot;Create Instance&quot; to add one.</p>
+                        ) : (
+                            <ul className="divide-y divide-gray-200 rounded-md border border-gray-200">
+                                {instances.map((inst) => (
+                                    <li key={inst.id} className="flex items-center justify-between px-4 py-3">
+                                        <div>
+                                            <span className="font-medium text-gray-900">{inst.name}</span>
+                                            {!inst.is_active && (
+                                                <span className="ml-2 text-xs text-amber-600">(inactive)</span>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => openEdit(inst)}
+                                                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(inst)}
+                                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* Create modal */}
+            {showCreateModal && selectedCategory && (
+                <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                    <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={closeModals} />
+                        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Create instance: {selectedCategory.name}</h3>
+                            <form onSubmit={handleCreate}>
+                                <DynamicApiForm
+                                    fields={selectedCategory.fields || []}
+                                    values={formValues}
+                                    errors={formErrors}
+                                    onValueChange={setFormValue}
+                                    name={formName}
+                                    onNameChange={setFormName}
+                                    nameError={formErrors.name}
+                                    nameLabel="Instance name"
+                                    nameId="create_instance_name"
+                                />
+                                <div className="mt-6 flex gap-3">
+                                    <PrimaryButton type="submit" disabled={submitting}>
+                                        {submitting ? 'Creating...' : 'Create'}
+                                    </PrimaryButton>
+                                    <SecondaryButton type="button" onClick={closeModals}>
+                                        Cancel
+                                    </SecondaryButton>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
+            )}
 
-                <div className="flex items-center gap-4 mt-6">
-                    <PrimaryButton disabled={processing}>
-                        Save {apiProviders.find(p => p.key === activeTab)?.name} Credentials
-                    </PrimaryButton>
-
-                    <button
-                        type="button"
-                        onClick={deleteAllCredentials}
-                        className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                        disabled={processing}
-                    >
-                        Delete All Credentials
-                    </button>
-
-                    <Transition
-                        show={recentlySuccessful}
-                        enter="transition ease-in-out"
-                        enterFrom="opacity-0"
-                        leave="transition ease-in-out"
-                        leaveTo="opacity-0"
-                    >
-                        <p className="text-sm text-gray-600">Saved successfully!</p>
-                    </Transition>
+            {/* Edit modal */}
+            {showEditModal && selectedCategory && editingInstance && (
+                <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                    <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={closeModals} />
+                        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Edit instance: {editingInstance.name}</h3>
+                            <form onSubmit={handleUpdate}>
+                                <DynamicApiForm
+                                    fields={selectedCategory.fields || []}
+                                    values={formValues}
+                                    errors={formErrors}
+                                    onValueChange={setFormValue}
+                                    name={formName}
+                                    onNameChange={setFormName}
+                                    nameError={formErrors.name}
+                                    nameLabel="Instance name"
+                                    nameId="edit_instance_name"
+                                />
+                                <div className="mt-6 flex gap-3">
+                                    <PrimaryButton type="submit" disabled={submitting}>
+                                        {submitting ? 'Saving...' : 'Save'}
+                                    </PrimaryButton>
+                                    <SecondaryButton type="button" onClick={closeModals}>
+                                        Cancel
+                                    </SecondaryButton>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
-            </form>
+            )}
         </section>
     );
 }

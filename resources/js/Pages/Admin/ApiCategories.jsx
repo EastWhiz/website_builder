@@ -55,7 +55,7 @@ export default function ApiCategories({ auth }) {
             console.error('Error loading API categories:', error);
             Swal.fire({
                 title: 'Error!',
-                text: 'Failed to load API categories.',
+                text: 'Failed to load API platforms.',
                 icon: 'error',
             });
         } finally {
@@ -147,8 +147,8 @@ export default function ApiCategories({ auth }) {
                 Swal.fire({
                     title: 'Success!',
                     text: editingCategory
-                        ? 'API category updated successfully.'
-                        : 'API category created successfully.',
+                        ? 'API platform updated successfully.'
+                        : 'API platform created successfully.',
                     icon: 'success',
                 });
                 handleCancel();
@@ -164,7 +164,7 @@ export default function ApiCategories({ auth }) {
             console.error('Error saving API category:', error);
             Swal.fire({
                 title: 'Error!',
-                text: error.message || 'Failed to save API category.',
+                text: error.message || 'Failed to save API platform.',
                 icon: 'error',
             });
         } finally {
@@ -205,7 +205,7 @@ export default function ApiCategories({ auth }) {
                 if (deleteResult.success) {
                     Swal.fire({
                         title: 'Deleted!',
-                        text: 'API category deleted successfully.',
+                        text: 'API platform deleted successfully.',
                         icon: 'success',
                     });
                     loadCategories();
@@ -220,7 +220,7 @@ export default function ApiCategories({ auth }) {
                 console.error('Error deleting API category:', error);
                 Swal.fire({
                     title: 'Error!',
-                    text: 'Failed to delete API category.',
+                    text: 'Failed to delete API platform.',
                     icon: 'error',
                 });
             }
@@ -423,9 +423,9 @@ export default function ApiCategories({ auth }) {
     return (
         <AuthenticatedLayout
             user={auth.user}
-            header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">API Categories</h2>}
+            header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">API Platforms</h2>}
         >
-            <Head title="API Categories" />
+            <Head title="API Platforms" />
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
@@ -644,9 +644,9 @@ export default function ApiCategories({ auth }) {
                             ) : !showForm ? (
                                 <>
                                     <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-lg font-medium">API Categories</h3>
+                                        <h3 className="text-lg font-medium">API Platforms</h3>
                                         <PrimaryButton onClick={() => setShowForm(true)}>
-                                            Create Category
+                                            Create a Platform
                                         </PrimaryButton>
                                     </div>
 
@@ -654,7 +654,7 @@ export default function ApiCategories({ auth }) {
                                         <div className="text-center py-8">Loading...</div>
                                     ) : categories.length === 0 ? (
                                         <div className="text-center py-8 text-gray-500">
-                                            No API categories found. Create one to get started.
+                                            No API platforms found. Create one to get started.
                                         </div>
                                     ) : (
                                         <div className="overflow-x-auto">
@@ -743,7 +743,7 @@ export default function ApiCategories({ auth }) {
                             ) : (
                                 <div>
                                     <h3 className="text-lg font-medium mb-6">
-                                        {editingCategory ? 'Edit API Category' : 'Create API Category'}
+                                        {editingCategory ? 'Edit API Platform' : 'Create API Platform'}
                                     </h3>
                                     <form onSubmit={handleSubmit}>
                                         <div className="space-y-4">

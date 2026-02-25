@@ -375,73 +375,62 @@ This plan outlines the step-by-step process to upgrade the API settings system f
 
 ## Phase 5: User Frontend - API Instances (Week 4-5)
 
-### Step 5.1: Refactor ApiFormFields Component
+### Step 5.1: Refactor ApiFormFields Component ✅ COMPLETED
 **Duration**: 10-12 hours  
+**Status**: ✅ Completed  
 **File**: `resources/js/Pages/Profile/Partials/ApiFormFields.jsx` (Complete Rewrite)
 
 **Tasks**:
-1. Remove hardcoded provider tabs
-2. Fetch API categories from API
-3. Create category-based tabs (dynamic)
-4. For each category:
-   - Show list of user's instances
-   - "Create Instance" button
-   - Edit/Delete instance actions
-5. Create instance modal/form
-6. Edit instance modal/form
+1. ✅ Remove hardcoded provider tabs
+2. ✅ Fetch API categories from API (`user.api.categories.index`)
+3. ✅ Create category-based tabs (dynamic)
+4. ✅ For each category:
+   - ✅ Show list of user's instances (`user.api.instances.byCategory`)
+   - ✅ "Create Instance" button
+   - ✅ Edit/Delete instance actions
+5. ✅ Create instance modal/form (name + dynamic fields from category.fields)
+6. ✅ Edit instance modal/form (prefill from instance.credentials)
 
-**Component Structure**:
-```jsx
-<ApiFormFields>
-  <ApiCategoryTabs categories={categories} />
-  <ApiInstanceList category={selectedCategory} instances={instances} />
-  <CreateInstanceModal category={selectedCategory} />
-  <EditInstanceModal instance={selectedInstance} />
-</ApiFormFields>
-```
+**Implementation**: Single component with inline category tabs, instance list, and create/edit modals. Dynamic field rendering by type (text, password, email, url, number, textarea) via small `FieldInput` helper. Backend added `UserApiInstanceController::categories()` and route `GET /api/api-categories` for active categories with fields.
 
 **Testing**:
-- Test category tabs
-- Test instance list
-- Test create instance
-- Test edit instance
-- Test delete instance
+- ⏳ Test category tabs (pending)
+- ⏳ Test instance list (pending)
+- ⏳ Test create instance (pending)
+- ⏳ Test edit instance (pending)
+- ⏳ Test delete instance (pending)
 
 ---
 
-### Step 5.2: Create Dynamic Form Generator
+### Step 5.2: Create Dynamic Form Generator ✅ COMPLETED
 **Duration**: 8-10 hours  
-**Files to Create**:
-- `resources/js/Components/Api/DynamicApiForm.jsx`
-- `resources/js/Components/Api/FieldTypes/TextApiField.jsx`
-- `resources/js/Components/Api/FieldTypes/PasswordApiField.jsx`
-- `resources/js/Components/Api/FieldTypes/UrlApiField.jsx`
-- `resources/js/Components/Api/FieldTypes/NumberApiField.jsx`
-- `resources/js/Components/Api/FieldTypes/EmailApiField.jsx`
-- `resources/js/Components/Api/FieldTypes/TextareaApiField.jsx`
+**Status**: ✅ Completed  
+**Files Created**:
+- ✅ `resources/js/Components/Api/DynamicApiForm.jsx`
+- ✅ `resources/js/Components/Api/ApiField.jsx` (single component for all types: text, password, email, url, number, textarea)
 
 **Tasks**:
 
 **DynamicApiForm.jsx**:
-1. Accept category fields as props
-2. Generate form fields dynamically
-3. Handle different field types
-4. Client-side validation
-5. Show/hide fields based on conditions
-6. Handle encryption (mask passwords)
+1. ✅ Accept category fields as props
+2. ✅ Generate form fields dynamically (map fields to ApiField)
+3. ✅ Handle different field types (via ApiField)
+4. ⏸️ Client-side validation (deferred; server validation used)
+5. ⏸️ Show/hide fields based on conditions (not implemented; keep simple)
+6. ✅ Handle encryption (mask passwords via type="password" in ApiField)
 
-**Field Type Components**:
-1. Each component handles specific field type
-2. Validation
-3. Error display
-4. Help text display
+**Field rendering (ApiField.jsx)**:
+1. ✅ Renders by field type (text, password, email, url, number, textarea)
+2. ✅ Error display (InputError)
+3. ✅ Placeholder as help text on input
+
+**Integration**: ApiFormFields create/edit modals use DynamicApiForm; inline form markup replaced.
 
 **Testing**:
-- Test form generation for all field types
-- Test validation
-- Test encryption masking
-- Test required fields
-- Test help text display
+- ⏳ Test form generation for all field types (pending)
+- ⏳ Test validation (pending)
+- ⏳ Test encryption masking (pending)
+- ⏳ Test required fields (pending)
 
 ---
 
@@ -905,6 +894,10 @@ private function syncToExternalApi($instance, $userId)
 - [x] Step 4.1: Create User API Instance Controller ✅
 - [x] Step 4.2: Create Validation Service ✅
 - [x] Step 4.3: Add User Routes ✅ (added in Step 4.1)
+
+### Phase 5 Progress: ✅ COMPLETED
+- [x] Step 5.1: Refactor ApiFormFields Component ✅
+- [x] Step 5.2: Create Dynamic Form Generator ✅
 
 ### Performance:
 - [ ] API instance creation < 500ms

@@ -66,7 +66,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                             href={route('api.categories.manage')}
                                             active={route().current('api.categories.manage')}
                                         >
-                                            API Categories
+                                            API Platforms
                                         </NavLink>
                                     </div>
                                 </> : <>
@@ -215,7 +215,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     href={route('api.categories.manage')}
                                     active={route().current('api.categories.manage')}
                                 >
-                                    API Categories
+                                    API Platforms
                                 </ResponsiveNavLink>
                             </> : <>
                                 <ResponsiveNavLink
