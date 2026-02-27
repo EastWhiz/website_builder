@@ -25,22 +25,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get the form type to determine which API file to include
     $formType = $postData['form_type']; // Default to novelix
 
-    // Map form types to their corresponding API files
+    // Map form types to platform integration files (one file per platform; Trackbox handles multiple APIs)
     $apiFiles = [
         'novelix' => 'novelix.php',
         'electra' => 'electra.php',
         'aweber' => 'aweber.php',
         'dark' => 'dark.php',
-        'elps' => 'elps.php',
+        'elps' => 'trackbox.php',
         'meeseeksmedia' => 'meeseeksmedia.php',
-        'tigloo' => 'tigloo.php',
+        'tigloo' => 'trackbox.php',
         'koi' => 'koi.php',
-        'pastile' => 'pastile.php',
+        'pastile' => 'trackbox.php',
         'riceleads' => 'riceleads.php',
-        'newmedis' => 'newmedis.php',
-        'seamediaone' => 'seamediaone.php',
+        'newmedis' => 'trackbox.php',
+        'seamediaone' => 'trackbox.php',
         'nauta' => 'nauta.php',
-        'magicads' => 'magicads.php',
+        'irev' => 'irev.php',
+        'magicads' => 'trackbox.php',
         'adzentric' => 'adzentric.php',
     ];
 

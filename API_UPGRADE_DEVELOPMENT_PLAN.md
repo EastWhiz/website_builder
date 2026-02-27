@@ -1,11 +1,31 @@
 # API Module Upgrade - Development Plan
 
 ## Overview
-This plan outlines the step-by-step process to upgrade the API settings system from hardcoded providers to a dynamic, category-based system similar to OTP Services.
+This plan outlines the step-by-step process to upgrade the API settings system from hardcoded providers to a dynamic, **platform-based** system. API categories represent **platforms** (e.g. Trackbox, Novelix); each platform has one integration file (file name = platform name), and export includes only the selected platform's file. See **Architecture: Platform-Based Integration** below for key decisions.
+
+---
+
+## Architecture: Platform-Based Integration
+
+**Key decisions (synced with current plan):**
+
+1. **API Categories = Platforms**  
+   The `api_categories` table represents **platforms** (e.g. Trackbox, Novelix, AWeber). The `api_category_fields` table holds the configurable fields (credentials, etc.) for each platform. No separate “platforms” table; no extra column for “integration file.”
+
+2. **One integration file per platform**  
+   There is **one PHP integration file per platform**. The file name is derived from the **platform name** (e.g. normalize to lowercase, spaces → underscores): `Trackbox` → `trackbox.php`, `Novelix` → `novelix.php`. APIs that share the same request/response pattern (e.g. ELPS, MagicAds, Tigloo, Pastile under Trackbox) are handled by a single platform file with shared logic (auth, payload, request/response, errors) and configurable parameters per API (endpoint URL, optional fields).
+
+3. **Export only the selected platform’s file**  
+   On export, the system includes **only** the integration file for the platform selected in the form (plus the fixed set: `config.php`, `backend.php`, `thank_you.php`, OTP files, etc.). It does **not** export all API files, so the ZIP stays minimal and avoids unused integration files.
+
+4. **Runtime (backend.php)**  
+   The form’s chosen API/category resolves to one **platform** (api_category). The backend includes the **one** platform file (e.g. `trackbox.php`) by deriving its name from the platform name; if one platform file serves multiple APIs, an API identifier (e.g. form_type or api_slug) is passed so the platform file can choose the correct endpoint/config.
 
 ---
 
 ## Phase 1: Database Foundation (Week 1) ✅ COMPLETED
+
+**Note**: `api_categories` = **platforms** (e.g. Trackbox, Novelix). No separate platforms table; no column for "integration file" — the integration file name is derived from the platform name (e.g. Trackbox → `trackbox.php`).
 
 ### Step 1.1: Create New Tables ✅ COMPLETED
 **Duration**: 2-3 hours  
@@ -17,11 +37,12 @@ This plan outlines the step-by-step process to upgrade the API settings system f
 - ✅ `database/migrations/2026_02_19_100840_create_user_api_instance_values_table.php`
 
 **Tasks**:
-1. ✅ Create `api_categories` table migration
+1. ✅ Create `api_categories` table migration (platforms)
    - Columns: id, name, is_active, sort_order, timestamps (simplified - removed slug, description, icon)
    - Indexes: is_active, sort_order
+   - Integration file name derived from `name` (e.g. "Trackbox" → trackbox.php); no DB column
    
-2. ✅ Create `api_category_fields` table migration
+2. ✅ Create `api_category_fields` table migration (platform fields)
    - Columns: id, api_category_id (FK), name, label, type, placeholder, is_required, encrypt, sort_order, timestamps (simplified - removed help_text, validation_rules, default_value)
    - Indexes: api_category_id, name
    - Foreign Key: api_category_id → api_categories.id (CASCADE DELETE)
@@ -436,84 +457,98 @@ This plan outlines the step-by-step process to upgrade the API settings system f
 
 ## Phase 6: Integration Updates - Export (Week 5-6)
 
-### Step 6.1: Update Export Logic
+### Step 6.1: Update Export Logic ✅
 **Duration**: 6-8 hours  
 **File**: `app/Http/Controllers/AngleTemplateController.php`
 
 **Tasks**:
-1. Update `downloadTemplate()` method
-   - Detect API category from form HTML (form_type → api_category mapping)
-   - Get user's API instance for that category
-   - Pass instance to `modifyApiFileContent()`
+1. ✅ Update `downloadTemplate()` method
+   - ✅ Detect API category (platform) from form: `getFormTypeFromHtml($fullHtml)` → form_type → api_category (platform)
+   - ✅ Export only fixed set + selected platform's file: `getExportFilesList()` = fixed files (config, backend, thank_you, OTP, etc.) + one platform file derived from form_type (platform file name = platform name, e.g. novelix.php)
+   - ✅ Get user's API instance for that category; pass instance to `modifyApiFileContent()`
    
-2. Refactor `modifyApiFileContent()` method
-   - Accept `UserApiInstance` instead of `UserApiCredential`
-   - Get category and fields
-   - Build dynamic replacement map from field definitions
-   - Replace hardcoded switch statement with dynamic mapping
+2. ✅ Refactor `modifyApiFileContent()` method
+   - ✅ Accept `UserApiInstance` (and legacy `UserApiCredential` fallback)
+   - ✅ Get category (platform) and fields from instance
+   - ✅ Build dynamic replacement from field definitions + placeholder map
+   - ✅ Dynamic path when instance present; legacy switch when only credentials
    
-3. Create field-to-variable mapping
-   - Store mapping in category metadata or field definition
-   - Map field names to exported file variable names
-   - Example: "api_key" → "$xapikey = "";"
+3. ✅ Create field-to-variable mapping
+   - ✅ `getPlaceholderMap($filename)` in controller: field name → placeholder string
+   - ✅ Map field names to exported file variable names (e.g. "api_key" → "$xapikey = "";" via `buildReplacement()`)
 
-**New Logic Flow**:
-```php
-private function modifyApiFileContent($content, $filename, $userApiInstance = null, $fullHTML = null)
-{
-    if (!$userApiInstance) {
-        return $content;
-    }
-
-    $category = $userApiInstance->category;
-    $fields = $category->fields;
-    $credentials = $userApiInstance->credentials; // Decrypted
-
-    // Build replacement map from field definitions
-    $replacements = [];
-    foreach ($fields as $field) {
-        $value = $credentials[$field->name] ?? '';
-        $variableName = $this->getVariableNameForField($field, $category);
-        $replacements[$variableName] = $value;
-    }
-
-    // Apply replacements
-    foreach ($replacements as $search => $replace) {
-        $content = str_replace($search, $replace, $content);
-    }
-
-    return $content;
-}
-```
+**Platform alignment**: Category = platform; placeholder map is keyed by **platform file name** (e.g. `trackbox.php`), not per legacy API file. When platform-based integration files are introduced (Step 6.3), the same logic applies to one file per platform.
 
 **Testing**:
-- Test export with new API instances
-- Test all provider types
-- Test field mapping
-- Test credential injection
+- ⏳ Test export with new API instances (pending)
+- ⏳ Test all provider types (pending)
+- ⏳ Test field mapping (pending)
+- ⏳ Test credential injection (pending)
 
 ---
 
-### Step 6.2: Create API Export Service
+### Step 6.2: Create API Export Service ✅
 **Duration**: 3-4 hours  
 **File**: `app/Services/ApiExportService.php`
 
 **Tasks**:
-1. `injectCredentials($content, $filename, $instance)` method
-   - Handle credential injection logic
+1. ✅ `injectCredentials($content, $filename, $instance)` method
+   - ✅ Injects instance credentials into file content using placeholder map; returns content unchanged if no instance or no map
    
-2. `getVariableMapping($category)` method
-   - Get field-to-variable mapping for category
-   - Return mapping array
+2. ✅ `getVariableMapping($category)` method
+   - ✅ Returns field name => placeholder string for category's platform file (via `getPlatformFileName($category)` + internal `getPlaceholderMap($filename)`)
    
-3. `buildReplacementMap($instance)` method
-   - Build search/replace pairs
-   - Return array
+3. ✅ `buildReplacementMap($instance)` method
+   - ✅ Builds search => replace pairs from instance credentials and variable mapping; returns array
+
+**Integration**: `AngleTemplateController` injects `ApiExportService`, uses `getPlatformFileName()` in `getExportFilesList()`, and calls `injectCredentials()` in `modifyApiFileContent()` for the dynamic (instance) path.
 
 **Testing**:
-- Test credential injection
-- Test variable mapping
-- Test replacement map building
+- ⏳ Test credential injection (pending)
+- ⏳ Test variable mapping (pending)
+- ⏳ Test replacement map building (pending)
+
+---
+
+### Step 6.3: Platform-Based Integration Files & Export-Only-Selected ✅
+**Duration**: 8-12 hours  
+**Files**: `public/api_files/trackbox.php`, `public/api_files/backend.php`, `app/Http/Controllers/AngleTemplateController.php`, `app/Services/ApiExportService.php`
+
+**Architecture (see "Architecture: Platform-Based Integration" above)**:
+- One integration file **per platform**; file name = platform name normalized (e.g. `trackbox.php`, `novelix.php`).
+- No DB column for integration file — derive filename from `api_categories.name`.
+- APIs that share the same request/response pattern use one platform file (e.g. `trackbox.php`) with shared logic and config per form_type.
+
+**Tasks**:
+
+1. ✅ **Create platform-level integration file (`trackbox.php`)**
+   - One file with shared logic: auth headers (x-trackbox-username, x-trackbox-password, x-api-key), payload build, cURL, response/redirect, saveLead.
+   - Config array keyed by `form_type`: endpoint URL and slug for saveLead (elps, magicads, tigloo, pastile, newmedis, seamediaone).
+   - MagicAds uses extra payload fields (cid, sub, ad, term, campaign, medium); others use affClickId.
+   - Placeholders `$username`, `$password`, `$xapikey`, `ai`, `ci`, `gi` (injected at export).
+
+2. ✅ **Update `backend.php`**
+   - Map form_type → platform file: elps, magicads, tigloo, pastile, newmedis, seamediaone → `trackbox.php`; other form_types unchanged.
+   - Include only the one platform file; `trackbox.php` reads `form_type` from POST to choose endpoint/slug.
+
+3. ✅ **Export: only selected platform's file**
+   - Already done in Step 6.1: `getExportFilesList()` = fixed set + one platform file from form_type → api_category (platform) → platform filename.
+   - form_type elps/magicads/tigloo/pastile/newmedis/seamediaone → category "Trackbox" → file `trackbox.php`.
+
+4. ✅ **Placeholder / credential mapping**
+   - `apiFileToCategoryName` in controller: elps, magicads, tigloo, pastile, newmedis, seamediaone → "Trackbox".
+   - `ApiExportService::getPlaceholderMap()`: added `trackbox.php` with same field map (ai, ci, gi, username, password, api_key).
+
+5. ⏸️ **Cleanup (later)**
+   - Old per-API files (elps.php, magicads.php, tigloo.php, pastile.php, newmedis.php, seamediaone.php) left in place; backend now uses trackbox.php for those form_types. Remove or archive old files in Phase 13 if desired.
+
+**Note**: Admin must create an api_category named **Trackbox** with fields (ai, ci, gi, username, password, api_key) for export credential injection and user API instances.
+
+**Testing**:
+- ⏳ Test form submit (form_type elps, magicads, etc.) uses trackbox.php
+- ⏳ Test export ZIP contains trackbox.php when form_type is Trackbox-type
+- ⏳ Test credential injection for trackbox.php
+- ⏳ Test multiple form_types under Trackbox (elps vs magicads)
 
 ---
 
@@ -580,14 +615,9 @@ private function modifyApiFileContent($content, $filename, $userApiInstance = nu
 **File**: `database/seeders/ApiCategorySeeder.php`
 
 **Tasks**:
-1. Create seeder to seed initial API categories
-2. Create categories for all existing providers:
-   - Novelix
-   - ELPS
-   - Dark
-   - AWeber
-   - etc.
-3. Create field definitions for each category
+1. Create seeder to seed initial API categories (**platforms**)
+2. Create categories (platforms) with **names that match integration file names** (e.g. "Trackbox" → trackbox.php, "Novelix" → novelix.php). APIs that share one platform (e.g. ELPS, MagicAds, Tigloo, Pastile) can be one platform "Trackbox" with one integration file; or separate platform rows per API if each has its own file — align with Step 6.3 platform-based files.
+3. Create field definitions for each category (platform)
 4. Set proper field types, validation rules, encryption flags
 
 **Testing**:
@@ -711,13 +741,15 @@ private function syncToExternalApi($instance, $userId)
 
 **Tasks**:
 1. Update to handle both old `form_type` and new `api_category_id`
-2. Map category ID to provider file
-3. Maintain backward compatibility
+2. Resolve form's API/category to **platform** (api_category); derive **integration file name** from platform name (e.g. normalize to lowercase, spaces → underscores: "Trackbox" → `trackbox.php`). Include **only** that one platform file (see Architecture: Platform-Based Integration).
+3. If one platform file serves multiple APIs, pass API identifier (e.g. form_type or api_slug) so the platform file can select endpoint/config.
+4. Maintain backward compatibility
 
 **Testing**:
 - Test with old form_type
 - Test with new api_category_id
 - Test form submission
+- Test correct platform file is included
 
 ---
 
@@ -840,8 +872,9 @@ private function syncToExternalApi($instance, $userId)
 1. Remove old `UserApiCredential` model (after grace period)
 2. Remove old controller methods
 3. Remove old routes
-4. Archive old migrations
-5. Update documentation
+4. **Remove old per-API integration files** (e.g. elps.php, magicads.php, tigloo.php, pastile.php) once replaced by platform-level files (e.g. trackbox.php) — see Step 6.3
+5. Archive old migrations
+6. Update documentation
 
 ---
 
@@ -869,9 +902,11 @@ private function syncToExternalApi($instance, $userId)
 ## Success Criteria
 
 ### Functional:
-- [ ] Admin can create API categories with dynamic fields
-- [ ] Users can create multiple API instances per category
+- [ ] Admin can create API categories (platforms) with dynamic fields
+- [ ] Users can create multiple API instances per category (platform)
 - [ ] Export functionality works with new structure
+- [ ] **Export includes only the integration file for the platform selected in the form** (plus fixed set: config, backend, thank_you, OTP, etc.)
+- [ ] **One integration file per platform**; file name = platform name (no DB column)
 - [ ] External API sync works correctly
 - [ ] All existing data migrated successfully
 - [ ] Backward compatibility maintained
@@ -898,6 +933,11 @@ private function syncToExternalApi($instance, $userId)
 ### Phase 5 Progress: ✅ COMPLETED
 - [x] Step 5.1: Refactor ApiFormFields Component ✅
 - [x] Step 5.2: Create Dynamic Form Generator ✅
+
+### Phase 6 Progress: ✅ COMPLETED
+- [x] Step 6.1: Update Export Logic ✅
+- [x] Step 6.2: Create API Export Service ✅
+- [x] Step 6.3: Platform-Based Integration Files & Export-Only-Selected ✅
 
 ### Performance:
 - [ ] API instance creation < 500ms
@@ -931,15 +971,17 @@ private function syncToExternalApi($instance, $userId)
 ## Notes
 
 1. **Backward Compatibility**: Maintain old system during transition period
-2. **Gradual Rollout**: Consider feature flag for gradual user migration
-3. **Documentation**: Update all relevant documentation
-4. **Training**: Provide training for admin users
-5. **Support**: Have support team ready for user questions
+2. **Platform-Based Integration**: api_categories = platforms; one PHP file per platform; file name = platform name (normalized). No integration_file column.
+3. **Export**: Export only the selected platform's integration file + fixed set (config, backend, thank_you, OTP, etc.); do not export all API files.
+4. **Gradual Rollout**: Consider feature flag for gradual user migration
+5. **Documentation**: Update all relevant documentation
+6. **Training**: Provide training for admin users
+7. **Support**: Have support team ready for user questions
 
 ---
 
-**Document Version**: 1.0  
-**Created**: 2024  
+**Document Version**: 1.1  
+**Updated**: Synced with platform-based integration architecture and export-only-selected-file  
 **Status**: Ready for Implementation
 
 

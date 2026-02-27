@@ -7,7 +7,10 @@ use App\Models\AngleTemplate;
 use App\Models\ExtraContent;
 use App\Models\Template;
 use App\Models\TemplateContent;
+use App\Models\ApiCategory;
 use App\Models\UserApiCredential;
+use App\Models\UserApiInstance;
+use App\Services\ApiExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +22,11 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class AngleTemplateController extends Controller
 {
+    public function __construct(
+        private ApiExportService $apiExportService
+    ) {
+    }
+
     public function anglesApplying(Request $request)
     {
         $angles_ids = json_decode($request->angles_ids);
@@ -1794,33 +1802,40 @@ class AngleTemplateController extends Controller
 
         $zip->addFromString('index.php', $fullHtml);
 
-        // Add files from public/api_files directory with text modifications
+        // Add only fixed set + selected platform's integration file (platform-based export)
         $publicFilesPath = public_path('api_files');
         if (is_dir($publicFilesPath)) {
-            // Get current user's API credentials
-            $userApiCredentials = Auth::user()->apiCredential;
+            $user = Auth::user();
+            $userApiCredentials = $user->apiCredential;
+            $filesToExport = $this->getExportFilesList($publicFilesPath, $fullHtml);
 
-            $files = scandir($publicFilesPath);
-            foreach ($files as $file) {
-                if ($file !== '.' && $file !== '..') {
-                    $filePath = $publicFilesPath . DIRECTORY_SEPARATOR . $file;
-                    if (is_file($filePath)) {
-                        try {
-                            // Read file content
-                            $fileContent = file_get_contents($filePath);
-
-                            // Modify the content based on your requirements
-                            $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiCredentials, $fullHtml);
-
-                            // Add modified content to zip under 'api_files/' directory
-                            $zip->addFromString('api_files/' . $file, $modifiedContent);
-                        } catch (\Exception $e) {
-                            // If there's an error processing a file, skip it and continue
-                            // Log error if needed: \Log::error('Error processing file during export: ' . $file . ' - ' . $e->getMessage());
-                            // Still add the original file content to avoid breaking export
-                            $zip->addFromString('api_files/' . $file, file_get_contents($filePath));
-                        }
+            // Get form_type from HTML and resolve to UserApiInstance once
+            $formType = $this->getFormTypeFromHtml($fullHtml);
+            $userApiInstance = null;
+            if ($formType !== null && $formType !== '') {
+                $categoryName = self::$apiFileToCategoryName[$formType] ?? null;
+                if ($categoryName) {
+                    $category = ApiCategory::where('name', $categoryName)->first();
+                    if ($category) {
+                        $userApiInstance = $user->getApiInstanceByCategory($category->id);
+                        // Load relationships needed for credential injection
+                        $userApiInstance?->load(['category.fields', 'values.field']);
                     }
+                }
+            }
+
+            foreach ($filesToExport as $file) {
+                $filePath = $publicFilesPath . DIRECTORY_SEPARATOR . $file;
+                if (!is_file($filePath)) {
+                    continue;
+                }
+                try {
+                    $fileContent = file_get_contents($filePath);
+                    // Use the resolved instance for platform files (will be null for non-platform files)
+                    $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiInstance, $fullHtml, $userApiCredentials);
+                    $zip->addFromString('api_files/' . $file, $modifiedContent);
+                } catch (\Exception $e) {
+                    $zip->addFromString('api_files/' . $file, file_get_contents($filePath));
                 }
             }
         }
@@ -1897,18 +1912,117 @@ class AngleTemplateController extends Controller
         return sendResponse(true, 'Landing Page renamed successfully.', $angleTemplate);
     }
 
+    /** Files always included in export (platform-based: only these + selected platform file) */
+    private static $exportFixedFiles = [
+        'config.php',
+        'backend.php',
+        'thank_you.php',
+        'save_lead_handler.php',
+        'otp_cleanup.php',
+        'otp_generate.php',
+        'otp_verify.php',
+        'otp_regenerate.php',
+        'tokens.json',
+    ];
+
+    /** Map form_type to api_categories.name (platform); multiple form_types can map to one platform e.g. Trackbox */
+    private static $apiFileToCategoryName = [
+        'aweber' => 'AWeber',
+        'electra' => 'Electra',
+        'dark' => 'Dark',
+        'elps' => 'Trackbox',
+        'meeseeksmedia' => 'Meeseeksmedia',
+        'novelix' => 'Novelix',
+        'tigloo' => 'Trackbox',
+        'koi' => 'Koi',
+        'pastile' => 'Trackbox',
+        'riceleads' => 'Riceleads',
+        'newmedis' => 'Trackbox',
+        'seamediaone' => 'Trackbox',
+        'nauta' => 'Nauta',
+        'irev' => 'iRev',
+        'magicads' => 'Trackbox',
+        'adzentric' => 'Adzentric',
+    ];
+
+    /**
+     * Get form_type from exported HTML (input name="form_type").
+     */
+    private function getFormTypeFromHtml(?string $fullHtml): ?string
+    {
+        if (!$fullHtml) {
+            return null;
+        }
+        try {
+            $crawler = new Crawler($fullHtml);
+            $node = $crawler->filter('input[name="form_type"]');
+            return $node->count() > 0 ? trim($node->attr('value') ?? '') : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * List of api_files to include in export: fixed set + selected platform file only.
+     *
+     * @return string[]
+     */
+    private function getExportFilesList(string $publicFilesPath, ?string $fullHtml): array
+    {
+        $list = self::$exportFixedFiles;
+
+        $formType = $this->getFormTypeFromHtml($fullHtml);
+        if ($formType !== null && $formType !== '') {
+            $categoryName = self::$apiFileToCategoryName[$formType] ?? null;
+            if ($categoryName) {
+                $category = ApiCategory::where('name', $categoryName)->first();
+                if ($category) {
+                    $platformFile = $this->apiExportService->getPlatformFileName($category);
+                    $path = $publicFilesPath . DIRECTORY_SEPARATOR . $platformFile;
+                    if (is_file($path) && !in_array($platformFile, $list, true)) {
+                        $list[] = $platformFile;
+                    }
+                }
+            }
+        }
+
+        return $list;
+    }
+
     /**
      * Modify API file content before adding to zip
      *
      * @param string $content The original file content
      * @param string $filename The name of the file being processed
-     * @param \App\Models\UserApiCredential|null $userApiCredentials The user's API credentials
-     * @param string|null $fullHTML The full HTML content to extract OTP service info
+     * @param \App\Models\UserApiInstance|null $userApiInstance User's API instance for this file's category
+     * @param string|null $fullHTML The full HTML content (for config base URL, OTP, etc.)
+     * @param \App\Models\UserApiCredential|null $userApiCredentials Legacy credentials (fallback)
      * @return string The modified content
      */
-    private function modifyApiFileContent($content, $filename, $userApiCredentials = null, $fullHTML = null)
+    private function modifyApiFileContent($content, $filename, $userApiInstance = null, $fullHTML = null, $userApiCredentials = null)
     {
-        // If no credentials provided, return content as-is
+        // config.php: base URL from form (no credentials needed)
+        if ($filename === 'config.php' && $fullHTML) {
+            $crawler = new Crawler($fullHTML);
+            $node = $crawler->filter('input[name="project_directory"]');
+            $value = $node->count() > 0 ? $node->attr('value') : '';
+            if ($value) {
+                $content = str_replace('http://localhost/myAppFolder', $value, $content);
+            }
+            return $content;
+        }
+
+        // PHP files: credential injection
+        if (pathinfo($filename, PATHINFO_EXTENSION) !== 'php') {
+            return $content;
+        }
+
+        // Dynamic path: UserApiInstance via ApiExportService
+        if ($userApiInstance) {
+            return $this->apiExportService->injectCredentials($content, $filename, $userApiInstance);
+        }
+
+        // Legacy path: no instance or file not in placeholder map — use legacy credentials if provided
         if (!$userApiCredentials) {
             return $content;
         }
@@ -2023,17 +2137,6 @@ class AngleTemplateController extends Controller
                     $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
                     $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
                     $content = str_replace("PROJECTURL/", env('APP_URL') . "/images/", $content);
-                    break;
-
-                case 'config.php':
-                    $crawler = new Crawler($fullHTML);
-                    $node = $crawler->filter('input[name="project_directory"]');
-                    $value = $node->count() > 0 ? $node->attr('value') : '';
-                    // logger("TEST: " . $value);
-                    // Update BASE_URL to current domain if needed
-                    // $baseUrl = request()->getSchemeAndHttpHost();
-                    if ($value)
-                        $content = str_replace('http://localhost/myAppFolder', $value, $content);
                     break;
 
                 case 'otp_generate.php':

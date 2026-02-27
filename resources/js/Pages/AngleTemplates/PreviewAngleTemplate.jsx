@@ -150,6 +150,7 @@ export default function Dashboard({ id }) {
         { label: 'AdZentric', value: 'https://ldlgapi.com/leads' },
     ];
 
+    // All API types (form_type values); used to filter by user's instances
     const apiTypes = [
         { label: 'Elps', value: 'elps' },
         { label: 'Novelix', value: 'novelix' },
@@ -166,6 +167,19 @@ export default function Dashboard({ id }) {
         { label: 'MagicAds', value: 'magicads' },
         { label: 'AdZentric', value: 'adzentric' },
     ];
+
+    // form_type → platform (category) name; must match backend for export
+    const formTypeToCategoryName = {
+        aweber: 'AWeber', electra: 'Electra', dark: 'Dark', elps: 'Trackbox', meeseeksmedia: 'Meeseeksmedia',
+        novelix: 'Novelix', tigloo: 'Trackbox', koi: 'Koi', pastile: 'Trackbox', riceleads: 'Riceleads',
+        newmedis: 'Trackbox', seamediaone: 'Trackbox', nauta: 'Nauta', irev: 'iRev', magicads: 'Trackbox', adzentric: 'Adzentric',
+    };
+
+    // Platform (category) name → default form_type (for platforms with multiple form_types, pick one)
+    const categoryNameToFormType = {
+        'AWeber': 'aweber', 'Electra': 'electra', 'Dark': 'dark', 'Trackbox': 'elps', 'Meeseeksmedia': 'meeseeksmedia',
+        'Novelix': 'novelix', 'Koi': 'koi', 'Riceleads': 'riceleads', 'Nauta': 'nauta', 'iRev': 'irev', 'Adzentric': 'adzentric',
+    };
 
     const commonInputTypes = [
         "text",
@@ -631,6 +645,8 @@ export default function Dashboard({ id }) {
     const [selectedFormLanguage, setSelectedFormLanguage] = useState(false);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
     const [userOtpServices, setUserOtpServices] = useState([]);
+    // User's API instances for dropdown (from user_api_instances table)
+    const [userApiInstances, setUserApiInstances] = useState([]);
 
     // Replace functionality state
     const [replaceModalOpen, setReplaceModalOpen] = useState(false);
@@ -897,6 +913,63 @@ export default function Dashboard({ id }) {
 
         loadUserOtpServices();
     }, []);
+
+            // Fetch this user's API instances from user_api_instances table for dropdown
+            useEffect(() => {
+                async function loadUserApiInstances() {
+                    try {
+                        const response = await fetch(route('user.api.instances.index'), {
+                            method: 'GET',
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
+                        });
+                        if (!response.ok) {
+                            console.error('Failed to fetch API instances:', response.status);
+                            return;
+                        }
+                        const result = await response.json();
+                        if (!result.success || result.data == null) {
+                            console.warn('API instances response invalid:', result);
+                            return;
+                        }
+                        const raw = result.data;
+                        console.log('Raw API instances response:', raw);
+                        const arr = Array.isArray(raw) ? raw : (typeof raw === 'object' ? Object.values(raw) : []);
+                        const instances = [];
+                        arr.forEach((group) => {
+                            if (!group || !group.category || !group.instances) {
+                                console.warn('Invalid group structure:', group);
+                                return;
+                            }
+                            const categoryName = group.category.name;
+                            console.log('Processing category:', categoryName, 'with instances:', group.instances.length);
+                            // Case-insensitive lookup for formType
+                            const formType = categoryNameToFormType[categoryName] || 
+                                           categoryNameToFormType[categoryName.toLowerCase()] ||
+                                           categoryNameToFormType[categoryName.charAt(0).toUpperCase() + categoryName.slice(1).toLowerCase()];
+                            if (!formType) {
+                                console.warn('No formType mapping for category:', categoryName, 'Available keys:', Object.keys(categoryNameToFormType));
+                                return;
+                            }
+                            group.instances.forEach((instance) => {
+                                if (instance && instance.name) {
+                                    instances.push({
+                                        id: instance.id,
+                                        name: instance.name,
+                                        categoryName: categoryName,
+                                        formType: formType,
+                                    });
+                                }
+                            });
+                        });
+                        console.log('Loaded user API instances:', instances);
+                        setUserApiInstances(instances);
+                    } catch (err) {
+                        console.error('Error loading user API instances:', err);
+                    }
+                }
+                loadUserApiInstances();
+            }, []);
 
     useEffect(() => {
         function handleMouseEnter(e) {
@@ -2723,32 +2796,44 @@ export default function Dashboard({ id }) {
                                                     <Box mt={2} mb={2}>
                                                         <FormControl fullWidth>
                                                             <InputLabel id="demo-simple-select-label" shrink>
-                                                                Select API
+                                                                Select API Instance
                                                             </InputLabel>
                                                             <MuiSelect
                                                                 labelId="demo-simple-select-label"
-                                                                value={formManagement.apiType}
-                                                                label="Select API"
+                                                                value={userApiInstances.find((inst) => inst.formType === formManagement.apiType) ? formManagement.apiType : ''}
+                                                                label="Select API Instance"
                                                                 size="small"
                                                                 onChange={(e) => {
                                                                     setFormManagement({ ...formManagement, apiType: e.target.value })
                                                                 }}
                                                                 displayEmpty
-                                                                renderValue={(value) =>
-                                                                    !value ? <Typography color="grey">Select API...</Typography> : value
-                                                                }
+                                                                renderValue={(value) => {
+                                                                    if (!value) return <Typography color="grey">Select API Instance...</Typography>;
+                                                                    const instance = userApiInstances.find((inst) => inst.formType === value);
+                                                                    return instance ? instance.name : value;
+                                                                }}
                                                             >
-                                                                {apiTypes.map((item, index) => (
-                                                                    <MenuItem
-                                                                        className="doNotAct"
-                                                                        key={index}
-                                                                        value={item.value}
-                                                                        sx={{ textTransform: 'capitalize' }}
-                                                                    >
-                                                                        {item.label}
+                                                                {userApiInstances.length === 0 ? (
+                                                                    <MenuItem disabled>
+                                                                        <Typography color="textSecondary">Add an API in Profile → API Platforms</Typography>
                                                                     </MenuItem>
-                                                                ))}
+                                                                ) : (
+                                                                    userApiInstances.map((instance) => (
+                                                                        <MenuItem
+                                                                            className="doNotAct"
+                                                                            key={instance.id}
+                                                                            value={instance.formType}
+                                                                        >
+                                                                            {instance.name}
+                                                                        </MenuItem>
+                                                                    ))
+                                                                )}
                                                             </MuiSelect>
+                                                            {userApiInstances.length === 0 && (
+                                                                <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
+                                                                    Only API instances you created in Profile → API Platforms are shown here.
+                                                                </Typography>
+                                                            )}
                                                         </FormControl>
                                                         <Box mt={2}>
                                                             <TextField
