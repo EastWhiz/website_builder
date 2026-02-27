@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'firstname' => getVal($postData, 'firstname'),
         'lastname' => getVal($postData, 'lastname'),
         'email' => getVal($postData, 'email'),
-        'password' => 'hardcodedpassword', // Ensure you handle passwords securely!
+        'password' => 'G7pXr2kQ', // Ensure you handle passwords securely!
         'phone' => getVal($postData, 'phone'),
         'so' => $dynamicSO,
         'lg' => 'EN',
