@@ -13,13 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Platform config: form_type => slug for saveLead (endpoint comes from credentials)
-$IREV_API_CONFIG = [
-    'nauta' => ['slug' => 'nauta'],
-    'koi' => ['slug' => 'koi'],
-    'meeseeksmedia' => ['slug' => 'meeseeksmedia'],
-];
-
 function getVal($arr, $key)
 {
     return isset($arr[$key]) ? $arr[$key] : '';
@@ -32,13 +25,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
 
-    $formType = $postData['form_type'] ?? '';
-    if (!isset($IREV_API_CONFIG[$formType])) {
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Invalid form type for iRev: ' . $formType));
+    $formType = trim(getVal($postData, 'form_type'));
+    $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
+    $slug = $saveLeadSlug !== '' ? $saveLeadSlug : $formType;
+    if ($slug === '') {
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('form_type or save_lead_slug is required'));
         exit();
     }
-
-    $config = $IREV_API_CONFIG[$formType];
 
     // Get endpoint from injected credentials (set during export)
     $endpoint = "";
@@ -75,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'message' => 'Lead processed successfully (self-hosted)',
             'is_self_hosted' => true
         ];
-        saveLead($postData, $getData, $responseArray, $config['slug'], 'success', $data);
+        saveLead($postData, $getData, $responseArray, $slug, 'success', $data);
         header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
         exit();
     }
@@ -114,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($httpCode !== 200 || !isset($responseArray['lead_uuid'])) {
         $leadSaveStatus = 'failure';
     }
-    saveLead($postData, $getData, $responseArray, $config['slug'], $leadSaveStatus, $data);
+    saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
 
     // Send data to Aweber for adding the subscriber
     $aweberResponse = sendToAweber($postData);

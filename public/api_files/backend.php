@@ -22,8 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicPid = $getData['pid'] ?? '';
     $dynamicSO = $getData['so'] ?? '';
 
-    // Get the form type to determine which API file to include
-    $formType = $postData['form_type']; // Default to novelix
+    // Step 10.2: Support both form_type (primary) and api_category_id. Routing uses form_type to
+    // resolve platform file; api_category_id and user_api_instance_id are passed through in POST.
+    $formType = isset($postData['form_type']) ? trim((string) $postData['form_type']) : '';
 
     // Map form types to platform integration files (one file per platform; Trackbox handles multiple APIs)
     $apiFiles = [
@@ -45,15 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'adzentric' => 'adzentric.php',
     ];
 
-    // Check if the form type has a corresponding API file
-    if (!isset($apiFiles[$formType])) {
-        // echo json_encode([
-        //     'status' => false,
-        //     'message' => 'Invalid form type specified: ' . $formType
-        // ]);
-        // exit;
-
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Invalid form type specified: ' . $formType));
+    // Require form_type for file selection (api_category_id is passed through in POST for platform files)
+    if ($formType === '' || !isset($apiFiles[$formType])) {
+        $msg = $formType === '' ? 'Form type (form_type) is required.' : 'Invalid form type specified: ' . $formType;
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($msg));
         exit();
     }
 

@@ -715,41 +715,43 @@ private function syncToExternalApi($instance, $userId)
 
 ## Phase 10: Form Type Detection Update (Week 7-8)
 
-### Step 10.1: Update Form HTML Generation
+### Step 10.1: Update Form HTML Generation ✅ COMPLETED
 **Duration**: 2-3 hours  
+**Status**: ✅ Completed  
 **Files**: 
 - `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
 - `resources/js/Pages/Angles/PreviewAngle.jsx`
 
 **Tasks**:
-1. Update form management to store `api_category_id` instead of `apiType`
-2. Update form HTML generation:
-   - Change `form_type` hidden field to use category slug
-   - Or add new `api_category_id` hidden field
-3. Update form editing to load API category
+1. ✅ Update form management to store `apiCategoryId` and `apiInstanceId` in addition to `apiType` (form_type kept for backward compatibility)
+2. ✅ Update form HTML generation:
+   - Keep `form_type` hidden field
+   - Add `api_category_id` and `user_api_instance_id` hidden fields
+3. ✅ When user selects an API instance, set apiType, apiCategoryId, and apiInstanceId from the selected instance (instances list includes categoryId from API)
+4. ✅ When parsing form for edit: read api_category_id and user_api_instance_id from hidden inputs and set formManagement; exclude these names from visible inputs list
 
 **Testing**:
-- Test form creation with API category
-- Test form editing
-- Test form submission
+- ⏳ Test form creation with API category (pending)
+- ⏳ Test form editing (pending)
+- ⏳ Test form submission (pending)
 
 ---
 
-### Step 10.2: Update Backend Router
+### Step 10.2: Update Backend Router ✅ COMPLETED
 **Duration**: 2-3 hours  
+**Status**: ✅ Completed  
 **File**: `public/api_files/backend.php`
 
 **Tasks**:
-1. Update to handle both old `form_type` and new `api_category_id`
-2. Resolve form's API/category to **platform** (api_category); derive **integration file name** from platform name (e.g. normalize to lowercase, spaces → underscores: "Trackbox" → `trackbox.php`). Include **only** that one platform file (see Architecture: Platform-Based Integration).
-3. If one platform file serves multiple APIs, pass API identifier (e.g. form_type or api_slug) so the platform file can select endpoint/config.
-4. Maintain backward compatibility
+1. ✅ Handle both old `form_type` and new `api_category_id`: use `form_type` for file selection; read and trim `form_type`; `api_category_id` and `user_api_instance_id` are passed through in `$_POST` to the included platform file.
+2. ✅ Resolve form's API to platform file via existing `$apiFiles` map (form_type → platform file); only that one platform file is included.
+3. ✅ Platform files (e.g. trackbox.php, irev.php) already receive `form_type` in POST to select endpoint/slug; no change needed there.
+4. ✅ Backward compatibility: requests with only `form_type` work as before; clear error when `form_type` is missing.
 
 **Testing**:
-- Test with old form_type
-- Test with new api_category_id
-- Test form submission
-- Test correct platform file is included
+- ⏳ Test with old form_type (pending)
+- ⏳ Test form submission (pending)
+- ⏳ Test correct platform file is included (pending)
 
 ---
 
@@ -938,6 +940,15 @@ private function syncToExternalApi($instance, $userId)
 - [x] Step 6.1: Update Export Logic ✅
 - [x] Step 6.2: Create API Export Service ✅
 - [x] Step 6.3: Platform-Based Integration Files & Export-Only-Selected ✅
+
+### Execution Order for Phases 7–10 (Current Plan)
+
+To keep the rollout simple and focused on current development needs, the **implementation order** for the next phases is:
+
+1. **Phase 10: Form Type Detection Update** (forms + `backend.php` router)
+2. **Phase 9: External API Sync Updates** (make sync work with `UserApiInstance`)
+3. **Phase 8: Backward Compatibility Layer** (compat service + old controllers)
+4. **Phase 7: Data Migration** (can be done later once everything is stable)
 
 ### Performance:
 - [ ] API instance creation < 500ms

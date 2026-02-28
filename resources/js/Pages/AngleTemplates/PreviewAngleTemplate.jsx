@@ -576,6 +576,9 @@ export default function Dashboard({ id }) {
         submitTextColor: "",
         submitBackgroundColor: "#ff7800",
         apiType: "elps",
+        apiCategoryId: null,
+        apiInstanceId: null,
+        saveLeadSlug: "",
         project_directory: "",
         otp_service_id: "",
         otp_modal_heading: "",
@@ -845,7 +848,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id") return null;
+                    if (!name || name == "form_type" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -869,6 +872,9 @@ export default function Dashboard({ id }) {
                 submitTextColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.color))}` || "",
                 submitBackgroundColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.backgroundColor))}` || "",
                 apiType: formEl.getAttribute("data-api-type"),
+                apiCategoryId: formEl.querySelector('[name="api_category_id"]')?.value || null,
+                apiInstanceId: formEl.querySelector('[name="user_api_instance_id"]')?.value || null,
+                saveLeadSlug: formEl.querySelector('[name="save_lead_slug"]')?.value || '',
                 project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
                 otp_service_id: formEl.querySelector('[name="otp_service_id"]')?.value || '',
                 otp_modal_heading: formEl.querySelector('[name="otp_modal_heading"]')?.value || '',
@@ -956,6 +962,7 @@ export default function Dashboard({ id }) {
                                     instances.push({
                                         id: instance.id,
                                         name: instance.name,
+                                        categoryId: group.category.id,
                                         categoryName: categoryName,
                                         formType: formType,
                                     });
@@ -1377,6 +1384,9 @@ export default function Dashboard({ id }) {
             });
 
             formHTML += ` <input type="hidden" name="form_type" value="${formManagement.apiType}" />`;
+            formHTML += ` <input type="hidden" name="api_category_id" value="${formManagement.apiCategoryId || ''}" />`;
+            formHTML += ` <input type="hidden" name="user_api_instance_id" value="${formManagement.apiInstanceId || ''}" />`;
+            formHTML += ` <input type="hidden" name="save_lead_slug" value="${(formManagement.saveLeadSlug || formManagement.apiType || '').replace(/"/g, '&quot;')}" />`;
             formHTML += ` <input type="hidden" name="web_builder_user_id" value="${mainQuery.auth.user.id}" />`;
             formHTML += ` <input type="hidden" name="project_directory" value="${formManagement.project_directory}" />`;
             formHTML += ` <input type="hidden" name="sales_page_id" value="SP${id || ''}" />`;
@@ -1655,6 +1665,27 @@ export default function Dashboard({ id }) {
 
                 // Get the updated HTML string
                 mainHTMLDynamic = tempDivInside.innerHTML;
+
+                // Log form elements/data saved with the template
+                const forms = tempDivInside.querySelectorAll('form');
+                forms.forEach((form, formIndex) => {
+                    const inputs = form.querySelectorAll('input, select, textarea');
+                    const formDataSaved = {
+                        formIndex,
+                        formType: form.querySelector('[name="form_type"]')?.value ?? null,
+                        apiCategoryId: form.querySelector('[name="api_category_id"]')?.value ?? null,
+                        userApiInstanceId: form.querySelector('[name="user_api_instance_id"]')?.value ?? null,
+                        saveLeadSlug: form.querySelector('[name="save_lead_slug"]')?.value ?? null,
+                        projectDirectory: form.querySelector('[name="project_directory"]')?.value ?? null,
+                        otpServiceId: form.querySelector('[name="otp_service_id"]')?.value ?? null,
+                        fields: Array.from(inputs).map((el) => ({
+                            name: el.getAttribute('name'),
+                            type: el.getAttribute('type') || el.tagName.toLowerCase(),
+                            value: (el.value || '').substring(0, 80),
+                        })),
+                    };
+                    console.log('[Save Template] Form data saved with form:', formDataSaved);
+                });
 
                 formData.append("last_iteration", isLastIteration);
                 formData.append("asset_unique_uuid", assetUUID);
@@ -2800,16 +2831,25 @@ export default function Dashboard({ id }) {
                                                             </InputLabel>
                                                             <MuiSelect
                                                                 labelId="demo-simple-select-label"
-                                                                value={userApiInstances.find((inst) => inst.formType === formManagement.apiType) ? formManagement.apiType : ''}
+                                                                value={formManagement.apiInstanceId != null && formManagement.apiInstanceId !== '' ? String(formManagement.apiInstanceId) : ''}
                                                                 label="Select API Instance"
                                                                 size="small"
                                                                 onChange={(e) => {
-                                                                    setFormManagement({ ...formManagement, apiType: e.target.value })
+                                                                    const value = e.target.value;
+                                                                    const selected = userApiInstances.find((inst) => String(inst.id) === value) || null;
+                                                                    const slug = selected ? String(selected.name).replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '') || (selected ? selected.formType : '') : '';
+                                                                    setFormManagement({
+                                                                        ...formManagement,
+                                                                        apiType: selected ? selected.formType : '',
+                                                                        apiCategoryId: selected ? selected.categoryId : null,
+                                                                        apiInstanceId: selected ? selected.id : null,
+                                                                        saveLeadSlug: slug || (selected ? selected.formType : ''),
+                                                                    });
                                                                 }}
                                                                 displayEmpty
                                                                 renderValue={(value) => {
                                                                     if (!value) return <Typography color="grey">Select API Instance...</Typography>;
-                                                                    const instance = userApiInstances.find((inst) => inst.formType === value);
+                                                                    const instance = userApiInstances.find((inst) => String(inst.id) === value);
                                                                     return instance ? instance.name : value;
                                                                 }}
                                                             >
@@ -2822,7 +2862,7 @@ export default function Dashboard({ id }) {
                                                                         <MenuItem
                                                                             className="doNotAct"
                                                                             key={instance.id}
-                                                                            value={instance.formType}
+                                                                            value={String(instance.id)}
                                                                         >
                                                                             {instance.name}
                                                                         </MenuItem>

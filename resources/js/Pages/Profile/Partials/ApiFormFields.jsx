@@ -113,20 +113,20 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         setSubmitting(true);
         try {
             const res = await fetch(route('user.api.instances.store'), {
-                method: 'POST',
+            method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify({
+            body: JSON.stringify({
                     api_category_id: parseInt(addPlatformId, 10),
                     name: formName,
                     values: formValues,
-                }),
+            }),
             });
             const result = await res.json();
-            if (result.success) {
+                if (result.success) {
                 Swal.fire({ title: 'Success!', text: result.message, icon: 'success', timer: 1500, showConfirmButton: false });
                 closeModals();
                 loadData();
-            } else {
+                } else {
                 setFormErrors(result.errors || {});
                 Swal.fire({ title: 'Error', text: result.message || 'Validation failed.', icon: 'error' });
             }
@@ -177,9 +177,9 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
             confirmButtonText: 'Yes, delete',
         }).then(async (result) => {
             if (!result.isConfirmed) return;
-            try {
+                try {
                 const res = await fetch(route('user.api.instances.destroy', { id: instance.id }), {
-                    method: 'DELETE',
+                        method: 'DELETE',
                     headers: getHeaders(),
                 });
                 const data = await res.json();
@@ -187,7 +187,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                     Swal.fire({ title: 'Deleted!', text: data.message, icon: 'success', timer: 1500, showConfirmButton: false });
                     loadData();
                     if (expandedPlatformId === categoryId) setExpandedPlatformId(null);
-                } else {
+                    } else {
                     Swal.fire({ title: 'Error', text: data.message || 'Delete failed.', icon: 'error' });
                 }
             } catch (e) {
@@ -212,22 +212,22 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         );
     }
 
-    return (
+                return (
         <section className={className}>
             <div className="flex items-center justify-between mb-4">
-                <div>
+                        <div>
                     <h3 className="text-lg font-medium text-gray-900">API Platforms</h3>
                     <p className="mt-1 text-sm text-gray-500">
                         Platforms under which you have created APIs. Click a row to expand and manage your APIs.
-                    </p>
-                </div>
+                            </p>
+                        </div>
                 <PrimaryButton onClick={openAddModal}>Add New API</PrimaryButton>
-            </div>
+                    </div>
 
             {groupedData.length === 0 ? (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
                     You have not added any APIs yet. Click &quot;Add New API&quot; to create one.
-                </div>
+                        </div>
             ) : (
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -245,7 +245,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                         <tbody className="divide-y divide-gray-200 bg-white">
                             {groupedData.map((group) => {
                                 const isExpanded = expandedPlatformId === group.category.id;
-                                return (
+                return (
                                     <Fragment key={group.category.id}>
                                         <tr
                                             key={group.category.id}
@@ -314,7 +314,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                 ))}
                                                             </tbody>
                                                         </table>
-                                                    </div>
+                        </div>
                                                 </td>
                                             </tr>
                                         )}
@@ -323,7 +323,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                             })}
                         </tbody>
                     </table>
-                </div>
+                        </div>
             )}
 
             {/* Add New API modal */}
@@ -334,8 +334,8 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                         <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
                             <h3 className="text-lg font-medium text-gray-900 mb-4">Add New API</h3>
                             <form onSubmit={handleAdd}>
-                                <div className="space-y-4">
-                                    <div>
+                    <div className="space-y-4">
+                        <div>
                                         <InputLabel htmlFor="add_platform" value="API Platform" />
                                         <select
                                             id="add_platform"
@@ -358,20 +358,20 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                         {categories.length === 0 && (
                                             <p className="mt-1 text-xs text-gray-500">No active platforms. Ask an admin to add some.</p>
                                         )}
-                                    </div>
+                        </div>
                                     {selectedCategoryForAdd && (
                                         <>
-                                            <div>
+                        <div>
                                                 <InputLabel htmlFor="add_api_name" value="API Name" />
-                                                <TextInput
+                            <TextInput
                                                     id="add_api_name"
-                                                    className="mt-1 block w-full"
+                                className="mt-1 block w-full"
                                                     value={formName}
                                                     onChange={(e) => setFormName(e.target.value)}
                                                     required
                                                 />
                                                 <InputError className="mt-2" message={formErrors.name} />
-                                            </div>
+                        </div>
                                             <DynamicApiForm
                                                 fields={selectedCategoryForAdd.fields || []}
                                                 values={formValues}
@@ -380,7 +380,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                             />
                                         </>
                                     )}
-                                </div>
+                        </div>
                                 <div className="mt-6 flex gap-3">
                                     <PrimaryButton type="submit" disabled={submitting || !addPlatformId}>
                                         {submitting ? 'Creating...' : 'Create'}
@@ -388,11 +388,11 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                     <SecondaryButton type="button" onClick={closeModals}>
                                         Cancel
                                     </SecondaryButton>
-                                </div>
+                        </div>
                             </form>
                         </div>
                     </div>
-                </div>
+                        </div>
             )}
 
             {/* Edit API modal */}
@@ -421,7 +421,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                     <SecondaryButton type="button" onClick={closeModals}>
                                         Cancel
                                     </SecondaryButton>
-                                </div>
+                            </div>
                             </form>
                         </div>
                     </div>

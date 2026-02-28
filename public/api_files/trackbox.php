@@ -12,16 +12,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Platform config: form_type => slug for saveLead (endpoint comes from credentials)
-$TRACKBOX_API_CONFIG = [
-    'elps' => ['slug' => 'elps'],
-    'magicads' => ['slug' => 'magicads'],
-    'tigloo' => ['slug' => 'tigloo'],
-    'pastile' => ['slug' => 'pastile'],
-    'newmedis' => ['slug' => 'newmedis'],
-    'seamediaone' => ['slug' => 'seamediaone'],
-];
-
 function getVal($arr, $key)
 {
     return isset($arr[$key]) ? $arr[$key] : '';
@@ -34,14 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
 
-    $formType = $postData['form_type'] ?? '';
-    if (!isset($TRACKBOX_API_CONFIG[$formType])) {
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Invalid form type for Trackbox: ' . $formType));
+    $formType = trim(getVal($postData, 'form_type'));
+    $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
+    $slug = $saveLeadSlug !== '' ? $saveLeadSlug : $formType;
+    if ($slug === '') {
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('form_type or save_lead_slug is required'));
         exit();
     }
 
-    $config = $TRACKBOX_API_CONFIG[$formType];
-    
     // Get endpoint from injected credentials (set during export)
     $endpoint = "";
     if (empty($endpoint)) {
@@ -83,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true");
     if ($isSelfHosted) {
         $responseArray = ['status' => true, 'message' => 'Lead processed successfully (self-hosted)', 'is_self_hosted' => true];
-        saveLead($postData, $getData, $responseArray, $config['slug'], 'success', $data);
+        saveLead($postData, $getData, $responseArray, $slug, 'success', $data);
         header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
         exit();
     }
@@ -109,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $responseArray = json_decode($response, true);
     $leadSaveStatus = ($httpCode === 200 && isset($responseArray['status']) && $responseArray['status']) ? 'success' : 'failure';
-    saveLead($postData, $getData, $responseArray, $config['slug'], $leadSaveStatus, $data);
+    saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
 
     if (function_exists('sendToAweber')) {
         sendToAweber($postData);
