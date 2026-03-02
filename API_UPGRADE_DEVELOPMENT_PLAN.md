@@ -629,40 +629,42 @@ This plan outlines the step-by-step process to upgrade the API settings system f
 
 ## Phase 8: Backward Compatibility Layer (Week 6-7)
 
-### Step 8.1: Create Compatibility Service
+### Step 8.1: Create Compatibility Service ✅ COMPLETED
 **Duration**: 3-4 hours  
+**Status**: ✅ Completed  
 **File**: `app/Services/ApiCompatibilityService.php`
 
 **Tasks**:
-1. `getLegacyCredentials($userId, $provider)` method
-   - Try new structure first (get instance by provider)
-   - Convert to old format
-   - Fallback to old structure if needed
+1. ✅ `getLegacyCredentials($userId, $provider)` method
+   - Tries new structure first: maps provider to category, gets user's first active UserApiInstance for that category
+   - Converts to legacy format via convertToLegacyFormat
+   - Fallback to UserApiCredential::where('user_id', $userId)->first() if no instance found
    
-2. `convertToLegacyFormat($instance, $provider)` method
-   - Convert new instance to old UserApiCredential format
-   - Map field names to old column names
-   - Return object compatible with old code
+2. ✅ `convertToLegacyFormat($instance, $provider)` method
+   - Builds stdClass with all UserApiCredential fillable attribute names (empty string)
+   - Maps instance credentials to legacy column names per provider (PROVIDER_FIELD_TO_LEGACY)
+   - Returns object compatible with old code (property access e.g. $cred->elps_username)
 
 **Testing**:
-- Test legacy format conversion
-- Test fallback to old structure
+- ⏳ Test legacy format conversion (pending)
+- ⏳ Test fallback to old structure (pending)
 
 ---
 
-### Step 8.2: Update Old Controller Methods
+### Step 8.2: Update Old Controller Methods ✅ COMPLETED
 **Duration**: 2-3 hours  
+**Status**: ✅ Completed  
 **File**: `app/Http/Controllers/ApiCredentialsController.php`
 
 **Tasks**:
-1. Add deprecation warnings to old methods
-2. Update methods to use compatibility service
-3. Keep old methods working during transition
-4. Add comments indicating deprecation
+1. ✅ Add deprecation warnings to old methods (Log::warning at start of store, show, destroy, getProviderCredentials)
+2. ✅ Update getProviderCredentials to use ApiCompatibilityService::getLegacyCredentials(); other methods unchanged
+3. ✅ Old methods kept working (store/show/destroy still use UserApiCredential; getProviderCredentials uses compat layer then same switch)
+4. ✅ Add @deprecated and inline comments indicating deprecation on store, show, destroy, getProviderCredentials
 
 **Testing**:
-- Test old methods still work
-- Test deprecation warnings appear
+- ⏳ Test old methods still work (pending)
+- ⏳ Test deprecation warnings appear (pending)
 
 ---
 

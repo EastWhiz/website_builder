@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
+use App\Services\ApiCompatibilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -12,8 +13,17 @@ use Illuminate\Validation\ValidationException;
 
 class ApiCredentialsController extends Controller
 {
+    public function __construct(
+        protected ApiCompatibilityService $apiCompatibility
+    ) {
+    }
+
+    /**
+     * @deprecated Use Profile → API Platforms (UserApiInstance) instead. Kept for backward compatibility.
+     */
     public function store(Request $request)
     {
+        Log::warning('ApiCredentialsController::store is deprecated. Use Profile → API Platforms (UserApiInstance) instead.');
         try {
             $validated = $request->validate([
                 'provider' => 'required|string|in:aweber,dark,electra,elps,meeseeks,novelix,tigloo,koi,pastile,riceleads,newmedis,seamediaone,nauta,magicads,adzentric,facebook,second',
@@ -117,8 +127,12 @@ class ApiCredentialsController extends Controller
         }
     }
 
+    /**
+     * @deprecated Use Profile → API Platforms (UserApiInstance) instead. Kept for backward compatibility.
+     */
     public function show()
     {
+        Log::warning('ApiCredentialsController::show is deprecated. Use Profile → API Platforms (UserApiInstance) instead.');
         try {
             $user = Auth::user();
             $credentials = UserApiCredential::where('user_id', $user->id)->first();
@@ -145,8 +159,12 @@ class ApiCredentialsController extends Controller
         }
     }
 
+    /**
+     * @deprecated Use Profile → API Platforms (UserApiInstance) instead. Kept for backward compatibility.
+     */
     public function destroy()
     {
+        Log::warning('ApiCredentialsController::destroy is deprecated. Use Profile → API Platforms (UserApiInstance) instead.');
         try {
             $user = Auth::user();
             $deleted = UserApiCredential::where('user_id', $user->id)->delete();
@@ -172,13 +190,17 @@ class ApiCredentialsController extends Controller
     }
 
     /**
-     * Get API credentials for a specific provider
+     * Get API credentials for a specific provider.
+     * Uses compatibility layer: tries UserApiInstance first, then falls back to UserApiCredential.
+     *
+     * @deprecated Use Profile → API Platforms (UserApiInstance) instead. Kept for backward compatibility.
      */
     public function getProviderCredentials($provider)
     {
+        Log::warning('ApiCredentialsController::getProviderCredentials is deprecated. Use Profile → API Platforms (UserApiInstance) instead.');
         try {
             $user = Auth::user();
-            $credentials = UserApiCredential::where('user_id', $user->id)->first();
+            $credentials = $this->apiCompatibility->getLegacyCredentials($user->id, $provider);
 
             if (!$credentials) {
                 return response()->json([
@@ -299,8 +321,9 @@ class ApiCredentialsController extends Controller
                         ];
                     break;
                 case 'nauta':
+                case 'irev':
                     $providerData = [
-                        'api_token' => $credentials->nauta_api_token,
+                        'api_token' => $credentials->nauta_api_token ?? '',
                         'endpoint' => 'https://yourleads.org/api/affiliates/v2/leads',
                     ];
                     break;
