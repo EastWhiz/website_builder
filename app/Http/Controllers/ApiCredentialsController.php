@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\UserApiCredential;
+use App\Models\UserApiInstance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -507,5 +508,123 @@ class ApiCredentialsController extends Controller
         }
 
         return $payload;
+    }
+
+    /**
+     * Sync a UserApiInstance to the external API (platform-based).
+     */
+    public function syncToExternalApiFromInstance(UserApiInstance $instance): void
+    {
+        $host = request()->getHost();
+        if ($host === 'localhost' || $host === '127.0.0.1') {
+            return;
+        }
+        try {
+            $payload = $this->buildApiPayloadFromInstance($instance);
+            $response = Http::post('https://crm.diy/api/v1/create-update-api-data', $payload);
+            if (!$response->successful()) {
+                Log::error('External API sync failed (instance)', [
+                    'instance_id' => $instance->id,
+                    'user_id' => $instance->user_id,
+                    'response' => $response->json(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('External API sync exception (instance)', [
+                'instance_id' => $instance->id,
+                'user_id' => $instance->user_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Build API payload for external API from UserApiInstance.
+     * Uses the same payload structure as the legacy CRM expects (create-update-api-data).
+     */
+    private function buildApiPayloadFromInstance(UserApiInstance $instance): array
+    {
+        $instance->loadMissing(['category.fields']);
+        $category = $instance->category;
+        $credentials = $instance->credentials;
+
+        $apiType = $this->getCrmApiTypeForCategory($category->name ?? '');
+
+        $payload = [
+            'apiType' => $apiType,
+            'clientId' => '',
+            'clientSecret' => '',
+            'accountId' => '',
+            'listId' => '',
+            'userName' => '',
+            'password' => '',
+            'apiKey' => '',
+            'aiParam' => '',
+            'ciParam' => '',
+            'giParam' => '',
+            'webBuilderUserId' => 'U' . (string) $instance->user_id,
+            'affiliateId' => '',
+            'endpointUrl' => '',
+        ];
+
+        foreach ($category->fields as $field) {
+            $value = $credentials[$field->name] ?? '';
+            $crmKey = $this->fieldNameToCrmKey($field->name);
+            if ($crmKey !== null && isset($payload[$crmKey])) {
+                $payload[$crmKey] = $value;
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Map category name to CRM apiType (provider) string.
+     * Current categories: Trackbox, iRev, LeadGreed, GetLinked; admin can add more.
+     */
+    private function getCrmApiTypeForCategory(string $categoryName): string
+    {
+        $map = [
+            'Trackbox' => 'elps',
+            'iRev' => 'irev',
+            'LeadGreed' => 'leadgreed',
+            'GetLinked' => 'getlinked',
+            'AWeber' => 'aweber',
+            'Electra' => 'electra',
+            'Dark' => 'dark',
+            'Meeseeksmedia' => 'meeseeks',
+            'Novelix' => 'novelix',
+            'Koi' => 'koi',
+            'Riceleads' => 'riceleads',
+            'Nauta' => 'nauta',
+            'Adzentric' => 'adzentric',
+        ];
+        $normalized = trim($categoryName);
+        return $map[$normalized] ?? strtolower(preg_replace('/\s+/', '_', $normalized));
+    }
+
+    /**
+     * Map our API category field name to CRM payload key (same keys as legacy buildApiPayload).
+     */
+    private function fieldNameToCrmKey(string $fieldName): ?string
+    {
+        $map = [
+            'endpoint_url' => 'endpointUrl',
+            'username' => 'userName',
+            'password' => 'password',
+            'api_key' => 'apiKey',
+            'api_token' => 'apiKey',
+            'ai' => 'aiParam',
+            'ci' => 'ciParam',
+            'gi' => 'giParam',
+            'client_id' => 'clientId',
+            'client_secret' => 'clientSecret',
+            'account_id' => 'accountId',
+            'list_id' => 'listId',
+            'affid' => 'affiliateId',
+            'affiliate_id' => 'affiliateId',
+        ];
+
+        return $map[$fieldName] ?? null;
     }
 }

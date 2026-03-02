@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\ApiCredentialsController;
 use App\Models\ApiCategory;
 use App\Models\UserApiInstance;
 use App\Models\UserApiInstanceValue;
@@ -96,6 +97,8 @@ class UserApiInstanceController extends Controller
 
         $instance->load(['category', 'values.field']);
 
+        app(ApiCredentialsController::class)->syncToExternalApiFromInstance($instance);
+
         return response()->json([
             'success' => true,
             'message' => 'API instance created successfully.',
@@ -172,6 +175,8 @@ class UserApiInstanceController extends Controller
         }
 
         $instance->load(['category', 'values.field']);
+
+        app(ApiCredentialsController::class)->syncToExternalApiFromInstance($instance);
 
         return response()->json([
             'success' => true,

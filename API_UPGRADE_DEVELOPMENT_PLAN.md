@@ -668,48 +668,25 @@ This plan outlines the step-by-step process to upgrade the API settings system f
 
 ## Phase 9: External API Sync Updates (Week 7)
 
-### Step 9.1: Update Sync Logic
+### Step 9.1: Update Sync Logic ✅ COMPLETED
 **Duration**: 3-4 hours  
+**Status**: ✅ Completed  
 **File**: `app/Http/Controllers/ApiCredentialsController.php` and `UserApiInstanceController.php`
 
 **Tasks**:
-1. Update `syncToExternalApi()` method
-   - Accept `UserApiInstance` instead of `UserApiCredential`
-   - Build payload dynamically from category fields
-   - Support multiple instances
+1. ✅ Update sync for `UserApiInstance`
+   - Added `syncToExternalApiFromInstance(UserApiInstance $instance)` (skips on localhost, builds payload, POSTs to external API)
+   - Build payload dynamically from category fields via `buildApiPayloadFromInstance()`
+   - Supports multiple instances (each instance synced on create/update)
    
-2. Update `buildApiPayload()` method
-   - Build payload dynamically
-   - Map field values to API keys
-   - Handle different field types
-
-**New Logic**:
-```php
-private function syncToExternalApi($instance, $userId)
-{
-    $category = $instance->category;
-    $credentials = $instance->credentials;
-    
-    $payload = [
-        'apiType' => $category->slug,
-        'webBuilderUserId' => "U" . $userId,
-        'instanceId' => $instance->id,
-        'instanceName' => $instance->name,
-    ];
-
-    foreach ($category->fields as $field) {
-        $value = $credentials[$field->name] ?? '';
-        $payload[$this->mapFieldToApiKey($field)] = $value;
-    }
-
-    Http::post('https://crm.diy/api/v1/create-update-api-data', $payload);
-}
-```
+2. ✅ Build payload dynamically
+   - `buildApiPayloadFromInstance()`: apiType (from category name), webBuilderUserId, instanceId, instanceName; then each category field mapped to camelCase key
+   - `fieldNameToApiKey()`: maps snake_case field names to camelCase API keys
 
 **Testing**:
-- Test sync with new instances
-- Test payload format
-- Test external API receives correct data
+- ⏳ Test sync with new instances (pending)
+- ⏳ Test payload format (pending)
+- ⏳ Test external API receives correct data (pending)
 
 ---
 
