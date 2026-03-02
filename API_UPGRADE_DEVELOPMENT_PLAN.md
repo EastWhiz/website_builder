@@ -554,76 +554,63 @@ This plan outlines the step-by-step process to upgrade the API settings system f
 
 ## Phase 7: Data Migration (Week 6)
 
-### Step 7.1: Create Migration Mapping
+**5 categories (platforms) and API instances:**
+| Category   | Integration file   | API instances (user-created under this category)                    |
+|-----------|--------------------|---------------------------------------------------------------------|
+| Trackbox  | trackbox.php       | ELPS, MagicAds, NewMedis, Pastile, SeaMediaOne, Dark, Tigloo        |
+| iRev      | irev.php           | Nauta                                                 |
+| LeadGreed | leadgreed.php      | Electra, Riceleads, AdZentric                        |
+| GetLinked | getlinked.php      | Koi, MeeseekMedia                                     |
+| Aweber    | aweber.php         | Aweber                                                |
+
+### Step 7.1: Create Migration Mapping ✅ COMPLETED
 **Duration**: 2-3 hours  
+**Status**: ✅ Completed  
 **File**: `database/seeders/ApiMigrationMappingSeeder.php`
 
 **Tasks**:
-1. Create seeder to map old providers to new categories
-2. Map old column names to new field names
-3. Example mapping:
-   ```php
-   [
-       'novelix' => [
-           'category_slug' => 'lead-generation-novelix',
-           'fields' => [
-               'novelix_api_key' => 'api_key',
-               'novelix_affid' => 'affid',
-           ],
-       ],
-       // ... more mappings
-   ]
-   ```
+1. ✅ Map old providers to the 5 categories only (e.g. elps/magicads/newmedis/pastile/seamediaone → Trackbox; nauta → iRev; electra/riceleads/adzentric → LeadGreed; koi/meeseeks → GetLinked; aweber → Aweber)
+2. ✅ Map old column names to new field names per provider
+3. ✅ Static `getMapping()` for use by migration script (Phase 7.2); `run()` is a no-op
 
 **Testing**:
-- Verify mapping accuracy
-- Test seeder runs successfully
+- ⏳ Verify mapping accuracy (pending)
+- ⏳ Test seeder runs successfully (pending)
 
 ---
 
-### Step 7.2: Create Data Migration Script
+### Step 7.2: Create Data Migration Script ✅ COMPLETED
 **Duration**: 4-5 hours  
-**File**: `database/migrations/XXXX_XX_XX_migrate_old_api_credentials.php`
+**Status**: ✅ Completed  
+**File**: `database/migrations/2026_02_25_100000_migrate_old_api_credentials_to_instances.php`
 
 **Tasks**:
-1. Create migration that:
-   - Reads all `user_api_credentials` records
-   - For each user:
-     - Identify which providers have data
-     - For each provider:
-       - Find corresponding API category
-       - Create `UserApiInstance`
-       - Map old columns to new fields
-       - Create `UserApiInstanceValue` records
-       - Encrypt values if field requires encryption
-   - Mark old records as migrated (add `migrated` column or flag)
-
-2. Handle edge cases:
-   - Empty values
-   - Missing categories
-   - Invalid data
+1. ✅ Migration adds `migrated_at` (timestamp nullable) to `user_api_credentials`
+2. ✅ Reads all `user_api_credentials` where `migrated_at` is null; for each row (user): uses ApiMigrationMappingSeeder::getMapping(); for each provider with at least one non-empty mapped column: finds ApiCategory by name, creates UserApiInstance ("Migrated - {provider}"), creates UserApiInstanceValue per mapped field (with field relation for encryption); then sets migrated_at = now() on the credential row
+3. ✅ Edge cases: empty values skipped; missing category skips that provider; non-existent field name skipped
 
 **Testing**:
-- Test migration on staging database
-- Verify all data migrated correctly
-- Test rollback
+- ⏳ Test migration on staging database (pending)
+- ⏳ Verify all data migrated correctly (pending)
+- ⏳ Test rollback (pending)
 
 ---
 
-### Step 7.3: Seed Initial Categories
+### Step 7.3: Seed Initial Categories ✅ COMPLETED
 **Duration**: 2-3 hours  
+**Status**: ✅ Completed  
 **File**: `database/seeders/ApiCategorySeeder.php`
 
 **Tasks**:
-1. Create seeder to seed initial API categories (**platforms**)
-2. Create categories (platforms) with **names that match integration file names** (e.g. "Trackbox" → trackbox.php, "Novelix" → novelix.php). APIs that share one platform (e.g. ELPS, MagicAds, Tigloo, Pastile) can be one platform "Trackbox" with one integration file; or separate platform rows per API if each has its own file — align with Step 6.3 platform-based files.
-3. Create field definitions for each category (platform)
-4. Set proper field types, validation rules, encryption flags
+1. ✅ Seeder seeds the 5 API categories only: Trackbox, iRev, LeadGreed, GetLinked, Aweber (see table above for instances per category)
+2. ✅ Category names match integration file names (Trackbox → trackbox.php, iRev → irev.php, LeadGreed → leadgreed.php, GetLinked → getlinked.php, Aweber → aweber.php)
+3. ✅ Field definitions per category (e.g. Trackbox: endpoint_url, username, password, api_key, ai, ci, gi; LeadGreed: endpoint_url, api_key, affid; GetLinked: endpoint_url, api_key; Aweber: client_id, client_secret, account_id, list_id)
+4. ✅ Encryption set for password, api_key, api_token, client_secret; endpoint_url required where used
 
 **Testing**:
-- Run seeder
-- Verify categories and fields created
-- Test field definitions
+- ⏳ Run seeder (pending)
+- ⏳ Verify categories and fields created (pending)
+- ⏳ Test field definitions (pending)
 
 ---
 

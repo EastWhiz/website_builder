@@ -68,6 +68,7 @@ class UserApiCredential extends Model
         'magicads_gi',
         'adzentric_affid',
         'adzentric_api_key',
+        'migrated_at',
     ];
 
     // protected $casts = [

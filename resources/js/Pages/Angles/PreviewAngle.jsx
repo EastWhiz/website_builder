@@ -167,15 +167,19 @@ export default function Dashboard({ id }) {
         { label: 'AdZentric', value: 'adzentric' },
     ];
 
+    // form_type → platform (category) name; 5 categories: Trackbox, iRev, LeadGreed, GetLinked, Aweber
     const formTypeToCategoryName = {
-        aweber: 'AWeber', electra: 'Electra', dark: 'Dark', elps: 'Trackbox', meeseeksmedia: 'Meeseeksmedia',
-        novelix: 'Novelix', tigloo: 'Trackbox', koi: 'Koi', pastile: 'Trackbox', riceleads: 'Riceleads',
-        newmedis: 'Trackbox', seamediaone: 'Trackbox', nauta: 'Nauta', irev: 'iRev', magicads: 'Trackbox', adzentric: 'Adzentric',
+        elps: 'Trackbox', magicads: 'Trackbox', newmedis: 'Trackbox', pastile: 'Trackbox', seamediaone: 'Trackbox',
+        dark: 'Trackbox', tigloo: 'Trackbox',
+        nauta: 'iRev', irev: 'iRev',
+        electra: 'LeadGreed', riceleads: 'LeadGreed', adzentric: 'LeadGreed',
+        koi: 'GetLinked', meeseeksmedia: 'GetLinked',
+        aweber: 'Aweber',
     };
 
+    // Platform (category) name → default form_type
     const categoryNameToFormType = {
-        'AWeber': 'aweber', 'Electra': 'electra', 'Dark': 'dark', 'Trackbox': 'elps', 'Meeseeksmedia': 'meeseeksmedia',
-        'Novelix': 'novelix', 'Koi': 'koi', 'Riceleads': 'riceleads', 'Nauta': 'nauta', 'iRev': 'irev', 'Adzentric': 'adzentric',
+        'Trackbox': 'elps', 'iRev': 'nauta', 'LeadGreed': 'electra', 'GetLinked': 'koi', 'Aweber': 'aweber',
     };
 
     const commonInputTypes = [

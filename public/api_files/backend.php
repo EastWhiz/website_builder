@@ -26,24 +26,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // resolve platform file; api_category_id and user_api_instance_id are passed through in POST.
     $formType = isset($postData['form_type']) ? trim((string) $postData['form_type']) : '';
 
-    // Map form types to platform integration files (one file per platform; Trackbox handles multiple APIs)
+    // Map form types to platform integration files (5 platforms)
     $apiFiles = [
-        'novelix' => 'novelix.php',
-        'electra' => 'electra.php',
-        'aweber' => 'aweber.php',
-        'dark' => 'dark.php',
         'elps' => 'trackbox.php',
-        'meeseeksmedia' => 'meeseeksmedia.php',
-        'tigloo' => 'trackbox.php',
-        'koi' => 'koi.php',
-        'pastile' => 'trackbox.php',
-        'riceleads' => 'riceleads.php',
-        'newmedis' => 'trackbox.php',
-        'seamediaone' => 'trackbox.php',
-        'nauta' => 'nauta.php',
-        'irev' => 'irev.php',
         'magicads' => 'trackbox.php',
-        'adzentric' => 'adzentric.php',
+        'newmedis' => 'trackbox.php',
+        'pastile' => 'trackbox.php',
+        'seamediaone' => 'trackbox.php',
+        'dark' => 'trackbox.php',
+        'tigloo' => 'trackbox.php',
+        'nauta' => 'irev.php',
+        'irev' => 'irev.php',
+        'electra' => 'leadgreed.php',
+        'riceleads' => 'leadgreed.php',
+        'adzentric' => 'leadgreed.php',
+        'koi' => 'getlinked.php',
+        'meeseeksmedia' => 'getlinked.php',
+        'aweber' => 'aweber.php',
     ];
 
     // Require form_type for file selection (api_category_id is passed through in POST for platform files)

@@ -1925,24 +1925,23 @@ class AngleTemplateController extends Controller
         'tokens.json',
     ];
 
-    /** Map form_type to api_categories.name (platform); multiple form_types can map to one platform e.g. Trackbox */
+    /** Map form_type to api_categories.name (5 platforms). Trackbox: elps, magicads, newmedis, pastile, seamediaone, dark, tigloo. iRev: nauta. LeadGreed: electra, riceleads, adzentric. GetLinked: koi, meeseeksmedia. Aweber: aweber. */
     private static $apiFileToCategoryName = [
-        'aweber' => 'AWeber',
-        'electra' => 'Electra',
-        'dark' => 'Dark',
         'elps' => 'Trackbox',
-        'meeseeksmedia' => 'Meeseeksmedia',
-        'novelix' => 'Novelix',
-        'tigloo' => 'Trackbox',
-        'koi' => 'Koi',
-        'pastile' => 'Trackbox',
-        'riceleads' => 'Riceleads',
-        'newmedis' => 'Trackbox',
-        'seamediaone' => 'Trackbox',
-        'nauta' => 'Nauta',
-        'irev' => 'iRev',
         'magicads' => 'Trackbox',
-        'adzentric' => 'Adzentric',
+        'newmedis' => 'Trackbox',
+        'pastile' => 'Trackbox',
+        'seamediaone' => 'Trackbox',
+        'dark' => 'Trackbox',
+        'tigloo' => 'Trackbox',
+        'nauta' => 'iRev',
+        'irev' => 'iRev',
+        'electra' => 'LeadGreed',
+        'riceleads' => 'LeadGreed',
+        'adzentric' => 'LeadGreed',
+        'koi' => 'GetLinked',
+        'meeseeksmedia' => 'GetLinked',
+        'aweber' => 'Aweber',
     ];
 
     /**

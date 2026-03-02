@@ -172,6 +172,15 @@ class ApiExportService
                 'affid' => "'affid' => '',",
                 'api_key' => '$xapikey = "";',
             ],
+            'leadgreed.php' => [
+                'endpoint_url' => '$endpoint = "";',
+                'api_key' => '$apiKey = "";',
+                'affid' => "'affid' => '',",
+            ],
+            'getlinked.php' => [
+                'endpoint_url' => '$endpoint = "";',
+                'api_key' => '$apiKey = "";',
+            ],
         ];
 
         return $maps[$filename] ?? [];

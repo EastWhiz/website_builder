@@ -603,7 +603,7 @@ class ApiCredentialsController extends Controller
 
     /**
      * Map category name to CRM apiType (provider) string.
-     * Current categories: Trackbox, iRev, LeadGreed, GetLinked; admin can add more.
+     * 5 categories: Trackbox, iRev, LeadGreed, GetLinked, Aweber.
      */
     private function getCrmApiTypeForCategory(string $categoryName): string
     {
@@ -612,15 +612,7 @@ class ApiCredentialsController extends Controller
             'iRev' => 'irev',
             'LeadGreed' => 'leadgreed',
             'GetLinked' => 'getlinked',
-            'AWeber' => 'aweber',
-            'Electra' => 'electra',
-            'Dark' => 'dark',
-            'Meeseeksmedia' => 'meeseeks',
-            'Novelix' => 'novelix',
-            'Koi' => 'koi',
-            'Riceleads' => 'riceleads',
-            'Nauta' => 'nauta',
-            'Adzentric' => 'adzentric',
+            'Aweber' => 'aweber',
         ];
         $normalized = trim($categoryName);
         return $map[$normalized] ?? strtolower(preg_replace('/\s+/', '_', $normalized));
