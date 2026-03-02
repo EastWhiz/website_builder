@@ -62,7 +62,7 @@ return new class extends Migration
             $instance = UserApiInstance::create([
                 'user_id' => $cred->user_id,
                 'api_category_id' => $category->id,
-                'name' => 'Migrated - ' . $provider,
+                'name' => ucfirst($provider),
                 'is_active' => true,
             ]);
 
