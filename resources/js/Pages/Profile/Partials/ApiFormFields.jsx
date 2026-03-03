@@ -331,8 +331,16 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                 <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
                     <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeModals} />
-                        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Add New API</h3>
+                        <div className="relative inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                            <button
+                                type="button"
+                                onClick={closeModals}
+                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded p-1"
+                                aria-label="Close"
+                            >
+                                <span className="text-2xl leading-none">&times;</span>
+                            </button>
+                            <h3 className="text-lg font-medium text-gray-900 mb-4 pr-8">Add New API</h3>
                             <form onSubmit={handleAdd}>
                     <div className="space-y-4">
                         <div>
@@ -400,8 +408,16 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                 <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
                     <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={closeModals} />
-                        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Edit API: {editingInstance.name}</h3>
+                        <div className="relative inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                            <button
+                                type="button"
+                                onClick={closeModals}
+                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded p-1"
+                                aria-label="Close"
+                            >
+                                <span className="text-2xl leading-none">&times;</span>
+                            </button>
+                            <h3 className="text-lg font-medium text-gray-900 mb-4 pr-8">Edit API: {editingInstance.name}</h3>
                             <form onSubmit={handleUpdate}>
                                 <DynamicApiForm
                                     fields={selectedCategoryForEdit.fields || []}
