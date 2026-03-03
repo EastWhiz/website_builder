@@ -385,6 +385,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                 values={formValues}
                                                 errors={formErrors}
                                                 onValueChange={setFormValue}
+                                                categoryName={selectedCategoryForAdd.name}
                                             />
                                         </>
                                     )}
@@ -429,6 +430,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                     nameError={formErrors.name}
                                     nameLabel="API Name"
                                     nameId="edit_api_name"
+                                    categoryName={selectedCategoryForEdit.name}
                                 />
                                 <div className="mt-6 flex gap-3">
                                     <PrimaryButton type="submit" disabled={submitting}>
