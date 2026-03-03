@@ -1809,7 +1809,7 @@ class AngleTemplateController extends Controller
             $userApiCredentials = $user->apiCredential;
             $filesToExport = $this->getExportFilesList($publicFilesPath, $fullHtml);
 
-            // Get form_type from HTML and resolve to UserApiInstance once
+            // Get form_type from HTML and resolve to UserApiInstance (so existing pages keep the correct API)
             $formType = $this->getFormTypeFromHtml($fullHtml);
             $userApiInstance = null;
             if ($formType !== null && $formType !== '') {
@@ -1817,7 +1817,11 @@ class AngleTemplateController extends Controller
                 if ($categoryName) {
                     $category = ApiCategory::where('name', $categoryName)->first();
                     if ($category) {
-                        $userApiInstance = $user->getApiInstanceByCategory($category->id);
+                        $userApiInstance = $user->getApiInstanceByFormType(
+                            $category->id,
+                            $formType,
+                            self::$formTypeToCanonicalName
+                        );
                         // Load relationships needed for credential injection
                         $userApiInstance?->load(['category.fields', 'values.field']);
                     }
@@ -1942,6 +1946,11 @@ class AngleTemplateController extends Controller
         'koi' => 'GetLinked',
         'meeseeksmedia' => 'GetLinked',
         'aweber' => 'Aweber',
+    ];
+
+    /** form_type → canonical name for matching instance (e.g. meeseeksmedia → meeseeks to match "Meeseeks"). */
+    private static $formTypeToCanonicalName = [
+        'meeseeksmedia' => 'meeseeks',
     ];
 
     /**

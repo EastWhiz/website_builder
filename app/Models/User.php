@@ -80,4 +80,27 @@ class User extends Authenticatable
             ->where('is_active', true)
             ->first();
     }
+
+    /**
+     * Get the user's API instance that matches the given form_type (e.g. "elps" → instance named "Elps").
+     * Used so existing landing pages keep the correct API selected after the new scenario.
+     *
+     * @param int $categoryId
+     * @param string $formType e.g. "elps", "magicads", "meeseeksmedia"
+     * @param array<string, string> $formTypeToCanonicalName e.g. ['meeseeksmedia' => 'meeseeks'] for name matching
+     * @return \App\Models\UserApiInstance|null
+     */
+    public function getApiInstanceByFormType($categoryId, $formType, array $formTypeToCanonicalName = [])
+    {
+        $canonical = $formTypeToCanonicalName[$formType] ?? $formType;
+        $canonicalLower = strtolower($canonical);
+
+        $instance = $this->apiInstances()
+            ->where('api_category_id', $categoryId)
+            ->where('is_active', true)
+            ->get()
+            ->first(fn ($inst) => strtolower($inst->name) === $canonicalLower);
+
+        return $instance ?? $this->getApiInstanceByCategory($categoryId);
+    }
 }

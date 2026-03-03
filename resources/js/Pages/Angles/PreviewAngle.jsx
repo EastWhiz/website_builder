@@ -177,6 +177,11 @@ export default function Dashboard({ id }) {
         aweber: 'Aweber',
     };
 
+    // form_type → canonical name for matching instance (e.g. meeseeksmedia → meeseeks to match "Meeseeks")
+    const formTypeToCanonicalName = {
+        meeseeksmedia: 'meeseeks',
+    };
+
     // Platform (category) name → default form_type
     const categoryNameToFormType = {
         'Trackbox': 'elps', 'iRev': 'nauta', 'LeadGreed': 'electra', 'GetLinked': 'koi', 'Aweber': 'aweber',
@@ -881,13 +886,16 @@ export default function Dashboard({ id }) {
                 })
                 .filter(input => input !== null);
 
-            // Step 3: Create the final payload
+            // Step 3: Create the final payload (support old pages: read form_type from hidden input if data-api-type missing)
             const h3Element = formEl.querySelector("h3");
+            const formTypeInput = formEl.querySelector('[name="form_type"]');
+            const apiTypeFromInput = formTypeInput?.value?.trim() || null;
+            const apiType = formEl.getAttribute("data-api-type") || apiTypeFromInput;
             setFormManagement({
                 submitText: formEl.querySelector("button[type='submit']")?.textContent.trim() || "",
                 submitTextColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.color))}` || "",
                 submitBackgroundColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.backgroundColor))}` || "",
-                apiType: formEl.getAttribute("data-api-type"),
+                apiType: apiType,
                 apiCategoryId: formEl.querySelector('[name="api_category_id"]')?.value || null,
                 apiInstanceId: formEl.querySelector('[name="user_api_instance_id"]')?.value || null,
                 saveLeadSlug: formEl.querySelector('[name="save_lead_slug"]')?.value || '',
@@ -993,6 +1001,31 @@ export default function Dashboard({ id }) {
                 }
                 loadUserApiInstances();
             }, []);
+
+    // Backward compatibility: when form has form_type but no api_instance (old pages), resolve to user's instance so selection is preserved
+    useEffect(() => {
+        const apiType = formManagement.apiType;
+        const hasInstance = formManagement.apiInstanceId != null && formManagement.apiInstanceId !== '';
+        if (!apiType || hasInstance || !userApiInstances.length) return;
+
+        const categoryName = formTypeToCategoryName[apiType];
+        if (!categoryName) return;
+
+        const canonical = (formTypeToCanonicalName[apiType] || apiType).toLowerCase();
+        const match = userApiInstances.find(
+            (inst) => inst.categoryName === categoryName && inst.name.toLowerCase() === canonical
+        );
+        const instance = match || userApiInstances.find((inst) => inst.categoryName === categoryName);
+        if (instance) {
+            const slug = String(instance.name).replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '') || instance.formType || '';
+            setFormManagement((prev) => ({
+                ...prev,
+                apiCategoryId: instance.categoryId,
+                apiInstanceId: instance.id,
+                saveLeadSlug: prev.saveLeadSlug || slug || apiType,
+            }));
+        }
+    }, [formManagement.apiType, formManagement.apiInstanceId, formManagement.saveLeadSlug, userApiInstances]);
 
     useEffect(() => {
         function handleMouseEnter(e) {
