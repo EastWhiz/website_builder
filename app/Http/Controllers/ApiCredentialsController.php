@@ -579,7 +579,11 @@ class ApiCredentialsController extends Controller
         $category = $instance->category;
         $credentials = $instance->credentials;
 
-        $apiType = $this->getCrmApiTypeForCategory($category->name ?? '');
+        // IMPORTANT: For CRM backward compatibility we must use the same apiType
+        // identifiers that were used before the new scenario (provider-based).
+        // Example: LeadGreed instances should still report apiType "electra",
+        // "riceleads" or "adzentric", not "leadgreed".
+        $apiType = $this->getCrmApiTypeForInstance($instance);
 
         $payload = [
             'apiType' => $apiType,
@@ -610,20 +614,69 @@ class ApiCredentialsController extends Controller
     }
 
     /**
-     * Map category name to CRM apiType (provider) string.
-     * 5 categories: Trackbox, iRev, LeadGreed, GetLinked, Aweber.
+     * Determine CRM apiType (legacy provider identifier) for a UserApiInstance.
+     *
+     * This keeps crm.diy compatible with the old behaviour by sending the same
+     * provider strings as before (elps, electra, riceleads, adzentric, koi,
+     * meeseeks, nauta, aweber, etc.), even though the Builder now groups them
+     * under 5 platforms.
      */
-    private function getCrmApiTypeForCategory(string $categoryName): string
+    private function getCrmApiTypeForInstance(UserApiInstance $instance): string
     {
-        $map = [
-            'Trackbox' => 'elps',
-            'iRev' => 'irev',
-            'LeadGreed' => 'leadgreed',
-            'GetLinked' => 'getlinked',
-            'Aweber' => 'aweber',
-        ];
-        $normalized = trim($categoryName);
-        return $map[$normalized] ?? strtolower(preg_replace('/\s+/', '_', $normalized));
+        $categoryName = trim($instance->category->name ?? '');
+
+        // Normalized instance name (used for migrated instances where we kept
+        // names like "Elps", "Electra", "Riceleads", etc.)
+        $name = strtolower(trim($instance->name ?? ''));
+        // Slug without spaces / special chars for more robust matching
+        $slug = preg_replace('/[^a-z0-9]+/', '', $name);
+
+        switch ($categoryName) {
+            case 'Trackbox':
+                // Legacy Trackbox providers: elps, magicads, newmedis, pastile, seamediaone, dark, tigloo
+                $trackboxMap = [
+                    'elps'        => 'elps',
+                    'magicads'    => 'magicads',
+                    'newmedis'    => 'newmedis',
+                    'pastile'     => 'pastile',
+                    'seamediaone' => 'seamediaone',
+                    'dark'        => 'dark',
+                    'tigloo'      => 'tigloo',
+                ];
+                return $trackboxMap[$slug] ?? 'elps';
+
+            case 'iRev':
+                // Legacy iRev providers: nauta, irev (CRM used provider string; nauta was the original).
+                if (in_array($slug, ['nauta', 'irev'], true)) {
+                    return $slug;
+                }
+                return 'nauta';
+
+            case 'LeadGreed':
+                // Legacy LeadGreed providers: electra, riceleads, adzentric
+                $leadGreedMap = [
+                    'electra'    => 'electra',
+                    'riceleads'  => 'riceleads',
+                    'adzentric'  => 'adzentric',
+                ];
+                return $leadGreedMap[$slug] ?? 'electra';
+
+            case 'GetLinked':
+                // Legacy GetLinked providers: koi, meeseeks
+                if (in_array($slug, ['koi', 'meeseeks', 'meeseeksmedia'], true)) {
+                    // Normalize "meeseeksmedia" to the original provider key "meeseeks"
+                    return $slug === 'meeseeksmedia' ? 'meeseeks' : $slug;
+                }
+                return 'koi';
+
+            case 'Aweber':
+                // Aweber stayed the same.
+                return 'aweber';
+
+            default:
+                // Fallback: behave similar to old mapping (lowercased & underscored)
+                return strtolower(preg_replace('/\s+/', '_', $categoryName));
+        }
     }
 
     /**
