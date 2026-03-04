@@ -585,9 +585,11 @@ class ApiCredentialsController extends Controller
         // "riceleads" or "adzentric", not "leadgreed".
         $apiType = $this->getCrmApiTypeForInstance($instance);
 
+        $displayName = trim($instance->name ?? '');
         $payload = [
             'apiType' => $apiType,
-            'apiName' => trim($instance->name ?? ''),
+            'apiName' => $displayName,
+            'name' => $displayName,
             'clientId' => '',
             'clientSecret' => '',
             'accountId' => '',
