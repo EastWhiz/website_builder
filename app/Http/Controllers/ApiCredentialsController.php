@@ -539,17 +539,25 @@ class ApiCredentialsController extends Controller
     public function syncToExternalApiFromInstance(UserApiInstance $instance): void
     {
         $host = request()->getHost();
-        if ($host === 'localhost' || $host === '127.0.0.1') {
+        $skipLocalhost = config('app.env') === 'local';
+        if ($skipLocalhost && in_array($host, ['localhost', '127.0.0.1'], true)) {
             return;
         }
         try {
             $payload = $this->buildApiPayloadFromInstance($instance);
             $response = Http::post('https://crm.diy/api/v1/create-update-api-data', $payload);
-            if (!$response->successful()) {
+            if ($response->successful()) {
+                Log::info('CRM API sync succeeded (instance)', [
+                    'instance_id' => $instance->id,
+                    'user_id' => $instance->user_id,
+                    'api_type' => $payload['apiType'] ?? '',
+                ]);
+            } else {
                 Log::error('External API sync failed (instance)', [
                     'instance_id' => $instance->id,
                     'user_id' => $instance->user_id,
                     'response' => $response->json(),
+                    'status' => $response->status(),
                 ]);
             }
         } catch (\Exception $e) {
@@ -567,7 +575,7 @@ class ApiCredentialsController extends Controller
      */
     private function buildApiPayloadFromInstance(UserApiInstance $instance): array
     {
-        $instance->loadMissing(['category.fields']);
+        $instance->loadMissing(['category.fields', 'values.field']);
         $category = $instance->category;
         $credentials = $instance->credentials;
 
