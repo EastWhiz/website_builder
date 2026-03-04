@@ -2025,13 +2025,14 @@ class AngleTemplateController extends Controller
             return $content;
         }
 
-        // Dynamic path: UserApiInstance via ApiExportService
-        if ($userApiInstance) {
+        // Dynamic path: UserApiInstance via ApiExportService (skip for OTP files — they use their own injection below)
+        $otpFiles = ['otp_generate.php', 'otp_verify.php', 'otp_regenerate.php'];
+        if ($userApiInstance && !in_array($filename, $otpFiles, true)) {
             return $this->apiExportService->injectCredentials($content, $filename, $userApiInstance);
         }
 
-        // Legacy path: no instance or file not in placeholder map — use legacy credentials if provided
-        if (!$userApiCredentials) {
+        // Legacy path: no instance or file not in placeholder map — use legacy credentials if provided (OTP files use their own injection in switch)
+        if (!$userApiCredentials && !in_array($filename, $otpFiles, true)) {
             return $content;
         }
 
