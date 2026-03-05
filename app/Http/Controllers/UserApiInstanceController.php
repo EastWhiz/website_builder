@@ -95,7 +95,9 @@ class UserApiInstanceController extends Controller
             }
         }
 
-        $instance->load(['category', 'values.field']);
+        // Reload from DB and load full relations (same as update) so CRM sync gets complete payload
+        $instance->refresh();
+        $instance->load(['category.fields', 'values.field']);
 
         app(ApiCredentialsController::class)->syncToExternalApiFromInstance($instance);
 

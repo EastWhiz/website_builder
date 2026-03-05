@@ -545,6 +545,12 @@ class ApiCredentialsController extends Controller
         }
         try {
             $payload = $this->buildApiPayloadFromInstance($instance);
+            Log::info('CRM API sync attempt (instance)', [
+                'instance_id' => $instance->id,
+                'user_id' => $instance->user_id,
+                'apiType' => $payload['apiType'] ?? '',
+                'webBuilderUserId' => $payload['webBuilderUserId'] ?? '',
+            ]);
             $response = Http::post('https://crm.diy/api/v1/create-update-api-data', $payload);
             if ($response->successful()) {
                 Log::info('CRM API sync succeeded (instance)', [
