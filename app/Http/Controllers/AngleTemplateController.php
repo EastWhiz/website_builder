@@ -393,8 +393,6 @@ class AngleTemplateController extends Controller
             $updatingCss
         );
 
-        $selfHostedProperty = $request->is_self_hosted;
-
         $fullHtml = <<<HTMLDOC
         <!DOCTYPE html>
         <html lang="en">
@@ -905,13 +903,15 @@ class AngleTemplateController extends Controller
                                 btn.disabled = true;
                             }
 
-                            // SELF HOSTED
-                            const selfHosted = Object.assign(document.createElement("input"), {
-                                type: "hidden",
-                                name: "is_self_hosted",
-                                value: {$selfHostedProperty}
-                            });
-                            input.form.appendChild(selfHosted);
+                            // SELF HOSTED - only add if not already in form (value comes from form config in builder)
+                            if (!input.form.querySelector('input[name="is_self_hosted"]')) {
+                                const selfHosted = Object.assign(document.createElement("input"), {
+                                    type: "hidden",
+                                    name: "is_self_hosted",
+                                    value: "false"
+                                });
+                                input.form.appendChild(selfHosted);
+                            }
 
                             const raw = input.value.trim();
                             if (!raw) {

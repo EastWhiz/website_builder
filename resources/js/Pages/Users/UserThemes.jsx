@@ -182,7 +182,6 @@ export default function Dashboard() {
     // Export modal state
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [selectedExportAngleTemplateId, setSelectedExportAngleTemplateId] = useState(null);
-    const [isSelfHosted, setIsSelfHosted] = useState(false);
 
     const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
@@ -389,17 +388,15 @@ export default function Dashboard() {
     const openExportModal = (angleTemplateId) => {
         setSelectedExportAngleTemplateId(angleTemplateId);
         setExportModalOpen(true);
-        setIsSelfHosted(false); // Reset to default
     };
 
     const handleExport = () => {
         setExportModalOpen(false);
         if (selectedExportAngleTemplateId) {
-            const isSelfHostedParam = isSelfHosted ? '&is_self_hosted=true' : '&is_self_hosted=false';
             const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
                 ? window.appURL 
                 : window.location.origin;
-            window.open(`${baseUrl}/download?angle_template_id=${selectedExportAngleTemplateId}${isSelfHostedParam}`, "_blank");
+            window.open(`${baseUrl}/download?angle_template_id=${selectedExportAngleTemplateId}`, "_blank");
         }
     };
 
@@ -757,25 +754,7 @@ export default function Dashboard() {
                 ]}
             >
                 <Modal.Section>
-                    <p>Choose how you want to export this landing page:</p>
-                    <div style={{ marginTop: '20px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={isSelfHosted}
-                                onChange={(e) => setIsSelfHosted(e.target.checked)}
-                            />
-                            <Text as="span">
-                                <strong>Self-hosted mode</strong> - Skip external API calls and send form data directly to CRM
-                            </Text>
-                        </label>
-                    </div>
-                    <div style={{ marginTop: '15px', fontSize: '14px', color: '#666' }}>
-                        <ul style={{ paddingLeft: '20px', margin: 0 }}>
-                            <li><strong>Self-hosted enabled:</strong> Forms will send data directly to your CRM without external API calls</li>
-                            <li><strong>Self-hosted disabled:</strong> Forms will use the current API flow as configured</li>
-                        </ul>
-                    </div>
+                    <p>You are going to Export this page</p>
                 </Modal.Section>
             </Modal>
 

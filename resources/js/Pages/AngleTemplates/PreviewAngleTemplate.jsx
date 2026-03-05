@@ -588,6 +588,7 @@ export default function Dashboard({ id }) {
         saveLeadSlug: "",
         project_directory: "",
         otp_service_id: "",
+        is_self_hosted: "false",
         otp_modal_heading: "",
         otp_modal_image: "",
         otp_modal_content: "",
@@ -855,7 +856,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id") return null;
+                    if (!name || name == "form_type" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -887,6 +888,10 @@ export default function Dashboard({ id }) {
                 saveLeadSlug: formEl.querySelector('[name="save_lead_slug"]')?.value || '',
                 project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
                 otp_service_id: formEl.querySelector('[name="otp_service_id"]')?.value || '',
+                is_self_hosted: (() => {
+                    const raw = formEl.querySelector('[name="is_self_hosted"]')?.value?.trim()?.toLowerCase();
+                    return (raw === 'true' ? 'true' : 'false');
+                })(),
                 otp_modal_heading: formEl.querySelector('[name="otp_modal_heading"]')?.value || '',
                 otp_modal_image: formEl.querySelector('[name="otp_modal_image"]')?.value || '',
                 otp_modal_content: formEl.querySelector('[name="otp_modal_content"]')?.value || '',
@@ -1426,6 +1431,7 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="project_directory" value="${formManagement.project_directory}" />`;
             formHTML += ` <input type="hidden" name="sales_page_id" value="SP${id || ''}" />`;
             formHTML += ` <input type="hidden" name="otp_service_id" value="${formManagement.otp_service_id || ''}" />`;
+            formHTML += ` <input type="hidden" name="is_self_hosted" value="${formManagement.is_self_hosted || 'false'}" />`;
             
             // Escape and encode OTP modal fields properly
             const escapeHtml = (str) => {
@@ -1713,6 +1719,7 @@ export default function Dashboard({ id }) {
                         saveLeadSlug: form.querySelector('[name="save_lead_slug"]')?.value ?? null,
                         projectDirectory: form.querySelector('[name="project_directory"]')?.value ?? null,
                         otpServiceId: form.querySelector('[name="otp_service_id"]')?.value ?? null,
+                        isSelfHosted: form.querySelector('[name="is_self_hosted"]')?.value ?? null,
                         fields: Array.from(inputs).map((el) => ({
                             name: el.getAttribute('name'),
                             type: el.getAttribute('type') || el.tagName.toLowerCase(),
@@ -2869,6 +2876,7 @@ export default function Dashboard({ id }) {
                                                                 value={formManagement.apiInstanceId != null && formManagement.apiInstanceId !== '' ? String(formManagement.apiInstanceId) : ''}
                                                                 label="Select API Instance"
                                                                 size="small"
+                                                                MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
                                                                 onChange={(e) => {
                                                                     const value = e.target.value;
                                                                     const selected = userApiInstances.find((inst) => String(inst.id) === value) || null;
@@ -2937,6 +2945,7 @@ export default function Dashboard({ id }) {
                                                                         value={formManagement.otp_service_id || ''}
                                                                         label="OTP Service (Optional)"
                                                                         size="small"
+                                                                        MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
                                                                         onChange={(e) => {
                                                                             setFormManagement({ ...formManagement, otp_service_id: e.target.value })
                                                                         }}
@@ -2958,6 +2967,24 @@ export default function Dashboard({ id }) {
                                                                 </FormControl>
                                                             </Box>
                                                         )}
+                                                        <Box mt={2}>
+                                                            <FormControl fullWidth>
+                                                                <InputLabel id="self-hosted-select-label" shrink>
+                                                                    Self-hosted mode
+                                                                </InputLabel>
+                                                                <MuiSelect
+                                                                    labelId="self-hosted-select-label"
+                                                                    value={formManagement.is_self_hosted || 'false'}
+                                                                    label="Self-hosted mode"
+                                                                    size="small"
+                                                                MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
+                                                                onChange={(e) => setFormManagement({ ...formManagement, is_self_hosted: e.target.value })}
+                                                                >
+                                                                    <MenuItem className="doNotAct" value="false">No</MenuItem>
+                                                                    <MenuItem className="doNotAct" value="true">Yes</MenuItem>
+                                                                </MuiSelect>
+                                                            </FormControl>
+                                                        </Box>
                                                         
                                                         {/* OTP Modal Customization - Show when OTP Service is selected */}
                                                         {userOtpServices.length > 0 && formManagement.otp_service_id && (
