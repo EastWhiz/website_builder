@@ -55,7 +55,8 @@ class RegisteredUserController extends Controller
             'password' => $request->password,
         ];
         // Log::info('CRM User Creation API Response: ' . json_encode($payload));
-        $response = Http::post('https://crm.diy/api/v1/create-user', $payload);
+        $baseUrl = \App\Models\Setting::getCrmBaseUrl();
+        $response = Http::post($baseUrl . '/api/v1/create-user', $payload);
         $responseData = $response->json();
         // Log::info('CRM User Creation API Response: ' . json_encode($responseData));
 

@@ -2020,6 +2020,13 @@ class AngleTemplateController extends Controller
             return $content;
         }
 
+        // save_lead_handler.php: inject current CRM base URL (production/dev from admin settings)
+        if ($filename === 'save_lead_handler.php') {
+            $crmBaseUrl = \App\Models\Setting::getCrmBaseUrl();
+            $content = str_replace('https://crm.diy', $crmBaseUrl, $content);
+            return $content;
+        }
+
         // PHP files: credential injection
         if (pathinfo($filename, PATHINFO_EXTENSION) !== 'php') {
             return $content;

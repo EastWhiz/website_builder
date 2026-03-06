@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
 use App\Services\ApiCompatibilityService;
@@ -374,7 +375,8 @@ class ApiCredentialsController extends Controller
         try {
             $apiPayload = $this->buildApiPayload($credentials, $provider, $userId);
 
-            $response = Http::post('https://crm.diy/api/v1/create-update-api-data', $apiPayload);
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::post($baseUrl . '/api/v1/create-update-api-data', $apiPayload);
 
             // logger(json_encode($response->json()));
 
@@ -551,7 +553,8 @@ class ApiCredentialsController extends Controller
                 'apiType' => $payload['apiType'] ?? '',
                 'webBuilderUserId' => $payload['webBuilderUserId'] ?? '',
             ]);
-            $response = Http::post('https://crm.diy/api/v1/create-update-api-data', $payload);
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::post($baseUrl . '/api/v1/create-update-api-data', $payload);
             if ($response->successful()) {
                 Log::info('CRM API sync succeeded (instance)', [
                     'instance_id' => $instance->id,
