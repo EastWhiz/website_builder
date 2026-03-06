@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\Setting;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,9 +19,20 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+        $crmSettings = null;
+        if ($user && $user->email === 'admin@gmail.com') {
+            $crmSettings = [
+                'crm_mode' => Setting::get('crm_mode', 'production'),
+                'crm_url_production' => Setting::get('crm_url_production', 'https://crm.diy'),
+                'crm_url_dev' => Setting::get('crm_url_dev', ''),
+            ];
+        }
+
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
+            'crmSettings' => $crmSettings,
         ]);
     }
 

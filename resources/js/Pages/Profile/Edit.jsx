@@ -6,8 +6,9 @@ import UpdateProfileInformationForm from './Partials/UpdateProfileInformationFor
 import ApiFormFields from './Partials/ApiFormFields';
 import PixelFormFields from './Partials/PixelFormFields';
 import OtpServicesFormFields from './Partials/OtpServicesFormFields';
+import CrmSettingsForm from './Partials/CrmSettingsForm';
 
-export default function Edit({ mustVerifyEmail, status }) {
+export default function Edit({ mustVerifyEmail, status, crmSettings }) {
     return (
         <AuthenticatedLayout
             header={
@@ -46,6 +47,10 @@ export default function Edit({ mustVerifyEmail, status }) {
                         <OtpServicesFormFields
                             className=""
                         />
+                    </div>
+
+                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                        <CrmSettingsForm crmSettings={crmSettings} className="max-w-xl" />
                     </div>
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">

@@ -14,6 +14,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\ApiCategoryController;
 use App\Http\Controllers\Admin\ApiCategoryFieldController;
+use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\UserApiInstanceController;
 use App\Models\Angle;
 use App\Models\AngleTemplate;
@@ -104,6 +105,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/api/user-api-instances/{id}', [UserApiInstanceController::class, 'update'])->name('user.api.instances.update');
         Route::delete('/api/user-api-instances/{id}', [UserApiInstanceController::class, 'destroy'])->name('user.api.instances.destroy');
         Route::post('/api/user-api-instances/{id}/toggle-active', [UserApiInstanceController::class, 'toggleActive'])->name('user.api.instances.toggleActive');
+
+        // CRM Settings (admin only - admin@gmail.com; controller enforces)
+        Route::get('/api/crm-settings', [CrmSettingsController::class, 'index'])->name('crm.settings.index');
+        Route::put('/api/crm-settings', [CrmSettingsController::class, 'update'])->name('crm.settings.update');
 
         // ANGLES ROUTES
         Route::inertia('/angles/add', 'Angles/AddEditAngle')->name('addAngle');
