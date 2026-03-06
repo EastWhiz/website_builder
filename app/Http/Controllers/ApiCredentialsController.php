@@ -547,26 +547,40 @@ class ApiCredentialsController extends Controller
         }
         try {
             $payload = $this->buildApiPayloadFromInstance($instance);
+            $baseUrl = Setting::getCrmBaseUrl();
+            $crmMode = Setting::get('crm_mode', 'production');
+            if ($crmMode === 'dev' && (Setting::get('crm_url_dev') === null || trim((string) Setting::get('crm_url_dev')) === '')) {
+                Log::warning('CRM mode is DEV but Dev CRM URL is not set; request may go to production URL.', [
+                    'crm_base_url' => $baseUrl,
+                    'instance_id' => $instance->id,
+                ]);
+            }
+            $endpoint = $baseUrl . '/api/v1/create-update-api-data';
             Log::info('CRM API sync attempt (instance)', [
                 'instance_id' => $instance->id,
                 'user_id' => $instance->user_id,
                 'apiType' => $payload['apiType'] ?? '',
                 'webBuilderUserId' => $payload['webBuilderUserId'] ?? '',
+                'crm_mode' => $crmMode,
+                'crm_base_url' => $baseUrl,
+                'endpoint' => $endpoint,
             ]);
-            $baseUrl = Setting::getCrmBaseUrl();
-            $response = Http::post($baseUrl . '/api/v1/create-update-api-data', $payload);
+            $response = Http::timeout(15)->post($endpoint, $payload);
             if ($response->successful()) {
                 Log::info('CRM API sync succeeded (instance)', [
                     'instance_id' => $instance->id,
                     'user_id' => $instance->user_id,
                     'api_type' => $payload['apiType'] ?? '',
+                    'crm_base_url' => $baseUrl,
                 ]);
             } else {
                 Log::error('External API sync failed (instance)', [
                     'instance_id' => $instance->id,
                     'user_id' => $instance->user_id,
-                    'response' => $response->json(),
                     'status' => $response->status(),
+                    'endpoint' => $endpoint,
+                    'response_body' => $response->body(),
+                    'response_json' => $response->json(),
                 ]);
             }
         } catch (\Exception $e) {
@@ -574,6 +588,7 @@ class ApiCredentialsController extends Controller
                 'instance_id' => $instance->id,
                 'user_id' => $instance->user_id,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
