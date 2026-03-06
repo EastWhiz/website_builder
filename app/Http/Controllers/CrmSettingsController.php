@@ -14,6 +14,8 @@ class CrmSettingsController extends Controller
 
     public const KEY_URL_DEV = 'crm_url_dev';
 
+    public const KEY_VERIFY_SSL = 'crm_verify_ssl';
+
     public const MODE_PRODUCTION = 'production';
 
     public const MODE_DEV = 'dev';
@@ -38,6 +40,7 @@ class CrmSettingsController extends Controller
             'crm_mode' => Setting::get(self::KEY_MODE, self::MODE_PRODUCTION),
             'crm_url_production' => Setting::get(self::KEY_URL_PRODUCTION, 'https://crm.diy'),
             'crm_url_dev' => Setting::get(self::KEY_URL_DEV, ''),
+            'crm_verify_ssl' => Setting::get(self::KEY_VERIFY_SSL, '1'),
         ]);
     }
 
@@ -54,17 +57,23 @@ class CrmSettingsController extends Controller
             'crm_mode' => 'required|in:production,dev',
             'crm_url_production' => 'nullable|string|max:500',
             'crm_url_dev' => 'nullable|string|max:500',
+            'crm_verify_ssl' => 'nullable|boolean',
         ]);
 
         Setting::set(self::KEY_MODE, $validated['crm_mode']);
         Setting::set(self::KEY_URL_PRODUCTION, $validated['crm_url_production'] ?? '');
         Setting::set(self::KEY_URL_DEV, $validated['crm_url_dev'] ?? '');
+        $verifySsl = isset($validated['crm_verify_ssl']) ? ($validated['crm_verify_ssl'] ? '1' : '0') : null;
+        if ($verifySsl !== null) {
+            Setting::set(self::KEY_VERIFY_SSL, $verifySsl);
+        }
 
         return response()->json([
             'message' => 'CRM settings saved.',
             'crm_mode' => Setting::get(self::KEY_MODE),
             'crm_url_production' => Setting::get(self::KEY_URL_PRODUCTION),
             'crm_url_dev' => Setting::get(self::KEY_URL_DEV),
+            'crm_verify_ssl' => Setting::get(self::KEY_VERIFY_SSL, '1'),
         ]);
     }
 }

@@ -56,7 +56,9 @@ class RegisteredUserController extends Controller
         ];
         // Log::info('CRM User Creation API Response: ' . json_encode($payload));
         $baseUrl = \App\Models\Setting::getCrmBaseUrl();
-        $response = Http::post($baseUrl . '/api/v1/create-user', $payload);
+        $response = Http::withOptions(['verify' => \App\Models\Setting::getCrmVerifySsl()])
+            ->timeout(15)
+            ->post($baseUrl . '/api/v1/create-user', $payload);
         $responseData = $response->json();
         // Log::info('CRM User Creation API Response: ' . json_encode($responseData));
 

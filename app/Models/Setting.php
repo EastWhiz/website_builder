@@ -42,4 +42,15 @@ class Setting extends Model
 
         return $url !== '' ? rtrim($url, '/') : 'https://crm.diy';
     }
+
+    /**
+     * Whether to verify SSL when calling the CRM API.
+     * Set to false for dev servers with self-signed or expired certificates.
+     */
+    public static function getCrmVerifySsl(): bool
+    {
+        $v = static::get('crm_verify_ssl', '1');
+
+        return $v === '1' || $v === 'true' || $v === true;
+    }
 }

@@ -13,6 +13,7 @@ export default function CrmSettingsForm({ crmSettings, className = '' }) {
     const [crmMode, setCrmMode] = useState('production');
     const [urlProduction, setUrlProduction] = useState('');
     const [urlDev, setUrlDev] = useState('');
+    const [verifySsl, setVerifySsl] = useState(true);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -20,6 +21,7 @@ export default function CrmSettingsForm({ crmSettings, className = '' }) {
             setCrmMode(crmSettings.crm_mode || 'production');
             setUrlProduction(crmSettings.crm_url_production || '');
             setUrlDev(crmSettings.crm_url_dev || '');
+            setVerifySsl(crmSettings.crm_verify_ssl !== '0' && crmSettings.crm_verify_ssl !== false);
         }
     }, [crmSettings]);
 
@@ -43,6 +45,7 @@ export default function CrmSettingsForm({ crmSettings, className = '' }) {
                     crm_mode: crmMode,
                     crm_url_production: urlProduction,
                     crm_url_dev: urlDev,
+                    crm_verify_ssl: verifySsl,
                 }),
             });
             const data = await res.json().catch(() => ({}));
@@ -114,6 +117,21 @@ export default function CrmSettingsForm({ crmSettings, className = '' }) {
                         onChange={(e) => setUrlDev(e.target.value)}
                         placeholder="https://dev-crm.example.com"
                     />
+                </div>
+
+                <div>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={verifySsl}
+                            onChange={(e) => setVerifySsl(e.target.checked)}
+                            className="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                        />
+                        <span className="text-sm text-gray-700">Verify SSL certificate</span>
+                    </label>
+                    <p className="mt-1 text-xs text-gray-500">
+                        Uncheck only for dev CRM with self-signed or expired certificates.
+                    </p>
                 </div>
 
                 <div className="pt-2">

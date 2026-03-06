@@ -376,7 +376,9 @@ class ApiCredentialsController extends Controller
             $apiPayload = $this->buildApiPayload($credentials, $provider, $userId);
 
             $baseUrl = Setting::getCrmBaseUrl();
-            $response = Http::post($baseUrl . '/api/v1/create-update-api-data', $apiPayload);
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/create-update-api-data', $apiPayload);
 
             // logger(json_encode($response->json()));
 
@@ -565,7 +567,9 @@ class ApiCredentialsController extends Controller
                 'crm_base_url' => $baseUrl,
                 'endpoint' => $endpoint,
             ]);
-            $response = Http::timeout(15)->post($endpoint, $payload);
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($endpoint, $payload);
             if ($response->successful()) {
                 Log::info('CRM API sync succeeded (instance)', [
                     'instance_id' => $instance->id,

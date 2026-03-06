@@ -26,6 +26,7 @@ class ProfileController extends Controller
                 'crm_mode' => Setting::get('crm_mode', 'production'),
                 'crm_url_production' => Setting::get('crm_url_production', 'https://crm.diy'),
                 'crm_url_dev' => Setting::get('crm_url_dev', ''),
+                'crm_verify_ssl' => Setting::get('crm_verify_ssl', '1'),
             ];
         }
 
