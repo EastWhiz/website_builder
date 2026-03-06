@@ -79,6 +79,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::inertia('/api-categories', 'Admin/ApiCategories')->name('api.categories.manage');
         Route::get('/api-categories/list', [ApiCategoryController::class, 'index'])->name('api.categories.index');
         Route::post('/api-categories', [ApiCategoryController::class, 'store'])->name('api.categories.store');
+        Route::post('/api-categories/sync-crm', [ApiCategoryController::class, 'syncAllToCrm'])->name('api.categories.syncCrm');
         Route::get('/api-categories/{id}', [ApiCategoryController::class, 'show'])->name('api.categories.show');
         Route::put('/api-categories/{id}', [ApiCategoryController::class, 'update'])->name('api.categories.update');
         Route::delete('/api-categories/{id}', [ApiCategoryController::class, 'destroy'])->name('api.categories.destroy');

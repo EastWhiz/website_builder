@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ApiCategory;
+use App\Models\ApiCategoryField;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -111,6 +112,79 @@ class ApiCategoryController extends Controller
             'message' => 'API category status updated successfully.',
             'data' => $category
         ]);
+    }
+
+    public function syncAllToCrm()
+    {
+        $categories = ApiCategory::with('fields')->get();
+        $summary = [
+            'categories' => 0,
+            'fields' => 0,
+            'errors' => []
+        ];
+
+        foreach ($categories as $category) {
+            try {
+                $this->syncCategoryToCrm($category);
+                $summary['categories']++;
+            } catch (\Exception $e) {
+                $summary['errors'][] = "category: {$category->id} - {$e->getMessage()}";
+            }
+
+            foreach ($category->fields as $field) {
+                try {
+                    $this->syncFieldToCrm($field);
+                    $summary['fields']++;
+                } catch (\Exception $e) {
+                    $summary['errors'][] = "field: {$field->id} - {$e->getMessage()}";
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'CRM sync completed.',
+            'data' => $summary
+        ]);
+    }
+
+    private function syncFieldToCrm(ApiCategoryField $field): void
+    {
+        try {
+            $host = request()->getHost();
+            if ($host === 'localhost' || $host === '127.0.0.1') {
+                return;
+            }
+
+            $payload = [
+                'externalCategoryId' => (string) $field->api_category_id,
+                'externalId' => (string) $field->id,
+                'name' => $field->name,
+                'label' => $field->label,
+                'type' => $field->type,
+                'placeholder' => $field->placeholder,
+                'is_required' => (bool) $field->is_required,
+                'encrypt' => (bool) $field->encrypt,
+            ];
+
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/create-update-api-category-field', $payload);
+
+            if (!$response->successful()) {
+                Log::error('CRM API category field sync failed', [
+                    'field_id' => $field->id,
+                    'payload' => $payload,
+                    'response' => $response->json(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('CRM API category field sync exception', [
+                'field_id' => $field->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function syncCategoryToCrm(ApiCategory $category): void
