@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ApiCategory;
+use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ApiCategoryController extends Controller
 {
@@ -35,6 +38,8 @@ class ApiCategoryController extends Controller
             'sort_order' => $validated['sort_order'] ?? 0,
         ]);
 
+        $this->syncCategoryToCrm($category);
+
         return response()->json([
             'success' => true,
             'message' => 'API category created successfully.',
@@ -63,6 +68,8 @@ class ApiCategoryController extends Controller
         ]);
 
         $category->update($validated);
+
+        $this->syncCategoryToCrm($category);
 
         return response()->json([
             'success' => true,
@@ -97,10 +104,47 @@ class ApiCategoryController extends Controller
         $category->is_active = !$category->is_active;
         $category->save();
 
+        $this->syncCategoryToCrm($category);
+
         return response()->json([
             'success' => true,
             'message' => 'API category status updated successfully.',
             'data' => $category
         ]);
+    }
+
+    private function syncCategoryToCrm(ApiCategory $category): void
+    {
+        try {
+            $host = request()->getHost();
+            if ($host === 'localhost' || $host === '127.0.0.1') {
+                return;
+            }
+
+            $payload = [
+                'externalId' => (string) $category->id,
+                'name' => $category->name,
+                'is_active' => (bool) $category->is_active,
+                'sort_order' => (int) $category->sort_order,
+            ];
+
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/create-update-api-category', $payload);
+
+            if (!$response->successful()) {
+                Log::error('CRM API category sync failed', [
+                    'category_id' => $category->id,
+                    'payload' => $payload,
+                    'response' => $response->json(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('CRM API category sync exception', [
+                'category_id' => $category->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
