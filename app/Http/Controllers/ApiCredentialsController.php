@@ -617,6 +617,7 @@ class ApiCredentialsController extends Controller
         $payload = [
             'apiType' => $apiType,
             'apiCategoryId' => (string) $instance->api_category_id,
+            'builderApiInstanceId' => (string) $instance->id,
             'apiName' => $displayName,
             'name' => $displayName,
             'clientId' => '',
