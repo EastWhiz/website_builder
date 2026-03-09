@@ -151,8 +151,8 @@ class ApiCategoryController extends Controller
     private function syncFieldToCrm(ApiCategoryField $field): void
     {
         try {
-            $host = request()->getHost();
-            if ($host === 'localhost' || $host === '127.0.0.1') {
+            // Avoid CRM calls when running in local/test environments.
+            if (app()->environment('local', 'testing')) {
                 return;
             }
 
@@ -190,8 +190,8 @@ class ApiCategoryController extends Controller
     private function syncCategoryToCrm(ApiCategory $category): void
     {
         try {
-            $host = request()->getHost();
-            if ($host === 'localhost' || $host === '127.0.0.1') {
+            // Avoid CRM calls when running in local/test environments.
+            if (app()->environment('local', 'testing')) {
                 return;
             }
 

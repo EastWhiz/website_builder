@@ -172,61 +172,6 @@ export default function ApiCategories({ auth }) {
         }
     };
 
-    const handleDelete = async (id) => {
-        const result = await Swal.fire({
-            title: 'Are you sure?',
-            text: 'This will delete the category and all its fields.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!',
-        });
-
-        if (result.isConfirmed) {
-            try {
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                };
-
-                const csrfToken = document.querySelector('meta[name="csrf-token"]');
-                if (csrfToken) {
-                    headers['X-CSRF-TOKEN'] = csrfToken.content;
-                }
-
-                const response = await fetch(route('api.categories.destroy', id), {
-                    method: 'DELETE',
-                    headers: headers,
-                });
-
-                const deleteResult = await response.json();
-
-                if (deleteResult.success) {
-                    Swal.fire({
-                        title: 'Deleted!',
-                        text: 'API platform deleted successfully.',
-                        icon: 'success',
-                    });
-                    loadCategories();
-                } else {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: deleteResult.message || 'Cannot delete category.',
-                        icon: 'error',
-                    });
-                }
-            } catch (error) {
-                console.error('Error deleting API category:', error);
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'Failed to delete API platform.',
-                    icon: 'error',
-                });
-            }
-        }
-    };
-
     const handleToggleActive = async (id) => {
         try {
             const headers = {
@@ -725,12 +670,6 @@ export default function ApiCategories({ auth }) {
                                                                     className="text-indigo-600 hover:text-indigo-900 mr-4"
                                                                 >
                                                                     Edit
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDelete(category.id)}
-                                                                    className="text-red-600 hover:text-red-900"
-                                                                >
-                                                                    Delete
                                                                 </button>
                                                             </td>
                                                         </tr>
