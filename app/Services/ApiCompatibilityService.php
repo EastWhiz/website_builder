@@ -57,7 +57,7 @@ class ApiCompatibilityService
         $categoryName = self::PROVIDER_TO_CATEGORY[$provider] ?? null;
 
         if ($categoryName) {
-            $category = ApiCategory::where('name', $categoryName)->first();
+            $category = ApiCategory::active()->where('name', $categoryName)->first();
             if ($category) {
                 $instance = UserApiInstance::where('user_id', $userId)
                     ->where('api_category_id', $category->id)

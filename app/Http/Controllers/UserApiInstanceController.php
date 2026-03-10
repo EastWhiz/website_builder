@@ -24,13 +24,14 @@ class UserApiInstanceController extends Controller
         $instances = Auth::user()
             ->apiInstances()
             ->with(['category', 'values.field'])
+            ->whereHas('category', fn ($q) => $q->where('is_active', true))
             ->orderBy('api_category_id')
             ->orderBy('name')
             ->get();
 
         $grouped = $instances->groupBy('api_category_id')->map(function ($items) {
             $category = $items->first()->category;
-            if (!$category) {
+            if (!$category || !$category->is_active) {
                 return null;
             }
             return [
@@ -64,7 +65,7 @@ class UserApiInstanceController extends Controller
             'values' => 'required|array',
         ]);
 
-        $category = ApiCategory::with('fields')->findOrFail($validated['api_category_id']);
+        $category = ApiCategory::active()->with('fields')->findOrFail($validated['api_category_id']);
         $validator = $this->validationService->validate($request->all(), $category);
         if ($validator->fails()) {
             return response()->json([
@@ -245,6 +246,10 @@ class UserApiInstanceController extends Controller
      */
     public function getByCategory($categoryId)
     {
+        $category = ApiCategory::active()->find($categoryId);
+        if (!$category) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
         $instances = Auth::user()
             ->apiInstances()
             ->with(['category', 'values.field'])

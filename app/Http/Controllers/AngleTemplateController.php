@@ -1815,7 +1815,7 @@ class AngleTemplateController extends Controller
             if ($formType !== null && $formType !== '') {
                 $categoryName = self::$apiFileToCategoryName[$formType] ?? null;
                 if ($categoryName) {
-                    $category = ApiCategory::where('name', $categoryName)->first();
+                    $category = ApiCategory::active()->where('name', $categoryName)->first();
                     if ($category) {
                         $userApiInstance = $user->getApiInstanceByFormType(
                             $category->id,
@@ -1983,7 +1983,7 @@ class AngleTemplateController extends Controller
         if ($formType !== null && $formType !== '') {
             $categoryName = self::$apiFileToCategoryName[$formType] ?? null;
             if ($categoryName) {
-                $category = ApiCategory::where('name', $categoryName)->first();
+                $category = ApiCategory::active()->where('name', $categoryName)->first();
                 if ($category) {
                     $platformFile = $this->apiExportService->getPlatformFileName($category);
                     $path = $publicFilesPath . DIRECTORY_SEPARATOR . $platformFile;
