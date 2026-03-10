@@ -598,6 +598,75 @@ class ApiCredentialsController extends Controller
     }
 
     /**
+     * Notify external CRM that an API instance has been deleted.
+     * Uses the same identifying fields as create/update (webBuilderUserId + apiType + builderApiInstanceId).
+     */
+    public function deleteFromExternalApiFromInstance(UserApiInstance $instance): void
+    {
+        try {
+            $payload = $this->buildApiPayloadFromInstance($instance);
+        } catch (\Throwable $e) {
+            Log::error('CRM API delete payload build failed (instance)', [
+                'instance_id' => $instance->id,
+                'user_id' => $instance->user_id,
+                'error' => $e->getMessage(),
+            ]);
+            return;
+        }
+
+        try {
+            $baseUrl = Setting::getCrmBaseUrl();
+            $crmMode = Setting::get('crm_mode', 'production');
+            if ($crmMode === 'dev' && (Setting::get('crm_url_dev') === null || trim((string) Setting::get('crm_url_dev')) === '')) {
+                Log::warning('CRM mode is DEV but Dev CRM URL is not set; delete request may go to production URL.', [
+                    'crm_base_url' => $baseUrl,
+                    'instance_id' => $instance->id,
+                ]);
+            }
+
+            $endpoint = $baseUrl . '/api/v1/delete-api-data';
+            Log::info('CRM API delete attempt (instance)', [
+                'instance_id' => $instance->id,
+                'user_id' => $instance->user_id,
+                'apiType' => $payload['apiType'] ?? '',
+                'webBuilderUserId' => $payload['webBuilderUserId'] ?? '',
+                'crm_mode' => $crmMode,
+                'crm_base_url' => $baseUrl,
+                'endpoint' => $endpoint,
+            ]);
+
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($endpoint, $payload);
+
+            if ($response->successful()) {
+                Log::info('CRM API delete succeeded (instance)', [
+                    'instance_id' => $instance->id,
+                    'user_id' => $instance->user_id,
+                    'api_type' => $payload['apiType'] ?? '',
+                    'crm_base_url' => $baseUrl,
+                ]);
+            } else {
+                Log::error('External API delete failed (instance)', [
+                    'instance_id' => $instance->id,
+                    'user_id' => $instance->user_id,
+                    'status' => $response->status(),
+                    'endpoint' => $endpoint,
+                    'response_body' => $response->body(),
+                    'response_json' => $response->json(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('External API delete exception (instance)', [
+                'instance_id' => $instance->id,
+                'user_id' => $instance->user_id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    /**
      * Build API payload for external API from UserApiInstance.
      * Uses the same payload structure as the legacy CRM expects (create-update-api-data).
      */

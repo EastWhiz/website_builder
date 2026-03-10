@@ -203,6 +203,8 @@ class UserApiInstanceController extends Controller
     public function destroy($id)
     {
         $instance = UserApiInstance::where('user_id', Auth::id())->findOrFail($id);
+        // Inform external CRM before soft-deleting locally
+        app(ApiCredentialsController::class)->deleteFromExternalApiFromInstance($instance);
         $instance->delete();
 
         return response()->json([
