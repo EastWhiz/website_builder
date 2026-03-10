@@ -18,6 +18,7 @@ export default function ApiCategories({ auth }) {
         is_active: true,
         sort_order: 0,
     });
+    const [togglingCategoryId, setTogglingCategoryId] = useState(null);
     const [managingFields, setManagingFields] = useState(null);
     const [fields, setFields] = useState([]);
     const [showFieldForm, setShowFieldForm] = useState(false);
@@ -173,6 +174,7 @@ export default function ApiCategories({ auth }) {
     };
 
     const handleToggleActive = async (id) => {
+        setTogglingCategoryId(id);
         try {
             const headers = {
                 'Content-Type': 'application/json',
@@ -192,10 +194,23 @@ export default function ApiCategories({ auth }) {
             const result = await response.json();
 
             if (result.success) {
-                loadCategories();
+                await loadCategories();
+            } else {
+                Swal.fire({
+                    title: 'Error!',
+                    text: result.message || 'Failed to update platform status.',
+                    icon: 'error',
+                });
             }
         } catch (error) {
             console.error('Error toggling category status:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to update platform status.',
+                icon: 'error',
+            });
+        } finally {
+            setTogglingCategoryId(null);
         }
     };
 
@@ -654,10 +669,22 @@ export default function ApiCategories({ auth }) {
                                                             </td>
                                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                                 <button
+                                                                    type="button"
                                                                     onClick={() => handleToggleActive(category.id)}
-                                                                    className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                                                    disabled={togglingCategoryId === category.id}
+                                                                    className="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-900 disabled:opacity-60 disabled:cursor-not-allowed mr-4"
                                                                 >
-                                                                    {category.is_active ? 'Deactivate' : 'Activate'}
+                                                                    {togglingCategoryId === category.id ? (
+                                                                        <>
+                                                                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                                            </svg>
+                                                                            Updating…
+                                                                        </>
+                                                                    ) : (
+                                                                        category.is_active ? 'Deactivate' : 'Activate'
+                                                                    )}
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleManageFields(category)}
