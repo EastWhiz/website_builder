@@ -5,12 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class UserApiInstance extends Model
 {
+    use SoftDeletes;
+
     protected static function booted(): void
     {
-        static::deleting(function (UserApiInstance $instance) {
+        // Only hard-delete related values when the instance is force-deleted (permanent delete)
+        static::forceDeleting(function (UserApiInstance $instance) {
             $instance->values()->delete();
         });
     }

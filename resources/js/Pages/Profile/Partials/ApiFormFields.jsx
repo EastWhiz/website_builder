@@ -21,7 +21,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     const [formValues, setFormValues] = useState({});
     const [formErrors, setFormErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
-    const [togglingInstanceId, setTogglingInstanceId] = useState(null);
+    const [deletingInstanceId, setDeletingInstanceId] = useState(null);
 
     useEffect(() => {
         loadData();
@@ -171,24 +171,36 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         setFormValues((prev) => ({ ...prev, [fieldName]: value }));
     };
 
-    const handleToggleActive = async (inst) => {
-        setTogglingInstanceId(inst.id);
+    const handleDelete = async (inst) => {
+        const result = await Swal.fire({
+            title: 'Delete this API?',
+            text: `"${inst.name}" will be removed from the list. You can no longer use it in forms.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete',
+        });
+        if (!result.isConfirmed) return;
+        setDeletingInstanceId(inst.id);
         try {
-            const res = await fetch(route('user.api.instances.toggleActive', inst.id), {
-                method: 'POST',
+            const res = await fetch(route('user.api.instances.destroy', inst.id), {
+                method: 'DELETE',
                 headers: getHeaders(),
             });
             const data = await res.json();
             if (data.success) {
+                Swal.fire({ title: 'Deleted', text: data.message || 'API instance removed.', icon: 'success', timer: 2000, showConfirmButton: false });
                 await loadData();
+                if (expandedPlatformId !== null) setExpandedPlatformId(null);
             } else {
-                Swal.fire({ title: 'Error', text: data.message || 'Failed to update status.', icon: 'error' });
+                Swal.fire({ title: 'Error', text: data.message || 'Delete failed.', icon: 'error' });
             }
         } catch (e) {
             console.error(e);
             Swal.fire({ title: 'Error', text: 'Request failed.', icon: 'error' });
         } finally {
-            setTogglingInstanceId(null);
+            setDeletingInstanceId(null);
         }
     };
 
@@ -294,23 +306,21 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                                 type="button"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
-                                                                                    handleToggleActive(inst);
+                                                                                    handleDelete(inst);
                                                                                 }}
-                                                                                disabled={togglingInstanceId === inst.id}
-                                                                                className="inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed text-amber-600 hover:text-amber-800"
+                                                                                disabled={deletingInstanceId === inst.id}
+                                                                                className="inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed text-red-600 hover:text-red-800"
                                                                             >
-                                                                                {togglingInstanceId === inst.id ? (
+                                                                                {deletingInstanceId === inst.id ? (
                                                                                     <>
                                                                                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                                                                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                                                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                                                                         </svg>
-                                                                                        Updating…
+                                                                                        Deleting…
                                                                                     </>
-                                                                                ) : inst.is_active ? (
-                                                                                    'Deactivate'
                                                                                 ) : (
-                                                                                    'Activate'
+                                                                                    'Delete'
                                                                                 )}
                                                                             </button>
                                                                         </td>
