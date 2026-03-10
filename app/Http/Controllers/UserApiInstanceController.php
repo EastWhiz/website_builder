@@ -18,6 +18,8 @@ class UserApiInstanceController extends Controller
     }
     /**
      * List user's API instances, grouped by category.
+     * Returns all instances (active and inactive) so the API Instance page (Profile) can display them and allow toggling.
+     * Other consumers (e.g. form dropdowns in AngleTemplates/Angles) filter client-side to show only active.
      */
     public function index(Request $request)
     {
@@ -254,6 +256,7 @@ class UserApiInstanceController extends Controller
             ->apiInstances()
             ->with(['category', 'values.field'])
             ->where('api_category_id', $categoryId)
+            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 

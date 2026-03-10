@@ -21,6 +21,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     const [formValues, setFormValues] = useState({});
     const [formErrors, setFormErrors] = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [togglingInstanceId, setTogglingInstanceId] = useState(null);
 
     useEffect(() => {
         loadData();
@@ -166,39 +167,29 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         }
     };
 
-    const handleDelete = (instance, categoryId) => {
-        Swal.fire({
-            title: 'Are you sure?',
-            text: `Delete "${instance.name}"?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete',
-        }).then(async (result) => {
-            if (!result.isConfirmed) return;
-                try {
-                const res = await fetch(route('user.api.instances.destroy', { id: instance.id }), {
-                        method: 'DELETE',
-                    headers: getHeaders(),
-                });
-                const data = await res.json();
-                if (data.success) {
-                    Swal.fire({ title: 'Deleted!', text: data.message, icon: 'success', timer: 1500, showConfirmButton: false });
-                    loadData();
-                    if (expandedPlatformId === categoryId) setExpandedPlatformId(null);
-                    } else {
-                    Swal.fire({ title: 'Error', text: data.message || 'Delete failed.', icon: 'error' });
-                }
-            } catch (e) {
-                console.error(e);
-                Swal.fire({ title: 'Error', text: 'Request failed.', icon: 'error' });
-            }
-        });
-    };
-
     const setFormValue = (fieldName, value) => {
         setFormValues((prev) => ({ ...prev, [fieldName]: value }));
+    };
+
+    const handleToggleActive = async (inst) => {
+        setTogglingInstanceId(inst.id);
+        try {
+            const res = await fetch(route('user.api.instances.toggleActive', inst.id), {
+                method: 'POST',
+                headers: getHeaders(),
+            });
+            const data = await res.json();
+            if (data.success) {
+                await loadData();
+            } else {
+                Swal.fire({ title: 'Error', text: data.message || 'Failed to update status.', icon: 'error' });
+            }
+        } catch (e) {
+            console.error(e);
+            Swal.fire({ title: 'Error', text: 'Request failed.', icon: 'error' });
+        } finally {
+            setTogglingInstanceId(null);
+        }
     };
 
     if (loading) {
@@ -303,11 +294,24 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                                 type="button"
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
-                                                                                    handleDelete(inst, group.category.id);
+                                                                                    handleToggleActive(inst);
                                                                                 }}
-                                                                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                                                                disabled={togglingInstanceId === inst.id}
+                                                                                className="inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed text-amber-600 hover:text-amber-800"
                                                                             >
-                                                                                Delete
+                                                                                {togglingInstanceId === inst.id ? (
+                                                                                    <>
+                                                                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                                                        </svg>
+                                                                                        Updating…
+                                                                                    </>
+                                                                                ) : inst.is_active ? (
+                                                                                    'Deactivate'
+                                                                                ) : (
+                                                                                    'Activate'
+                                                                                )}
                                                                             </button>
                                                                         </td>
                                                                     </tr>

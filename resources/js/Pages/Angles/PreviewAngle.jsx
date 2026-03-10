@@ -987,7 +987,8 @@ export default function Dashboard({ id }) {
                                 return;
                             }
                             group.instances.forEach((instance) => {
-                                if (instance && instance.name) {
+                                // Only show active API instances in form dropdown
+                                if (instance && instance.name && instance.is_active !== false) {
                                     instances.push({
                                         id: instance.id,
                                         name: instance.name,
