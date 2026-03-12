@@ -589,6 +589,8 @@ export default function Dashboard({ id }) {
         project_directory: "",
         otp_service_id: "",
         is_self_hosted: "false",
+        redirect_to_broker: "no",
+        broker_redirect_delay: "",
         otp_modal_heading: "",
         otp_modal_image: "",
         otp_modal_content: "",
@@ -856,7 +858,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted") return null;
+                    if (!name || name == "form_type" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "redirect_to_broker" || name == "broker_redirect_delay") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -892,6 +894,11 @@ export default function Dashboard({ id }) {
                     const raw = formEl.querySelector('[name="is_self_hosted"]')?.value?.trim()?.toLowerCase();
                     return (raw === 'true' ? 'true' : 'false');
                 })(),
+                redirect_to_broker: (() => {
+                    const raw = formEl.querySelector('[name="redirect_to_broker"]')?.value?.trim()?.toLowerCase();
+                    return raw === 'yes' ? 'yes' : 'no';
+                })(),
+                broker_redirect_delay: formEl.querySelector('[name="broker_redirect_delay"]')?.value || '',
                 otp_modal_heading: formEl.querySelector('[name="otp_modal_heading"]')?.value || '',
                 otp_modal_image: formEl.querySelector('[name="otp_modal_image"]')?.value || '',
                 otp_modal_content: formEl.querySelector('[name="otp_modal_content"]')?.value || '',
@@ -1433,6 +1440,8 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="sales_page_id" value="SP${id || ''}" />`;
             formHTML += ` <input type="hidden" name="otp_service_id" value="${formManagement.otp_service_id || ''}" />`;
             formHTML += ` <input type="hidden" name="is_self_hosted" value="${formManagement.is_self_hosted || 'false'}" />`;
+            formHTML += ` <input type="hidden" name="redirect_to_broker" value="${formManagement.redirect_to_broker || 'no'}" />`;
+            formHTML += ` <input type="hidden" name="broker_redirect_delay" value="${(formManagement.broker_redirect_delay || '').replace(/"/g, '&quot;')}" />`;
             
             // Escape and encode OTP modal fields properly
             const escapeHtml = (str) => {
@@ -2986,6 +2995,48 @@ export default function Dashboard({ id }) {
                                                                 </MuiSelect>
                                                             </FormControl>
                                                         </Box>
+                                                        <Box mt={2}>
+                                                            <FormControl fullWidth>
+                                                                <InputLabel id="redirect-broker-select-label" shrink>
+                                                                    Redirect to Broker Page
+                                                                </InputLabel>
+                                                                <MuiSelect
+                                                                    labelId="redirect-broker-select-label"
+                                                                    value={formManagement.redirect_to_broker || 'no'}
+                                                                    label="Redirect to Broker Page"
+                                                                    size="small"
+                                                                    MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
+                                                                    onChange={(e) =>
+                                                                        setFormManagement({
+                                                                            ...formManagement,
+                                                                            redirect_to_broker: e.target.value,
+                                                                        })
+                                                                    }
+                                                                >
+                                                                    <MenuItem className="doNotAct" value="no">No</MenuItem>
+                                                                    <MenuItem className="doNotAct" value="yes">Yes</MenuItem>
+                                                                </MuiSelect>
+                                                            </FormControl>
+                                                        </Box>
+                                                        {formManagement.redirect_to_broker === 'yes' && (
+                                                            <Box mt={2}>
+                                                                <TextField
+                                                                    type="number"
+                                                                    fullWidth
+                                                                    size="small"
+                                                                    label="Seconds to Redirect"
+                                                                    slotProps={{ inputLabel: { shrink: true } }}
+                                                                    inputProps={{ min: 0 }}
+                                                                    value={formManagement.broker_redirect_delay || ''}
+                                                                    onChange={(e) =>
+                                                                        setFormManagement({
+                                                                            ...formManagement,
+                                                                            broker_redirect_delay: e.target.value,
+                                                                        })
+                                                                    }
+                                                                />
+                                                            </Box>
+                                                        )}
                                                         
                                                         {/* OTP Modal Customization - Show when OTP Service is selected */}
                                                         {userOtpServices.length > 0 && formManagement.otp_service_id && (

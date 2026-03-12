@@ -1,3 +1,26 @@
+<?php
+// Load config (starts session)
+include_once 'config.php';
+
+$redirectConfig = isset($_SESSION['broker_redirect']) && is_array($_SESSION['broker_redirect'])
+    ? $_SESSION['broker_redirect']
+    : null;
+
+$redirectEnabled = $redirectConfig['enabled'] ?? false;
+$redirectDelay = isset($redirectConfig['delay']) ? (int) $redirectConfig['delay'] : 0;
+$redirectUrl = $redirectConfig['url'] ?? '';
+
+if ($redirectDelay < 0) {
+    $redirectDelay = 0;
+}
+if (!$redirectEnabled || !filter_var($redirectUrl, FILTER_VALIDATE_URL)) {
+    $redirectEnabled = false;
+    $redirectUrl = '';
+}
+
+// Clear redirect config so it doesn't persist across refreshes
+unset($_SESSION['broker_redirect']);
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -5,6 +28,22 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Thank You - Schedule Your Call</title>
+
+    <script>
+        // Optional broker redirect after X seconds
+        document.addEventListener('DOMContentLoaded', function () {
+            const enabled = <?php echo $redirectEnabled ? 'true' : 'false'; ?>;
+            const delaySeconds = <?php echo (int) $redirectDelay; ?>;
+            const brokerUrl = <?php echo json_encode($redirectUrl, JSON_UNESCAPED_SLASHES); ?>;
+
+            if (enabled && brokerUrl && typeof brokerUrl === 'string') {
+                const ms = (delaySeconds > 0 ? delaySeconds : 0) * 1000;
+                setTimeout(function () {
+                    window.location.href = brokerUrl;
+                }, ms);
+            }
+        });
+    </script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {

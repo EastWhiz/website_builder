@@ -76,6 +76,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $leadSaveStatus = ($httpCode >= 200 && $httpCode < 300) ? 'success' : 'failure';
     saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
 
+    // Configure optional broker redirect for Thank You page
+    $redirectToBroker = strtolower(trim(getVal($postData, 'redirect_to_broker'))) === 'yes';
+    $redirectDelay = (int) getVal($postData, 'broker_redirect_delay');
+    if ($redirectDelay < 0) {
+        $redirectDelay = 0;
+    }
+    $brokerUrl = null;
+    if (is_array($responseArray)) {
+        foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
+            if (!empty($responseArray[$key]) && filter_var($responseArray[$key], FILTER_VALIDATE_URL)) {
+                $brokerUrl = $responseArray[$key];
+                break;
+            }
+        }
+    }
+    if (!isset($_SESSION)) {
+        session_start();
+    }
+    if ($redirectToBroker && $brokerUrl && filter_var($brokerUrl, FILTER_VALIDATE_URL)) {
+        $_SESSION['broker_redirect'] = [
+            'enabled' => true,
+            'delay' => $redirectDelay,
+            'url' => $brokerUrl,
+        ];
+    } else {
+        unset($_SESSION['broker_redirect']);
+    }
+
     if ($curlError || $leadSaveStatus === 'failure') {
         header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($curlError ?: ($responseArray['message'] ?? 'API error')));
         exit();
