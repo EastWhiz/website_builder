@@ -2990,7 +2990,19 @@ export default function Dashboard({ id }) {
                                                                     label="Self-hosted mode"
                                                                     size="small"
                                                                     MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
-                                                                    onChange={(e) => setFormManagement({ ...formManagement, is_self_hosted: e.target.value })}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        setFormManagement({
+                                                                            ...formManagement,
+                                                                            is_self_hosted: value,
+                                                                            ...(value === 'true'
+                                                                                ? {
+                                                                                    redirect_to_broker: 'no',
+                                                                                    broker_redirect_delay: '',
+                                                                                }
+                                                                                : {}),
+                                                                        });
+                                                                    }}
                                                                 >
                                                                     <MenuItem className="doNotAct" value="false">No</MenuItem>
                                                                     <MenuItem className="doNotAct" value="true">Yes</MenuItem>
@@ -3000,13 +3012,17 @@ export default function Dashboard({ id }) {
                                                         <Box mt={2}>
                                                             <FormControl fullWidth>
                                                                 <InputLabel id="redirect-broker-select-label" shrink>
-                                                                    Redirect to Broker Page
+                                                                    Redirect to Broker Page{' '}
+                                                                    <span style={{ color: 'red' }}>
+                                                                        (Not implemented for Self Hosted yet)
+                                                                    </span>
                                                                 </InputLabel>
                                                                 <MuiSelect
                                                                     labelId="redirect-broker-select-label"
                                                                     value={formManagement.redirect_to_broker || 'no'}
-                                                                    label="Redirect to Broker Page"
+                                                                    label="Redirect to Broker Page (Not implemented for Self Hosted yet)"
                                                                     size="small"
+                                                                    disabled={formManagement.is_self_hosted === 'true'}
                                                                     MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
                                                                     onChange={(e) =>
                                                                         setFormManagement({
@@ -3020,7 +3036,7 @@ export default function Dashboard({ id }) {
                                                                 </MuiSelect>
                                                             </FormControl>
                                                         </Box>
-                                                        {formManagement.redirect_to_broker === 'yes' && (
+                                                        {formManagement.is_self_hosted !== 'true' && formManagement.redirect_to_broker === 'yes' && (
                                                             <Box mt={2}>
                                                                 <TextField
                                                                     type="number"
