@@ -117,10 +117,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $brokerUrl = null;
     if (is_array($responseArray)) {
-        foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
-            if (!empty($responseArray[$key]) && filter_var($responseArray[$key], FILTER_VALIDATE_URL)) {
-                $brokerUrl = $responseArray[$key];
-                break;
+        // iRev: primary URL is auto_login_url; also support common keys and nested structures,
+        // using the shared helper from trackbox.php if available.
+        if (function_exists('findBrokerRedirectUrl')) {
+            $brokerUrl = findBrokerRedirectUrl($responseArray);
+        } else {
+            if (!empty($responseArray['auto_login_url']) && filter_var($responseArray['auto_login_url'], FILTER_VALIDATE_URL)) {
+                $brokerUrl = $responseArray['auto_login_url'];
+            } else {
+                foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
+                    if (!empty($responseArray[$key]) && filter_var($responseArray[$key], FILTER_VALIDATE_URL)) {
+                        $brokerUrl = $responseArray[$key];
+                        break;
+                    }
+                }
             }
         }
     }

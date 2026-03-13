@@ -84,10 +84,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $brokerUrl = null;
     if (is_array($responseArray)) {
-        foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
-            if (!empty($responseArray[$key]) && filter_var($responseArray[$key], FILTER_VALIDATE_URL)) {
-                $brokerUrl = $responseArray[$key];
-                break;
+        // LeadGreed: redirect is typically in body.extras.redirect.url,
+        // but we also check the common keys and nested structures via shared helper if available.
+        if (function_exists('findBrokerRedirectUrl')) {
+            $brokerUrl = findBrokerRedirectUrl($responseArray);
+        } else {
+            if (isset($responseArray['body']['extras']['redirect']['url']) &&
+                filter_var($responseArray['body']['extras']['redirect']['url'], FILTER_VALIDATE_URL)) {
+                $brokerUrl = $responseArray['body']['extras']['redirect']['url'];
+            } else {
+                foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
+                    if (!empty($responseArray[$key]) && filter_var($responseArray[$key], FILTER_VALIDATE_URL)) {
+                        $brokerUrl = $responseArray[$key];
+                        break;
+                    }
+                }
             }
         }
     }
