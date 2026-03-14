@@ -137,6 +137,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::patch('/profile/deepl-api-key', [ProfileController::class, 'updateDeeplApiKey'])->name('profile.update-deepl-api-key');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
         // API Credentials routes

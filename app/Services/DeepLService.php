@@ -10,9 +10,12 @@ class DeepLService
     protected $apiKey;
     protected $endpoint;
 
-    public function __construct()
+    public function __construct(?string $apiKey = null)
     {
-        $this->apiKey = env('DEEPL_API_KEY');
+        if (empty(trim((string) $apiKey))) {
+            throw new \InvalidArgumentException('DeepL API key is required. Add your key in Profile → Profile Information.');
+        }
+        $this->apiKey = $apiKey;
         $this->endpoint = 'https://api.deepl.com/v2/translate';
     }
 

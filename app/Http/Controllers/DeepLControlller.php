@@ -23,8 +23,12 @@ class DeepLControlller extends Controller
         $splitSentences = $request->split_sentences;
         $preserveFormatting = $request->preserve_formatting;
 
-        $translatedText = $this->deepL->translate($text, $language, $sourceLanguage, $splitSentences, $preserveFormatting);
-        // logger(json_encode($translatedText));
+        if (empty(trim((string) $request->user()->deepl_api_key))) {
+            return sendResponse(false, 'DeepL API key is required. Add your key in Profile → Profile Information.', null);
+        }
+        $deepL = new DeepLService($request->user()->deepl_api_key);
+        $translatedText = $deepL->translate($text, $language, $sourceLanguage, $splitSentences, $preserveFormatting);
+
         return sendResponse(true, "DeepL Translation Retreived", $translatedText);
     }
 }

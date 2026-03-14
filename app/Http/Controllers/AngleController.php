@@ -633,8 +633,10 @@ class AngleController extends Controller
 
            
 
-            // Initialize DeepL service
-            $deepLService = new \App\Services\DeepLService();
+            if (empty(trim((string) $request->user()->deepl_api_key))) {
+                return sendResponse(false, 'DeepL API key is required. Add your key in Profile → Profile Information.', null);
+            }
+            $deepLService = new \App\Services\DeepLService($request->user()->deepl_api_key);
             Log::info('✅ DeepL service initialized');
 
             // Get all HTML content bodies for this angle

@@ -34,6 +34,7 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
             'crmSettings' => $crmSettings,
+            'deepl_api_key' => $request->user()->deepl_api_key,
         ]);
     }
 
@@ -48,6 +49,21 @@ class ProfileController extends Controller
             $request->user()->email_verified_at = null;
         }
 
+        $request->user()->save();
+
+        return Redirect::route('profile.edit');
+    }
+
+    /**
+     * Update the user's DeepL API key only.
+     */
+    public function updateDeeplApiKey(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'deepl_api_key' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $request->user()->deepl_api_key = $request->input('deepl_api_key');
         $request->user()->save();
 
         return Redirect::route('profile.edit');

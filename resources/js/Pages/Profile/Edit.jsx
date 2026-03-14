@@ -7,8 +7,9 @@ import ApiFormFields from './Partials/ApiFormFields';
 import PixelFormFields from './Partials/PixelFormFields';
 import OtpServicesFormFields from './Partials/OtpServicesFormFields';
 import CrmSettingsForm from './Partials/CrmSettingsForm';
+import DeepLApiKeyForm from './Partials/DeepLApiKeyForm';
 
-export default function Edit({ mustVerifyEmail, status, crmSettings }) {
+export default function Edit({ mustVerifyEmail, status, crmSettings, deepl_api_key }) {
     return (
         <AuthenticatedLayout
             header={
@@ -51,6 +52,10 @@ export default function Edit({ mustVerifyEmail, status, crmSettings }) {
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
                         <CrmSettingsForm crmSettings={crmSettings} className="max-w-xl" />
+                    </div>
+
+                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                        <DeepLApiKeyForm deepl_api_key={deepl_api_key} className="max-w-xl" />
                     </div>
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
