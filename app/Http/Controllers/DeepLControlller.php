@@ -24,7 +24,7 @@ class DeepLControlller extends Controller
         $preserveFormatting = $request->preserve_formatting;
 
         if (empty(trim((string) $request->user()->deepl_api_key))) {
-            return sendResponse(false, 'DeepL API key is required. Add your key in Profile → Profile Information.', null);
+            return sendResponse(false, 'DeepL API key is required. Add your key in Profile → DeepL API Key Section.', null);
         }
         $deepL = new DeepLService($request->user()->deepl_api_key);
         $translatedText = $deepL->translate($text, $language, $sourceLanguage, $splitSentences, $preserveFormatting);

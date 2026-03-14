@@ -2436,7 +2436,7 @@ class AngleTemplateController extends Controller
         }
     
         if (empty(trim((string) $request->user()->deepl_api_key))) {
-            return sendResponse(false, 'DeepL API key is required. Add your key in Profile → Profile Information.');
+            return sendResponse(false, 'DeepL API key is required. Add your key in Profile → DeepL API Key Section.');
         }
 
         try {
