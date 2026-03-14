@@ -50,9 +50,11 @@ export default function Edit({ mustVerifyEmail, status, crmSettings, deepl_api_k
                         />
                     </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <CrmSettingsForm crmSettings={crmSettings} className="max-w-xl" />
-                    </div>
+                    {crmSettings && (
+                        <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                            <CrmSettingsForm crmSettings={crmSettings} className="max-w-xl" />
+                        </div>
+                    )}
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
                         <DeepLApiKeyForm deepl_api_key={deepl_api_key} className="max-w-xl" />
