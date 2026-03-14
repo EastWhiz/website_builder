@@ -52,7 +52,6 @@ class DeepLService
         }
 
         $data = [
-            'auth_key'    => $this->apiKey,
             'text'        => array_values($texts),
             'target_lang' => strtoupper($targetLang),
         ];
@@ -69,8 +68,12 @@ class DeepLService
             $data['preserve_formatting'] = (int) $preserveFormatting;
         }
 
-        // Configure HTTP client (same logic as your original)
-        $httpClient = Http::asForm()->timeout(30);
+        // Configure HTTP client
+        $httpClient = Http::asForm()
+            ->timeout(30)
+            ->withHeaders([
+                'Authorization' => 'DeepL-Auth-Key ' . $this->apiKey,
+            ]);
 
         $appUrl = env('APP_URL', 'http://localhost');
         $isLocalhost = (
