@@ -47,6 +47,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Angles
                                 </NavLink>
                             </div>
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink
+                                    href={route('thank-you-pages.index')}
+                                    active={route().current('thank-you-pages.index') || route().current('thank-you-pages.create') || route().current('thank-you-pages.edit')}
+                                >
+                                    Thank You Pages
+                                </NavLink>
+                            </div>
                             {user && user.role.name == "admin" ?
                                 <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
@@ -196,6 +204,12 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
                         >
                             Angles
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('thank-you-pages.index')}
+                            active={route().current('thank-you-pages.index') || route().current('thank-you-pages.create') || route().current('thank-you-pages.edit')}
+                        >
+                            Thank You Pages
                         </ResponsiveNavLink>
                         {user && user.role.name == "admin" ?
                             <>

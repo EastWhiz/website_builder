@@ -60,6 +60,11 @@ class User extends Authenticatable
         return $this->hasMany(AngleTemplate::class, 'user_id');
     }
 
+    public function thankYouPages()
+    {
+        return $this->hasMany(ThankYouPage::class, 'user_id');
+    }
+
     public function apiCredential()
     {
         return $this->hasOne(UserApiCredential::class);

@@ -11,6 +11,7 @@ use App\Http\Controllers\OtpServiceCredentialController;
 use App\Http\Controllers\OtpVerificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\ThankYouPageController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\ApiCategoryController;
 use App\Http\Controllers\Admin\ApiCategoryFieldController;
@@ -33,6 +34,11 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+
+// Direct link to preview the thank you page (no auth required)
+Route::get('/thank-you-preview', function () {
+    return redirect(url('api_files/thank_you.php'));
+})->name('thankYou.preview');
 
 // Public OTP API routes (no auth required - forms are public-facing)
 Route::post('/api/otp/generate', [OtpVerificationController::class, 'generate'])->name('otp.generate');
@@ -165,6 +171,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ]);
         })->name('userThemes');
         Route::get('/users/{id}/themes/list', [UsersController::class, 'userThemesList'])->name('userThemes.list');
+
+        // Thank You Pages (custom thank-you pages for exports)
+        Route::get('/thank-you-pages', [ThankYouPageController::class, 'index'])->name('thank-you-pages.index');
+        Route::get('/thank-you-pages/create', [ThankYouPageController::class, 'create'])->name('thank-you-pages.create');
+        Route::post('/thank-you-pages', [ThankYouPageController::class, 'store'])->name('thank-you-pages.store');
+        Route::get('/thank-you-pages/{id}/edit', [ThankYouPageController::class, 'edit'])->name('thank-you-pages.edit');
+        Route::put('/thank-you-pages/{id}', [ThankYouPageController::class, 'update'])->name('thank-you-pages.update');
+        Route::delete('/thank-you-pages/{id}', [ThankYouPageController::class, 'destroy'])->name('thank-you-pages.destroy');
+        Route::get('/thank-you-pages/{id}/preview', [ThankYouPageController::class, 'preview'])->name('thank-you-pages.preview');
 
         Route::get('/angle-templates/preview/{id}', function ($id) {
             return Inertia::render('AngleTemplates/PreviewAngleTemplate', compact('id'));
