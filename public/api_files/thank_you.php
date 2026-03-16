@@ -156,6 +156,7 @@ unset($_SESSION['broker_redirect']);
             display: flex;
             align-items: center;
             text-decoration: none;
+            margin-top: 30px;
         }
 
         .logo img {
@@ -260,7 +261,7 @@ unset($_SESSION['broker_redirect']);
         .hero-image {
             display: block;
             max-width: 100%;
-            width: clamp(120px, 25vw, 200px);
+            width: clamp(120px, 25vw, 300px);
             height: auto;
             margin: 0 auto clamp(20px, 4vw, 28px);
             border-radius: var(--radius-md);
@@ -295,7 +296,7 @@ unset($_SESSION['broker_redirect']);
 
     <header class="topbar">
         <a href="#" class="logo">
-            <img src="PROJECTURL/wealth.jpg" alt="Wealth Logo" />
+            <img src="PROJECTURL/wealth.jpg" alt="Wealth Logo" onerror="this.style.display='none'" />
         </a>
     </header>
 
@@ -310,7 +311,7 @@ unset($_SESSION['broker_redirect']);
                 <span class="badge-dot"></span>
                 Submission received
             </div>
-            <img src="PROJECTURL/profiles.jpg" alt="Schedule with Facet" class="hero-image" />
+            <img src="PROJECTURL/profiles.jpg" alt="Schedule with Facet" class="hero-image" onerror="this.style.display='none'" />
             <h1>Thank you for your interest!</h1>
             <p>A dedicated wealth advisor will reach out within 1 business day to discuss your financial goals.</p>
         </div>

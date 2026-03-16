@@ -2185,7 +2185,8 @@ class AngleTemplateController extends Controller
                         $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
                         $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
                     }
-                    $content = str_replace("PROJECTURL/", env('APP_URL') . "/images/", $content);
+                    // Use relative ../images/ path so exported structure works from api_files/
+                    $content = str_replace("PROJECTURL/", "../images/", $content);
                     break;
 
                 case 'otp_generate.php':
@@ -2454,22 +2455,21 @@ class AngleTemplateController extends Controller
         $heroColor = $page->hero_background_color ?: '#3B27A8';
 
         // Build PROJECTURL-relative paths so export injection can convert them to APP_URL/images/...
+        // Always point to files at zip images/ root (basename only), export will still convert PROJECTURL/ to APP_URL/images/
         $logoRel = null;
         if ($page->logo_path) {
-            $trimmed = ltrim($page->logo_path, '/');
-            $logoRel = preg_replace('#^images/#', '', $trimmed);
+            $logoRel = basename($page->logo_path);
         }
         $profileRel = null;
         if ($page->profile_image_path) {
-            $trimmed = ltrim($page->profile_image_path, '/');
-            $profileRel = preg_replace('#^images/#', '', $trimmed);
+            $profileRel = basename($page->profile_image_path);
         }
 
         $logoHtml = '';
         if ($logoRel) {
             $logoHtml = '<header class="topbar">
         <a href="#" class="logo">
-            <img src="PROJECTURL/' . $logoRel . '" alt="Logo" />
+            <img src="PROJECTURL/' . $logoRel . '" alt="Logo" onerror="this.style.display=\'none\'" />
         </a>
     </header>';
         } else {
@@ -2479,7 +2479,7 @@ class AngleTemplateController extends Controller
 
         $profileHtml = '';
         if ($profileRel) {
-            $profileHtml = '<img src="PROJECTURL/' . $profileRel . '" alt="Profile" class="hero-image" />';
+            $profileHtml = '<img src="PROJECTURL/' . $profileRel . '" alt="Profile" class="hero-image" onerror="this.style.display=\'none\'" />';
         }
 
         $body = "\n\n    {$logoHtml}\n\n" .
