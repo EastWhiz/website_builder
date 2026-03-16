@@ -44,6 +44,22 @@ class ThankYouPageController extends Controller
     }
 
     /**
+     * API: List current user's thank you pages for export dropdowns.
+     */
+    public function apiIndex(Request $request)
+    {
+        $pages = $request->user()
+            ->thankYouPages()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $pages,
+        ]);
+    }
+
+    /**
      * Show create form.
      */
     public function create(): Response

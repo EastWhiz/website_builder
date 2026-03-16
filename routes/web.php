@@ -181,6 +181,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/thank-you-pages/{id}', [ThankYouPageController::class, 'destroy'])->name('thank-you-pages.destroy');
         Route::get('/thank-you-pages/{id}/preview', [ThankYouPageController::class, 'preview'])->name('thank-you-pages.preview');
 
+        // API: list current user's thank you pages (for export dropdown)
+        Route::get('/api/thank-you-pages', [ThankYouPageController::class, 'apiIndex'])->name('thank-you-pages.api-index');
+
         Route::get('/angle-templates/preview/{id}', function ($id) {
             return Inertia::render('AngleTemplates/PreviewAngleTemplate', compact('id'));
         })->name('previewAngleTemplate');

@@ -182,6 +182,8 @@ export default function Dashboard() {
     // Export modal state
     const [exportModalOpen, setExportModalOpen] = useState(false);
     const [selectedExportAngleTemplateId, setSelectedExportAngleTemplateId] = useState(null);
+    const [thankYouPages, setThankYouPages] = useState([]);
+    const [selectedThankYouPageId, setSelectedThankYouPageId] = useState('');
 
     const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
@@ -388,6 +390,20 @@ export default function Dashboard() {
     const openExportModal = (angleTemplateId) => {
         setSelectedExportAngleTemplateId(angleTemplateId);
         setExportModalOpen(true);
+
+        // Lazy-load thank you pages list for dropdown
+        if (thankYouPages.length === 0) {
+            fetch(route('thank-you-pages.api-index'))
+                .then((response) => response.json())
+                .then((result) => {
+                    if (result && result.success && Array.isArray(result.data)) {
+                        setThankYouPages(result.data);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to load thank you pages:', err);
+                });
+        }
     };
 
     const handleExport = () => {
@@ -396,7 +412,9 @@ export default function Dashboard() {
             const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
                 ? window.appURL 
                 : window.location.origin;
-            window.open(`${baseUrl}/download?angle_template_id=${selectedExportAngleTemplateId}`, "_blank");
+            const tyId = selectedThankYouPageId || '';
+            const url = `${baseUrl}/download?angle_template_id=${selectedExportAngleTemplateId}` + (tyId !== '' ? `&thank_you_page_id=${encodeURIComponent(tyId)}` : '');
+            window.open(url, "_blank");
         }
     };
 
@@ -754,7 +772,27 @@ export default function Dashboard() {
                 ]}
             >
                 <Modal.Section>
-                    <p>You are going to Export this page</p>
+                    <p className="mb-3">You are going to export this landing page.</p>
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                            Thank You Page
+                        </label>
+                        <select
+                            className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            value={selectedThankYouPageId}
+                            onChange={(e) => setSelectedThankYouPageId(e.target.value)}
+                        >
+                            <option value="">Default thank you page</option>
+                            {thankYouPages.map((page) => (
+                                <option key={page.id} value={page.id}>
+                                    {page.name}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500">
+                            Choose a custom thank you page for this export, or keep the default.
+                        </p>
+                    </div>
                 </Modal.Section>
             </Modal>
 

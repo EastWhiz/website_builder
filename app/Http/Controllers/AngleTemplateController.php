@@ -7,6 +7,7 @@ use App\Models\AngleTemplate;
 use App\Models\ExtraContent;
 use App\Models\Template;
 use App\Models\TemplateContent;
+use App\Models\ThankYouPage;
 use App\Models\ApiCategory;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
@@ -229,7 +230,17 @@ class AngleTemplateController extends Controller
 
     public function downloadTemplate(Request $request)
     {
-        // return $request->all();
+        // Optional thank you page selection (used in Phase 9 for custom thank_you.php generation)
+        $thankYouPageId = $request->input('thank_you_page_id');
+        $selectedThankYouPage = null;
+
+        if (!empty($thankYouPageId)) {
+            $selectedThankYouPage = ThankYouPage::find($thankYouPageId);
+            if (!$selectedThankYouPage || $selectedThankYouPage->user_id !== Auth::id()) {
+                // Do not allow exporting someone else's thank you page
+                $selectedThankYouPage = null;
+            }
+        }
 
         $angleTemplate = AngleTemplate::where('id', $request->angle_template_id)->first();
         $template = $angleTemplate->template;
@@ -337,6 +348,19 @@ class AngleTemplateController extends Controller
             $fullPath = storage_path('app/public/' . $relative);
             if (file_exists($fullPath)) {
                 $zip->addFile($fullPath, 'images/' . basename($fullPath));
+            }
+        }
+
+        // If a custom Thank You Page is selected, ensure its logo/profile images are also available in the zip
+        if (isset($selectedThankYouPage) && $selectedThankYouPage) {
+            foreach (['logo_path', 'profile_image_path'] as $attr) {
+                $rel = $selectedThankYouPage->{$attr};
+                if ($rel) {
+                    $full = public_path($rel);
+                    if (file_exists($full)) {
+                        $zip->addFile($full, 'images/' . basename($full));
+                    }
+                }
             }
         }
 
@@ -1834,7 +1858,14 @@ class AngleTemplateController extends Controller
                     continue;
                 }
                 try {
-                    $fileContent = file_get_contents($filePath);
+                    // Special handling for thank_you.php when a custom Thank You Page is selected
+                    if ($file === 'thank_you.php' && isset($selectedThankYouPage) && $selectedThankYouPage) {
+                        $defaultContent = file_get_contents($filePath);
+                        $fileContent = $this->buildCustomThankYouContent($selectedThankYouPage, $defaultContent);
+                    } else {
+                        $fileContent = file_get_contents($filePath);
+                    }
+
                     // Use the resolved instance for platform files (will be null for non-platform files)
                     $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiInstance, $fullHtml, $userApiCredentials);
                     $zip->addFromString('api_files/' . $file, $modifiedContent);
@@ -2150,8 +2181,10 @@ class AngleTemplateController extends Controller
                     break;
 
                 case 'thank_you.php':
-                    $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
-                    $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
+                    if ($userApiCredentials) {
+                        $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
+                        $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
+                    }
                     $content = str_replace("PROJECTURL/", env('APP_URL') . "/images/", $content);
                     break;
 
@@ -2389,6 +2422,86 @@ class AngleTemplateController extends Controller
             DB::rollback();
             return sendResponse(false, 'Error duplicating AngleTemplate: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Build a custom thank_you.php content string for the selected Thank You Page.
+     *
+     * Keeps the original PHP header/scripts and replaces the body with user-specific layout.
+     */
+    private function buildCustomThankYouContent(ThankYouPage $page, string $defaultContent): string
+    {
+        // Split default thank_you.php into header (<body> open) and footer (</body>…)
+        $bodyPos = strpos($defaultContent, '<body');
+        if ($bodyPos === false) {
+            return $defaultContent;
+        }
+        $bodyTagEnd = strpos($defaultContent, '>', $bodyPos);
+        if ($bodyTagEnd === false) {
+            return $defaultContent;
+        }
+        $bodyStart = $bodyTagEnd + 1;
+        $bodyClosePos = strripos($defaultContent, '</body>');
+        if ($bodyClosePos === false) {
+            return $defaultContent;
+        }
+
+        $header = substr($defaultContent, 0, $bodyStart);
+        $footer = substr($defaultContent, $bodyClosePos);
+
+        $title = htmlspecialchars($page->title_text ?: 'Thank you for your interest!', ENT_QUOTES, 'UTF-8');
+        $description = htmlspecialchars($page->description ?: 'A dedicated advisor will reach out soon.', ENT_QUOTES, 'UTF-8');
+        $heroColor = $page->hero_background_color ?: '#3B27A8';
+
+        // Build PROJECTURL-relative paths so export injection can convert them to APP_URL/images/...
+        $logoRel = null;
+        if ($page->logo_path) {
+            $trimmed = ltrim($page->logo_path, '/');
+            $logoRel = preg_replace('#^images/#', '', $trimmed);
+        }
+        $profileRel = null;
+        if ($page->profile_image_path) {
+            $trimmed = ltrim($page->profile_image_path, '/');
+            $profileRel = preg_replace('#^images/#', '', $trimmed);
+        }
+
+        $logoHtml = '';
+        if ($logoRel) {
+            $logoHtml = '<header class="topbar">
+        <a href="#" class="logo">
+            <img src="PROJECTURL/' . $logoRel . '" alt="Logo" />
+        </a>
+    </header>';
+        } else {
+            // Keep topbar container for layout consistency but without logo image
+            $logoHtml = '<header class="topbar"></header>';
+        }
+
+        $profileHtml = '';
+        if ($profileRel) {
+            $profileHtml = '<img src="PROJECTURL/' . $profileRel . '" alt="Profile" class="hero-image" />';
+        }
+
+        $body = "\n\n    {$logoHtml}\n\n" .
+            '    <section class="hero" style="background: ' . $heroColor . ';">' . "\n" .
+            '        <div class="hero-inner">' . "\n" .
+            '            <div class="check-ring">' . "\n" .
+            '                <svg viewBox="0 0 40 40" fill="none">' . "\n" .
+            '                    <path d="M10 20L16 26L30 13" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>' . "\n" .
+            '                </svg>' . "\n" .
+            '            </div>' . "\n" .
+            '            <div class="hero-badge">' . "\n" .
+            '                <span class="badge-dot"></span>' . "\n" .
+            '                Submission received' . "\n" .
+            '            </div>' . "\n" .
+            '            ' . $profileHtml . "\n" .
+            '            <h1>' . $title . '</h1>' . "\n" .
+            '            <p>' . $description . '</p>' . "\n" .
+            '        </div>' . "\n" .
+            '    </section>' . "\n\n" .
+            '    <a id="postbackLink" href="#" style="display: none;"></a>' . "\n\n";
+
+        return $header . $body . $footer;
     }
 
     private function copyDirectory($source, $destination)
