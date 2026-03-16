@@ -129,13 +129,22 @@ class ThankYouPageController extends Controller
             'logo' => ['nullable', 'image', 'max:5120'],
             'profile_image' => ['nullable', 'image', 'max:5120'],
             'hero_background_color' => ['required', 'string', 'max:50'],
+            'remove_logo' => ['nullable', 'boolean'],
+            'remove_profile_image' => ['nullable', 'boolean'],
         ]);
 
-        if ($request->hasFile('logo')) {
+        if (filter_var($request->input('remove_logo'), FILTER_VALIDATE_BOOLEAN)) {
+            $this->imageService->deleteLogo($page);
+            $page->logo_path = null;
+        } elseif ($request->hasFile('logo')) {
             $logoPath = $this->imageService->saveLogo($page, $request->file('logo'));
             $page->logo_path = $logoPath;
         }
-        if ($request->hasFile('profile_image')) {
+
+        if (filter_var($request->input('remove_profile_image'), FILTER_VALIDATE_BOOLEAN)) {
+            $this->imageService->deleteProfileImage($page);
+            $page->profile_image_path = null;
+        } elseif ($request->hasFile('profile_image')) {
             $profilePath = $this->imageService->saveProfileImage($page, $request->file('profile_image'));
             $page->profile_image_path = $profilePath;
         }

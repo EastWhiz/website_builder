@@ -108,6 +108,8 @@
       padding: 5px 14px 5px 10px;
       font-size: clamp(11px, 2vw, 13px);
       color: rgba(255,255,255,0.9);
+      font-weight: 800;
+      letter-spacing: 2px;
       margin-bottom: clamp(20px, 4vw, 28px);
       animation: fadeUp 0.5s ease both;
     }
@@ -201,13 +203,11 @@
 <body>
 
   <header class="topbar">
-    <a href="#" class="logo">
-      @if(!empty($logoUrl))
+    @if(!empty($logoUrl))
+      <a href="#" class="logo">
         <img src="{{ $logoUrl }}" alt="Logo" />
-      @else
-        <span style="font-size: 1.25rem; color: #333;">Logo</span>
-      @endif
-    </a>
+      </a>
+    @endif
   </header>
 
   <section class="hero" style="background: {{ $heroBackgroundColor }};">

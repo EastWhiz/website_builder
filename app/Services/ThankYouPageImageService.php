@@ -62,6 +62,36 @@ class ThankYouPageImageService
     }
 
     /**
+     * Delete only the logo file for a thank-you page.
+     */
+    public function deleteLogo(ThankYouPage $page): void
+    {
+        $dir = public_path($this->getUserImageDirRelative($page->user_id));
+        if (! File::isDirectory($dir)) {
+            return;
+        }
+        $matches = File::glob($dir . '/logo-' . $page->id . '.*');
+        foreach ($matches as $path) {
+            File::delete($path);
+        }
+    }
+
+    /**
+     * Delete only the profile/hero image file for a thank-you page.
+     */
+    public function deleteProfileImage(ThankYouPage $page): void
+    {
+        $dir = public_path($this->getUserImageDirRelative($page->user_id));
+        if (! File::isDirectory($dir)) {
+            return;
+        }
+        $matches = File::glob($dir . '/profile-' . $page->id . '.*');
+        foreach ($matches as $path) {
+            File::delete($path);
+        }
+    }
+
+    /**
      * Delete logo and profile image files for a thank-you page (logo-{id}.* and profile-{id}.*).
      */
     public function deleteImagesForPage(ThankYouPage $page): void
