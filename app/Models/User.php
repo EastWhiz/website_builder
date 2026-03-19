@@ -110,4 +110,12 @@ class User extends Authenticatable
 
         return $instance ?? $this->getApiInstanceByCategory($categoryId);
     }
+
+    /**
+     * DeepL API key from the database (Profile). Translation is only allowed when this is set.
+     */
+    public function getDeeplApiKey(): string
+    {
+        return trim((string) ($this->deepl_api_key ?? ''));
+    }
 }

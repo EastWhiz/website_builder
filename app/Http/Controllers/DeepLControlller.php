@@ -3,18 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use App\Services\DeepLService;
 
 class DeepLControlller extends Controller
 {
-    protected $deepL;
-
-    public function __construct(DeepLService $deepL)
-    {
-        $this->deepL = $deepL;
-    }
-
+    /**
+     * Translate text via DeepL using the authenticated user's DeepL API key from the database (Profile only).
+     */
     public function deepL(Request $request)
     {
         $text = $request->text;
@@ -23,10 +18,11 @@ class DeepLControlller extends Controller
         $splitSentences = $request->split_sentences;
         $preserveFormatting = $request->preserve_formatting;
 
-        if (empty(trim((string) $request->user()->deepl_api_key))) {
-            return sendResponse(false, 'DeepL API key is required. Add your key in Profile → DeepL API Key Section.', null);
+        $apiKey = $request->user()->getDeeplApiKey();
+        if ($apiKey === '') {
+            return sendResponse(false, 'DeepL API key is required. Please add your DeepL API key in Profile → DeepL API Key Section.', null);
         }
-        $deepL = new DeepLService($request->user()->deepl_api_key);
+        $deepL = new DeepLService($apiKey);
         $translatedText = $deepL->translate($text, $language, $sourceLanguage, $splitSentences, $preserveFormatting);
 
         return sendResponse(true, "DeepL Translation Retreived", $translatedText);
