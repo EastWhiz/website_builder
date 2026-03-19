@@ -39,9 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
+    // LeadGreed-style APIs (Electra/lcaapi.net, RiceLeads/ridapi.net, etc.) expect first_name and last_name
     $data = [
-        'firstname' => getVal($postData, 'firstname'),
-        'lastname' => getVal($postData, 'lastname'),
+        'first_name' => getVal($postData, 'firstname'),
+        'last_name' => getVal($postData, 'lastname'),
         'email' => getVal($postData, 'email'),
         'phone' => getVal($postData, 'phone'),
         'userip' => getVal($postData, 'userip'),
