@@ -41,11 +41,13 @@ if (!function_exists('formatApiErrorForRedirect')) {
                     if (is_array($value)) {
                         foreach ($value as $msg) {
                             if (is_string($msg)) {
-                                $lines[] = $key . ': ' . $msg;
+                                // Keep only message text (no key/field prefixes)
+                                $lines[] = $msg;
                             }
                         }
                     } elseif (is_string($value)) {
-                        $lines[] = $key . ': ' . $value;
+                        // Keep only message text (no key/field prefixes)
+                        $lines[] = $value;
                     }
                 }
             }
@@ -92,8 +94,31 @@ if (!function_exists('formatApiErrorForRedirect')) {
             return $text;
         }
 
-        $suffix = $httpCode !== null && $httpCode !== '' ? ' (HTTP ' . (int) $httpCode . ')' : '';
+        // Last resort: extract any string leaf values from the decoded response.
+        // This prevents showing JSON/arrays or custom wrapper text to the user.
+        $leafStrings = [];
+        $stack = [$responseArray];
+        while (!empty($stack)) {
+            $current = array_pop($stack);
+            if (is_string($current)) {
+                $leafStrings[] = $current;
+                continue;
+            }
+            if (!is_array($current)) {
+                continue;
+            }
+            foreach ($current as $v) {
+                if (is_array($v) || is_string($v)) {
+                    $stack[] = $v;
+                }
+            }
+        }
 
-        return 'The lead API returned an error.' . $suffix . ' Please check your details and try again.';
+        $leafStrings = array_values(array_unique(array_filter(array_map('trim', $leafStrings))));
+        if (!empty($leafStrings)) {
+            return implode("\n", $leafStrings);
+        }
+
+        return '';
     }
 }
