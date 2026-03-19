@@ -1788,22 +1788,10 @@ class AngleTemplateController extends Controller
 
                     if (params.toString() && form) {
                         if (params.has("api_error")) {
-                            let raw = params.get("api_error");
-                            try {
-                                raw = decodeURIComponent(raw.replace(/\+/g, " "));
-                            } catch (e) {
-                                raw = params.get("api_error");
-                            }
-                            const safe = raw
-                                .replace(/&/g, "&amp;")
-                                .replace(/</g, "&lt;")
-                                .replace(/>/g, "&gt;")
-                                .replace(/"/g, "&quot;")
-                                .replace(/\n/g, "<br>");
                             Swal.fire({
                                 icon: "error",
                                 title: "Error!",
-                                html: '<div style="text-align:left;max-height:60vh;overflow:auto;font-size:0.95em">' + safe + "</div>",
+                                text: decodeURIComponent(params.get("api_error")),
                             });
                             // Smooth scroll to form
                             form.scrollIntoView();
@@ -1965,7 +1953,6 @@ class AngleTemplateController extends Controller
         'backend.php',
         'thank_you.php',
         'save_lead_handler.php',
-        'api_error_helper.php',
         'otp_cleanup.php',
         'otp_generate.php',
         'otp_verify.php',

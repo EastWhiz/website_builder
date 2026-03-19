@@ -1,7 +1,6 @@
 <?php
 include_once 'config.php';
 include_once 'save_lead_handler.php';
-include_once 'api_error_helper.php';
 
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -202,8 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($httpCode !== 200 || !isset($responseArray['status']) || !$responseArray['status']) {
-        $apiMsg = formatApiErrorForRedirect(is_array($responseArray) ? $responseArray : [], $httpCode, '');
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($apiMsg));
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($responseArray['data'] ?? 'An error occurred. Please try again.'));
         exit();
     }
     header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));

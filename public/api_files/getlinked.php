@@ -1,7 +1,6 @@
 <?php
 include_once 'config.php';
 include_once 'save_lead_handler.php';
-include_once 'api_error_helper.php';
 
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -74,10 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     curl_close($ch);
 
     $responseArray = $response ? (json_decode($response, true) ?? []) : [];
-    // Failure if HTTP not 2xx, or body contains errors array (so we show error instead of redirecting to thank you)
-    $isHttpOk = $httpCode >= 200 && $httpCode < 300;
-    $hasBodyErrors = !empty($responseArray['errors']) && is_array($responseArray['errors']);
-    $leadSaveStatus = ($isHttpOk && !$hasBodyErrors) ? 'success' : 'failure';
+    $leadSaveStatus = ($httpCode >= 200 && $httpCode < 300) ? 'success' : 'failure';
     saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
 
     // Configure optional broker redirect for Thank You page
@@ -120,8 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($curlError || $leadSaveStatus === 'failure') {
-        $apiMsg = formatApiErrorForRedirect($responseArray, $httpCode, $curlError);
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($apiMsg));
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($curlError ?: ($responseArray['message'] ?? 'API error')));
         exit();
     }
     header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
