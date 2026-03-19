@@ -74,7 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     curl_close($ch);
 
     $responseArray = $response ? (json_decode($response, true) ?? []) : [];
-    $leadSaveStatus = ($httpCode >= 200 && $httpCode < 300) ? 'success' : 'failure';
+    // Failure if HTTP not 2xx, or body contains errors array (so we show error instead of redirecting to thank you)
+    $isHttpOk = $httpCode >= 200 && $httpCode < 300;
+    $hasBodyErrors = !empty($responseArray['errors']) && is_array($responseArray['errors']);
+    $leadSaveStatus = ($isHttpOk && !$hasBodyErrors) ? 'success' : 'failure';
     saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
 
     // Configure optional broker redirect for Thank You page

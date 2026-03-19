@@ -75,7 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     curl_close($ch);
 
     $responseArray = $response ? (json_decode($response, true) ?? []) : [];
-    $leadSaveStatus = ($httpCode >= 200 && $httpCode < 300) ? 'success' : 'failure';
+    // Match Electra/RiceLeads: failure if HTTP not 200/201, or body has errors, or no lead (success indicator)
+    $isHttpOk = in_array($httpCode, [200, 201], true);
+    $hasBodyErrors = !empty($responseArray['errors']) && is_array($responseArray['errors']);
+    $hasLead = !empty($responseArray['lead']);
+    $leadSaveStatus = ($isHttpOk && !$hasBodyErrors && $hasLead) ? 'success' : 'failure';
     saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
 
     // Configure optional broker redirect for Thank You page
