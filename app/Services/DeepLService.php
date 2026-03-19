@@ -41,7 +41,33 @@ class DeepLService
     }
 
     /**
-     * Translate multiple texts in ONE API request (FAST)
+     * Optional DeepL body fields — same for single-text (asForm) and multi-text (raw body) so
+     * Action Center, Angle templates, and Sales page (DOM batch) behave identically.
+     *
+     * @return array<string, mixed>
+     */
+    private function optionalDeepLFormFields($sourceLang, $splitSentences, $preserveFormatting): array
+    {
+        $fields = [];
+        if ($sourceLang !== null && trim((string) $sourceLang) !== '') {
+            // Pass through as callers send it (preview modal, sales pages) — same as historical asForm behaviour
+            $fields['source_lang'] = (string) $sourceLang;
+        }
+        if ($splitSentences !== null) {
+            $fields['split_sentences'] = $splitSentences;
+        }
+        if ($preserveFormatting !== null) {
+            $fields['preserve_formatting'] = (int) $preserveFormatting;
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Translate multiple texts in ONE API request (FAST).
+     *
+     * Used by: DeepL modal (translate → batch of 1), Sales pages / templates translateHtmlUsingDOM (chunks of up to 20).
+     * DeepL requires repeated "text=" keys for multiple segments; PHP/Laravel nested arrays send "text[0]=" which DeepL rejects.
      */
     public function translateBatch(
         array $texts,
@@ -54,26 +80,13 @@ class DeepLService
             return [];
         }
 
-        $data = [
-            'text'        => array_values($texts),
-            'target_lang' => strtoupper($targetLang),
-        ];
+        $texts = array_values($texts);
 
-        if ($sourceLang) {
-            $data['source_lang'] = $sourceLang;
-        }
+        $targetLangUpper = strtoupper((string) $targetLang);
+        $optional = $this->optionalDeepLFormFields($sourceLang, $splitSentences, $preserveFormatting);
 
-        if ($splitSentences !== null) {
-            $data['split_sentences'] = $splitSentences;
-        }
-
-        if ($preserveFormatting !== null) {
-            $data['preserve_formatting'] = (int) $preserveFormatting;
-        }
-
-        // Configure HTTP client
-        $httpClient = Http::asForm()
-            ->timeout(30)
+        // Configure HTTP client (Authorization + optional SSL relax on localhost)
+        $httpClient = Http::timeout(30)
             ->withHeaders([
                 'Authorization' => 'DeepL-Auth-Key ' . $this->apiKey,
             ]);
@@ -94,7 +107,29 @@ class DeepLService
             $httpClient = $httpClient->withoutVerifying();
         }
 
-        $response = $httpClient->post($this->endpoint, $data);
+        if (count($texts) === 1) {
+            $data = array_merge(
+                [
+                    'text'        => (string) $texts[0],
+                    'target_lang' => $targetLangUpper,
+                ],
+                $optional
+            );
+            $response = $httpClient->asForm()->post($this->endpoint, $data);
+        } else {
+            $pairs = [];
+            foreach ($texts as $t) {
+                $pairs[] = 'text=' . rawurlencode((string) $t);
+            }
+            $pairs[] = 'target_lang=' . rawurlencode($targetLangUpper);
+            foreach ($optional as $key => $value) {
+                $pairs[] = $key . '=' . rawurlencode((string) $value);
+            }
+            $body = implode('&', $pairs);
+            $response = $httpClient
+                ->withBody($body, 'application/x-www-form-urlencoded')
+                ->post($this->endpoint);
+        }
 
         if (!$response->successful()) {
             throw new \Exception('DeepL API Error: ' . $response->body());
@@ -112,7 +147,7 @@ class DeepLService
 
             // Normalize for comparison
             if (trim($original) === trim($translated) && !$sourceLang && $detected) {
-                if (strtoupper($detected) === strtoupper($targetLang)) {
+                if (strtoupper($detected) === $targetLangUpper) {
                     Log::warning('⚠️ Text already in target language', [
                         'lang' => $detected,
                         'preview' => substr($original, 0, 80),
