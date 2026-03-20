@@ -2005,6 +2005,7 @@ class AngleTemplateController extends Controller
     private static $exportFixedFiles = [
         'config.php',
         'backend.php',
+        'api_error_helper.php',
         'thank_you.php',
         'save_lead_handler.php',
         'otp_cleanup.php',
