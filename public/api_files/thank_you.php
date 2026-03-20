@@ -314,9 +314,6 @@ unset($_SESSION['broker_redirect']);
             <img src="PROJECTURL/profiles.jpg" alt="Schedule with Facet" class="hero-image" onerror="this.style.display='none'" />
             <h1>Thank you for your interest!</h1>
             <p>A dedicated wealth advisor will reach out within 1 business day to discuss your financial goals.</p>
-            <?php if ($redirectEnabled && !empty($redirectUrl) && filter_var($redirectUrl, FILTER_VALIDATE_URL)) { ?>
-                <p><strong>Broker URL</strong>: <?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?></p>
-            <?php } ?>
         </div>
     </section>
 

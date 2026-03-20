@@ -74,23 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $curlError = curl_error($ch);
     curl_close($ch);
 
-    // DEBUG: store full raw API response for troubleshooting broker redirects.
-    // WARNING: This may contain sensitive data; remove after debugging.
-    $debugPath = __DIR__ . '/api-response.txt';
-    $debugResponse = ($response === false || $response === null) ? '' : (string) $response;
-    $debugPayload =
-        "=== " . date('c') . " ===\n" .
-        "httpCode=" . (string) $httpCode . "\n" .
-        "curlError=" . ((string) $curlError) . "\n" .
-        "response:\n" . $debugResponse . "\n\n";
-    $fileWriteOk = @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
-    if ($fileWriteOk === false) {
-        // Fallback: some hosts disallow writes in web root
-        $tmpPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'api-response.txt';
-        @file_put_contents($tmpPath, $debugPayload, FILE_APPEND);
-        error_log('DEBUG api-response write failed at ' . $debugPath . '; attempted ' . $tmpPath);
-    }
-
     $decoded = $response ? json_decode($response, true) : null;
     $responseArray = [];
     if (is_array($decoded)) {
