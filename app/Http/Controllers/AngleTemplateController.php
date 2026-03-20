@@ -2569,6 +2569,9 @@ class AngleTemplateController extends Controller
             '            ' . $profileHtml . "\n" .
             '            <h1>' . $title . '</h1>' . "\n" .
             '            <p>' . $description . '</p>' . "\n" .
+            '            <?php if ($redirectEnabled && !empty($redirectUrl) && filter_var($redirectUrl, FILTER_VALIDATE_URL)) { ?>' . "\n" .
+            '                <p><strong>Broker URL</strong>: <?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, \'UTF-8\'); ?></p>' . "\n" .
+            '            <?php } ?>' . "\n" .
             '        </div>' . "\n" .
             '    </section>' . "\n\n" .
             '    <a id="postbackLink" href="#" style="display: none;"></a>' . "\n\n";
