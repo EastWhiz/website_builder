@@ -745,14 +745,16 @@ class ApiCredentialsController extends Controller
                     'dark'        => 'dark',
                     'tigloo'      => 'tigloo',
                 ];
-                return $trackboxMap[$slug] ?? 'elps';
+                // If it's not a known legacy provider name, treat the instance as its own distinct API type.
+                return $trackboxMap[$slug] ?? ($slug !== '' ? $slug : 'elps');
 
             case 'iRev':
                 // Legacy iRev providers: nauta, irev (CRM used provider string; nauta was the original).
                 if (in_array($slug, ['nauta', 'irev'], true)) {
                     return $slug;
                 }
-                return 'nauta';
+                // Distinct API type based on instance name.
+                return $slug !== '' ? $slug : 'nauta';
 
             case 'LeadGreed':
                 // Legacy LeadGreed providers: electra, riceleads, adzentric
@@ -761,7 +763,8 @@ class ApiCredentialsController extends Controller
                     'riceleads'  => 'riceleads',
                     'adzentric'  => 'adzentric',
                 ];
-                return $leadGreedMap[$slug] ?? 'electra';
+                // If it's not a known legacy provider name, treat the instance as its own distinct API type.
+                return $leadGreedMap[$slug] ?? ($slug !== '' ? $slug : 'electra');
 
             case 'GetLinked':
                 // Legacy GetLinked providers: koi, meeseeks
@@ -769,15 +772,17 @@ class ApiCredentialsController extends Controller
                     // Normalize "meeseeksmedia" to the original provider key "meeseeks"
                     return $slug === 'meeseeksmedia' ? 'meeseeks' : $slug;
                 }
-                return 'koi';
+                // Distinct API type based on instance name.
+                return $slug !== '' ? $slug : 'koi';
 
             case 'Aweber':
                 // Aweber stayed the same.
-                return 'aweber';
+                // If it's not literally the legacy provider name, treat the instance as its own distinct API type.
+                return $slug !== '' ? $slug : 'aweber';
 
             default:
                 // Fallback: behave similar to old mapping (lowercased & underscored)
-                return strtolower(preg_replace('/\s+/', '_', $categoryName));
+                return $slug !== '' ? $slug : strtolower(preg_replace('/\s+/', '_', $categoryName));
         }
     }
 

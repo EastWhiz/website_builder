@@ -22,38 +22,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicPid = $getData['pid'] ?? '';
     $dynamicSO = $getData['so'] ?? '';
 
-    // Step 10.2: Support both form_type (primary) and api_category_id. Routing uses form_type to
-    // resolve platform file; api_category_id and user_api_instance_id are passed through in POST.
-    $formType = isset($postData['form_type']) ? trim((string) $postData['form_type']) : '';
-
-    // Map form types to platform integration files (5 platforms)
-    $apiFiles = [
-        'elps' => 'trackbox.php',
-        'magicads' => 'trackbox.php',
-        'newmedis' => 'trackbox.php',
-        'pastile' => 'trackbox.php',
-        'seamediaone' => 'trackbox.php',
-        'dark' => 'trackbox.php',
-        'tigloo' => 'trackbox.php',
-        'nauta' => 'irev.php',
-        'irev' => 'irev.php',
-        'electra' => 'leadgreed.php',
-        'riceleads' => 'leadgreed.php',
-        'adzentric' => 'leadgreed.php',
-        'koi' => 'getlinked.php',
-        'meeseeksmedia' => 'getlinked.php',
-        'aweber' => 'aweber.php',
+    // New routing: use api_platform_file for deterministic platform file selection.
+    $apiPlatformFile = isset($postData['api_platform_file']) ? trim((string) $postData['api_platform_file']) : '';
+    $allowedApiPlatformFiles = [
+        'trackbox.php',
+        'irev.php',
+        'leadgreed.php',
+        'getlinked.php',
+        'aweber.php',
     ];
 
-    // Require form_type for file selection (api_category_id is passed through in POST for platform files)
-    if ($formType === '' || !isset($apiFiles[$formType])) {
-        $msg = $formType === '' ? 'Form type (form_type) is required.' : 'Invalid form type specified: ' . $formType;
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($msg));
-        exit();
-    }
+    if ($apiPlatformFile !== '' && in_array($apiPlatformFile, $allowedApiPlatformFiles, true)) {
+        $apiFile = $apiPlatformFile;
+        $apiFilePath = __DIR__ . '/' . $apiFile;
+    } else {
+        // Backward compatibility: fallback to form_type mapping for older exports.
+        $formType = isset($postData['form_type']) ? trim((string) $postData['form_type']) : '';
 
-    $apiFile = $apiFiles[$formType];
-    $apiFilePath = __DIR__ . '/' . $apiFile;
+        $apiFiles = [
+            'elps' => 'trackbox.php',
+            'magicads' => 'trackbox.php',
+            'newmedis' => 'trackbox.php',
+            'pastile' => 'trackbox.php',
+            'seamediaone' => 'trackbox.php',
+            'dark' => 'trackbox.php',
+            'tigloo' => 'trackbox.php',
+            'nauta' => 'irev.php',
+            'irev' => 'irev.php',
+            'electra' => 'leadgreed.php',
+            'riceleads' => 'leadgreed.php',
+            'adzentric' => 'leadgreed.php',
+            'koi' => 'getlinked.php',
+            'meeseeksmedia' => 'getlinked.php',
+            'aweber' => 'aweber.php',
+        ];
+
+        if ($formType === '' || !isset($apiFiles[$formType])) {
+            $msg = $formType === '' ? 'Form type (form_type) is required.' : 'Invalid form type specified: ' . $formType;
+            header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($msg));
+            exit();
+        }
+
+        $apiFile = $apiFiles[$formType];
+        $apiFilePath = __DIR__ . '/' . $apiFile;
+    }
 
     // Check if the API file exists
     if (!file_exists($apiFilePath)) {

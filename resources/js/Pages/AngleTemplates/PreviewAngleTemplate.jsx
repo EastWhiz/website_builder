@@ -200,6 +200,12 @@ export default function Dashboard({ id }) {
     const categoryNamesMatch = (a, b) =>
         a != null && b != null && String(a).toLowerCase() === String(b).toLowerCase();
 
+    // Builder contract: form_type must be the slugified instance name
+    const slugifyInstanceName = (name) =>
+        String(name || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '');
+
     /** Derive hidden form_type from credential instance name + platform */
     const inferFormTypeForInstance = (inst, platformName) => {
         if (!platformName) return '';
@@ -610,6 +616,7 @@ export default function Dashboard({ id }) {
         submitBackgroundColor: "#ff7800",
         apiType: "elps",
         apiCategoryId: null,
+        apiPlatformFile: "",
         apiInstanceId: null,
         saveLeadSlug: "",
         project_directory: "",
@@ -886,7 +893,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "redirect_to_broker" || name == "broker_redirect_delay") return null;
+                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "redirect_to_broker" || name == "broker_redirect_delay") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -914,6 +921,7 @@ export default function Dashboard({ id }) {
                 submitBackgroundColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.backgroundColor))}` || "",
                 apiType: apiType,
                 apiCategoryId: formEl.querySelector('[name="api_category_id"]')?.value || null,
+                apiPlatformFile: formEl.querySelector('[name="api_platform_file"]')?.value || '',
                 apiInstanceId: formEl.querySelector('[name="user_api_instance_id"]')?.value || null,
                 saveLeadSlug: formEl.querySelector('[name="save_lead_slug"]')?.value || '',
                 project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
@@ -1038,22 +1046,22 @@ export default function Dashboard({ id }) {
                             ...prev,
                             apiInstanceId: null,
                             apiType: '',
+                            apiPlatformFile: '',
+                            saveLeadSlug: '',
                         };
                     }
                     const currentInList = list.find((i) => String(i.id) === String(prev.apiInstanceId));
                     const inst = currentInList || list[0];
-                    const apiType = inferFormTypeForInstance(inst, platformName);
-                    const slug =
-                        String(inst.name).replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '') ||
-                        apiType;
-                    if (String(prev.apiInstanceId) === String(inst.id) && prev.apiType === apiType) {
-                        return prev.saveLeadSlug ? prev : { ...prev, saveLeadSlug: prev.saveLeadSlug || slug };
-                    }
+                    const apiType = slugifyInstanceName(inst?.name);
+                    const slug = apiType;
                     return {
                         ...prev,
                         apiInstanceId: inst.id,
                         apiType,
-                        saveLeadSlug: prev.saveLeadSlug || slug,
+                        apiPlatformFile: platformName
+                            ? `${String(platformName).toLowerCase().replace(/\s+/g, '_')}.php`
+                            : prev.apiPlatformFile,
+                        saveLeadSlug: slug,
                     };
                 });
             } catch (e) {
@@ -1521,6 +1529,7 @@ export default function Dashboard({ id }) {
 
             formHTML += ` <input type="hidden" name="form_type" value="${formManagement.apiType}" />`;
             formHTML += ` <input type="hidden" name="api_category_id" value="${formManagement.apiCategoryId || ''}" />`;
+            formHTML += ` <input type="hidden" name="api_platform_file" value="${formManagement.apiPlatformFile || ''}" />`;
             formHTML += ` <input type="hidden" name="user_api_instance_id" value="${formManagement.apiInstanceId || ''}" />`;
             formHTML += ` <input type="hidden" name="save_lead_slug" value="${(formManagement.saveLeadSlug || formManagement.apiType || '').replace(/"/g, '&quot;')}" />`;
             formHTML += ` <input type="hidden" name="web_builder_user_id" value="${mainQuery.auth.user.id}" />`;
@@ -2996,9 +3005,10 @@ export default function Dashboard({ id }) {
                                                                     setFormManagement((prev) => ({
                                                                         ...prev,
                                                                         apiCategoryId: selected.id,
+                                                                        apiPlatformFile: `${String(selected.name || '').toLowerCase().replace(/\s+/g, '_')}.php`,
                                                                         apiType: '',
                                                                         apiInstanceId: null,
-                                                                        saveLeadSlug: prev.saveLeadSlug,
+                                                                        saveLeadSlug: '',
                                                                     }));
                                                                 }}
                                                                 displayEmpty
@@ -3077,15 +3087,8 @@ export default function Dashboard({ id }) {
                                                                                 (i) => String(i.id) === String(id)
                                                                             );
                                                                             if (!inst || !selectedApiPlatform) return;
-                                                                            const apiType = inferFormTypeForInstance(
-                                                                                inst,
-                                                                                selectedApiPlatform.name
-                                                                            );
-                                                                            const slug =
-                                                                                String(inst.name)
-                                                                                    .replace(/\s+/g, '_')
-                                                                                    .toLowerCase()
-                                                                                    .replace(/[^a-z0-9_]/g, '') || apiType;
+                                                                            const apiType = slugifyInstanceName(inst?.name);
+                                                                            const slug = apiType;
                                                                             setFormManagement({
                                                                                 ...formManagement,
                                                                                 apiInstanceId: inst.id,
@@ -3122,12 +3125,11 @@ export default function Dashboard({ id }) {
                                                                         }}
                                                                     >
                                                                         {platformInstances.map((inst) => {
-                                                                            const ft = inferFormTypeForInstance(
-                                                                                inst,
-                                                                                selectedApiPlatform.name
-                                                                            );
+                                                                            // Display slugified instance name (e.g. "The iRev One" → "theirevone")
                                                                             const typeLabel =
-                                                                                apiTypes.find((t) => t.value === ft)?.label || ft;
+                                                                                String(inst.name || '')
+                                                                                    .toLowerCase()
+                                                                                    .replace(/[^a-z0-9]+/g, '');
                                                                             return (
                                                                                 <MenuItem
                                                                                     className="doNotAct"

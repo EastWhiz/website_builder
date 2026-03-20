@@ -28,6 +28,50 @@ class AngleTemplateController extends Controller
     ) {
     }
 
+    /**
+     * Get user_api_instance_id from exported HTML (input name="user_api_instance_id").
+     * Used to strictly resolve credential injection for the selected API instance.
+     */
+    private function getUserApiInstanceIdFromHtml(?string $fullHtml): ?string
+    {
+        if (!$fullHtml) {
+            return null;
+        }
+        try {
+            $crawler = new Crawler($fullHtml);
+            $node = $crawler->filter('input[name="user_api_instance_id"]');
+            if ($node->count() <= 0) {
+                return null;
+            }
+            $value = trim($node->attr('value') ?? '');
+            return $value !== '' ? $value : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get api_platform_file from exported HTML (input name="api_platform_file").
+     * Used to deterministically include the correct platform integration file in the zip.
+     */
+    private function getApiPlatformFileFromHtml(?string $fullHtml): ?string
+    {
+        if (!$fullHtml) {
+            return null;
+        }
+        try {
+            $crawler = new Crawler($fullHtml);
+            $node = $crawler->filter('input[name="api_platform_file"]');
+            if ($node->count() <= 0) {
+                return null;
+            }
+            $value = trim($node->attr('value') ?? '');
+            return $value !== '' ? $value : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function anglesApplying(Request $request)
     {
         $angles_ids = json_decode($request->angles_ids);
@@ -258,7 +302,7 @@ class AngleTemplateController extends Controller
         $storageAppPath = storage_path('app');
         if (!is_dir($storageAppPath)) {
             if (!mkdir($storageAppPath, 0755, true)) {
-                \Log::error('Failed to create storage/app directory', ['path' => $storageAppPath]);
+                Log::error('Failed to create storage/app directory', ['path' => $storageAppPath]);
                 return response()->json(['error' => 'Could not create storage directory.'], 500);
             }
         }
@@ -266,7 +310,7 @@ class AngleTemplateController extends Controller
         // Check if directory is writable, if not try system temp directory
         $zipDirectory = $storageAppPath;
         if (!is_writable($storageAppPath)) {
-            \Log::warning('storage/app directory is not writable, trying system temp directory', [
+            Log::warning('storage/app directory is not writable, trying system temp directory', [
                 'storage_path' => $storageAppPath,
                 'permissions' => substr(sprintf('%o', fileperms($storageAppPath)), -4),
                 'temp_dir' => sys_get_temp_dir()
@@ -277,7 +321,7 @@ class AngleTemplateController extends Controller
             if (is_writable($tempDir)) {
                 $zipDirectory = $tempDir;
             } else {
-                \Log::error('Both storage/app and system temp directory are not writable', [
+                Log::error('Both storage/app and system temp directory are not writable', [
                     'storage_path' => $storageAppPath,
                     'temp_dir' => $tempDir,
                     'temp_dir_writable' => is_writable($tempDir)
@@ -325,7 +369,7 @@ class AngleTemplateController extends Controller
             
             $errorMessage = $errorMessages[$result] ?? 'Unknown error';
             
-            \Log::error('ZipArchive open failed', [
+            Log::error('ZipArchive open failed', [
                 'error_code' => $result,
                 'error_message' => $errorMessage,
                 'zip_path' => $zipPath,
@@ -1836,7 +1880,17 @@ class AngleTemplateController extends Controller
             // Get form_type from HTML and resolve to UserApiInstance (so existing pages keep the correct API)
             $formType = $this->getFormTypeFromHtml($fullHtml);
             $userApiInstance = null;
-            if ($formType !== null && $formType !== '') {
+            // Strict path (newer pages): resolve by selected instance id if present
+            $userApiInstanceId = $this->getUserApiInstanceIdFromHtml($fullHtml);
+            if ($userApiInstanceId) {
+                $userApiInstance = $user->apiInstances()
+                    ->where('id', $userApiInstanceId)
+                    ->with(['category.fields', 'values.field'])
+                    ->first();
+            }
+
+            // Backward compatibility (older pages): resolve by form_type
+            if (!$userApiInstance && $formType !== null && $formType !== '') {
                 $categoryName = self::$apiFileToCategoryName[$formType] ?? null;
                 if ($categoryName) {
                     $category = ApiCategory::active()->where('name', $categoryName)->first();
@@ -1877,7 +1931,7 @@ class AngleTemplateController extends Controller
 
         // Close the zip archive and handle errors
         if (!$zip->close()) {
-            \Log::error('ZipArchive close failed', [
+            Log::error('ZipArchive close failed', [
                 'zip_path' => $zipPath,
                 'status' => $zip->getStatusString(),
                 'temp_dir' => sys_get_temp_dir(),
@@ -1898,7 +1952,7 @@ class AngleTemplateController extends Controller
 
         // Verify the zip file was created successfully
         if (!file_exists($zipPath)) {
-            \Log::error('Zip file not found after close', ['zip_path' => $zipPath]);
+            Log::error('Zip file not found after close', ['zip_path' => $zipPath]);
             return response()->json(['error' => 'Zip file was not created successfully.'], 500);
         }
 
@@ -2009,6 +2063,23 @@ class AngleTemplateController extends Controller
     private function getExportFilesList(string $publicFilesPath, ?string $fullHtml): array
     {
         $list = self::$exportFixedFiles;
+
+        // Prefer deterministic platform file (supports arbitrary instance-name form_type)
+        $apiPlatformFile = $this->getApiPlatformFileFromHtml($fullHtml);
+        $allowedApiPlatformFiles = [
+            'trackbox.php',
+            'irev.php',
+            'leadgreed.php',
+            'getlinked.php',
+            'aweber.php',
+        ];
+        if ($apiPlatformFile && in_array($apiPlatformFile, $allowedApiPlatformFiles, true)) {
+            $path = $publicFilesPath . DIRECTORY_SEPARATOR . $apiPlatformFile;
+            if (is_file($path) && !in_array($apiPlatformFile, $list, true)) {
+                $list[] = $apiPlatformFile;
+                return $list;
+            }
+        }
 
         $formType = $this->getFormTypeFromHtml($fullHtml);
         if ($formType !== null && $formType !== '') {
