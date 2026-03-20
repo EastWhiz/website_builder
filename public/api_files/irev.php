@@ -93,7 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "=== " . date('c') . " ===\n" .
             "curlError=" . $curlErr . "\n" .
             "response:\n" . $debugResponse . "\n\n";
-        @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
+        $fileWriteOk = @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
+        if ($fileWriteOk === false) {
+            $tmpPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'api-response.txt';
+            @file_put_contents($tmpPath, $debugPayload, FILE_APPEND);
+            error_log('DEBUG api-response write failed at ' . $debugPath . '; attempted ' . $tmpPath);
+        }
 
         // echo json_encode(['status' => false, 'message' => curl_error($ch)]);
         // exit();
@@ -112,7 +117,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         "=== " . date('c') . " ===\n" .
         "httpCode=" . (string) $httpCode . "\n" .
         "response:\n" . $debugResponse . "\n\n";
-    @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
+    $fileWriteOk = @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
+    if ($fileWriteOk === false) {
+        $tmpPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'api-response.txt';
+        @file_put_contents($tmpPath, $debugPayload, FILE_APPEND);
+        error_log('DEBUG api-response write failed at ' . $debugPath . '; attempted ' . $tmpPath);
+    }
 
     $decoded = $response ? json_decode($response, true) : null;
     $responseArray = [];

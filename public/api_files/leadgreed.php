@@ -83,7 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         "httpCode=" . (string) $httpCode . "\n" .
         "curlError=" . ((string) $curlError) . "\n" .
         "response:\n" . $debugResponse . "\n\n";
-    @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
+    $fileWriteOk = @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
+    if ($fileWriteOk === false) {
+        // Fallback: some hosts disallow writes in web root
+        $tmpPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'api-response.txt';
+        @file_put_contents($tmpPath, $debugPayload, FILE_APPEND);
+        error_log('DEBUG api-response write failed at ' . $debugPath . '; attempted ' . $tmpPath);
+    }
 
     $decoded = $response ? json_decode($response, true) : null;
     $responseArray = [];
