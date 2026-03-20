@@ -84,6 +84,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $response = curl_exec($ch);
     if (curl_errno($ch)) {
+        // DEBUG: store full raw API response for troubleshooting broker redirects.
+        // WARNING: This may contain sensitive data; remove after debugging.
+        $debugPath = __DIR__ . '/api-response.txt';
+        $curlErr = curl_error($ch);
+        $debugResponse = ($response === false || $response === null) ? '' : (string) $response;
+        $debugPayload =
+            "=== " . date('c') . " ===\n" .
+            "curlError=" . $curlErr . "\n" .
+            "response:\n" . $debugResponse . "\n\n";
+        @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
+
         // echo json_encode(['status' => false, 'message' => curl_error($ch)]);
         // exit();
 
@@ -92,6 +103,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+
+    // DEBUG: store full raw API response for troubleshooting broker redirects.
+    // WARNING: This may contain sensitive data; remove after debugging.
+    $debugPath = __DIR__ . '/api-response.txt';
+    $debugResponse = ($response === false || $response === null) ? '' : (string) $response;
+    $debugPayload =
+        "=== " . date('c') . " ===\n" .
+        "httpCode=" . (string) $httpCode . "\n" .
+        "response:\n" . $debugResponse . "\n\n";
+    @file_put_contents($debugPath, $debugPayload, FILE_APPEND);
 
     $decoded = $response ? json_decode($response, true) : null;
     $responseArray = [];
