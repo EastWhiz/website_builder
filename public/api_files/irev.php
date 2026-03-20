@@ -1,6 +1,7 @@
 <?php
 include_once 'config.php'; // Include config to get BASE_URL
 include_once 'save_lead_handler.php'; // Include save lead functionality
+include_once 'api_error_helper.php';
 // Set headers for CORS and JSON content
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -92,13 +93,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    $responseArray = json_decode($response, true);
-
-    // Check if response is valid JSON
-    if ($responseArray === null && json_last_error() !== JSON_ERROR_NONE) {
-        $message = 'Invalid response from iRev API. Please try again.';
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($message));
-        exit();
+    $decoded = $response ? json_decode($response, true) : null;
+    $responseArray = [];
+    if (is_array($decoded)) {
+        $responseArray = $decoded;
+    } elseif (is_string($response) && trim($response) !== '') {
+        // If API returns plain text / non-JSON, surface it as message.
+        $responseArray = ['message' => trim($response)];
     }
 
     // Save lead to CRM - always call regardless of main API success/failure
@@ -153,19 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Filter and sanitize response for the client
     // Success response structure: { lead_uuid, auto_login_url, advertiser_uuid (optional), advertiser_name (optional) }
     if ($httpCode !== 200 || !isset($responseArray['lead_uuid'])) {
-
-        // Default fallback message
-        $message = 'An error occurred. Please try again.';
-
-        // Use general API message if exists
-        if (!empty($responseArray['message'])) {
-            $message = $responseArray['message'];
-        }
-
-        // Add detailed error messages (without codes)
-        if (!empty($responseArray['errors']) && is_array($responseArray['errors'])) {
-            $errorMessages = array_column($responseArray['errors'], 'message');
-            $message .= "\n" . implode("\n", $errorMessages);
+        $message = extractApiErrorMessage($responseArray);
+        if ($message === '') {
+            $message = 'An error occurred. Please try again.';
         }
 
         // echo json_encode([

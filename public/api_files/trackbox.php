@@ -1,6 +1,7 @@
 <?php
 include_once 'config.php';
 include_once 'save_lead_handler.php';
+include_once 'api_error_helper.php'; // Extract readable error from API responses
 
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -168,7 +169,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    $responseArray = json_decode($response, true);
+    $decoded = $response ? json_decode($response, true) : null;
+    $responseArray = [];
+    if (is_array($decoded)) {
+        $responseArray = $decoded;
+    } elseif (is_string($response) && trim($response) !== '') {
+        // If API returns plain text / non-JSON, surface it as message.
+        $responseArray = ['message' => trim($response)];
+    }
     $leadSaveStatus = ($httpCode === 200 && isset($responseArray['status']) && $responseArray['status']) ? 'success' : 'failure';
     saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
 
@@ -201,7 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($httpCode !== 200 || !isset($responseArray['status']) || !$responseArray['status']) {
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($responseArray['data'] ?? 'An error occurred. Please try again.'));
+        $apiErrorMessage = extractApiErrorMessage($responseArray);
+        $finalMessage = $apiErrorMessage ?: ($responseArray['data'] ?? 'An error occurred. Please try again.');
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($finalMessage));
         exit();
     }
     header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
