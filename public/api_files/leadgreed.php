@@ -40,16 +40,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // LeadGreed-style APIs (Electra/lcaapi.net, RiceLeads/ridapi.net, etc.) expect first_name and last_name
+    // Payload contract for LeadGreed category:
+    // Must match the RiceLeads payload structure (keys/values) exactly.
     $data = [
+        'affid' => '36',
         'first_name' => getVal($postData, 'firstname'),
         'last_name' => getVal($postData, 'lastname'),
         'email' => getVal($postData, 'email'),
+        'password' => 'Qbwriu48',
         'phone' => getVal($postData, 'phone'),
-        'userip' => getVal($postData, 'userip'),
-        'cid' => $dynamicCid,
-        'pid' => $dynamicPid,
-        'so' => $dynamicSO,
+        'source' => BASE_URL,
+        '_ip' => getVal($postData, 'userip'),
+        'area_code' => $postData['area_code'] ?? '',
+        'funnel' => $dynamicSO,
+        'aff_sub' => $dynamicCid,
+        'aff_sub2' => 'aff_sub2',
+        'aff_sub5' => $dynamicCid,
     ];
 
     $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true");
