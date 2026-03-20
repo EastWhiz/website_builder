@@ -246,11 +246,27 @@ class UserApiInstanceController extends Controller
     }
 
     /**
-     * Get user's instances for a category.
+     * All API categories (active + inactive) for form builder platform list.
+     */
+    public function categoriesAll()
+    {
+        $categories = ApiCategory::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'is_active', 'sort_order']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $categories,
+        ]);
+    }
+
+    /**
+     * Get user's instances for a category (active + inactive).
      */
     public function getByCategory($categoryId)
     {
-        $category = ApiCategory::active()->find($categoryId);
+        $category = ApiCategory::query()->find($categoryId);
         if (!$category) {
             return response()->json(['success' => true, 'data' => []]);
         }
@@ -258,7 +274,6 @@ class UserApiInstanceController extends Controller
             ->apiInstances()
             ->with(['category', 'values.field'])
             ->where('api_category_id', $categoryId)
-            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
@@ -269,6 +284,7 @@ class UserApiInstanceController extends Controller
                 'name' => $i->name,
                 'is_active' => $i->is_active,
                 'credentials' => $i->credentials,
+                'category_name' => $i->category?->name,
             ]),
         ]);
     }

@@ -11,7 +11,7 @@ import Modal from '@mui/material/Modal';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import convert from 'color-convert';
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import Swal from "sweetalert2";
 import Select from 'react-select';
@@ -163,6 +163,7 @@ export default function Dashboard({ id }) {
         { label: 'NewMedis', value: 'newmedis' },
         { label: 'Seamediaone', value: 'seamediaone' },
         { label: 'Nauta', value: 'nauta' },
+        { label: 'iRev', value: 'irev' },
         { label: 'MagicAds', value: 'magicads' },
         { label: 'AdZentric', value: 'adzentric' },
     ];
@@ -185,6 +186,30 @@ export default function Dashboard({ id }) {
     // Platform (category) name → default form_type
     const categoryNameToFormType = {
         'Trackbox': 'elps', 'iRev': 'nauta', 'LeadGreed': 'electra', 'GetLinked': 'koi', 'Aweber': 'aweber',
+    };
+
+    const getDefaultFormTypeForCategoryName = (categoryName) => {
+        if (!categoryName) return 'elps';
+        return categoryNameToFormType[categoryName]
+            || categoryNameToFormType[categoryName.toLowerCase()]
+            || categoryNameToFormType[categoryName.charAt(0).toUpperCase() + categoryName.slice(1).toLowerCase()]
+            || 'elps';
+    };
+
+    const categoryNamesMatch = (a, b) =>
+        a != null && b != null && String(a).toLowerCase() === String(b).toLowerCase();
+
+    const inferFormTypeForInstance = (inst, platformName) => {
+        if (!platformName) return '';
+        if (!inst?.name) return getDefaultFormTypeForCategoryName(platformName) || '';
+        const n = String(inst.name).toLowerCase().replace(/\s+/g, '');
+        for (const t of apiTypes) {
+            if (!categoryNamesMatch(formTypeToCategoryName[t.value], platformName)) continue;
+            if (n === String(t.value).toLowerCase()) return t.value;
+            const canon = formTypeToCanonicalName[t.value];
+            if (canon && n === String(canon).toLowerCase()) return t.value;
+        }
+        return getDefaultFormTypeForCategoryName(platformName) || '';
     };
 
     const commonInputTypes = [
@@ -672,7 +697,8 @@ export default function Dashboard({ id }) {
     const [selectedFormLanguage, setSelectedFormLanguage] = useState(false);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
     const [userOtpServices, setUserOtpServices] = useState([]);
-    const [userApiInstances, setUserApiInstances] = useState([]);
+    const [apiPlatforms, setApiPlatforms] = useState([]);
+    const [platformInstances, setPlatformInstances] = useState([]);
 
     // Replace functionality state
     const [replaceModalOpen, setReplaceModalOpen] = useState(false);
@@ -956,89 +982,120 @@ export default function Dashboard({ id }) {
         loadUserOtpServices();
     }, []);
 
-            // Fetch this user's API instances from user_api_instances table for dropdown
-            useEffect(() => {
-                async function loadUserApiInstances() {
-                    try {
-                        const response = await fetch(route('user.api.instances.index'), {
-                            method: 'GET',
-                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                            credentials: 'same-origin',
-                        });
-                        if (!response.ok) {
-                            console.error('Failed to fetch API instances:', response.status);
-                            return;
-                        }
-                        const result = await response.json();
-                        if (!result.success || result.data == null) {
-                            console.warn('API instances response invalid:', result);
-                            return;
-                        }
-                        const raw = result.data;
-                        console.log('Raw API instances response:', raw);
-                        const arr = Array.isArray(raw) ? raw : (typeof raw === 'object' ? Object.values(raw) : []);
-                        const instances = [];
-                        arr.forEach((group) => {
-                            if (!group || !group.category || !group.instances) {
-                                console.warn('Invalid group structure:', group);
-                                return;
-                            }
-                            const categoryName = group.category.name;
-                            console.log('Processing category:', categoryName, 'with instances:', group.instances.length);
-                            // Case-insensitive lookup for formType
-                            const formType = categoryNameToFormType[categoryName] || 
-                                           categoryNameToFormType[categoryName.toLowerCase()] ||
-                                           categoryNameToFormType[categoryName.charAt(0).toUpperCase() + categoryName.slice(1).toLowerCase()];
-                            if (!formType) {
-                                console.warn('No formType mapping for category:', categoryName, 'Available keys:', Object.keys(categoryNameToFormType));
-                                return;
-                            }
-                            group.instances.forEach((instance) => {
-                                // Only show active API instances in form dropdown
-                                if (instance && instance.name && instance.is_active !== false) {
-                                    instances.push({
-                                        id: instance.id,
-                                        name: instance.name,
-                                        categoryId: group.category.id,
-                                        categoryName: categoryName,
-                                        formType: formType,
-                                    });
-                                }
-                            });
-                        });
-                        console.log('Loaded user API instances:', instances);
-                        setUserApiInstances(instances);
-                    } catch (err) {
-                        console.error('Error loading user API instances:', err);
-                    }
+    // Fetch all API platforms (active + inactive)
+    useEffect(() => {
+        async function loadApiPlatforms() {
+            try {
+                const response = await fetch(route('user.api.categories.all'), {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) {
+                    console.error('Failed to fetch API platforms:', response.status);
+                    return;
                 }
-                loadUserApiInstances();
-            }, []);
+                const result = await response.json();
+                if (!result.success || !Array.isArray(result.data)) {
+                    console.warn('API categories response invalid:', result);
+                    return;
+                }
+                setApiPlatforms(
+                    result.data.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        sort_order: c.sort_order ?? 0,
+                        is_active: c.is_active !== false && c.is_active !== 0,
+                    }))
+                );
+            } catch (err) {
+                console.error('Error loading API platforms:', err);
+            }
+        }
+        loadApiPlatforms();
+    }, []);
 
-    // Backward compatibility: when form has form_type but no api_instance (old pages), resolve to user's instance so selection is preserved
+    const selectedApiPlatform = useMemo(
+        () => apiPlatforms.find((p) => String(p.id) === String(formManagement.apiCategoryId)),
+        [apiPlatforms, formManagement.apiCategoryId]
+    );
+
+    // Load all instances for selected platform; set form_type from chosen instance
+    useEffect(() => {
+        if (!formManagement.apiCategoryId) {
+            setPlatformInstances([]);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(
+                    route('user.api.instances.byCategory', { categoryId: formManagement.apiCategoryId }),
+                    {
+                        method: 'GET',
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    }
+                );
+                const result = await res.json();
+                if (cancelled) return;
+                const list = result.success && Array.isArray(result.data) ? result.data : [];
+                setPlatformInstances(list);
+                setFormManagement((prev) => {
+                    const platform = apiPlatforms.find((p) => String(p.id) === String(prev.apiCategoryId));
+                    const platformName =
+                        platform?.name || list[0]?.category_name || '';
+                    if (list.length === 0) {
+                        return {
+                            ...prev,
+                            apiInstanceId: null,
+                            apiType: '',
+                        };
+                    }
+                    const currentInList = list.find((i) => String(i.id) === String(prev.apiInstanceId));
+                    const inst = currentInList || list[0];
+                    const apiType = inferFormTypeForInstance(inst, platformName);
+                    const slug =
+                        String(inst.name).replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '') ||
+                        apiType;
+                    if (String(prev.apiInstanceId) === String(inst.id) && prev.apiType === apiType) {
+                        return prev.saveLeadSlug ? prev : { ...prev, saveLeadSlug: prev.saveLeadSlug || slug };
+                    }
+                    return {
+                        ...prev,
+                        apiInstanceId: inst.id,
+                        apiType,
+                        saveLeadSlug: prev.saveLeadSlug || slug,
+                    };
+                });
+            } catch (e) {
+                console.error('Failed to load API instances for platform:', e);
+                if (!cancelled) setPlatformInstances([]);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [formManagement.apiCategoryId, apiPlatforms]);
+
+    // Backward compatibility: form_type in HTML but api_category_id missing
     useEffect(() => {
         const apiType = formManagement.apiType;
-        const hasInstance = formManagement.apiInstanceId != null && formManagement.apiInstanceId !== '';
-        if (!apiType || hasInstance || !userApiInstances.length) return;
+        const hasCategory = formManagement.apiCategoryId != null && formManagement.apiCategoryId !== '';
+        if (!apiType || !apiPlatforms.length || hasCategory) return;
 
         const categoryName = formTypeToCategoryName[apiType];
         if (!categoryName) return;
 
-        const canonical = (formTypeToCanonicalName[apiType] || apiType).toLowerCase();
-        const match = userApiInstances.find(
-            (inst) => inst.categoryName === categoryName && inst.name.toLowerCase() === canonical
-        );
-        const instance = match || userApiInstances.find((inst) => inst.categoryName === categoryName);
-        if (instance) {
-            const slug = String(instance.name).replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '') || instance.formType || '';
-            setFormManagement((prev) => ({
-                ...prev,
-                apiCategoryId: instance.categoryId,
-                apiInstanceId: instance.id,
-                saveLeadSlug: prev.saveLeadSlug || slug || apiType,
-            }));
-        }
-    }, [formManagement.apiType, formManagement.apiInstanceId, formManagement.saveLeadSlug, userApiInstances]);
+        const cat = apiPlatforms.find((p) => categoryNamesMatch(p.name, categoryName));
+        if (!cat) return;
+
+        setFormManagement((prev) => ({
+            ...prev,
+            apiCategoryId: cat.id,
+            saveLeadSlug: prev.saveLeadSlug || apiType,
+        }));
+    }, [formManagement.apiType, formManagement.apiCategoryId, apiPlatforms]);
 
     useEffect(() => {
         function handleMouseEnter(e) {
@@ -1406,6 +1463,35 @@ export default function Dashboard({ id }) {
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if ((editing.actionType == "edit" && ['form'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "form")) {
+
+            if (!formManagement.apiCategoryId) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'API platform required',
+                    text: 'Please select an API platform.',
+                });
+                return;
+            }
+            if (!platformInstances.length) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'No API integrations',
+                    text: 'This platform has no API instances. Add credentials under Profile → API Platforms.',
+                });
+                return;
+            }
+            if (
+                formManagement.apiInstanceId == null ||
+                formManagement.apiInstanceId === '' ||
+                !formManagement.apiType
+            ) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'API integration required',
+                    text: 'Please select an API integration (form type).',
+                });
+                return;
+            }
 
             // Create form HTML content
             let formHTML = '';
@@ -2881,55 +2967,202 @@ export default function Dashboard({ id }) {
                                                     <Box mt={2} mb={2}>
                                                         <FormControl fullWidth>
                                                             <InputLabel id="demo-simple-select-label" shrink>
-                                                                Select API Instance
+                                                                Select API Platform
                                                             </InputLabel>
                                                             <MuiSelect
                                                                 labelId="demo-simple-select-label"
-                                                                value={formManagement.apiInstanceId != null && formManagement.apiInstanceId !== '' ? String(formManagement.apiInstanceId) : ''}
-                                                                label="Select API Instance"
+                                                                value={
+                                                                    formManagement.apiCategoryId != null && formManagement.apiCategoryId !== ''
+                                                                        ? String(formManagement.apiCategoryId)
+                                                                        : ''
+                                                                }
+                                                                label="Select API Platform"
                                                                 size="small"
                                                                 MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
                                                                 onChange={(e) => {
                                                                     const value = e.target.value;
-                                                                    const selected = userApiInstances.find((inst) => String(inst.id) === value) || null;
-                                                                    const slug = selected ? String(selected.name).replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '') || (selected ? selected.formType : '') : '';
-                                                                    setFormManagement({
-                                                                        ...formManagement,
-                                                                        apiType: selected ? selected.formType : '',
-                                                                        apiCategoryId: selected ? selected.categoryId : null,
-                                                                        apiInstanceId: selected ? selected.id : null,
-                                                                        saveLeadSlug: slug || (selected ? selected.formType : ''),
-                                                                    });
+                                                                    if (!value) {
+                                                                        setPlatformInstances([]);
+                                                                        setFormManagement({
+                                                                            ...formManagement,
+                                                                            apiCategoryId: null,
+                                                                            apiInstanceId: null,
+                                                                            saveLeadSlug: '',
+                                                                        });
+                                                                        return;
+                                                                    }
+                                                                    const selected = apiPlatforms.find((p) => String(p.id) === value);
+                                                                    if (!selected) return;
+                                                                    setFormManagement((prev) => ({
+                                                                        ...prev,
+                                                                        apiCategoryId: selected.id,
+                                                                        apiType: '',
+                                                                        apiInstanceId: null,
+                                                                        saveLeadSlug: prev.saveLeadSlug,
+                                                                    }));
                                                                 }}
                                                                 displayEmpty
-                                                                renderValue={(value) => {
-                                                                    if (!value) return <Typography color="grey">Select API Instance...</Typography>;
-                                                                    const instance = userApiInstances.find((inst) => String(inst.id) === value);
-                                                                    return instance ? instance.name : value;
+                                                                renderValue={(val) => {
+                                                                    if (!val) {
+                                                                        return <Typography color="grey">Select API Platform...</Typography>;
+                                                                    }
+                                                                    const platform = apiPlatforms.find((p) => String(p.id) === val);
+                                                                    if (!platform) return val;
+                                                                    return (
+                                                                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                            <span>{platform.name}</span>
+                                                                            {!platform.is_active && (
+                                                                                <Typography component="span" color="error" variant="caption">
+                                                                                    (Inactive)
+                                                                                </Typography>
+                                                                            )}
+                                                                        </Box>
+                                                                    );
                                                                 }}
                                                             >
-                                                                {userApiInstances.length === 0 ? (
+                                                                {apiPlatforms.length === 0 ? (
                                                                     <MenuItem disabled>
-                                                                        <Typography color="textSecondary">Add an API in Profile → API Platforms</Typography>
+                                                                        <Typography color="textSecondary">
+                                                                            No API platforms configured
+                                                                        </Typography>
                                                                     </MenuItem>
                                                                 ) : (
-                                                                    userApiInstances.map((instance) => (
+                                                                    apiPlatforms.map((platform) => (
                                                                         <MenuItem
                                                                             className="doNotAct"
-                                                                            key={instance.id}
-                                                                            value={String(instance.id)}
+                                                                            key={platform.id}
+                                                                            value={String(platform.id)}
                                                                         >
-                                                                            {instance.name}
+                                                                            <Box
+                                                                                component="span"
+                                                                                sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                                                                            >
+                                                                                <span>{platform.name}</span>
+                                                                                {!platform.is_active && (
+                                                                                    <Typography component="span" color="error" variant="caption">
+                                                                                        (Inactive)
+                                                                                    </Typography>
+                                                                                )}
+                                                                            </Box>
                                                                         </MenuItem>
                                                                     ))
                                                                 )}
                                                             </MuiSelect>
-                                                            {userApiInstances.length === 0 && (
+                                                            {apiPlatforms.length === 0 && (
                                                                 <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
-                                                                    Only API instances you created in Profile → API Platforms are shown here.
+                                                                    Platforms come from the API Categories table (active and inactive).
                                                                 </Typography>
                                                             )}
                                                         </FormControl>
+                                                        {selectedApiPlatform && platformInstances.length > 0 && (
+                                                            <Box mt={2}>
+                                                                <FormControl fullWidth required>
+                                                                    <InputLabel id="angle-form-type-label" shrink>
+                                                                        API integration
+                                                                    </InputLabel>
+                                                                    <MuiSelect
+                                                                        labelId="angle-form-type-label"
+                                                                        value={
+                                                                            formManagement.apiInstanceId != null &&
+                                                                            formManagement.apiInstanceId !== ''
+                                                                                ? String(formManagement.apiInstanceId)
+                                                                                : ''
+                                                                        }
+                                                                        label="API integration"
+                                                                        size="small"
+                                                                        MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
+                                                                        onChange={(e) => {
+                                                                            const id = e.target.value;
+                                                                            const inst = platformInstances.find(
+                                                                                (i) => String(i.id) === String(id)
+                                                                            );
+                                                                            if (!inst || !selectedApiPlatform) return;
+                                                                            const apiType = inferFormTypeForInstance(
+                                                                                inst,
+                                                                                selectedApiPlatform.name
+                                                                            );
+                                                                            const slug =
+                                                                                String(inst.name)
+                                                                                    .replace(/\s+/g, '_')
+                                                                                    .toLowerCase()
+                                                                                    .replace(/[^a-z0-9_]/g, '') || apiType;
+                                                                            setFormManagement({
+                                                                                ...formManagement,
+                                                                                apiInstanceId: inst.id,
+                                                                                apiType,
+                                                                                saveLeadSlug: slug,
+                                                                            });
+                                                                        }}
+                                                                        displayEmpty
+                                                                        renderValue={(val) => {
+                                                                            if (!val) {
+                                                                                return (
+                                                                                    <Typography color="grey">
+                                                                                        Select API integration...
+                                                                                    </Typography>
+                                                                                );
+                                                                            }
+                                                                            const inst = platformInstances.find(
+                                                                                (i) => String(i.id) === val
+                                                                            );
+                                                                            if (!inst) return val;
+                                                                            return (
+                                                                                <Box
+                                                                                    component="span"
+                                                                                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                                                                                >
+                                                                                    <span>{inst.name}</span>
+                                                                                    {inst.is_active === false && (
+                                                                                        <Typography component="span" color="error" variant="caption">
+                                                                                            (Inactive)
+                                                                                        </Typography>
+                                                                                    )}
+                                                                                </Box>
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        {platformInstances.map((inst) => {
+                                                                            const ft = inferFormTypeForInstance(
+                                                                                inst,
+                                                                                selectedApiPlatform.name
+                                                                            );
+                                                                            const typeLabel =
+                                                                                apiTypes.find((t) => t.value === ft)?.label || ft;
+                                                                            return (
+                                                                                <MenuItem
+                                                                                    className="doNotAct"
+                                                                                    key={inst.id}
+                                                                                    value={String(inst.id)}
+                                                                                >
+                                                                                    <Box
+                                                                                        component="span"
+                                                                                        sx={{
+                                                                                            display: 'flex',
+                                                                                            alignItems: 'center',
+                                                                                            gap: 0.5,
+                                                                                            flexWrap: 'wrap',
+                                                                                        }}
+                                                                                    >
+                                                                                        <span>{inst.name}</span>
+                                                                                        <Typography variant="caption" color="text.secondary">
+                                                                                            ({typeLabel})
+                                                                                        </Typography>
+                                                                                        {inst.is_active === false && (
+                                                                                            <Typography component="span" color="error" variant="caption">
+                                                                                                (Inactive)
+                                                                                            </Typography>
+                                                                                        )}
+                                                                                    </Box>
+                                                                                </MenuItem>
+                                                                            );
+                                                                        })}
+                                                                    </MuiSelect>
+                                                                </FormControl>
+                                                                <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: 'block' }}>
+                                                                    Sets <code>form_type</code> from the selected credential (e.g. Electra vs RiceLeads).
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
                                                         <Box mt={2}>
                                                             <TextField
                                                                 type="text"
