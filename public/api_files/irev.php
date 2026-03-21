@@ -19,12 +19,100 @@ function getVal($arr, $key)
     return isset($arr[$key]) ? $arr[$key] : '';
 }
 
+/**
+ * Optional phone for iRev (IrevPlatformProvider): if empty, no phone fields are sent.
+ * If present, must be valid E.164 (+…digits) or US 10-digit national (no libphonenumber in export).
+ *
+ * @return array{valid:bool, phone:?string}
+ */
+function parseIrevPhoneForExport(string $phone, string $countryIso2): array
+{
+    $trimmed = trim($phone);
+    if ($trimmed === '') {
+        return ['valid' => true, 'phone' => null];
+    }
+
+    $clean = preg_replace('/[^\d+]/', '', $trimmed);
+    // Same quick path as IrevPlatformProvider (digits after +, length 7–15)
+    if (preg_match('/^\+\d{7,15}$/', $clean)) {
+        return ['valid' => true, 'phone' => $clean];
+    }
+
+    $country = strtoupper(preg_replace('/[^A-Za-z]/', '', $countryIso2));
+    if ($country === '') {
+        $country = 'US';
+    }
+    if (preg_match('/^\+[1-9]\d{6,14}$/', $clean)) {
+        return ['valid' => true, 'phone' => $clean];
+    }
+    if ($country === 'US' && preg_match('/^\d{10}$/', $clean)) {
+        return ['valid' => true, 'phone' => '+1' . $clean];
+    }
+
+    return ['valid' => false, 'phone' => null];
+}
+
+/**
+ * Build user-facing error text similar to IrevPlatformProvider::submit failure branch.
+ */
+function buildIrevApiErrorMessage(array $responseArray, int $httpCode): string
+{
+    $msg = extractApiErrorMessage($responseArray);
+    if ($msg !== '') {
+        if (!empty($responseArray['errors']) && is_array($responseArray['errors'])) {
+            $errorMessages = array_column($responseArray['errors'], 'message');
+            $errorMessages = array_filter($errorMessages);
+            if (!empty($errorMessages)) {
+                $msg .= "\n" . implode("\n", $errorMessages);
+            }
+        }
+        return $msg;
+    }
+
+    if (!empty($responseArray['message'])) {
+        $m = (string) $responseArray['message'];
+        if (!empty($responseArray['errors']) && is_array($responseArray['errors'])) {
+            $errorMessages = array_column($responseArray['errors'], 'message');
+            $errorMessages = array_filter($errorMessages);
+            if (!empty($errorMessages)) {
+                $m .= "\n" . implode("\n", $errorMessages);
+            }
+        }
+        return $m;
+    }
+
+    if (!empty($responseArray['errors']) && is_array($responseArray['errors'])) {
+        $errorMessages = array_column($responseArray['errors'], 'message');
+        $errorMessages = array_filter($errorMessages);
+        if (!empty($errorMessages)) {
+            return implode("\n", $errorMessages);
+        }
+    }
+
+    switch ($httpCode) {
+        case 400:
+            return 'Bad request. Please check the provided data.';
+        case 401:
+            return 'Unauthorized. Please check your API token.';
+        case 403:
+            return 'Access denied.';
+        case 404:
+            return 'API endpoint not found.';
+        case 422:
+            return 'Validation failed. Please check required fields.';
+        case 500:
+            return 'Server error. Please try again later.';
+        default:
+            return 'An error occurred. Please try again.';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postData = $_POST;
     $getData = $_GET;
-    $dynamicCid = getVal($getData, 'cid') ?? '';
-    $dynamicPid = getVal($getData, 'pid') ?? '';
-    $dynamicSO = getVal($getData, 'so') ?? '';
+    $dynamicCid = getVal($getData, 'cid');
+    $dynamicPid = getVal($getData, 'pid');
+    $dynamicSO = getVal($getData, 'so');
 
     $formType = trim(getVal($postData, 'form_type'));
     $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
@@ -41,23 +129,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    $ch = curl_init($endpoint);
-
-    // Prepare the data for iRev API (JSON format) - same payload for all iRev instances
-    $data = array(
-        'ip' => getVal($postData, 'userip'),
-        'email' => getVal($postData, 'email'),
-        'first_name' => getVal($postData, 'firstname'),
-        'last_name' => getVal($postData, 'lastname'),
-        'password' => getVal($postData, 'password') ?: 'DefaultPassword123',
-        'phone' => getVal($postData, 'phone'),
-        'country_code' => getVal($postData, 'country'),
-        'lead_language' => getVal($postData, 'lang') ?: 'en',
-        'is_test' => false,
-    );
-    if (!empty($dynamicCid)) {
-        $data['aff_sub'] = $dynamicCid;
+    // IrevPlatformProvider: IP is required
+    $ip = trim(getVal($postData, 'userip'));
+    if ($ip === '') {
+        $msg = 'IP address is required. Please ensure IP address is provided.';
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($msg));
+        exit();
     }
+
+    $countryRaw = getVal($postData, 'country');
+    $phoneParsed = parseIrevPhoneForExport(getVal($postData, 'phone'), $countryRaw);
+    if (!$phoneParsed['valid']) {
+        $msg = 'It seems like you didn\'t enter a valid phone number. Please enter your phone number in order to get exclusive help from one of our specialists!';
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($msg));
+        exit();
+    }
+
+    $firstname = trim(getVal($postData, 'firstname'));
+    $lastname = trim(getVal($postData, 'lastname'));
+    $email = trim(getVal($postData, 'email'));
+
+    // Shared iRev / Nauta payload shape (IrevPlatformProvider::submit)
+    $data = ['ip' => $ip];
+
+    if ($countryRaw !== '') {
+        $data['country_code'] = strtoupper(substr((string) $countryRaw, 0, 2));
+    }
+
+    $leadLang = trim(getVal($postData, 'lead_language'));
+    if ($leadLang === '') {
+        $leadLang = trim(getVal($postData, 'language'));
+    }
+    if ($leadLang === '') {
+        $leadLang = trim(getVal($postData, 'lang'));
+    }
+    if ($leadLang !== '') {
+        $data['lead_language'] = $leadLang;
+    }
+
+    if (array_key_exists('is_test', $postData)) {
+        $v = $postData['is_test'];
+        $data['is_test'] = $v === true || $v === 1 || $v === '1' || strtolower((string) $v) === 'true' || strtolower((string) $v) === 'yes' || strtolower((string) $v) === 'on';
+    }
+
+    if ($email !== '') {
+        $data['email'] = $email;
+    }
+    if ($firstname !== '') {
+        $data['first_name'] = $firstname;
+    }
+    if ($lastname !== '') {
+        $data['last_name'] = $lastname;
+    }
+
+    $postPassword = trim(getVal($postData, 'password'));
+    $data['password'] = $postPassword !== '' ? $postPassword : '123abcDEF';
+
+    if ($phoneParsed['phone'] !== null) {
+        $data['phone'] = $phoneParsed['phone'];
+        $data['contact'] = $phoneParsed['phone'];
+    }
+
+    $affiliatePost = trim(getVal($postData, 'affiliate_id'));
+    if ($affiliatePost !== '') {
+        $data['affiliate_id'] = $affiliatePost;
+    }
+
+    $offerPost = trim(getVal($postData, 'offer_id'));
+    if ($offerPost !== '') {
+        $data['offer_id'] = $offerPost;
+    }
+
+    // Provider: aff_sub is set only when aff_sub is present in lead input; value is click id (cid)
+    $affSubFlag = trim(getVal($postData, 'aff_sub'));
+    if ($affSubFlag !== '') {
+        $clickForSub = $dynamicCid !== '' ? $dynamicCid : trim(getVal($postData, 'cid'));
+        $data['aff_sub'] = (string) $clickForSub;
+    }
+
+    $ch = curl_init($endpoint);
 
     $irevApiToken = "";
 
@@ -104,8 +254,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Save lead to CRM - always call regardless of main API success/failure
     $leadSaveStatus = 'success';
-    // iRev API success response contains: lead_uuid, auto_login_url, advertiser_uuid (optional), advertiser_name (optional)
-    if ($httpCode !== 200 || !isset($responseArray['lead_uuid'])) {
+    // IrevPlatformProvider: HTTP 200 and non-empty lead_uuid
+    if ($httpCode !== 200 || empty($responseArray['lead_uuid'])) {
         $leadSaveStatus = 'failure';
     }
     saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
@@ -153,11 +303,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Filter and sanitize response for the client
     // Success response structure: { lead_uuid, auto_login_url, advertiser_uuid (optional), advertiser_name (optional) }
-    if ($httpCode !== 200 || !isset($responseArray['lead_uuid'])) {
-        $message = extractApiErrorMessage($responseArray);
-        if ($message === '') {
-            $message = 'An error occurred. Please try again.';
-        }
+    if ($httpCode !== 200 || empty($responseArray['lead_uuid'])) {
+        $message = buildIrevApiErrorMessage($responseArray, $httpCode);
 
         // echo json_encode([
         //     'status' => false,
