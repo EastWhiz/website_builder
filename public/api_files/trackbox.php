@@ -18,6 +18,55 @@ function getVal($arr, $key)
     return isset($arr[$key]) ? $arr[$key] : '';
 }
 
+/**
+ * Lightweight phone validation for exported standalone PHP (no libphonenumber).
+ * Mirrors TrackboxPlatformProvider intent: E164 when possible, ISO2 country for context.
+ *
+ * @return array{valid:bool, phone:string, country:string}
+ */
+function parseTrackboxPhoneForExport(string $phone, string $countryIso2): array
+{
+    $clean = preg_replace('/[^\d+]/', '', trim($phone));
+    $country = strtoupper(preg_replace('/[^A-Za-z]/', '', $countryIso2));
+    if ($country === '') {
+        $country = 'US';
+    }
+
+    // Already E164 (+country code + subscriber number, ITU-style bounds)
+    if ($clean !== '' && preg_match('/^\+[1-9]\d{6,14}$/', $clean)) {
+        return ['valid' => true, 'phone' => $clean, 'country' => $country];
+    }
+
+    // US 10-digit national → +1… (common when intl-tel-input not used)
+    if ($country === 'US' && preg_match('/^\d{10}$/', $clean)) {
+        return ['valid' => true, 'phone' => '+1' . $clean, 'country' => 'US'];
+    }
+
+    return ['valid' => false, 'phone' => $clean, 'country' => $country];
+}
+
+/**
+ * Optional per–form_type tweaks (TrackboxPlatformProvider::applyTypeOverrides).
+ * Currently no extra keys; extend here if a Trackbox variant needs them.
+ */
+function applyTrackboxTypeOverrides(string $formType, array $payload, array $postData, string $dynamicCid): array
+{
+    $type = strtolower(trim($formType));
+    switch ($type) {
+        case 'magicads':
+        case 'pastile':
+        case 'seamediaone':
+        case 'seamedia_one':
+        case 'seamedia':
+        case 'newmedis':
+        case 'new_medis':
+        default:
+            break;
+    }
+
+    return $payload;
+}
+
 function findBrokerRedirectUrl(array $response)
 {
     $candidates = [];
@@ -92,9 +141,9 @@ function findBrokerRedirectUrl(array $response)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postData = $_POST;
     $getData = $_GET;
-    $dynamicCid = getVal($getData, 'cid') ?? '';
-    $dynamicPid = getVal($getData, 'pid') ?? '';
-    $dynamicSO = getVal($getData, 'so') ?? '';
+    $dynamicCid = getVal($getData, 'cid');
+    $dynamicPid = getVal($getData, 'pid');
+    $dynamicSO = getVal($getData, 'so');
 
     $formType = trim(getVal($postData, 'form_type'));
     $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
@@ -110,33 +159,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('API endpoint not configured'));
         exit();
     }
-    
+
+    // Align with TrackboxPlatformProvider: required fields + phone validation
+    $firstname = trim(getVal($postData, 'firstname'));
+    $lastname = trim(getVal($postData, 'lastname'));
+    $email = trim(getVal($postData, 'email'));
+    if ($firstname === '' || $lastname === '' || $email === '') {
+        $msg = 'Required fields are missing. Please ensure first name, last name, and email are provided.';
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($msg));
+        exit();
+    }
+
+    $phoneRaw = getVal($postData, 'phone');
+    $countryRaw = getVal($postData, 'country');
+    $phoneData = parseTrackboxPhoneForExport($phoneRaw, $countryRaw);
+    if (!$phoneData['valid']) {
+        $msg = 'It seems like you didn\'t enter a valid phone number. Please enter your phone number in order to get exclusive help from one of our specialists!';
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($msg));
+        exit();
+    }
+
+    $clickId = $dynamicCid !== '' ? $dynamicCid : trim(getVal($postData, 'cid'));
+    $mpc1 = $clickId !== '' ? $clickId : 'N/A';
+    $soValue = $dynamicSO !== '' ? $dynamicSO : trim(getVal($postData, 'so'));
+    $soFinal = $soValue !== '' ? $soValue : 'N/A';
+
     $ch = curl_init($endpoint);
 
+    // Shared Trackbox payload (ELPS / MagicAds / NewMedis / Pastile / SeaMediaOne / etc.)
     $data = [
         'ai' => '',
         'ci' => '',
         'gi' => '',
-        'userip' => getVal($postData, 'userip'),
-        'firstname' => getVal($postData, 'firstname'),
-        'lastname' => getVal($postData, 'lastname'),
-        'email' => getVal($postData, 'email'),
-        'password' => 'hardcodedpassword',
-        'phone' => getVal($postData, 'phone'),
-        'so' => $dynamicSO,
+        'userip' => trim(getVal($postData, 'userip')),
+        'firstname' => $firstname,
+        'lastname' => $lastname,
+        'email' => $email,
+        'password' => 'G7pXr2kQ',
+        'phone' => $phoneData['phone'],
+        'so' => $soFinal,
         'lg' => 'EN',
-        'country' => getVal($postData, 'country'),
+        'country' => $phoneData['country'],
+        'MPC_1' => $mpc1,
     ];
-    if ($formType === 'magicads') {
-        $data['cid'] = $dynamicCid;
-        $data['sub'] = getVal($postData, 'sub') ?? '';
-        $data['ad'] = getVal($postData, 'ad') ?? '';
-        $data['term'] = getVal($postData, 'term') ?? '';
-        $data['campaign'] = getVal($postData, 'campaign') ?? '';
-        $data['medium'] = getVal($postData, 'medium') ?? '';
-    } else {
-        $data['affClickId'] = $dynamicCid;
-    }
+    $data = applyTrackboxTypeOverrides($formType, $data, $postData, $dynamicCid);
 
     $username = "";
     $password = "";
