@@ -987,7 +987,9 @@ class AngleTemplateController extends Controller
                                 return;
                             }
 
-                            const { iso2 } = iti.getSelectedCountryData();
+                            const countryData = iti.getSelectedCountryData();
+                            const { iso2 } = countryData;
+                            const areaCode = countryData?.dialCode ? ('+' + countryData.dialCode) : '';
 
                             // Phone field
                             const hiddenPhone = Object.assign(document.createElement("input"), {
@@ -1004,6 +1006,14 @@ class AngleTemplateController extends Controller
                                 value: iso2
                             });
                             input.form.appendChild(hiddenCountry);
+
+                            // Area code in " +<dialCode>" format (used by some providers like RiceLeads)
+                            const hiddenAreaCode = Object.assign(document.createElement("input"), {
+                                type: "hidden",
+                                name: "area_code",
+                                value: areaCode
+                            });
+                            input.form.appendChild(hiddenAreaCode);
 
                             // Language field
                             const hiddenLang = Object.assign(document.createElement("input"), {

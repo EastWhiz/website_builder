@@ -25,6 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
 
+
+    //areacode in variable -- if + is not require, them remove here
+    
     $formType = trim(getVal($postData, 'form_type'));
     $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
     $slug = $saveLeadSlug !== '' ? $saveLeadSlug : $formType;
@@ -51,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'phone' => getVal($postData, 'phone'),
         'source' => BASE_URL,
         '_ip' => getVal($postData, 'userip'),
-        'area_code' => $postData['area_code'] ?? '',
+        'area_code' => getVal($postData,'area_code'),
         'funnel' => $dynamicSO,
         'aff_sub' => $dynamicCid,
         'aff_sub2' => 'aff_sub2',
