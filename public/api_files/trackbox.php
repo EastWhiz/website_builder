@@ -97,7 +97,10 @@ function findBrokerRedirectUrl(array $response)
         $candidates[] = $response['body']['addonData']['data']['brokerUrl'];
     }
 
-    // GetLinked style: body.details.redirect.url
+    // GetLinked style: details.redirect.url (top-level or under body)
+    if (isset($response['details']['redirect']['url'])) {
+        $candidates[] = $response['details']['redirect']['url'];
+    }
     if (isset($response['body']['details']['redirect']['url'])) {
         $candidates[] = $response['body']['details']['redirect']['url'];
     }
