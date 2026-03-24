@@ -18,12 +18,30 @@ function getVal($arr, $key)
     return isset($arr[$key]) ? $arr[$key] : '';
 }
 
+function leadgreedUserFacingApiError($httpCode, $apiErrorMessage, $curlError)
+{
+    if ($curlError !== '') {
+        return $curlError;
+    }
+
+    return ($apiErrorMessage !== '') ? $apiErrorMessage : 'API error';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postData = $_POST;
     $getData = $_GET;
     $dynamicCid = getVal($getData, 'cid') ?? '';
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
+    if ($dynamicCid === '' && trim(getVal($postData, 'cid')) !== '') {
+        $dynamicCid = trim(getVal($postData, 'cid'));
+    }
+    if ($dynamicPid === '' && trim(getVal($postData, 'pid')) !== '') {
+        $dynamicPid = trim(getVal($postData, 'pid'));
+    }
+    if ($dynamicSO === '' && trim(getVal($postData, 'so')) !== '') {
+        $dynamicSO = trim(getVal($postData, 'so'));
+    }
 
 
     //areacode in variable -- if + is not require, them remove here
@@ -43,8 +61,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Payload contract for LeadGreed category:
-    // Must match the RiceLeads payload structure (keys/values) exactly.
+    // Payload: same shape as public/api_files/electra.php → lcaapi + fields from electra-version-integration.php
+    // (firstname/lastname/email/phone/country/area_code/userip/cid/so/pid). RiceLeads/LeadGreed use Rice password + affid from export.
+    // - phone: national vs E164 depends on the form (reference uses national; angle template hidden field uses intl-tel full number).
+    // - pid → aff_sub3 (common subid slot); cid/so already map to aff_sub / aff_sub5 / funnel.
+    $countryRaw = trim(getVal($postData, 'country'));
+    $country = '';
+    if ($countryRaw !== '') {
+        $country = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $countryRaw), 0, 2));
+    }
+
     $data = [
         'affid' => '36',
         'first_name' => getVal($postData, 'firstname'),
@@ -54,18 +80,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'phone' => getVal($postData, 'phone'),
         'source' => BASE_URL,
         '_ip' => getVal($postData, 'userip'),
-        'area_code' => getVal($postData,'area_code'),
+        'area_code' => getVal($postData, 'area_code'),
+        'country' => $country,
         'funnel' => $dynamicSO,
         'aff_sub' => $dynamicCid,
         'aff_sub2' => 'aff_sub2',
+        'aff_sub3' => $dynamicPid,
         'aff_sub5' => $dynamicCid,
     ];
+
+    $lang = trim(getVal($postData, 'lang'));
+    if ($lang !== '') {
+        $data['lang'] = $lang;
+    }
 
     $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true");
     if ($isSelfHosted) {
         $responseArray = ['status' => true, 'message' => 'Lead processed successfully (self-hosted)', 'is_self_hosted' => true];
         saveLead($postData, $getData, $responseArray, $slug, 'success', $data);
-        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
+        $thankYouParams = [
+            'cid' => $dynamicCid,
+            'pid' => $dynamicPid,
+            'so' => $dynamicSO,
+        ];
+        $redirectToBroker = strtolower(trim(getVal($postData, 'redirect_to_broker'))) === 'yes';
+        $redirectDelay = (int) getVal($postData, 'broker_redirect_delay');
+        if ($redirectDelay < 0) {
+            $redirectDelay = 0;
+        }
+        $brokerUrl = trim(getVal($postData, 'broker_url'));
+        if ($brokerUrl !== '' && !filter_var($brokerUrl, FILTER_VALIDATE_URL)) {
+            $brokerUrl = '';
+        }
+        if ($redirectToBroker && $brokerUrl !== '') {
+            $thankYouParams['redirect_to_broker'] = 'yes';
+            $thankYouParams['broker_redirect_delay'] = (string) $redirectDelay;
+            $thankYouParams['broker_url'] = $brokerUrl;
+        }
+        header('Location: ' . BASE_URL . '/api_files/thank_you.php?' . http_build_query($thankYouParams));
         exit();
     }
 
@@ -102,43 +154,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $brokerUrl = null;
     if (is_array($responseArray)) {
-        // LeadGreed: redirect is typically in body.extras.redirect.url,
-        // but we also check the common keys and nested structures via shared helper if available.
-        if (function_exists('findBrokerRedirectUrl')) {
-            $brokerUrl = findBrokerRedirectUrl($responseArray);
-        } else {
-            if (isset($responseArray['body']['extras']['redirect']['url']) &&
-                filter_var($responseArray['body']['extras']['redirect']['url'], FILTER_VALIDATE_URL)) {
-                $brokerUrl = $responseArray['body']['extras']['redirect']['url'];
-            } else {
-                foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
-                    if (!empty($responseArray[$key]) && filter_var($responseArray[$key], FILTER_VALIDATE_URL)) {
-                        $brokerUrl = $responseArray[$key];
-                        break;
-                    }
-                }
-            }
+        $brokerUrl = findBrokerRedirectUrl($responseArray);
+    }
+    if (($brokerUrl === null || $brokerUrl === '') && trim(getVal($postData, 'broker_url')) !== '') {
+        $fromPost = trim(getVal($postData, 'broker_url'));
+        if (filter_var($fromPost, FILTER_VALIDATE_URL)) {
+            $brokerUrl = $fromPost;
         }
     }
-    if (!isset($_SESSION)) {
-        session_start();
-    }
-    if ($redirectToBroker && $brokerUrl && filter_var($brokerUrl, FILTER_VALIDATE_URL)) {
-        $_SESSION['broker_redirect'] = [
-            'enabled' => true,
-            'delay' => $redirectDelay,
-            'url' => $brokerUrl,
-        ];
-    } else {
-        unset($_SESSION['broker_redirect']);
-    }
+
+    $apiErrorMessage = extractApiErrorMessage($responseArray);
 
     if ($curlError || $leadSaveStatus === 'failure') {
-        $apiErrorMessage = extractApiErrorMessage($responseArray);
-        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($curlError ?: ($apiErrorMessage ?: 'API error')));
+        $userMsg = leadgreedUserFacingApiError($httpCode, $apiErrorMessage, $curlError);
+        header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($userMsg));
         exit();
     }
-    header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
+
+    $thankYouParams = [
+        'cid' => $dynamicCid,
+        'pid' => $dynamicPid,
+        'so' => $dynamicSO,
+    ];
+    if ($redirectToBroker && $brokerUrl && filter_var($brokerUrl, FILTER_VALIDATE_URL)) {
+        $thankYouParams['redirect_to_broker'] = 'yes';
+        $thankYouParams['broker_redirect_delay'] = (string) $redirectDelay;
+        $thankYouParams['broker_url'] = $brokerUrl;
+    }
+
+   
+
+    header('Location: ' . BASE_URL . '/api_files/thank_you.php?' . http_build_query($thankYouParams));
     exit();
 }
 

@@ -2,13 +2,22 @@
 // Load config (starts session)
 include_once 'config.php';
 
-$redirectConfig = isset($_SESSION['broker_redirect']) && is_array($_SESSION['broker_redirect'])
-    ? $_SESSION['broker_redirect']
-    : null;
+$redirectEnabled = false;
+$redirectDelay = 0;
+$redirectUrl = '';
 
-$redirectEnabled = $redirectConfig['enabled'] ?? false;
-$redirectDelay = isset($redirectConfig['delay']) ? (int) $redirectConfig['delay'] : 0;
-$redirectUrl = $redirectConfig['url'] ?? '';
+if (isset($_GET['redirect_to_broker']) && strtolower(trim((string) $_GET['redirect_to_broker'])) === 'yes'
+    && !empty($_GET['broker_url']) && filter_var($_GET['broker_url'], FILTER_VALIDATE_URL)) {
+    $redirectEnabled = true;
+    $redirectDelay = isset($_GET['broker_redirect_delay']) ? (int) $_GET['broker_redirect_delay'] : 0;
+    $redirectUrl = (string) $_GET['broker_url'];
+} elseif (isset($_SESSION['broker_redirect']) && is_array($_SESSION['broker_redirect'])) {
+    $redirectConfig = $_SESSION['broker_redirect'];
+    $redirectEnabled = !empty($redirectConfig['enabled']);
+    $redirectDelay = isset($redirectConfig['delay']) ? (int) $redirectConfig['delay'] : 0;
+    $redirectUrl = isset($redirectConfig['url']) ? (string) $redirectConfig['url'] : '';
+    unset($_SESSION['broker_redirect']);
+}
 
 if ($redirectDelay < 0) {
     $redirectDelay = 0;
@@ -17,9 +26,6 @@ if (!$redirectEnabled || !filter_var($redirectUrl, FILTER_VALIDATE_URL)) {
     $redirectEnabled = false;
     $redirectUrl = '';
 }
-
-// Clear redirect config so it doesn't persist across refreshes
-unset($_SESSION['broker_redirect']);
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -86,3 +86,70 @@ function extractApiErrorMessage($responseArray)
     return $found;
 }
 
+if (!function_exists('findBrokerRedirectUrl')) {
+    /**
+     * Extract a broker redirect URL from common API response shapes (LeadGreed, Trackbox, iRev, etc.).
+     */
+    function findBrokerRedirectUrl(array $response)
+    {
+        $candidates = [];
+
+        foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
+            if (isset($response[$key]) && is_string($response[$key])) {
+                $candidates[] = $response[$key];
+            }
+        }
+
+        if (isset($response['body']['extras']['redirect']['url'])) {
+            $candidates[] = $response['body']['extras']['redirect']['url'];
+        }
+
+        if (isset($response['body']['data']) && is_string($response['body']['data'])) {
+            $candidates[] = $response['body']['data'];
+        }
+        if (isset($response['body']['addonData']['data']['loginURL'])) {
+            $candidates[] = $response['body']['addonData']['data']['loginURL'];
+        }
+        if (isset($response['body']['addonData']['data']['brokerUrl'])) {
+            $candidates[] = $response['body']['addonData']['data']['brokerUrl'];
+        }
+
+        if (isset($response['details']['redirect']['url'])) {
+            $candidates[] = $response['details']['redirect']['url'];
+        }
+        if (isset($response['body']['details']['redirect']['url'])) {
+            $candidates[] = $response['body']['details']['redirect']['url'];
+        }
+
+        if (isset($response['body']['auto_login_url'])) {
+            $candidates[] = $response['body']['auto_login_url'];
+        }
+
+        if (isset($response['body']) && is_string($response['body'])) {
+            $candidates[] = $response['body'];
+        }
+
+        foreach ($candidates as $url) {
+            if (is_string($url) && filter_var($url, FILTER_VALIDATE_URL)) {
+                return $url;
+            }
+        }
+
+        $stack = [$response];
+        while (!empty($stack)) {
+            $current = array_pop($stack);
+            if (!is_array($current)) {
+                continue;
+            }
+            foreach ($current as $value) {
+                if (is_array($value)) {
+                    $stack[] = $value;
+                } elseif (is_string($value) && filter_var($value, FILTER_VALIDATE_URL)) {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
+    }
+}
