@@ -3309,6 +3309,15 @@ export default function Dashboard({ id }) {
                                                                         setFormManagement({
                                                                             ...formManagement,
                                                                             redirect_to_broker: e.target.value,
+                                        ...(e.target.value === 'yes'
+                                            ? {
+                                                // Ensure broker redirect delay is always > 0
+                                                broker_redirect_delay:
+                                                    formManagement.broker_redirect_delay && Number(formManagement.broker_redirect_delay) > 0
+                                                        ? formManagement.broker_redirect_delay
+                                                        : '1',
+                                            }
+                                            : { broker_redirect_delay: '' }),
                                                                         })
                                                                     }
                                                                 >
@@ -3318,6 +3327,13 @@ export default function Dashboard({ id }) {
                                                             </FormControl>
                                                         </Box>
                                                         {formManagement.is_self_hosted !== 'true' && formManagement.redirect_to_broker === 'yes' && (
+                                                            (() => {
+                                                                const delayNum = Number(formManagement.broker_redirect_delay);
+                                                                const delayInvalid =
+                                                                    formManagement.broker_redirect_delay === '' ||
+                                                                    Number.isNaN(delayNum) ||
+                                                                    delayNum <= 0;
+                                                                return (
                                                             <Box mt={2}>
                                                                 <TextField
                                                                     type="number"
@@ -3325,16 +3341,27 @@ export default function Dashboard({ id }) {
                                                                     size="small"
                                                                     label="Seconds to Redirect"
                                                                     slotProps={{ inputLabel: { shrink: true } }}
-                                                                    inputProps={{ min: 0 }}
+                                                                    inputProps={{ min: 1, step: 1 }}
                                                                     value={formManagement.broker_redirect_delay || ''}
+                                                                    error={delayInvalid}
+                                                                    helperText={delayInvalid ? 'Delay must be greater than 0 seconds.' : ''}
                                                                     onChange={(e) =>
-                                                                        setFormManagement({
-                                                                            ...formManagement,
-                                                                            broker_redirect_delay: e.target.value,
-                                                                        })
+                                                                        (() => {
+                                                                            const v = e.target.value;
+                                                                            if (v === '') {
+                                                                                setFormManagement({ ...formManagement, broker_redirect_delay: '' });
+                                                                                return;
+                                                                            }
+                                                                            const n = Number(v);
+                                                                            if (!Number.isNaN(n) && n > 0) {
+                                                                                setFormManagement({ ...formManagement, broker_redirect_delay: v });
+                                                                            }
+                                                                        })()
                                                                     }
                                                                 />
                                                             </Box>
+                                                                );
+                                                            })()
                                                         )}
                                                         
                                                         {/* OTP Modal Customization - Show when OTP Service is selected */}

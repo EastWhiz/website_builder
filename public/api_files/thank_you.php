@@ -59,6 +59,10 @@ if (!$redirectEnabled || !filter_var($redirectUrl, FILTER_VALIDATE_URL)) {
             const pid = urlParams.get('pid'); // Extract 'pid'
 
             let DynamicFacebookPixelURL = '';
+            // Fallback to root's hardcoded Voluum/conversion pixel URL
+            if (!DynamicFacebookPixelURL) {
+                DynamicFacebookPixelURL = 'https://conversionpixel.com/fb.php';
+            }
 
             if (pid) {
                 const iframe = document.createElement('iframe');
@@ -82,6 +86,10 @@ if (!$redirectEnabled || !filter_var($redirectUrl, FILTER_VALIDATE_URL)) {
             const cid = urlParams.get('cid'); // Extract 'cid'
 
             let DynamicSecondaryPixelURL = '';
+            // Fallback to root's hardcoded Voluum postback URL
+            if (!DynamicSecondaryPixelURL) {
+                DynamicSecondaryPixelURL = 'http://plz.hold1sec.com/postback';
+            }
 
             if (cid) {
                 // Generate the postback URL
