@@ -1015,11 +1015,14 @@ class AngleTemplateController extends Controller
                             });
                             input.form.appendChild(hiddenAreaCode);
 
-                            // Language field
+                            // Language field (ISO 639-1 primary subtag, uppercase — Trackbox lg)
+                            const rawNavLang = (navigator.language || navigator.userLanguage || "en");
+                            const langPrimary = (String(rawNavLang).split(/[-_]/)[0] || "en").replace(/[^a-zA-Z]/g, "");
+                            const langCode = (langPrimary.length >= 2 ? langPrimary.substring(0, 2) : "en").toUpperCase();
                             const hiddenLang = Object.assign(document.createElement("input"), {
                                 type: "hidden",
                                 name: "lang",
-                                value: navigator.language || navigator.userLanguage
+                                value: langCode
                             });
                             input.form.appendChild(hiddenLang);
 

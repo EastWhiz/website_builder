@@ -10,6 +10,86 @@ function extractApiErrorMessage($responseArray)
         return '';
     }
 
+    // Prefer specific/business-validation messages over generic gateway text.
+    $isGenericMessage = function ($msg) {
+        $m = strtolower(trim((string) $msg));
+        if ($m === '') {
+            return true;
+        }
+        foreach ([
+            'we cannot register you at this time',
+            'there was an error processing your request',
+            'please try again later',
+            'an error occurred',
+            'request failed',
+            'api error',
+        ] as $needle) {
+            if (strpos($m, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    $findSpecificMessage = function ($value, $depth) use (&$findSpecificMessage, $isGenericMessage) {
+        if ($depth > 8 || !is_array($value)) {
+            return '';
+        }
+
+        // First pass: message-like keys
+        $messageKeys = ['message', 'error', 'detail', 'details', 'reason', 'description', 'status_message', 'data'];
+        foreach ($messageKeys as $k) {
+            if (isset($value[$k]) && is_string($value[$k])) {
+                $candidate = trim($value[$k]);
+                if ($candidate !== '' && !$isGenericMessage($candidate)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        // Common validation/error object arrays
+        foreach (['errors', 'validation_errors', 'field_errors', 'violations'] as $errorsKey) {
+            if (!isset($value[$errorsKey]) || !is_array($value[$errorsKey])) {
+                continue;
+            }
+            foreach ($value[$errorsKey] as $err) {
+                if (is_string($err)) {
+                    $candidate = trim($err);
+                    if ($candidate !== '' && !$isGenericMessage($candidate)) {
+                        return $candidate;
+                    }
+                } elseif (is_array($err)) {
+                    foreach (['message', 'error', 'detail', 'details', 'reason', 'description'] as $k) {
+                        if (isset($err[$k]) && is_string($err[$k])) {
+                            $candidate = trim($err[$k]);
+                            if ($candidate !== '' && !$isGenericMessage($candidate)) {
+                                return $candidate;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Second pass: recurse into nested structures
+        foreach ($value as $nested) {
+            if (is_array($nested)) {
+                $found = $findSpecificMessage($nested, $depth + 1);
+                if ($found !== '') {
+                    return $found;
+                }
+            }
+        }
+
+        return '';
+    };
+
+    $specific = $findSpecificMessage($responseArray, 0);
+    if ($specific !== '') {
+        return $specific;
+    }
+
     $priorityKeys = [
         'message',
         'error',

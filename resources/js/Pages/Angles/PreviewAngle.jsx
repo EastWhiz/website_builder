@@ -16,6 +16,19 @@ import { HexColorPicker } from "react-colorful";
 import Swal from "sweetalert2";
 import Select from 'react-select';
 
+/** Sync tracking hidden fields from page URL (exported static pages + preview after innerHTML). */
+function syncFormTrackingParamsFromUrl(formEl) {
+    if (!formEl) return;
+    const q = new URLSearchParams(window.location.search);
+    ['cid', 'pid', 'so'].forEach((k) => {
+        const el = formEl.querySelector(`[name="${k}"]`);
+        const v = q.get(k);
+        if (el != null && v != null && v !== '') {
+            el.value = v;
+        }
+    });
+}
+
 export default function Dashboard({ id }) {
 
     const mainQuery = usePage().props;
@@ -905,7 +918,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "redirect_to_broker" || name == "broker_redirect_delay") return null;
+                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "redirect_to_broker" || name == "broker_redirect_delay" || name == "cid" || name == "pid" || name == "so" || name == "zipcode" || name == "currentAdvisor" || name == "ageRange" || name == "retirementPlan" || name == "businessOwner" || name == "totalInvestableAssets" || name == "investableAssetsDetail" || name == "annualIncome") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -1539,6 +1552,33 @@ export default function Dashboard({ id }) {
                 }
             });
 
+            const isTrackboxForm =
+                (formManagement.apiPlatformFile || '').toLowerCase() === 'trackbox.php' ||
+                ['elps', 'magicads', 'newmedis', 'pastile', 'seamediaone', 'dark', 'tigloo'].includes(
+                    (formManagement.apiType || '').toLowerCase(),
+                );
+
+            if (isTrackboxForm) {
+                formHTML += `
+                    <div style="margin-bottom: 15px;">
+                        <input
+                            type="text"
+                            name="zipcode"
+                            placeholder="Postal / ZIP code"
+                            autocomplete="postal-code"
+                            style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+                        />
+                    </div>
+                `;
+                formHTML += ` <input type="hidden" name="currentAdvisor" value="" />`;
+                formHTML += ` <input type="hidden" name="ageRange" value="" />`;
+                formHTML += ` <input type="hidden" name="retirementPlan" value="" />`;
+                formHTML += ` <input type="hidden" name="businessOwner" value="" />`;
+                formHTML += ` <input type="hidden" name="totalInvestableAssets" value="" />`;
+                formHTML += ` <input type="hidden" name="investableAssetsDetail" value="" />`;
+                formHTML += ` <input type="hidden" name="annualIncome" value="" />`;
+            }
+
             formHTML += ` <input type="hidden" name="form_type" value="${formManagement.apiType}" />`;
             formHTML += ` <input type="hidden" name="api_category_id" value="${formManagement.apiCategoryId || ''}" />`;
             formHTML += ` <input type="hidden" name="api_platform_file" value="${formManagement.apiPlatformFile || ''}" />`;
@@ -1551,7 +1591,10 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="is_self_hosted" value="${formManagement.is_self_hosted || 'false'}" />`;
             formHTML += ` <input type="hidden" name="redirect_to_broker" value="${formManagement.redirect_to_broker || 'no'}" />`;
             formHTML += ` <input type="hidden" name="broker_redirect_delay" value="${(formManagement.broker_redirect_delay || '').replace(/"/g, '&quot;')}" />`;
-            
+            formHTML += ` <input type="hidden" name="cid" value="" />`;
+            formHTML += ` <input type="hidden" name="pid" value="" />`;
+            formHTML += ` <input type="hidden" name="so" value="" />`;
+
             // Add OTP modal fields as hidden inputs (values will be set via DOM methods)
             formHTML += ` <input type="hidden" name="otp_modal_heading" />`;
             formHTML += ` <input type="hidden" name="otp_modal_image" />`;
@@ -1580,6 +1623,7 @@ export default function Dashboard({ id }) {
                     ${formManagement.submitText || 'Submit'}
                 </button>
             `;
+            formHTML += `<script>(function(){function s(){var q=new URLSearchParams(window.location.search);['cid','pid','so'].forEach(function(k){var el=document.querySelector('#myForm [name="'+k+'"]');var v=q.get(k);if(el&&v!=null&&v!=='')el.value=v;});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',s);else s();})();<\/script>`;
 
             if (editing.actionType == "edit") {
                 // Update existing form
@@ -1597,7 +1641,8 @@ export default function Dashboard({ id }) {
                 if (headingInput) headingInput.value = formManagement.otp_modal_heading || '';
                 if (imageInput) imageInput.value = formManagement.otp_modal_image || '';
                 if (contentInput) contentInput.value = formManagement.otp_modal_content || '';
-                
+                syncFormTrackingParamsFromUrl(element);
+
                 element.style.margin = formManagement.margin;
                 element.style.padding = formManagement.padding;
                 element.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;
@@ -1622,7 +1667,8 @@ export default function Dashboard({ id }) {
                 if (headingInput) headingInput.value = formManagement.otp_modal_heading || '';
                 if (imageInput) imageInput.value = formManagement.otp_modal_image || '';
                 if (contentInput) contentInput.value = formManagement.otp_modal_content || '';
-                
+                syncFormTrackingParamsFromUrl(newElement);
+
                 newElement.style.margin = formManagement.margin;
                 newElement.style.padding = formManagement.padding;
                 newElement.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;

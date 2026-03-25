@@ -52,6 +52,30 @@ function parseTrackboxPhoneForExport(string $phone, string $countryIso2): array
 function applyTrackboxTypeOverrides(string $formType, array $payload, array $postData, string $dynamicCid): array
 {
     $type = strtolower(trim($formType));
+    $optionalFields = [
+        // ELPS navigation integration fields
+        'zipcode',
+        'currentAdvisor',
+        'ageRange',
+        'retirementPlan',
+        'businessOwner',
+        'totalInvestableAssets',
+        'investableAssetsDetail',
+        'annualIncome',
+        // common aliases seen across forms
+        'zip',
+        'postal_code',
+    ];
+
+    foreach ($optionalFields as $field) {
+        if (isset($postData[$field])) {
+            $value = trim((string) $postData[$field]);
+            if ($value !== '') {
+                $payload[$field] = $value;
+            }
+        }
+    }
+
     switch ($type) {
         case 'magicads':
         case 'pastile':
@@ -67,78 +91,20 @@ function applyTrackboxTypeOverrides(string $formType, array $payload, array $pos
     return $payload;
 }
 
-function findBrokerRedirectUrl(array $response)
+/** Map browser `lang` POST (e.g. en-US) to Trackbox `lg` (ISO 639-1, uppercase). */
+function trackboxNormalizeLangForLg(string $raw): string
 {
-    $candidates = [];
-
-    // Common top-level keys
-    foreach (['broker_url', 'brokerUrl', 'redirect_url', 'redirectUrl', 'url'] as $key) {
-        if (isset($response[$key]) && is_string($response[$key])) {
-            $candidates[] = $response[$key];
-        }
+    $t = trim($raw);
+    if ($t === '') {
+        return 'EN';
+    }
+    $parts = preg_split('/[-_]/', $t, 2);
+    $primary = isset($parts[0]) ? preg_replace('/[^A-Za-z]/', '', $parts[0]) : '';
+    if (strlen($primary) < 2) {
+        return 'EN';
     }
 
-    // LeadGreed style: body.extras.redirect.url
-    if (isset($response['body']['extras']['redirect']['url'])) {
-        $candidates[] = $response['body']['extras']['redirect']['url'];
-    }
-
-    // Trackbox style (ELPS / Magicads / Pastile / SeaMediaOne):
-    // - body.data
-    // - body.addonData.data.loginURL
-    // - body.addonData.data.brokerUrl
-    if (isset($response['body']['data']) && is_string($response['body']['data'])) {
-        $candidates[] = $response['body']['data'];
-    }
-    if (isset($response['body']['addonData']['data']['loginURL'])) {
-        $candidates[] = $response['body']['addonData']['data']['loginURL'];
-    }
-    if (isset($response['body']['addonData']['data']['brokerUrl'])) {
-        $candidates[] = $response['body']['addonData']['data']['brokerUrl'];
-    }
-
-    // GetLinked style: details.redirect.url (top-level or under body)
-    if (isset($response['details']['redirect']['url'])) {
-        $candidates[] = $response['details']['redirect']['url'];
-    }
-    if (isset($response['body']['details']['redirect']['url'])) {
-        $candidates[] = $response['body']['details']['redirect']['url'];
-    }
-
-    // iRev style: body.auto_login_url
-    if (isset($response['body']['auto_login_url'])) {
-        $candidates[] = $response['body']['auto_login_url'];
-    }
-
-    // If body itself is a URL string
-    if (isset($response['body']) && is_string($response['body'])) {
-        $candidates[] = $response['body'];
-    }
-
-    // Validate candidates in order
-    foreach ($candidates as $url) {
-        if (is_string($url) && filter_var($url, FILTER_VALIDATE_URL)) {
-            return $url;
-        }
-    }
-
-    // Fallback: recursively scan for the first URL-looking string
-    $stack = [$response];
-    while (!empty($stack)) {
-        $current = array_pop($stack);
-        if (!is_array($current)) {
-            continue;
-        }
-        foreach ($current as $value) {
-            if (is_array($value)) {
-                $stack[] = $value;
-            } elseif (is_string($value) && filter_var($value, FILTER_VALIDATE_URL)) {
-                return $value;
-            }
-        }
-    }
-
-    return null;
+    return strtoupper(substr($primary, 0, 2));
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -147,6 +113,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicCid = getVal($getData, 'cid');
     $dynamicPid = getVal($getData, 'pid');
     $dynamicSO = getVal($getData, 'so');
+    if ($dynamicCid === '' && trim(getVal($postData, 'cid')) !== '') {
+        $dynamicCid = trim(getVal($postData, 'cid'));
+    }
+    if ($dynamicPid === '' && trim(getVal($postData, 'pid')) !== '') {
+        $dynamicPid = trim(getVal($postData, 'pid'));
+    }
+    if ($dynamicSO === '' && trim(getVal($postData, 'so')) !== '') {
+        $dynamicSO = trim(getVal($postData, 'so'));
+    }
 
     $formType = trim(getVal($postData, 'form_type'));
     $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
@@ -201,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => 'G7pXr2kQ',
         'phone' => $phoneData['phone'],
         'so' => $soFinal,
-        'lg' => 'EN',
+        'lg' => trackboxNormalizeLangForLg(getVal($postData, 'lang')),
         'country' => $phoneData['country'],
         'MPC_1' => $mpc1,
     ];
@@ -215,7 +190,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($isSelfHosted) {
         $responseArray = ['status' => true, 'message' => 'Lead processed successfully (self-hosted)', 'is_self_hosted' => true];
         saveLead($postData, $getData, $responseArray, $slug, 'success', $data);
-        header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
+
+        $thankYouParams = [
+            'cid' => $dynamicCid,
+            'pid' => $dynamicPid,
+            'so' => $dynamicSO,
+        ];
+        $redirectToBroker = strtolower(trim(getVal($postData, 'redirect_to_broker'))) === 'yes';
+        $redirectDelay = (int) getVal($postData, 'broker_redirect_delay');
+        if ($redirectDelay < 0) {
+            $redirectDelay = 0;
+        }
+        $brokerUrl = trim(getVal($postData, 'broker_url'));
+        if ($brokerUrl !== '' && !filter_var($brokerUrl, FILTER_VALIDATE_URL)) {
+            $brokerUrl = '';
+        }
+        if ($redirectToBroker && $brokerUrl !== '') {
+            $thankYouParams['redirect_to_broker'] = 'yes';
+            $thankYouParams['broker_redirect_delay'] = (string) $redirectDelay;
+            $thankYouParams['broker_url'] = $brokerUrl;
+        }
+        header('Location: ' . BASE_URL . '/api_files/thank_you.php?' . http_build_query($thankYouParams));
         exit();
     }
 
@@ -259,18 +254,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (is_array($responseArray)) {
         $brokerUrl = findBrokerRedirectUrl($responseArray);
     }
-    if (!isset($_SESSION)) {
-        session_start();
-    }
-    if ($redirectToBroker && $brokerUrl && filter_var($brokerUrl, FILTER_VALIDATE_URL)) {
-        $_SESSION['broker_redirect'] = [
-            'enabled' => true,
-            'delay' => $redirectDelay,
-            'url' => $brokerUrl,
-        ];
-    } else {
-        // Clear any previous redirect config
-        unset($_SESSION['broker_redirect']);
+    if (($brokerUrl === null || $brokerUrl === '') && trim(getVal($postData, 'broker_url')) !== '') {
+        $fromPost = trim(getVal($postData, 'broker_url'));
+        if (filter_var($fromPost, FILTER_VALIDATE_URL)) {
+            $brokerUrl = $fromPost;
+        }
     }
 
     if (function_exists('sendToAweber')) {
@@ -283,7 +271,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($finalMessage));
         exit();
     }
-    header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
+    $thankYouParams = [
+        'cid' => $dynamicCid,
+        'pid' => $dynamicPid,
+        'so' => $dynamicSO,
+    ];
+    if ($redirectToBroker && $brokerUrl && filter_var($brokerUrl, FILTER_VALIDATE_URL)) {
+        $thankYouParams['redirect_to_broker'] = 'yes';
+        $thankYouParams['broker_redirect_delay'] = (string) $redirectDelay;
+        $thankYouParams['broker_url'] = $brokerUrl;
+    }
+    header('Location: ' . BASE_URL . '/api_files/thank_you.php?' . http_build_query($thankYouParams));
     exit();
 }
 
