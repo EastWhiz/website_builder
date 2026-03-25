@@ -948,6 +948,40 @@ class AngleTemplateController extends Controller
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/intlTelInput.min.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/utils.js"></script>
             <script>
+                function upsertHiddenInput(form, name, value) {
+                    if (!form || !name) return;
+                    let el = form.querySelector('input[name="' + name + '"]');
+                    if (!el) {
+                        el = Object.assign(document.createElement("input"), {
+                            type: "hidden",
+                            name: name
+                        });
+                        form.appendChild(el);
+                    }
+                    el.value = value == null ? "" : String(value);
+                }
+
+                function isGetLinkedPlatform(form) {
+                    if (!form) return false;
+                    const formType = (form.querySelector('[name="form_type"]')?.value || '').toLowerCase();
+                    const apiPlatformFile = (form.querySelector('[name="api_platform_file"]')?.value || '').toLowerCase();
+                    // Exported pages tend to have form_type like "koi"/"meeseeksmedia"; also support api_platform_file="getlinked.php"
+                    if (apiPlatformFile === 'getlinked.php') return true;
+                    return ['koi', 'meeseeksmedia', 'meeseeks'].includes(formType);
+                }
+
+                function syncTrackingParamsFromUrl(form) {
+                    if (!form) return;
+                    if (!isGetLinkedPlatform(form)) return;
+                    const q = new URLSearchParams(window.location.search);
+                    ["cid", "pid", "so"].forEach((k) => {
+                        const v = q.get(k);
+                        if (v != null && v !== "") {
+                            upsertHiddenInput(form, k, v);
+                        }
+                    });
+                }
+
                 function initTelInputs(country) {
                     document.querySelectorAll(".telInputs").forEach(input => {
                         const iti = intlTelInput(input, {
@@ -980,6 +1014,9 @@ class AngleTemplateController extends Controller
                                 });
                                 input.form.appendChild(selfHosted);
                             }
+
+                            // Only GetLinked needs cid/pid/so copied from URL; other platforms no-op via isGetLinkedPlatform().
+                            syncTrackingParamsFromUrl(input.form);
 
                             const raw = input.value.trim();
                             if (!raw) {
@@ -1809,6 +1846,7 @@ class AngleTemplateController extends Controller
                 document.addEventListener('DOMContentLoaded', function() {
                     document.querySelectorAll('form[id="myForm"]').forEach(form => {
                         if (!form.querySelector('.telInputs')) {
+                            syncTrackingParamsFromUrl(form);
                             form.addEventListener('submit', async function(e) {
                                 // Allow submission if OTP is already verified
                                 if (form.dataset.otpVerified === 'true') {
@@ -1824,6 +1862,8 @@ class AngleTemplateController extends Controller
                                     btn.disabled = true;
                                 }
                                 
+                                syncTrackingParamsFromUrl(form);
+
                                 const otpServiceId = form.querySelector('[name="otp_service_id"]')?.value;
                                 
                                 if (otpServiceId && otpServiceId.trim() !== '') {

@@ -58,20 +58,45 @@ function parseGetLinkedPhoneForExport(string $phone, string $areaCode, string $c
 }
 
 /**
- * Optional per–form_type tweaks (GetLinkedPlatformProvider::applyTypeOverrides).
+ * Koi: custom1–3 = cid/pid/so, comment, offerWebsite (see koi.php / koiads reference).
+ * Meeseeks: offerName + custom5 (see meeseeksmedia.php).
  */
-function applyGetLinkedTypeOverrides(string $formType, array $payload, array $postData): array
-{
+function applyGetLinkedTypeOverrides(
+    string $formType,
+    array $payload,
+    array $postData,
+    string $cidResolved,
+    string $pidResolved,
+    string $soResolved
+): array {
     $type = strtolower(trim($formType));
+
+    $countryRaw = trim(getVal($postData, 'country'));
+    $countryIso = strtoupper(preg_replace('/[^A-Za-z]/', '', $countryRaw));
+
     switch ($type) {
         case 'meeseeksmedia':
         case 'meeseeks':
+            $payload['offerName'] = $soResolved !== '' ? $soResolved : 'N/A';
+            $payload['custom5'] = $cidResolved !== '' ? $cidResolved : 'N/A';
+
+            return $payload;
+
         case 'koi':
         default:
-            break;
-    }
+            // Match public/api_files/koi.php (Koi / Hannya) + reference AJAX body
+            $payload['password'] = 'Tr5yLo92';
+            $payload['custom1'] = $cidResolved;
+            $payload['custom2'] = $pidResolved;
+            $payload['custom3'] = $soResolved;
+            $payload['comment'] = 'Lead from ' . BASE_URL;
+            $payload['offerWebsite'] = BASE_URL;
+            if ($countryIso !== '' && strlen($countryIso) === 2) {
+                $payload['country'] = $countryIso;
+            }
 
-    return $payload;
+            return $payload;
+    }
 }
 
 /** Failure message similar to GetLinkedPlatformProvider::submit */
@@ -118,6 +143,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicCid = getVal($getData, 'cid');
     $dynamicPid = getVal($getData, 'pid');
     $dynamicSO = getVal($getData, 'so');
+    if ($dynamicCid === '' && trim(getVal($postData, 'cid')) !== '') {
+        $dynamicCid = trim(getVal($postData, 'cid'));
+    }
+    if ($dynamicPid === '' && trim(getVal($postData, 'pid')) !== '') {
+        $dynamicPid = trim(getVal($postData, 'pid'));
+    }
+    if ($dynamicSO === '' && trim(getVal($postData, 'so')) !== '') {
+        $dynamicSO = trim(getVal($postData, 'so'));
+    }
 
     $formType = trim(getVal($postData, 'form_type'));
     $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
@@ -152,12 +186,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    $soValue = $dynamicSO !== '' ? $dynamicSO : trim(getVal($postData, 'so'));
-    $offerName = $soValue !== '' ? $soValue : 'N/A';
-    $clickId = $dynamicCid !== '' ? $dynamicCid : trim(getVal($postData, 'cid'));
-    $custom5 = $clickId !== '' ? $clickId : 'N/A';
+    $cidResolved = $dynamicCid;
+    $pidResolved = $dynamicPid;
+    $soResolved = $dynamicSO;
 
-    // GetLinkedPlatformProvider base payload (application/x-www-form-urlencoded)
+    // Shared GetLinked/Koi/Meeseeks base (application/x-www-form-urlencoded)
     $data = [
         'ip' => trim(getVal($postData, 'userip')),
         'firstName' => $firstname,
@@ -166,10 +199,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => 'G7pXr2kQ',
         'phone' => $phoneParsed['phone'],
         'areaCode' => $phoneParsed['areaCode'],
-        'offerName' => $offerName,
-        'custom5' => $custom5,
     ];
-    $data = applyGetLinkedTypeOverrides($formType, $data, $postData);
+    $data = applyGetLinkedTypeOverrides($formType, $data, $postData, $cidResolved, $pidResolved, $soResolved);
 
     $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true");
     if ($isSelfHosted) {
