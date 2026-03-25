@@ -164,7 +164,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $leadLang = trim(getVal($postData, 'lang'));
     }
     if ($leadLang !== '') {
-        $data['lead_language'] = $leadLang;
+        // Normalize to ISO 639-1 (2-letter, lowercase). Accept values like "en-US".
+        $leadLangAlpha = preg_replace('/[^A-Za-z]/', '', (string) $leadLang);
+        $leadLangIso = strtolower(substr($leadLangAlpha, 0, 2));
+        if (strlen($leadLangIso) >= 2) {
+            $data['lead_language'] = $leadLangIso;
+        }
     }
 
     if (array_key_exists('is_test', $postData)) {
