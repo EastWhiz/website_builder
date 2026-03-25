@@ -113,6 +113,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicCid = getVal($getData, 'cid');
     $dynamicPid = getVal($getData, 'pid');
     $dynamicSO = getVal($getData, 'so');
+    // Robust cid/pid/so handling (GET first, then fall back to POST).
+    // This mirrors `trackbox.php` so thank-you page tracking works even if the form submit URL
+    // does not include cid/pid/so in the query string.
+    if ($dynamicCid === '' && trim(getVal($postData, 'cid')) !== '') {
+        $dynamicCid = trim(getVal($postData, 'cid'));
+    }
+    if ($dynamicPid === '' && trim(getVal($postData, 'pid')) !== '') {
+        $dynamicPid = trim(getVal($postData, 'pid'));
+    }
+    if ($dynamicSO === '' && trim(getVal($postData, 'so')) !== '') {
+        $dynamicSO = trim(getVal($postData, 'so'));
+    }
 
     $formType = trim(getVal($postData, 'form_type'));
     $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));
