@@ -13,21 +13,36 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         return isset($arr[$key]) ? $arr[$key] : '';
     }
 
-    // Get user IP
-    $userIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    if (strpos($userIp, ',') !== false) {
-        $userIp = trim(explode(',', $userIp)[0]);
+    // Get request IP fallback
+    $requestIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    if (strpos($requestIp, ',') !== false) {
+        $requestIp = trim(explode(',', $requestIp)[0]);
     }
-
-    // Get user agent
-    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-
-    // Get current timestamp
-    $submittedAt = date('c'); // ISO 8601 format
 
     // Extract names
     $firstName = $postData['firstname'] ?? '';
     $lastName = $postData['lastname'] ?? '';
+
+    // Normalize IP from provider payloads: userip (trackbox), _ip (leadgreed), ip (irev/getlinked)
+    $leadIp = '';
+    if (is_array($data)) {
+        $leadIp = $data['userip'] ?? $data['_ip'] ?? $data['ip'] ?? '';
+    }
+    if ($leadIp === '') {
+        $leadIp = $postData['userip'] ?? '';
+    }
+    if ($leadIp === '') {
+        $leadIp = $requestIp;
+    }
+
+    // Normalize country from provider payloads / POST
+    $leadCountry = '';
+    if (is_array($data)) {
+        $leadCountry = $data['country'] ?? $data['country_code'] ?? '';
+    }
+    if ($leadCountry === '') {
+        $leadCountry = $postData['country'] ?? '';
+    }
 
     // Prepare lead data
     $leadData = [
@@ -44,7 +59,8 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'is_self_hosted' => (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false,
         'so' => getValInside($getData, 'so') ?? '',
         'cid' => getValInside($getData, 'cid') ?? '',
-        'ip_address' => $data['userip'] ?? ''
+        'ip_address' => $leadIp,
+        'country' => $leadCountry,
     ];
 
     // Send to CRM save-lead API
