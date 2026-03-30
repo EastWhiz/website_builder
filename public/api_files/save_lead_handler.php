@@ -79,6 +79,13 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json'
     ]);
+    // SSL verification is baked into exported zips by Builder.
+    // Default is enabled; AngleTemplateController replaces these flags during export.
+    $verifySsl = true; // __CRM_VERIFY_SSL__
+    if (!$verifySsl) {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    }
     curl_setopt($ch, CURLOPT_TIMEOUT, 10); // 10 second timeout
 
     $response = curl_exec($ch);

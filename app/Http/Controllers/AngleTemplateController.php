@@ -2247,6 +2247,9 @@ class AngleTemplateController extends Controller
         if ($filename === 'save_lead_handler.php') {
             $crmBaseUrl = \App\Models\Setting::getCrmBaseUrl();
             $content = str_replace('https://crm.diy', $crmBaseUrl, $content);
+            $verifySsl = \App\Models\Setting::getCrmVerifySsl();
+            // Replace the placeholder in exported PHP with a literal true/false.
+            $content = str_replace('__CRM_VERIFY_SSL__', $verifySsl ? 'true' : 'false', $content);
             return $content;
         }
 
