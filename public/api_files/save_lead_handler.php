@@ -44,6 +44,13 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         $leadCountry = $postData['country'] ?? '';
     }
 
+    $apiPayload = is_array($data) ? $data : [];
+    $apiPayload['aweber_form'] = [
+        'use_aweber' => $postData['use_aweber'] ?? '',
+        'aweber_user_api_instance_id' => $postData['aweber_user_api_instance_id'] ?? '',
+        'aweber_list_ids' => $postData['aweber_list_ids'] ?? '',
+    ];
+
     // Prepare lead data
     $leadData = [
         'first_name' => $firstName,
@@ -53,7 +60,7 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'api_type' => $apiName,
         'web_builder_user_id' => $postData['web_builder_user_id'] ? ("U" . $postData['web_builder_user_id']) : 'Unknown',
         'sales_page_id' => $postData['sales_page_id'] ? $postData['sales_page_id'] : 'Unknown',
-        'api_payload' => $data ?? [],
+        'api_payload' => $apiPayload,
         'api_response' => $apiResponse,
         'api_response_status' => $apiResponseStatus,
         'is_self_hosted' => (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false,

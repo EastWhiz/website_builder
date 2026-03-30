@@ -1,6 +1,7 @@
 <?php
 include_once 'config.php'; // Include config to get BASE_URL
 include_once 'save_lead_handler.php'; // Include save lead functionality
+include_once __DIR__ . '/aweber_send_helper.php';
 // Set headers for CORS and JSON content
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -51,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'is_self_hosted' => true
         ];
         saveLead($postData, $getData, $responseArray, 'adzentric', 'success', $data);
+        sendToAweberIfEnabled($postData);
         header('Location: ' . BASE_URL . '/api_files/thank_you.php?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO));
         exit();
     }
@@ -84,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     saveLead($postData, $getData, $responseArray, 'adzentric', $leadSaveStatus, $data);
 
-    $aweberResponse = sendToAweber($postData);
+    $aweberResponse = sendToAweberIfEnabled($postData);
 
     if (!in_array($httpCode, [200, 201])) {
         $message = 'An error occurred. Please try again.';
@@ -109,26 +111,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicSO = $_GET['so'] ?? '';
     header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Method not allowed'));
     exit();
-}
-
-function sendToAweber($data)
-{
-    unset($data['form_type']);
-    unset($data['web_builder_user_id']);
-    unset($data['project_directory']);
-    unset($data['sales_page_id']);
-    $aweberUrl = BASE_URL . "/api_files/aweber.php";
-    $ch = curl_init($aweberUrl);
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    $response = curl_exec($ch);
-    if (curl_errno($ch)) {
-        curl_close($ch);
-        return ['status' => false, 'message' => 'AWeber API Error: ' . curl_error($ch)];
-    }
-    curl_close($ch);
-    $decodedResponse = json_decode($response, true);
-    return $decodedResponse !== null ? $decodedResponse : ['status' => false, 'message' => 'Invalid response from AWeber API'];
 }

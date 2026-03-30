@@ -56,6 +56,11 @@ export default function DynamicApiForm({
                         onChange={onValueChange}
                         error={getFieldError(field.name)}
                     />
+                    {field.name === 'list_id' && categoryName === 'Aweber' && (
+                        <p className="mt-1 text-xs text-gray-500">
+                            Add a comma between list IDs for multiple lists (e.g. listId1, listId2).
+                        </p>
+                    )}
                     {field.name === 'api_key' && categoryName === 'Trackbox' && (
                         <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <span className="text-[12px] text-red-600">{TRACKBOX_GLOBAL_API_KEY_LABEL}</span>

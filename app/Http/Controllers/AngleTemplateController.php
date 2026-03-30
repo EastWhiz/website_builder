@@ -72,6 +72,46 @@ class AngleTemplateController extends Controller
         }
     }
 
+    private function getUseAweberFromHtml(?string $fullHtml): bool
+    {
+        if (!$fullHtml) {
+            return false;
+        }
+        try {
+            $crawler = new Crawler($fullHtml);
+            $node = $crawler->filter('input[name="use_aweber"]');
+            if ($node->count() <= 0) {
+                return false;
+            }
+
+            return strtolower(trim($node->attr('value') ?? '')) === 'yes';
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Optional AWeber instance id (separate from primary form user_api_instance_id).
+     */
+    private function getAweberUserApiInstanceIdFromHtml(?string $fullHtml): ?string
+    {
+        if (!$fullHtml) {
+            return null;
+        }
+        try {
+            $crawler = new Crawler($fullHtml);
+            $node = $crawler->filter('input[name="aweber_user_api_instance_id"]');
+            if ($node->count() <= 0) {
+                return null;
+            }
+            $value = trim($node->attr('value') ?? '');
+
+            return $value !== '' ? $value : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function anglesApplying(Request $request)
     {
         $angles_ids = json_decode($request->angles_ids);
@@ -1959,6 +1999,17 @@ class AngleTemplateController extends Controller
                 }
             }
 
+            $aweberApiInstance = null;
+            if ($this->getUseAweberFromHtml($fullHtml)) {
+                $aweberInstanceId = $this->getAweberUserApiInstanceIdFromHtml($fullHtml);
+                if ($aweberInstanceId) {
+                    $aweberApiInstance = $user->apiInstances()
+                        ->where('id', $aweberInstanceId)
+                        ->with(['category.fields', 'values.field'])
+                        ->first();
+                }
+            }
+
             foreach ($filesToExport as $file) {
                 $filePath = $publicFilesPath . DIRECTORY_SEPARATOR . $file;
                 if (!is_file($filePath)) {
@@ -1974,7 +2025,7 @@ class AngleTemplateController extends Controller
                     }
 
                     // Use the resolved instance for platform files (will be null for non-platform files)
-                    $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiInstance, $fullHtml, $userApiCredentials);
+                    $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiInstance, $fullHtml, $userApiCredentials, $aweberApiInstance);
                     $zip->addFromString('api_files/' . $file, $modifiedContent);
                 } catch (\Exception $e) {
                     $zip->addFromString('api_files/' . $file, file_get_contents($filePath));
@@ -2061,6 +2112,7 @@ class AngleTemplateController extends Controller
         'api_error_helper.php',
         'thank_you.php',
         'save_lead_handler.php',
+        'aweber_send_helper.php',
         'otp_cleanup.php',
         'otp_generate.php',
         'otp_verify.php',
@@ -2131,8 +2183,15 @@ class AngleTemplateController extends Controller
             $path = $publicFilesPath . DIRECTORY_SEPARATOR . $apiPlatformFile;
             if (is_file($path) && !in_array($apiPlatformFile, $list, true)) {
                 $list[] = $apiPlatformFile;
-                return $list;
             }
+            if ($this->getUseAweberFromHtml($fullHtml)) {
+                $aweberPath = $publicFilesPath . DIRECTORY_SEPARATOR . 'aweber.php';
+                if (is_file($aweberPath) && !in_array('aweber.php', $list, true)) {
+                    $list[] = 'aweber.php';
+                }
+            }
+
+            return $list;
         }
 
         $formType = $this->getFormTypeFromHtml($fullHtml);
@@ -2150,6 +2209,13 @@ class AngleTemplateController extends Controller
             }
         }
 
+        if ($this->getUseAweberFromHtml($fullHtml)) {
+            $aweberPath = $publicFilesPath . DIRECTORY_SEPARATOR . 'aweber.php';
+            if (is_file($aweberPath) && !in_array('aweber.php', $list, true)) {
+                $list[] = 'aweber.php';
+            }
+        }
+
         return $list;
     }
 
@@ -2161,9 +2227,10 @@ class AngleTemplateController extends Controller
      * @param \App\Models\UserApiInstance|null $userApiInstance User's API instance for this file's category
      * @param string|null $fullHTML The full HTML content (for config base URL, OTP, etc.)
      * @param \App\Models\UserApiCredential|null $userApiCredentials Legacy credentials (fallback)
+     * @param \App\Models\UserApiInstance|null $aweberApiInstance Optional AWeber credentials when form uses parallel AWeber
      * @return string The modified content
      */
-    private function modifyApiFileContent($content, $filename, $userApiInstance = null, $fullHTML = null, $userApiCredentials = null)
+    private function modifyApiFileContent($content, $filename, $userApiInstance = null, $fullHTML = null, $userApiCredentials = null, $aweberApiInstance = null)
     {
         // config.php: base URL from form (no credentials needed)
         if ($filename === 'config.php' && $fullHTML) {
@@ -2190,8 +2257,15 @@ class AngleTemplateController extends Controller
 
         // Dynamic path: UserApiInstance via ApiExportService (skip for OTP files — they use their own injection below)
         $otpFiles = ['otp_generate.php', 'otp_verify.php', 'otp_regenerate.php'];
+        if ($filename === 'aweber.php' && $aweberApiInstance) {
+            return $this->apiExportService->injectCredentials($content, $filename, $aweberApiInstance);
+        }
         if ($userApiInstance && !in_array($filename, $otpFiles, true)) {
-            return $this->apiExportService->injectCredentials($content, $filename, $userApiInstance);
+            $category = $userApiInstance->category;
+            $expectedFile = $category ? $this->apiExportService->getPlatformFileName($category) : null;
+            if ($expectedFile && $filename === $expectedFile) {
+                return $this->apiExportService->injectCredentials($content, $filename, $userApiInstance);
+            }
         }
 
         // Legacy path: no instance or file not in placeholder map — use legacy credentials if provided (OTP files use their own injection in switch)

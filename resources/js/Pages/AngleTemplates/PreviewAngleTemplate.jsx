@@ -4,7 +4,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ClearIcon from '@mui/icons-material/Clear';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select as MuiSelect, TextField, Typography } from '@mui/material';
+import { Box, Button, Checkbox, FormControl, InputLabel, ListItemText, MenuItem, OutlinedInput, Select as MuiSelect, TextField, Typography } from '@mui/material';
 import Backdrop from '@mui/material/Backdrop';
 import Fade from '@mui/material/Fade';
 import Modal from '@mui/material/Modal';
@@ -637,6 +637,9 @@ export default function Dashboard({ id }) {
         is_self_hosted: "false",
         redirect_to_broker: "no",
         broker_redirect_delay: "",
+        use_aweber: 'no',
+        aweber_api_instance_id: null,
+        aweber_list_ids: [],
         otp_modal_heading: "",
         otp_modal_image: "",
         otp_modal_content: "",
@@ -708,6 +711,7 @@ export default function Dashboard({ id }) {
     const [apiPlatforms, setApiPlatforms] = useState([]);
     /** Active User API instances for the selected platform (for multi-instance picker) */
     const [platformInstances, setPlatformInstances] = useState([]);
+    const [aweberInstances, setAweberInstances] = useState([]);
 
     // Replace functionality state
     const [replaceModalOpen, setReplaceModalOpen] = useState(false);
@@ -906,7 +910,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "redirect_to_broker" || name == "broker_redirect_delay" || name == "cid" || name == "pid" || name == "so" || name == "zipcode" || name == "currentAdvisor" || name == "ageRange" || name == "retirementPlan" || name == "businessOwner" || name == "totalInvestableAssets" || name == "investableAssetsDetail" || name == "annualIncome") return null;
+                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "redirect_to_broker" || name == "broker_redirect_delay" || name == "use_aweber" || name == "aweber_user_api_instance_id" || name == "aweber_list_ids" || name == "cid" || name == "pid" || name == "so" || name == "zipcode" || name == "currentAdvisor" || name == "ageRange" || name == "retirementPlan" || name == "businessOwner" || name == "totalInvestableAssets" || name == "investableAssetsDetail" || name == "annualIncome") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -928,6 +932,11 @@ export default function Dashboard({ id }) {
             const formTypeInput = formEl.querySelector('[name="form_type"]');
             const apiTypeFromInput = formTypeInput?.value?.trim() || null;
             const apiType = formEl.getAttribute("data-api-type") || apiTypeFromInput;
+            const isSelfHostedEdit =
+                formEl.querySelector('[name="is_self_hosted"]')?.value?.trim()?.toLowerCase() === 'true';
+            const useAweberRawEdit =
+                formEl.querySelector('[name="use_aweber"]')?.value?.trim()?.toLowerCase() === 'yes';
+            const aweberAllowedEdit = isSelfHostedEdit && useAweberRawEdit;
             setFormManagement({
                 submitText: formEl.querySelector("button[type='submit']")?.textContent.trim() || "",
                 submitTextColor: `#${convert.rgb.hex(rgbToArray(formEl.querySelector("button[type='submit']")?.style.color))}` || "",
@@ -939,15 +948,22 @@ export default function Dashboard({ id }) {
                 saveLeadSlug: formEl.querySelector('[name="save_lead_slug"]')?.value || '',
                 project_directory: formEl.querySelector('[name="project_directory"]')?.value || '',
                 otp_service_id: formEl.querySelector('[name="otp_service_id"]')?.value || '',
-                is_self_hosted: (() => {
-                    const raw = formEl.querySelector('[name="is_self_hosted"]')?.value?.trim()?.toLowerCase();
-                    return (raw === 'true' ? 'true' : 'false');
-                })(),
+                is_self_hosted: isSelfHostedEdit ? 'true' : 'false',
                 redirect_to_broker: (() => {
                     const raw = formEl.querySelector('[name="redirect_to_broker"]')?.value?.trim()?.toLowerCase();
                     return raw === 'yes' ? 'yes' : 'no';
                 })(),
                 broker_redirect_delay: formEl.querySelector('[name="broker_redirect_delay"]')?.value || '',
+                use_aweber: aweberAllowedEdit ? 'yes' : 'no',
+                aweber_api_instance_id: aweberAllowedEdit
+                    ? formEl.querySelector('[name="aweber_user_api_instance_id"]')?.value || null
+                    : null,
+                aweber_list_ids: aweberAllowedEdit
+                    ? (() => {
+                          const raw = formEl.querySelector('[name="aweber_list_ids"]')?.value || '';
+                          return raw.split(',').map((s) => s.trim()).filter(Boolean);
+                      })()
+                    : [],
                 otp_modal_heading: formEl.querySelector('[name="otp_modal_heading"]')?.value || '',
                 otp_modal_image: formEl.querySelector('[name="otp_modal_image"]')?.value || '',
                 otp_modal_content: formEl.querySelector('[name="otp_modal_content"]')?.value || '',
@@ -1023,6 +1039,33 @@ export default function Dashboard({ id }) {
         }
         loadApiPlatforms();
     }, []);
+
+    useEffect(() => {
+        const aw = apiPlatforms.find((p) => categoryNamesMatch(p.name, 'Aweber'));
+        if (!aw) {
+            setAweberInstances([]);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(route('user.api.instances.byCategory', { categoryId: aw.id }), {
+                    method: 'GET',
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                });
+                const result = await res.json();
+                if (cancelled) return;
+                const list = result.success && Array.isArray(result.data) ? result.data : [];
+                setAweberInstances(list.filter((i) => i.is_active !== false));
+            } catch (e) {
+                if (!cancelled) setAweberInstances([]);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [apiPlatforms]);
 
     const selectedApiPlatform = useMemo(
         () => apiPlatforms.find((p) => String(p.id) === String(formManagement.apiCategoryId)),
@@ -1105,6 +1148,15 @@ export default function Dashboard({ id }) {
             saveLeadSlug: prev.saveLeadSlug || apiType,
         }));
     }, [formManagement.apiType, formManagement.apiCategoryId, apiPlatforms]);
+
+    const aweberListIdOptions = useMemo(() => {
+        if (!formManagement.aweber_api_instance_id) return [];
+        const inst = aweberInstances.find(
+            (i) => String(i.id) === String(formManagement.aweber_api_instance_id)
+        );
+        const raw = inst?.credentials?.list_id != null ? String(inst.credentials.list_id) : '';
+        return raw.split(',').map((s) => s.trim()).filter(Boolean);
+    }, [aweberInstances, formManagement.aweber_api_instance_id]);
 
     useEffect(() => {
         function handleMouseEnter(e) {
@@ -1501,6 +1553,24 @@ export default function Dashboard({ id }) {
                 });
                 return;
             }
+            if (formManagement.is_self_hosted === 'true' && formManagement.use_aweber === 'yes') {
+                if (!formManagement.aweber_api_instance_id) {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'AWeber instance required',
+                        text: 'Select an AWeber API instance or set “Use AWeber” to No.',
+                    });
+                    return;
+                }
+                if (!formManagement.aweber_list_ids?.length) {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'AWeber lists required',
+                        text: 'Select at least one list ID for AWeber.',
+                    });
+                    return;
+                }
+            }
 
             // Create form HTML content
             let formHTML = '';
@@ -1579,6 +1649,11 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="is_self_hosted" value="${formManagement.is_self_hosted || 'false'}" />`;
             formHTML += ` <input type="hidden" name="redirect_to_broker" value="${formManagement.redirect_to_broker || 'no'}" />`;
             formHTML += ` <input type="hidden" name="broker_redirect_delay" value="${(formManagement.broker_redirect_delay || '').replace(/"/g, '&quot;')}" />`;
+            const aweberFormActive =
+                formManagement.is_self_hosted === 'true' && formManagement.use_aweber === 'yes';
+            formHTML += ` <input type="hidden" name="use_aweber" value="${aweberFormActive ? 'yes' : 'no'}" />`;
+            formHTML += ` <input type="hidden" name="aweber_user_api_instance_id" value="${aweberFormActive && formManagement.aweber_api_instance_id != null ? String(formManagement.aweber_api_instance_id) : ''}" />`;
+            formHTML += ` <input type="hidden" name="aweber_list_ids" value="${aweberFormActive && Array.isArray(formManagement.aweber_list_ids) ? formManagement.aweber_list_ids.map((id) => String(id).trim()).filter(Boolean).join(',') : ''}" />`;
             formHTML += ` <input type="hidden" name="cid" value="" />`;
             formHTML += ` <input type="hidden" name="pid" value="" />`;
             formHTML += ` <input type="hidden" name="so" value="" />`;
@@ -3281,7 +3356,11 @@ export default function Dashboard({ id }) {
                                                                                 redirect_to_broker: 'no',
                                                                                 broker_redirect_delay: '',
                                                                             }
-                                                                            : {}),
+                                                                            : {
+                                                                                use_aweber: 'no',
+                                                                                aweber_api_instance_id: null,
+                                                                                aweber_list_ids: [],
+                                                                            }),
                                                                     });
                                                                 }}
                                                                 >
@@ -3290,6 +3369,157 @@ export default function Dashboard({ id }) {
                                                                 </MuiSelect>
                                                             </FormControl>
                                                         </Box>
+                                                        {formManagement.is_self_hosted === 'true' && (
+                                                            <Box mt={2}>
+                                                                <FormControl fullWidth size="small">
+                                                                    <InputLabel id="use-aweber-label" shrink>
+                                                                        Do you want to use Aweber?
+                                                                    </InputLabel>
+                                                                    <MuiSelect
+                                                                        labelId="use-aweber-label"
+                                                                        label="Do you want to use Aweber?"
+                                                                        value={formManagement.use_aweber === 'yes' ? 'yes' : 'no'}
+                                                                        onChange={(e) => {
+                                                                            const v = e.target.value;
+                                                                            setFormManagement({
+                                                                                ...formManagement,
+                                                                                use_aweber: v,
+                                                                                ...(v !== 'yes'
+                                                                                    ? {
+                                                                                          aweber_api_instance_id: null,
+                                                                                          aweber_list_ids: [],
+                                                                                      }
+                                                                                    : {}),
+                                                                            });
+                                                                        }}
+                                                                        MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
+                                                                    >
+                                                                        <MenuItem className="doNotAct" value="no">
+                                                                            No
+                                                                        </MenuItem>
+                                                                        <MenuItem className="doNotAct" value="yes">
+                                                                            Yes
+                                                                        </MenuItem>
+                                                                    </MuiSelect>
+                                                                </FormControl>
+                                                                {formManagement.use_aweber === 'yes' && (
+                                                                    <>
+                                                                        <FormControl fullWidth sx={{ mt: 2 }} size="small">
+                                                                            <InputLabel id="aweber-inst-label" shrink>
+                                                                                AWeber API instance
+                                                                            </InputLabel>
+                                                                            <MuiSelect
+                                                                                labelId="aweber-inst-label"
+                                                                                label="AWeber API instance"
+                                                                                value={
+                                                                                    formManagement.aweber_api_instance_id != null
+                                                                                        ? String(formManagement.aweber_api_instance_id)
+                                                                                        : ''
+                                                                                }
+                                                                                onChange={(e) => {
+                                                                                    const id = e.target.value;
+                                                                                    setFormManagement({
+                                                                                        ...formManagement,
+                                                                                        aweber_api_instance_id: id || null,
+                                                                                        aweber_list_ids: [],
+                                                                                    });
+                                                                                }}
+                                                                                displayEmpty
+                                                                                disabled={aweberInstances.length === 0}
+                                                                                MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
+                                                                                renderValue={(val) => {
+                                                                                    if (!val) {
+                                                                                        return (
+                                                                                            <Typography color="grey">
+                                                                                                Select AWeber instance...
+                                                                                            </Typography>
+                                                                                        );
+                                                                                    }
+                                                                                    const inst = aweberInstances.find(
+                                                                                        (i) => String(i.id) === String(val)
+                                                                                    );
+                                                                                    return inst ? inst.name : val;
+                                                                                }}
+                                                                            >
+                                                                                {aweberInstances.length === 0 ? (
+                                                                                    <MenuItem disabled value="">
+                                                                                        No active AWeber instances (Profile → API Platforms)
+                                                                                    </MenuItem>
+                                                                                ) : (
+                                                                                    aweberInstances.map((inst) => (
+                                                                                        <MenuItem
+                                                                                            className="doNotAct"
+                                                                                            key={inst.id}
+                                                                                            value={String(inst.id)}
+                                                                                        >
+                                                                                            {inst.name}
+                                                                                        </MenuItem>
+                                                                                    ))
+                                                                                )}
+                                                                            </MuiSelect>
+                                                                        </FormControl>
+                                                                        <FormControl
+                                                                            fullWidth
+                                                                            sx={{ mt: 2 }}
+                                                                            size="small"
+                                                                            disabled={
+                                                                                !formManagement.aweber_api_instance_id ||
+                                                                                aweberListIdOptions.length === 0
+                                                                            }
+                                                                        >
+                                                                            <InputLabel id="aweber-lists-label" shrink>
+                                                                                AWeber list IDs
+                                                                            </InputLabel>
+                                                                            <MuiSelect
+                                                                                labelId="aweber-lists-label"
+                                                                                label="AWeber list IDs"
+                                                                                multiple
+                                                                                value={
+                                                                                    Array.isArray(formManagement.aweber_list_ids)
+                                                                                        ? formManagement.aweber_list_ids
+                                                                                        : []
+                                                                                }
+                                                                                onChange={(e) => {
+                                                                                    const v = e.target.value;
+                                                                                    setFormManagement({
+                                                                                        ...formManagement,
+                                                                                        aweber_list_ids:
+                                                                                            typeof v === 'string' ? v.split(',') : v,
+                                                                                    });
+                                                                                }}
+                                                                                input={<OutlinedInput label="AWeber list IDs" />}
+                                                                                renderValue={(selected) => selected.join(', ')}
+                                                                                MenuProps={{ PaperProps: { className: 'popoverPlate' } }}
+                                                                            >
+                                                                                {aweberListIdOptions.map((lid) => (
+                                                                                    <MenuItem className="doNotAct" key={lid} value={lid}>
+                                                                                        <Checkbox
+                                                                                            checked={
+                                                                                                Array.isArray(
+                                                                                                    formManagement.aweber_list_ids
+                                                                                                ) &&
+                                                                                                formManagement.aweber_list_ids.indexOf(lid) >
+                                                                                                    -1
+                                                                                            }
+                                                                                            size="small"
+                                                                                        />
+                                                                                        <ListItemText primary={lid} />
+                                                                                    </MenuItem>
+                                                                                ))}
+                                                                            </MuiSelect>
+                                                                            <Typography
+                                                                                variant="caption"
+                                                                                color="textSecondary"
+                                                                                sx={{ mt: 0.5, display: 'block' }}
+                                                                            >
+                                                                                Lists are parsed from the instance List ID value (comma-separated in
+                                                                                Profile).
+                                                                            </Typography>
+                                                                        </FormControl>
+                                                                    </>
+                                                                )}
+                                                            </Box>
+                                                        )}
                                                         <Box mt={2}>
                                                             <FormControl fullWidth>
                                                                 <InputLabel id="redirect-broker-select-label" shrink>

@@ -123,47 +123,89 @@ $subscriberData = [
     ]
 ];
 
-$countryCode = strtoupper(trim($postData['country'] ?? 'DE'));
-// $countryCode = 'DE';
+$listIdsToUse = [];
 
-if ($countryCode === 'DK') {
-    $listId = '6862276'; // Danish
-} elseif ($countryCode === 'NL') {
-    $listId = '6862594'; // Dutch
-} elseif ($countryCode === 'DE') {
-    $listId = '6858774'; // German
-} elseif ($countryCode === 'IT') {
-    $listId = '6862281'; // Italian
-} elseif ($countryCode === 'PL') {
-    $listId = '6862280'; // Polish
-} elseif ($countryCode === 'PT') {
-    $listId = '6862592'; // Portuguese
-} else {
-    $listId = '6858148'; // Default to English
+$formListIdsRaw = trim((string) ($postData['aweber_list_ids'] ?? ''));
+if ($formListIdsRaw !== '') {
+    foreach (explode(',', $formListIdsRaw) as $part) {
+        $id = trim($part);
+        if ($id !== '') {
+            $listIdsToUse[] = $id;
+        }
+    }
 }
 
-// AWeber API URL to add a subscriber
-$url = "https://api.aweber.com/1.0/accounts/$accountId/lists/$listId/subscribers";
+if (count($listIdsToUse) === 0 && trim((string) $listId) !== '') {
+    foreach (explode(',', (string) $listId) as $part) {
+        $id = trim($part);
+        if ($id !== '') {
+            $listIdsToUse[] = $id;
+        }
+    }
+}
 
-// Make cURL request
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_POST, 1);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($subscriberData));
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "Authorization: Bearer $accessToken",
-    "Content-Type: application/json"
-]);
+if (count($listIdsToUse) === 0) {
+    $countryCode = strtoupper(trim($postData['country'] ?? 'DE'));
+    if ($countryCode === 'DK') {
+        $resolved = '6862276';
+    } elseif ($countryCode === 'NL') {
+        $resolved = '6862594';
+    } elseif ($countryCode === 'DE') {
+        $resolved = '6858774';
+    } elseif ($countryCode === 'IT') {
+        $resolved = '6862281';
+    } elseif ($countryCode === 'PL') {
+        $resolved = '6862280';
+    } elseif ($countryCode === 'PT') {
+        $resolved = '6862592';
+    } else {
+        $resolved = '6858148';
+    }
+    $listIdsToUse = [$resolved];
+}
 
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
+$perListResults = [];
+$allOk = true;
 
-$result = json_decode($response, true);
+foreach ($listIdsToUse as $oneListId) {
+    $url = "https://api.aweber.com/1.0/accounts/$accountId/lists/$oneListId/subscribers";
 
-// Handle response
-if ($httpCode === 201) {
-    echo json_encode(["success" => true, "message" => "Subscriber added successfully"]);
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($subscriberData));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: Bearer $accessToken",
+        "Content-Type: application/json"
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+    $perListResults[] = [
+        'list_id' => $oneListId,
+        'http_code' => $httpCode,
+        'response' => $result,
+    ];
+    if ($httpCode !== 201) {
+        $allOk = false;
+    }
+}
+
+if ($allOk) {
+    echo json_encode([
+        'success' => true,
+        'status' => true,
+        'message' => 'Subscriber added successfully',
+        'lists' => $perListResults,
+    ]);
 } else {
-    echo json_encode(["error" => "Failed to add subscriber", "details" => $result]);
+    echo json_encode([
+        'success' => false,
+        'status' => false,
+        'error' => 'Failed to add subscriber to one or more lists',
+        'details' => $perListResults,
+    ]);
 }

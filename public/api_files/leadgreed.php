@@ -2,6 +2,7 @@
 include_once 'config.php';
 include_once 'save_lead_handler.php';
 include_once 'api_error_helper.php';
+include_once __DIR__ . '/aweber_send_helper.php';
 
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -98,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($isSelfHosted) {
         $responseArray = ['status' => true, 'message' => 'Lead processed successfully (self-hosted)', 'is_self_hosted' => true];
         saveLead($postData, $getData, $responseArray, $slug, 'success', $data);
+        sendToAweberIfEnabled($postData);
         $thankYouParams = [
             'cid' => $dynamicCid,
             'pid' => $dynamicPid,
@@ -145,6 +147,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $leadSaveStatus = ($httpCode >= 200 && $httpCode < 300) ? 'success' : 'failure';
     saveLead($postData, $getData, $responseArray, $slug, $leadSaveStatus, $data);
+
+    sendToAweberIfEnabled($postData);
 
     // Configure optional broker redirect for Thank You page
     $redirectToBroker = strtolower(trim(getVal($postData, 'redirect_to_broker'))) === 'yes';
