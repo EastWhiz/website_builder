@@ -163,10 +163,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim(getVal($postData, 'email'));
 
     // Shared iRev / Nauta payload shape (IrevPlatformProvider::submit)
-    $data = ['ip' => $ip];
+    // Keep both legacy and normalized keys so CRM save_lead_handler can always
+    // extract IP/country regardless of provider-specific naming.
+    $data = [
+        'ip' => $ip,
+        'userip' => $ip,
+    ];
 
     if ($countryRaw !== '') {
-        $data['country_code'] = strtoupper(substr((string) $countryRaw, 0, 2));
+        $countryIso2 = strtoupper(substr((string) $countryRaw, 0, 2));
+        $data['country_code'] = $countryIso2;
+        $data['country'] = $countryIso2;
     }
 
     $leadLang = trim(getVal($postData, 'lead_language'));
@@ -224,6 +231,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $clickForSub = $dynamicCid !== '' ? $dynamicCid : trim(getVal($postData, 'cid'));
         $data['aff_sub'] = (string) $clickForSub;
     }
+    // Pass SO to affsub_3 as requested by integration contract.
+    $data['affsub_3'] = (string) $dynamicSO;
 
     $ch = curl_init($endpoint);
 

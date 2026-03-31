@@ -190,10 +190,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cidResolved = $dynamicCid;
     $pidResolved = $dynamicPid;
     $soResolved = $dynamicSO;
+    $requestIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+    if (strpos((string) $requestIp, ',') !== false) {
+        $requestIp = trim(explode(',', (string) $requestIp)[0]);
+    }
+    $resolvedIp = trim(getVal($postData, 'userip'));
+    if ($resolvedIp === '') {
+        $resolvedIp = trim((string) $requestIp);
+    }
+    $countryIso2 = '';
+    if (trim((string) $countryRaw) !== '') {
+        $countryIso2 = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', (string) $countryRaw), 0, 2));
+    }
 
     // Shared GetLinked/Koi/Meeseeks base (application/x-www-form-urlencoded)
     $data = [
-        'ip' => trim(getVal($postData, 'userip')),
+        'ip' => $resolvedIp,
+        'userip' => $resolvedIp,
         'firstName' => $firstname,
         'lastName' => $lastname,
         'email' => $email,
@@ -201,6 +214,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'phone' => $phoneParsed['phone'],
         'areaCode' => $phoneParsed['areaCode'],
     ];
+    if ($countryIso2 !== '') {
+        $data['country'] = $countryIso2;
+        $data['country_code'] = $countryIso2;
+    }
     $data = applyGetLinkedTypeOverrides($formType, $data, $postData, $cidResolved, $pidResolved, $soResolved);
 
     $isSelfHosted = (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true");

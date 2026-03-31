@@ -162,6 +162,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mpc1 = $clickId !== '' ? $clickId : 'N/A';
     $soValue = $dynamicSO !== '' ? $dynamicSO : trim(getVal($postData, 'so'));
     $soFinal = $soValue !== '' ? $soValue : 'N/A';
+    $requestIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+    if (strpos((string) $requestIp, ',') !== false) {
+        $requestIp = trim(explode(',', (string) $requestIp)[0]);
+    }
+    $resolvedIp = trim(getVal($postData, 'userip'));
+    if ($resolvedIp === '') {
+        $resolvedIp = trim((string) $requestIp);
+    }
 
     $ch = curl_init($endpoint);
 
@@ -170,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'ai' => '',
         'ci' => '',
         'gi' => '',
-        'userip' => trim(getVal($postData, 'userip')),
+        'userip' => $resolvedIp,
         'firstname' => $firstname,
         'lastname' => $lastname,
         'email' => $email,
