@@ -1617,17 +1617,6 @@ export default function Dashboard({ id }) {
                 );
 
             if (isTrackboxForm) {
-                formHTML += `
-                    <div style="margin-bottom: 15px;">
-                        <input
-                            type="text"
-                            name="zipcode"
-                            placeholder="Postal / ZIP code"
-                            autocomplete="postal-code"
-                            style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
-                        />
-                    </div>
-                `;
                 formHTML += ` <input type="hidden" name="currentAdvisor" value="" />`;
                 formHTML += ` <input type="hidden" name="ageRange" value="" />`;
                 formHTML += ` <input type="hidden" name="retirementPlan" value="" />`;
