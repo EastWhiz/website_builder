@@ -232,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data['aff_sub'] = (string) $clickForSub;
     }
     // Pass SO to affsub_3 as requested by integration contract.
-    $data['affsub_3'] = (string) $dynamicSO;
+    $data['aff_sub3'] = (string) $dynamicSO;
 
     $ch = curl_init($endpoint);
 
