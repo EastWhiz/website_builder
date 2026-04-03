@@ -12,7 +12,8 @@ function resolveOauthRedirectUrlForCurrentHost() {
     if (
         host === 'localhost' ||
         host === '127.0.0.1' ||
-        host === '129.212.182.198'
+        host === '129.212.182.198' ||
+        host === 'https://phpstack-1554373-6246482.cloudwaysapps.com/'
     ) {
         return OAUTH_CB_STAGING;
     }
