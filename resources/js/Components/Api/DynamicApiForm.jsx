@@ -1,6 +1,7 @@
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import { useMemo } from 'react';
 import ApiField from './ApiField';
 
 /** Trackbox-only: global API key caption and value for the copy button. */
@@ -24,6 +25,13 @@ export default function DynamicApiForm({
     nameId = 'dynamic_api_instance_name',
     categoryName = null,
 }) {
+    const fieldsToRender = useMemo(() => {
+        if (categoryName === 'Aweber') {
+            return fields.filter((f) => f.name !== 'account_id');
+        }
+        return fields;
+    }, [fields, categoryName]);
+
     const getFieldError = (fieldName) => {
         const msg = errors[`values.${fieldName}`] ?? errors[fieldName];
         return Array.isArray(msg) ? msg[0] : msg;
@@ -48,7 +56,7 @@ export default function DynamicApiForm({
                     <InputError className="mt-2" message={Array.isArray(nameError) ? nameError[0] : nameError} />
                 </div>
             )}
-            {fields.map((field) => (
+            {fieldsToRender.map((field) => (
                 <div key={field.id}>
                     <ApiField
                         field={field}

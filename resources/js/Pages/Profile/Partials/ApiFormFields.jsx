@@ -1,3 +1,4 @@
+import AweberIntegrationInstructions from '@/Components/Api/AweberIntegrationInstructions';
 import DynamicApiForm from '@/Components/Api/DynamicApiForm';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
@@ -383,6 +384,11 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                         </div>
                                     {selectedCategoryForAdd && (
                                         <>
+                        {selectedCategoryForAdd.name === 'Aweber' && (
+                            <div>
+                                <AweberIntegrationInstructions />
+                            </div>
+                        )}
                         <div>
                                                 <InputLabel htmlFor="add_api_name" value="API Name" />
                             <TextInput
@@ -434,6 +440,11 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                             </button>
                             <h3 className="text-lg font-medium text-gray-900 mb-4 pr-8">Edit API: {editingInstance.name}</h3>
                             <form onSubmit={handleUpdate}>
+                                {selectedCategoryForEdit.name === 'Aweber' && (
+                                    <div className="mb-4">
+                                        <AweberIntegrationInstructions />
+                                    </div>
+                                )}
                                 <DynamicApiForm
                                     fields={selectedCategoryForEdit.fields || []}
                                     values={formValues}
