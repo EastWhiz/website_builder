@@ -8,18 +8,19 @@ function resolveOauthRedirectUrlForCurrentHost() {
     if (typeof window === 'undefined') {
         return OAUTH_CB_PRODUCTION;
     }
+
     const host = window.location.hostname;
+
     if (
-        host === 'localhost' ||
-        host === '127.0.0.1' ||
-        host === '129.212.182.198' ||
-        host === 'https://phpstack-1554373-6246482.cloudwaysapps.com/'
+        host.includes('localhost') ||
+        host.includes('127.0.0.1') ||
+        host.includes('phpstack-1554373')
     ) {
         return OAUTH_CB_STAGING;
     }
+
     return OAUTH_CB_PRODUCTION;
 }
-
 /**
  * Link + modal with AWeber OAuth / list ID setup steps (Profile API instance modals).
  * Renders the modal via a portal to document.body to avoid nested scrolling inside the Add/Edit API modals.
