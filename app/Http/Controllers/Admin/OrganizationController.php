@@ -37,7 +37,7 @@ class OrganizationController extends Controller
             $pageCount = 100;
         }
 
-        $query = Organization::query()->with('owner:id,name,email');
+        $query = Organization::query()->with('owner:id,name,email,phone');
 
         $q = trim((string) $request->get('q', ''));
         if ($q !== '') {
@@ -79,7 +79,7 @@ class OrganizationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'status' => 'nullable|string|in:active,on_hold,deactivated',
+            'status' => 'nullable|string|in:active,deactivated',
             'primary_user_id' => 'nullable|integer|exists:users,id',
         ]);
 
@@ -111,7 +111,7 @@ class OrganizationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'org_name' => 'required|string|max:255',
-            'org_status' => 'nullable|string|in:active,on_hold,deactivated',
+            'org_status' => 'nullable|string|in:active,deactivated',
             'owner_name' => 'required|string|max:255',
             'owner_email' => 'required|email|max:255|unique:users,email',
             'owner_phone' => 'required|string|max:20|unique:users,phone',
@@ -182,7 +182,7 @@ class OrganizationController extends Controller
     public function updateStatus(Request $request, int $id)
     {
         $validator = Validator::make($request->all(), [
-            'status' => 'required|string|in:active,on_hold,deactivated',
+            'status' => 'required|string|in:active,deactivated',
         ]);
 
         if ($validator->fails()) {
@@ -200,6 +200,88 @@ class OrganizationController extends Controller
         ]);
 
         return sendResponse(true, 'Organization status updated successfully!', $org);
+    }
+
+    /**
+     * View organization details (Super Admin only).
+     */
+    public function show(int $id)
+    {
+        $org = Organization::with('owner:id,name,email,phone')->findOrFail($id);
+        return sendResponse(true, 'Organization retrieved successfully!', $org);
+    }
+
+    /**
+     * Edit organization details (Super Admin only).
+     */
+    public function update(Request $request, int $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'status' => 'required|string|in:active,deactivated',
+            'owner_name' => 'required|string|max:255',
+            'owner_email' => 'required|email|max:255',
+            'owner_phone' => 'required|string|max:20',
+            'owner_password' => 'nullable|string|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return simpleValidate($validator);
+        }
+
+        $org = Organization::with('owner')->findOrFail($id);
+        if (!$org->owner) {
+            return sendResponse(false, 'Organization owner not found.', null, null, null, 422);
+        }
+
+        $emailExists = \App\Models\User::query()
+            ->where('email', $request->input('owner_email'))
+            ->where('id', '!=', $org->owner->id)
+            ->exists();
+        if ($emailExists) {
+            return sendResponse(false, 'Owner email is already in use by another user.', null, null, null, 422);
+        }
+
+        $phoneExists = \App\Models\User::query()
+            ->where('phone', $request->input('owner_phone'))
+            ->where('id', '!=', $org->owner->id)
+            ->exists();
+        if ($phoneExists) {
+            return sendResponse(false, 'Owner phone is already in use by another user.', null, null, null, 422);
+        }
+
+        $before = [
+            'name' => $org->name,
+            'status' => $org->status,
+            'owner_name' => $org->owner->name,
+            'owner_email' => $org->owner->email,
+            'owner_phone' => $org->owner->phone,
+        ];
+
+        $org->name = $request->input('name');
+        $org->status = $request->input('status');
+        $org->save();
+
+        $org->owner->name = $request->input('owner_name');
+        $org->owner->email = $request->input('owner_email');
+        $org->owner->phone = $request->input('owner_phone');
+        if ($request->filled('owner_password')) {
+            $org->owner->password = $request->input('owner_password');
+        }
+        $org->owner->save();
+
+        $this->logOrgAction($org->id, 'org.update', [
+            'from' => $before,
+            'to' => [
+                'name' => $org->name,
+                'status' => $org->status,
+                'owner_name' => $org->owner->name,
+                'owner_email' => $org->owner->email,
+                'owner_phone' => $org->owner->phone,
+            ],
+        ]);
+
+        return sendResponse(true, 'Organization updated successfully!', $org->fresh()->load('owner:id,name,email,phone'));
     }
 }
 

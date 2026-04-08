@@ -101,9 +101,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Organizations (Super Admin only)
         Route::inertia('/organizations', 'Admin/Organizations')->name('admin.organizations');
         Route::inertia('/organizations/create', 'Admin/OrganizationProvision')->name('admin.organizations.create');
+        Route::get('/organizations/{id}/view', function ($id) {
+            return Inertia::render('Admin/OrganizationView', compact('id'));
+        })->name('admin.organizations.viewPage');
+        Route::get('/organizations/{id}/edit', function ($id) {
+            return Inertia::render('Admin/OrganizationEdit', compact('id'));
+        })->name('admin.organizations.editPage');
         Route::get('/organizations/list', [OrganizationController::class, 'index'])->name('admin.organizations.list');
+        Route::get('/organizations/{id}', [OrganizationController::class, 'show'])->name('admin.organizations.show');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('admin.organizations.store');
         Route::post('/organizations/provision', [OrganizationController::class, 'provision'])->name('admin.organizations.provision');
+        Route::put('/organizations/{id}', [OrganizationController::class, 'update'])->name('admin.organizations.update');
         Route::patch('/organizations/{id}/status', [OrganizationController::class, 'updateStatus'])->name('admin.organizations.updateStatus');
     });
 

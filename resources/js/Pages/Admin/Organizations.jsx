@@ -8,7 +8,6 @@ import {
     Pagination,
     Select as ShopifySelect,
     Text,
-    useIndexResourceState,
     useSetIndexFiltersMode,
 } from '@shopify/polaris';
 import '@shopify/polaris/build/esm/styles.css';
@@ -39,14 +38,12 @@ export default function Organizations() {
     const statusOptions = [
         { label: 'All', value: '' },
         { label: 'Active', value: 'active' },
-        { label: 'On hold', value: 'on_hold' },
         { label: 'Deactivated', value: 'deactivated' },
     ];
 
     const { mode, setMode } = useSetIndexFiltersMode();
 
     const [tableRows, setTableRows] = useState([]);
-    const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
 
     const [pageCount, setPageCount] = useState('10');
     const [sortSelected, setSortSelected] = useState(['id desc']);
@@ -156,43 +153,85 @@ export default function Organizations() {
         <IndexTable.Row
             id={String(org.id)}
             key={org.id}
-            selected={selectedResources.includes(String(org.id))}
             position={index}
         >
             <IndexTable.Cell>
-                <Text variant="bodyMd" fontWeight="bold" as="span">
-                    {org.id}
-                </Text>
+                <div onClick={(e) => e.stopPropagation()}>{org.name}</div>
             </IndexTable.Cell>
-            <IndexTable.Cell>{org.name}</IndexTable.Cell>
-            <IndexTable.Cell>{org.status}</IndexTable.Cell>
-            <IndexTable.Cell>{org.owner?.email || '-'}</IndexTable.Cell>
-            <IndexTable.Cell>{org.created_at ? new Date(org.created_at).toLocaleString() : '-'}</IndexTable.Cell>
             <IndexTable.Cell>
-                <div className="flex gap-2 flex-wrap">
+                <div onClick={(e) => e.stopPropagation()}>{org.owner?.name || '-'}</div>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <div onClick={(e) => e.stopPropagation()}>{org.owner?.email || '-'}</div>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <div onClick={(e) => e.stopPropagation()}>{org.owner?.phone || '-'}</div>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <div onClick={(e) => e.stopPropagation()}>
+                    <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            org.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}
+                    >
+                        {org.status === 'active' ? 'Active' : 'Deactivated'}
+                    </span>
+                </div>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <div onClick={(e) => e.stopPropagation()}>
+                    {org.created_at
+                        ? new Date(org.created_at).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: '2-digit',
+                          })
+                        : '-'}
+                </div>
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    <Link
+                        href={route('admin.organizations.viewPage', org.id)}
+                        className="px-2 py-1 text-xs rounded border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                    >
+                        View
+                    </Link>
+                    <Link
+                        href={route('admin.organizations.editPage', org.id)}
+                        className="px-2 py-1 text-xs rounded border border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                        Edit
+                    </Link>
                     <button
                         type="button"
-                        disabled={updatingStatusId === org.id || org.status === 'active'}
-                        className="px-2 py-1 text-xs rounded border border-green-300 text-green-700 hover:bg-green-50 disabled:opacity-50"
-                        onClick={() => handleStatusUpdate(org.id, 'active')}
+                        onClick={() =>
+                            handleStatusUpdate(org.id, org.status === 'active' ? 'deactivated' : 'active')
+                        }
+                        disabled={updatingStatusId === org.id}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded border disabled:opacity-60 disabled:cursor-not-allowed ${
+                            org.status === 'active'
+                                ? 'border-red-300 text-red-700 hover:bg-red-50'
+                                : 'border-green-300 text-green-700 hover:bg-green-50'
+                        }`}
                     >
-                        Activate
-                    </button>
-                    <button
-                        type="button"
-                        disabled={updatingStatusId === org.id || org.status === 'on_hold'}
-                        className="px-2 py-1 text-xs rounded border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50"
-                        onClick={() => handleStatusUpdate(org.id, 'on_hold')}
-                    >
-                        Hold
-                    </button>
-                    <button
-                        type="button"
-                        disabled={updatingStatusId === org.id || org.status === 'deactivated'}
-                        className="px-2 py-1 text-xs rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
-                        onClick={() => handleStatusUpdate(org.id, 'deactivated')}
-                    >
-                        Deactivate
+                        {updatingStatusId === org.id ? (
+                            <>
+                                <svg
+                                    className="animate-spin h-4 w-4"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                >
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Updating...
+                            </>
+                        ) : (
+                            org.status === 'active' ? 'Deactivate' : 'Activate'
+                        )}
                     </button>
                 </div>
             </IndexTable.Cell>
@@ -200,6 +239,22 @@ export default function Organizations() {
     ));
 
     const handleStatusUpdate = async (id, status) => {
+        const isActivating = status === 'active';
+        const confirm = await Swal.fire({
+            title: isActivating ? 'Activate organization?' : 'Deactivate organization?',
+            text: isActivating
+                ? 'This will set organization status to Active.'
+                : 'This will set organization status to Deactivated.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: isActivating ? 'Yes, Activate' : 'Yes, Deactivate',
+            cancelButtonText: 'Cancel',
+        });
+
+        if (!confirm.isConfirmed) {
+            return;
+        }
+
         try {
             setUpdatingStatusId(id);
             const headers = {
@@ -302,13 +357,13 @@ export default function Organizations() {
                                 <IndexTable
                                     resourceName={resourceName}
                                     itemCount={tableRows.length}
-                                    selectedItemsCount={allResourcesSelected ? 'All' : selectedResources.length}
-                                    onSelectionChange={handleSelectionChange}
+                                    selectable={false}
                                     headings={[
-                                        { title: 'ID' },
                                         { title: 'Organization' },
+                                        { title: 'Owner Name' },
+                                        { title: 'Email' },
+                                        { title: 'Contact' },
                                         { title: 'Status' },
-                                        { title: 'Owner Email' },
                                         { title: 'Created' },
                                         { title: 'Actions' },
                                     ]}
