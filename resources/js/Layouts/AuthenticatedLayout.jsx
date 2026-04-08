@@ -86,6 +86,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </> : <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                         <NavLink
+                                            href={route('organization.team.settings')}
+                                            active={route().current('organization.team.settings')}
+                                        >
+                                            Team Settings
+                                        </NavLink>
+                                        <NavLink
                                             href={route('userThemes', { id: user.id })}
                                             active={route().current('userThemes')}
                                         >
@@ -244,6 +250,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                     API Platforms
                                 </ResponsiveNavLink>
                             </> : <>
+                                <ResponsiveNavLink
+                                    href={route('organization.team.settings')}
+                                    active={route().current('organization.team.settings')}
+                                >
+                                    Team Settings
+                                </ResponsiveNavLink>
                                 <ResponsiveNavLink
                                     href={route('userThemes', { id: user.id })}
                                     active={route().current('userThemes')}

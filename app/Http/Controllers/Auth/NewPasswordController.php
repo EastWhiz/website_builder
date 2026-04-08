@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -50,6 +51,17 @@ class NewPasswordController extends Controller
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                // Step 3.4: invitation activation completion.
+                // If this user was invited to an organization, mark membership accepted.
+                DB::table('organization_user')
+                    ->where('user_id', $user->id)
+                    ->where('status', 'invited')
+                    ->update([
+                        'status' => 'active',
+                        'accepted_at' => now(),
+                        'updated_at' => now(),
+                    ]);
 
                 event(new PasswordReset($user));
             }

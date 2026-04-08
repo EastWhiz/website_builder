@@ -9,6 +9,7 @@ use App\Http\Controllers\GrokController;
 use App\Http\Controllers\OtpServiceController;
 use App\Http\Controllers\OtpServiceCredentialController;
 use App\Http\Controllers\OtpVerificationController;
+use App\Http\Controllers\OrganizationTeamController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\ThankYouPageController;
@@ -99,6 +100,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Organizations (Super Admin only)
         Route::inertia('/organizations', 'Admin/Organizations')->name('admin.organizations');
+        Route::inertia('/organizations/create', 'Admin/OrganizationProvision')->name('admin.organizations.create');
         Route::get('/organizations/list', [OrganizationController::class, 'index'])->name('admin.organizations.list');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('admin.organizations.store');
         Route::post('/organizations/provision', [OrganizationController::class, 'provision'])->name('admin.organizations.provision');
@@ -110,6 +112,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware('role:admin,member')->group(function () {
+        // Team / company settings shell (Phase 3.1)
+        Route::inertia('/team-settings', 'Organizations/TeamSettings')->name('organization.team.settings');
+        Route::get('/api/team-roles', [OrganizationTeamController::class, 'rolesIndex'])->name('organization.team.roles.index');
+        Route::get('/api/team-members', [OrganizationTeamController::class, 'membersIndex'])->name('organization.team.members.index');
+        Route::post('/api/team-members/invite', [OrganizationTeamController::class, 'invite'])->name('organization.team.members.invite');
+        Route::patch('/api/team-members/role', [OrganizationTeamController::class, 'updateRole'])->name('organization.team.members.updateRole');
+        Route::patch('/api/team-members/archive', [OrganizationTeamController::class, 'softDeleteMember'])->name('organization.team.members.archive');
+        Route::patch('/api/team-members/restore', [OrganizationTeamController::class, 'restoreMember'])->name('organization.team.members.restore');
 
         // User API Instances (authenticated users manage their own instances)
         Route::get('/api/api-categories', [UserApiInstanceController::class, 'categories'])->name('user.api.categories.index');

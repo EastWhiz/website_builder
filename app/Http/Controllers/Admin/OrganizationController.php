@@ -127,7 +127,12 @@ class OrganizationController extends Controller
             return sendResponse(false, 'org_admin role is not seeded yet. Run RoleSeeder first.', null, null, null, 422);
         }
 
-        $result = DB::transaction(function () use ($request, $orgAdminRole) {
+        $platformMemberRole = Role::where('scope', 'platform')->where('key', 'member')->first();
+        if (!$platformMemberRole) {
+            return sendResponse(false, 'platform member role is not seeded yet. Run RoleSeeder first.', null, null, null, 422);
+        }
+
+        $result = DB::transaction(function () use ($request, $orgAdminRole, $platformMemberRole) {
             $org = Organization::create([
                 'name' => $request->input('org_name'),
                 'status' => $request->input('org_status', 'active'),
@@ -138,8 +143,8 @@ class OrganizationController extends Controller
                 'email' => $request->input('owner_email'),
                 'phone' => $request->input('owner_phone'),
                 'password' => $request->input('owner_password'),
-                // Platform role: default member (2). Super Admin remains role_id=1.
-                'role_id' => 2,
+                // Platform role: default member (resolved by scope+key).
+                'role_id' => $platformMemberRole->id,
             ]);
 
             $org->primary_user_id = $owner->id;

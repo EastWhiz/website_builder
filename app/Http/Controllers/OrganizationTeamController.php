@@ -1,0 +1,430 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Angle;
+use App\Models\AngleTemplate;
+use App\Models\Organization;
+use App\Models\OtpServiceCredential;
+use App\Models\Role;
+use App\Models\User;
+use App\Models\UserApiCredential;
+use App\Models\UserApiInstance;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+
+class OrganizationTeamController extends Controller
+{
+    private function resolveOrganization(Request $request): ?Organization
+    {
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+
+        // Allow Super Admin to target organization explicitly.
+        if (!$organization && (int) ($user->role_id ?? 0) === 1 && $request->filled('organization_id')) {
+            $organization = Organization::find((int) $request->get('organization_id'));
+        }
+
+        return $organization;
+    }
+
+    /**
+     * Step 3.2: Team members listing API with active/archived toggle.
+     */
+    public function membersIndex(Request $request)
+    {
+        $organization = $this->resolveOrganization($request);
+
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+
+        $pageCount = (int) $request->get('page_count', 10);
+        if ($pageCount <= 0) {
+            $pageCount = 10;
+        }
+        if ($pageCount > 100) {
+            $pageCount = 100;
+        }
+
+        $query = DB::table('organization_user as ou')
+            ->join('users as u', 'u.id', '=', 'ou.user_id')
+            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.organization_id', $organization->id)
+            ->select([
+                'ou.id as membership_id',
+                'ou.organization_id',
+                'ou.user_id',
+                'ou.role_id as organization_role_id',
+                'ou.status as membership_status',
+                'ou.invited_at',
+                'ou.accepted_at',
+                'ou.deleted_at as membership_deleted_at',
+                'u.name',
+                'u.email',
+                'u.phone',
+                'u.deleted_at as user_deleted_at',
+                'r.name as role_name',
+                'r.key as role_key',
+            ]);
+
+        $archived = strtolower((string) $request->get('archived', 'false'));
+        $showArchived = in_array($archived, ['1', 'true', 'yes'], true);
+        if ($showArchived) {
+            $query->where(function ($q) {
+                $q->whereNotNull('ou.deleted_at')->orWhereNotNull('u.deleted_at');
+            });
+        } else {
+            $query->whereNull('ou.deleted_at')->whereNull('u.deleted_at');
+        }
+
+        $search = trim((string) $request->get('q', ''));
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('u.name', 'LIKE', '%' . $search . '%')
+                    ->orWhere('u.email', 'LIKE', '%' . $search . '%')
+                    ->orWhere('u.phone', 'LIKE', '%' . $search . '%')
+                    ->orWhere('r.name', 'LIKE', '%' . $search . '%');
+            });
+        }
+
+        $sort = trim((string) $request->get('sort', 'ou.id desc'));
+        [$sortCol, $sortDir] = array_pad(explode(' ', $sort), 2, 'desc');
+        $sortDir = strtolower($sortDir) === 'asc' ? 'asc' : 'desc';
+        $allowedSortCols = ['ou.id', 'u.name', 'u.email', 'ou.created_at', 'ou.status'];
+        if (!in_array($sortCol, $allowedSortCols, true)) {
+            $sortCol = 'ou.id';
+        }
+        $query->orderBy($sortCol, $sortDir);
+
+        $members = $query->cursorPaginate($pageCount);
+
+        return sendResponse(true, 'Team members retrieved successfully!', [
+            'organization' => [
+                'id' => $organization->id,
+                'name' => $organization->name,
+                'status' => $organization->status,
+            ],
+            'members' => $members,
+        ]);
+    }
+
+    public function rolesIndex()
+    {
+        $roles = Role::query()
+            ->where('scope', 'organization')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'key']);
+
+        return sendResponse(true, 'Organization roles retrieved successfully!', $roles);
+    }
+
+    /**
+     * Step 3.3: Invite member + send activation link.
+     */
+    public function invite(Request $request)
+    {
+        $organization = $this->resolveOrganization($request);
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+
+        $validator = validator($request->all(), [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            // Current schema requires unique/non-null phone.
+            'phone' => 'required|string|max:20|unique:users,phone',
+            'role_id' => 'required|integer|exists:roles,id',
+        ]);
+
+        if ($validator->fails()) {
+            return simpleValidate($validator);
+        }
+
+        $role = Role::where('id', (int) $request->input('role_id'))
+            ->where('scope', 'organization')
+            ->where('is_active', true)
+            ->first();
+
+        if (!$role) {
+            return sendResponse(false, 'Invalid organization role selected.', null, null, null, 422);
+        }
+
+        $platformMemberRole = Role::where('scope', 'platform')->where('key', 'member')->first();
+        if (!$platformMemberRole) {
+            return sendResponse(false, 'platform member role is not seeded yet. Run RoleSeeder first.', null, null, null, 422);
+        }
+
+        $user = User::create([
+            'name' => $request->input('name'),
+            'email' => $request->input('email'),
+            'phone' => $request->input('phone'),
+            // temporary password; user sets real password via reset-link activation.
+            'password' => Str::random(24),
+            'role_id' => $platformMemberRole->id, // platform member
+        ]);
+
+        DB::table('organization_user')->insert([
+            'organization_id' => $organization->id,
+            'user_id' => $user->id,
+            'role_id' => $role->id,
+            'status' => 'invited',
+            'invited_at' => now(),
+            'accepted_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $status = Password::broker()->sendResetLink(['email' => $user->email]);
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            return sendResponse(false, 'Member invited, but activation email could not be sent.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'mail_status' => $status,
+            ], null, null, 422);
+        }
+
+        return sendResponse(true, 'Invitation sent successfully. Activation link email has been sent.', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'organization_id' => $organization->id,
+            'role_id' => $role->id,
+        ]);
+    }
+
+    /**
+     * Step 3.5: update organization role assignment.
+     */
+    public function updateRole(Request $request)
+    {
+        $organization = $this->resolveOrganization($request);
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+
+        $validator = validator($request->all(), [
+            'membership_id' => 'required|integer',
+            'role_id' => 'required|integer|exists:roles,id',
+        ]);
+
+        if ($validator->fails()) {
+            return simpleValidate($validator);
+        }
+
+        $membership = DB::table('organization_user')
+            ->where('id', (int) $request->input('membership_id'))
+            ->where('organization_id', $organization->id)
+            ->first();
+
+        if (!$membership) {
+            return sendResponse(false, 'Membership not found for this organization.', null, null, null, 404);
+        }
+
+        $role = Role::query()
+            ->where('id', (int) $request->input('role_id'))
+            ->where('scope', 'organization')
+            ->where('is_active', true)
+            ->first();
+
+        if (!$role) {
+            return sendResponse(false, 'Invalid organization role selected.', null, null, null, 422);
+        }
+
+        DB::table('organization_user')
+            ->where('id', $membership->id)
+            ->update([
+                'role_id' => $role->id,
+                'updated_at' => now(),
+            ]);
+
+        return sendResponse(true, 'Member role updated successfully!', [
+            'membership_id' => $membership->id,
+            'role_id' => $role->id,
+            'role_name' => $role->name,
+        ]);
+    }
+
+    /**
+     * Step 3.6: soft-delete member + cascade soft-delete related records.
+     */
+    public function softDeleteMember(Request $request)
+    {
+        $organization = $this->resolveOrganization($request);
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+
+        $validator = validator($request->all(), [
+            'membership_id' => 'required|integer',
+        ]);
+        if ($validator->fails()) {
+            return simpleValidate($validator);
+        }
+
+        $membership = DB::table('organization_user')
+            ->where('id', (int) $request->input('membership_id'))
+            ->where('organization_id', $organization->id)
+            ->first();
+        if (!$membership) {
+            return sendResponse(false, 'Membership not found for this organization.', null, null, null, 404);
+        }
+        if ($membership->deleted_at) {
+            return sendResponse(false, 'Member is already archived.', null, null, null, 422);
+        }
+
+        $targetUser = User::find((int) $membership->user_id);
+        if (!$targetUser) {
+            return sendResponse(false, 'User not found.', null, null, null, 404);
+        }
+
+        $actor = $request->user();
+        if ((int) $actor->id === (int) $targetUser->id) {
+            return sendResponse(false, 'You cannot archive your own account from team settings.', null, null, null, 422);
+        }
+        if ((int) $organization->primary_user_id === (int) $targetUser->id) {
+            return sendResponse(false, 'Primary organization owner cannot be archived from this action.', null, null, null, 422);
+        }
+
+        DB::transaction(function () use ($organization, $membership, $targetUser) {
+            $now = now();
+
+            // Mark membership archived.
+            DB::table('organization_user')
+                ->where('id', $membership->id)
+                ->update([
+                    'status' => 'suspended',
+                    'deleted_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+            // Soft-delete user-scoped records for this org context.
+            Angle::query()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->delete();
+
+            AngleTemplate::query()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->delete();
+
+            \App\Models\ThankYouPage::query()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->delete();
+
+            UserApiInstance::query()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->delete();
+
+            OtpServiceCredential::query()
+                ->where('user_id', $targetUser->id)
+                ->delete();
+
+            UserApiCredential::query()
+                ->where('user_id', $targetUser->id)
+                ->delete();
+
+            // Soft-delete user account itself.
+            $targetUser->delete();
+        });
+
+        return sendResponse(true, 'Member archived successfully.', [
+            'membership_id' => (int) $membership->id,
+            'user_id' => (int) $membership->user_id,
+        ]);
+    }
+
+    /**
+     * Step 3.7: restore archived member and related records.
+     */
+    public function restoreMember(Request $request)
+    {
+        $organization = $this->resolveOrganization($request);
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+
+        $validator = validator($request->all(), [
+            'membership_id' => 'required|integer',
+        ]);
+        if ($validator->fails()) {
+            return simpleValidate($validator);
+        }
+
+        $membership = DB::table('organization_user')
+            ->where('id', (int) $request->input('membership_id'))
+            ->where('organization_id', $organization->id)
+            ->first();
+        if (!$membership) {
+            return sendResponse(false, 'Membership not found for this organization.', null, null, null, 404);
+        }
+        if (!$membership->deleted_at) {
+            return sendResponse(false, 'Member is not archived.', null, null, null, 422);
+        }
+
+        $targetUser = User::withTrashed()->find((int) $membership->user_id);
+        if (!$targetUser) {
+            return sendResponse(false, 'User not found for restore.', null, null, null, 404);
+        }
+
+        DB::transaction(function () use ($organization, $membership, $targetUser) {
+            $now = now();
+
+            // Restore user account.
+            if (method_exists($targetUser, 'restore')) {
+                $targetUser->restore();
+            }
+
+            // Restore membership.
+            DB::table('organization_user')
+                ->where('id', $membership->id)
+                ->update([
+                    'status' => 'active',
+                    'deleted_at' => null,
+                    'accepted_at' => $membership->accepted_at ?: $now,
+                    'updated_at' => $now,
+                ]);
+
+            Angle::withTrashed()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->restore();
+
+            AngleTemplate::withTrashed()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->restore();
+
+            \App\Models\ThankYouPage::withTrashed()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->restore();
+
+            UserApiInstance::withTrashed()
+                ->where('user_id', $targetUser->id)
+                ->where('organization_id', $organization->id)
+                ->restore();
+
+            OtpServiceCredential::withTrashed()
+                ->where('user_id', $targetUser->id)
+                ->restore();
+
+            UserApiCredential::withTrashed()
+                ->where('user_id', $targetUser->id)
+                ->restore();
+        });
+
+        return sendResponse(true, 'Member restored successfully.', [
+            'membership_id' => (int) $membership->id,
+            'user_id' => (int) $membership->user_id,
+        ]);
+    }
+}
+

@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     AppProvider,
     Card,
@@ -270,6 +270,14 @@ export default function Organizations() {
                                             value={pageCount}
                                             onChange={setPageCount}
                                         />
+                                    </div>
+                                    <div className="ml-auto">
+                                        <Link
+                                            href={route('admin.organizations.create')}
+                                            className="inline-flex items-center px-3 py-2 text-xs font-semibold rounded border border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                        >
+                                            Create Organization
+                                        </Link>
                                     </div>
                                 </div>
 
