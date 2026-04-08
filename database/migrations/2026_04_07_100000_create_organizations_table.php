@@ -20,7 +20,6 @@ return new class extends Migration
 
             $table->index('status');
             $table->index('primary_user_id');
-            $table->foreign('primary_user_id')->references('id')->on('users')->nullOnDelete();
         });
     }
 

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -13,29 +14,29 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('angles', function (Blueprint $table) {
-            $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
-            $table->index('organization_id');
-            $table->foreign('organization_id')->references('id')->on('organizations')->nullOnDelete();
-        });
+        if (!Schema::hasColumn('angles', 'organization_id')) {
+            Schema::table('angles', function (Blueprint $table) {
+                $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
+            });
+        }
 
-        Schema::table('angle_templates', function (Blueprint $table) {
-            $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
-            $table->index('organization_id');
-            $table->foreign('organization_id')->references('id')->on('organizations')->nullOnDelete();
-        });
+        if (!Schema::hasColumn('angle_templates', 'organization_id')) {
+            Schema::table('angle_templates', function (Blueprint $table) {
+                $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
+            });
+        }
 
-        Schema::table('thank_you_pages', function (Blueprint $table) {
-            $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
-            $table->index('organization_id');
-            $table->foreign('organization_id')->references('id')->on('organizations')->nullOnDelete();
-        });
+        if (!Schema::hasColumn('thank_you_pages', 'organization_id')) {
+            Schema::table('thank_you_pages', function (Blueprint $table) {
+                $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
+            });
+        }
 
-        Schema::table('user_api_instances', function (Blueprint $table) {
-            $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
-            $table->index('organization_id');
-            $table->foreign('organization_id')->references('id')->on('organizations')->nullOnDelete();
-        });
+        if (!Schema::hasColumn('user_api_instances', 'organization_id')) {
+            Schema::table('user_api_instances', function (Blueprint $table) {
+                $table->unsignedBigInteger('organization_id')->nullable()->after('user_id');
+            });
+        }
     }
 
     /**
@@ -44,22 +45,18 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('user_api_instances', function (Blueprint $table) {
-            $table->dropForeign(['organization_id']);
             $table->dropColumn('organization_id');
         });
 
         Schema::table('thank_you_pages', function (Blueprint $table) {
-            $table->dropForeign(['organization_id']);
             $table->dropColumn('organization_id');
         });
 
         Schema::table('angle_templates', function (Blueprint $table) {
-            $table->dropForeign(['organization_id']);
             $table->dropColumn('organization_id');
         });
 
         Schema::table('angles', function (Blueprint $table) {
-            $table->dropForeign(['organization_id']);
             $table->dropColumn('organization_id');
         });
     }

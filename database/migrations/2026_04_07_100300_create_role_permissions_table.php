@@ -20,7 +20,6 @@ return new class extends Migration
             $table->index('role_id');
             $table->index('permission_key');
             $table->unique(['role_id', 'permission_key']);
-            $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');
         });
     }
 

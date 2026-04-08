@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\ApiCategoryController;
 use App\Http\Controllers\Admin\ApiCategoryFieldController;
 use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\UserApiInstanceController;
+use App\Http\Controllers\Admin\OrganizationController;
 use App\Models\Angle;
 use App\Models\AngleTemplate;
 use App\Models\Template;
@@ -95,6 +96,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/api-categories/{categoryId}/fields', [ApiCategoryFieldController::class, 'store'])->name('api.category.fields.store');
         Route::put('/api-categories/{categoryId}/fields/{fieldId}', [ApiCategoryFieldController::class, 'update'])->name('api.category.fields.update');
         Route::delete('/api-categories/{categoryId}/fields/{fieldId}', [ApiCategoryFieldController::class, 'destroy'])->name('api.category.fields.destroy');
+
+        // Organizations (Super Admin only)
+        Route::inertia('/organizations', 'Admin/Organizations')->name('admin.organizations');
+        Route::get('/organizations/list', [OrganizationController::class, 'index'])->name('admin.organizations.list');
+        Route::post('/organizations', [OrganizationController::class, 'store'])->name('admin.organizations.store');
+        Route::post('/organizations/provision', [OrganizationController::class, 'provision'])->name('admin.organizations.provision');
+        Route::patch('/organizations/{id}/status', [OrganizationController::class, 'updateStatus'])->name('admin.organizations.updateStatus');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {

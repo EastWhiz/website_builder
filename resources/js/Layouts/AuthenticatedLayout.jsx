@@ -55,7 +55,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Thank You Pages
                                 </NavLink>
                             </div>
-                            {user && user.role.name == "admin" ?
+                            {user && user.role_id == 1 ?
                                 <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                         <NavLink
@@ -63,6 +63,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                             active={route().current('users') || route().current('userThemes')}
                                         >
                                             Users
+                                        </NavLink>
+                                        <NavLink
+                                            href={route('admin.organizations')}
+                                            active={route().current('admin.organizations')}
+                                        >
+                                            Organizations
                                         </NavLink>
                                         <NavLink
                                             href={route('otp.services.manage')}
@@ -211,13 +217,19 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Thank You Pages
                         </ResponsiveNavLink>
-                        {user && user.role.name == "admin" ?
+                        {user && user.role_id == 1 ?
                             <>
                                 <ResponsiveNavLink
                                     href={route('users')}
                                     active={route().current('users') || route().current('userThemes')}
                                 >
                                     Users
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('admin.organizations')}
+                                    active={route().current('admin.organizations')}
+                                >
+                                    Organizations
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink
                                     href={route('otp.services.manage')}

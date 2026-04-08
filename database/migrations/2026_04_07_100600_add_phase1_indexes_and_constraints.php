@@ -14,7 +14,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('organization_user', function (Blueprint $table) {
-            $table->foreign('role_id')->references('id')->on('roles')->nullOnDelete();
             $table->index(['organization_id', 'deleted_at'], 'org_user_org_deleted_idx');
         });
 
@@ -66,7 +65,6 @@ return new class extends Migration
 
         Schema::table('organization_user', function (Blueprint $table) {
             $table->dropIndex('org_user_org_deleted_idx');
-            $table->dropForeign(['role_id']);
         });
     }
 };

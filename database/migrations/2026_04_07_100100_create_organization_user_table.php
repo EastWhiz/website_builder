@@ -27,9 +27,6 @@ return new class extends Migration
             $table->index('role_id');
             $table->index('status');
             $table->unique(['organization_id', 'user_id']);
-
-            $table->foreign('organization_id')->references('id')->on('organizations')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 
