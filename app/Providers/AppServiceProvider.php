@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\User;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -25,5 +27,63 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
         Vite::prefetch(concurrency: 3);
+
+        Gate::define('org.permission', function (User $user, string $permissionKey): bool {
+            $organization = $user->currentOrganization();
+            if (!$organization) {
+                return false;
+            }
+
+            $membership = $user->organizations()
+                ->where('organizations.id', $organization->id)
+                ->wherePivot('status', 'active')
+                ->first();
+
+            if (!$membership || empty($membership->pivot->role_id)) {
+                return false;
+            }
+
+            return \App\Models\RolePermission::query()
+                ->where('role_id', (int) $membership->pivot->role_id)
+                ->where('permission_key', $permissionKey)
+                ->exists();
+        });
+
+        Gate::define('org.role.crud', function (User $user): bool {
+            // Super Admin-only role CRUD (legacy platform admin role_id=1).
+            return (int) ($user->role_id ?? 0) === 1;
+        });
+
+        Gate::define('org.permission.matrix.update', function (User $user): bool {
+            if ((int) ($user->role_id ?? 0) === 1) {
+                return true;
+            }
+
+            $organization = $user->currentOrganization();
+            if (!$organization) {
+                return false;
+            }
+
+            $membership = $user->organizations()
+                ->where('organizations.id', $organization->id)
+                ->wherePivot('status', 'active')
+                ->first();
+
+            if (!$membership || empty($membership->pivot->role_id)) {
+                return false;
+            }
+
+            $hasBasePermission = \App\Models\RolePermission::query()
+                ->where('role_id', (int) $membership->pivot->role_id)
+                ->where('permission_key', 'permission.matrix.update')
+                ->exists();
+
+            if ($hasBasePermission) {
+                return true;
+            }
+
+            // Delegated manager update flag support (feature-flag style via config/settings can replace this later).
+            return (bool) ($user->permission_matrix_update_delegate ?? false);
+        });
     }
 }

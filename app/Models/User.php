@@ -6,12 +6,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 // class User extends Authenticatable implements MustVerifyEmail
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -53,6 +54,21 @@ class User extends Authenticatable
     public function role()
     {
         return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    public function organizations()
+    {
+        return $this->belongsToMany(Organization::class, 'organization_user')
+            ->withPivot(['role_id', 'status', 'invited_at', 'accepted_at', 'deleted_at'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Current organization helper for single-org assumption in Phase 1.
+     */
+    public function currentOrganization(): ?Organization
+    {
+        return $this->organizations()->wherePivot('status', 'active')->first();
     }
 
     public function angleTemplates()

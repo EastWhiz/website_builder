@@ -21,6 +21,7 @@ class UserApiInstance extends Model
 
     protected $fillable = [
         'user_id',
+        'organization_id',
         'api_category_id',
         'name',
         'is_active',
@@ -33,6 +34,11 @@ class UserApiInstance extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 
     public function category(): BelongsTo
@@ -60,5 +66,14 @@ class UserApiInstance extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    public function scopeForOrganization($query, ?int $organizationId)
+    {
+        if (!$organizationId) {
+            return $query;
+        }
+
+        return $query->where('organization_id', $organizationId);
     }
 }

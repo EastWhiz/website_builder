@@ -4,11 +4,15 @@ namespace App\Models;
 
 use App\Services\ThankYouPageImageService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ThankYouPage extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'user_id',
+        'organization_id',
         'name',
         'logo_path',
         'title_text',
@@ -27,6 +31,20 @@ class ThankYouPage extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    public function scopeForOrganization($query, ?int $organizationId)
+    {
+        if (!$organizationId) {
+            return $query;
+        }
+
+        return $query->where('organization_id', $organizationId);
     }
 
     /**
