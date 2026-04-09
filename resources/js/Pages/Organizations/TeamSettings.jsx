@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
@@ -173,6 +173,19 @@ export default function TeamSettings() {
         }
     };
 
+    const handleManualActivate = async (member) => {
+        const confirm = await Swal.fire({
+            title: 'Activate invited member?',
+            text: `This will manually activate ${member.name || 'this member'}.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Activate',
+        });
+        if (!confirm.isConfirmed) return;
+
+        runMemberAction(member.membership_id, 'organization.team.members.activate', 'Member Activated');
+    };
+
     return (
         <AuthenticatedLayout
             header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Team / Company Settings</h2>}
@@ -313,7 +326,30 @@ export default function TeamSettings() {
                                                         ))}
                                                     </select>
                                                 </td>
-                                                <td className="px-4 py-2">{m.membership_status || '-'}</td>
+                                                <td className="px-4 py-2">
+                                                    {(() => {
+                                                        const statusKey = String(m.membership_status || '').toLowerCase();
+                                                        const statusLabel =
+                                                            statusKey === 'active'
+                                                                ? 'Active'
+                                                                : statusKey === 'suspended'
+                                                                  ? 'Deactivated'
+                                                                  : statusKey === 'invited'
+                                                                    ? 'Invited'
+                                                                    : (m.membership_status || '-');
+                                                        return (
+                                                    <span
+                                                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                            statusKey === 'active'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                        }`}
+                                                    >
+                                                        {statusLabel}
+                                                    </span>
+                                                        );
+                                                    })()}
+                                                </td>
                                                 <td className="px-4 py-2">
                                                     <button
                                                         type="button"
@@ -323,6 +359,24 @@ export default function TeamSettings() {
                                                     >
                                                         {updatingRoleFor === m.membership_id ? 'Saving...' : 'Save Role'}
                                                     </button>
+                                                    {!archived && (
+                                                        <Link
+                                                            href={route('organization.team.members.editPage', m.membership_id)}
+                                                            className="ml-2 px-2 py-1 text-xs rounded border border-indigo-500 text-indigo-700 hover:bg-indigo-50"
+                                                        >
+                                                            Edit
+                                                        </Link>
+                                                    )}
+                                                    {!archived && String(m.membership_status).toLowerCase() === 'invited' && (
+                                                        <button
+                                                            type="button"
+                                                            disabled={memberActionLoadingId === m.membership_id}
+                                                            onClick={() => handleManualActivate(m)}
+                                                            className="ml-2 px-2 py-1 text-xs rounded border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-60"
+                                                        >
+                                                            {memberActionLoadingId === m.membership_id ? '...' : 'Activate'}
+                                                        </button>
+                                                    )}
                                                     {archived ? (
                                                         <button
                                                             type="button"

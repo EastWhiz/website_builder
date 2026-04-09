@@ -18,6 +18,35 @@ use Illuminate\Validation\ValidationException;
 
 class OrganizationTeamController extends Controller
 {
+    private function canManageTeamMember(Request $request, Organization $organization): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+
+        // Super Admin fallback.
+        if ((int) ($user->role_id ?? 0) === 1) {
+            return true;
+        }
+
+        // Organization owner always allowed.
+        if ((int) $organization->primary_user_id === (int) $user->id) {
+            return true;
+        }
+
+        // Org admin role allowed.
+        $actorMembership = DB::table('organization_user as ou')
+            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.organization_id', $organization->id)
+            ->where('ou.user_id', $user->id)
+            ->whereNull('ou.deleted_at')
+            ->select('r.key as role_key')
+            ->first();
+
+        return ($actorMembership->role_key ?? null) === 'org_admin';
+    }
+
     private function resolveOrganization(Request $request): ?Organization
     {
         $user = $request->user();
@@ -121,6 +150,55 @@ class OrganizationTeamController extends Controller
             ->get(['id', 'name', 'key']);
 
         return sendResponse(true, 'Organization roles retrieved successfully!', $roles);
+    }
+
+    /**
+     * Get single member details for edit page.
+     */
+    public function showMember(Request $request, int $membershipId)
+    {
+        $organization = $this->resolveOrganization($request);
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+        if (!$this->canManageTeamMember($request, $organization)) {
+            return sendResponse(false, 'Only organization owner/admin can view member details.', null, null, null, 403);
+        }
+
+        $member = DB::table('organization_user as ou')
+            ->join('users as u', 'u.id', '=', 'ou.user_id')
+            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.organization_id', $organization->id)
+            ->where('ou.id', $membershipId)
+            ->select([
+                'ou.id as membership_id',
+                'ou.organization_id',
+                'ou.user_id',
+                'ou.role_id as organization_role_id',
+                'ou.status as membership_status',
+                'ou.invited_at',
+                'ou.accepted_at',
+                'ou.deleted_at as membership_deleted_at',
+                'u.name',
+                'u.email',
+                'u.phone',
+                'u.deleted_at as user_deleted_at',
+                'r.name as role_name',
+                'r.key as role_key',
+            ])
+            ->first();
+
+        if (!$member) {
+            return sendResponse(false, 'Member not found for this organization.', null, null, null, 404);
+        }
+
+        return sendResponse(true, 'Member retrieved successfully.', [
+            'organization' => [
+                'id' => $organization->id,
+                'name' => $organization->name,
+            ],
+            'member' => $member,
+        ]);
     }
 
     /**
@@ -246,6 +324,154 @@ class OrganizationTeamController extends Controller
             'membership_id' => $membership->id,
             'role_id' => $role->id,
             'role_name' => $role->name,
+        ]);
+    }
+
+    /**
+     * Edit member profile + org role (Org Owner/Admin).
+     */
+    public function updateMember(Request $request)
+    {
+        $organization = $this->resolveOrganization($request);
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+        if (!$this->canManageTeamMember($request, $organization)) {
+            return sendResponse(false, 'Only organization owner/admin can edit members.', null, null, null, 403);
+        }
+
+        $validator = validator($request->all(), [
+            'membership_id' => 'required|integer',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:20',
+            'role_id' => 'required|integer|exists:roles,id',
+            'status' => 'required|string|in:active,deactivated',
+        ]);
+        if ($validator->fails()) {
+            return simpleValidate($validator);
+        }
+
+        $membership = DB::table('organization_user')
+            ->where('id', (int) $request->input('membership_id'))
+            ->where('organization_id', $organization->id)
+            ->first();
+        if (!$membership) {
+            return sendResponse(false, 'Membership not found for this organization.', null, null, null, 404);
+        }
+
+        $targetUser = User::query()->find((int) $membership->user_id);
+        if (!$targetUser) {
+            return sendResponse(false, 'User not found.', null, null, null, 404);
+        }
+
+        $role = Role::query()
+            ->where('id', (int) $request->input('role_id'))
+            ->where('scope', 'organization')
+            ->where('is_active', true)
+            ->first();
+        if (!$role) {
+            return sendResponse(false, 'Invalid organization role selected.', null, null, null, 422);
+        }
+
+        $emailExists = User::query()
+            ->where('email', $request->input('email'))
+            ->where('id', '!=', $targetUser->id)
+            ->exists();
+        if ($emailExists) {
+            return sendResponse(false, 'Email is already in use by another user.', null, null, null, 422);
+        }
+
+        $phoneExists = User::query()
+            ->where('phone', $request->input('phone'))
+            ->where('id', '!=', $targetUser->id)
+            ->exists();
+        if ($phoneExists) {
+            return sendResponse(false, 'Phone is already in use by another user.', null, null, null, 422);
+        }
+
+        DB::transaction(function () use ($targetUser, $membership, $request, $role) {
+            $requestedStatus = (string) $request->input('status', 'active');
+            $membershipStatus = $requestedStatus === 'active' ? 'active' : 'suspended';
+
+            $targetUser->name = (string) $request->input('name');
+            $targetUser->email = (string) $request->input('email');
+            $targetUser->phone = (string) $request->input('phone');
+            $targetUser->save();
+
+            DB::table('organization_user')
+                ->where('id', $membership->id)
+                ->update([
+                    'role_id' => $role->id,
+                    'status' => $membershipStatus,
+                    'accepted_at' => $membershipStatus === 'active' ? ($membership->accepted_at ?: now()) : $membership->accepted_at,
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return sendResponse(true, 'Member updated successfully.', [
+            'membership_id' => (int) $membership->id,
+            'user_id' => (int) $targetUser->id,
+            'role_id' => (int) $role->id,
+            'role_name' => $role->name,
+        ]);
+    }
+
+    /**
+     * Manual activation for invited members (Org Owner/Admin).
+     */
+    public function activateMember(Request $request)
+    {
+        $organization = $this->resolveOrganization($request);
+        if (!$organization) {
+            return sendResponse(false, 'No active organization context found.', null, null, null, 422);
+        }
+        if (!$this->canManageTeamMember($request, $organization)) {
+            return sendResponse(false, 'Only organization owner/admin can manually activate invited members.', null, null, null, 403);
+        }
+
+        $validator = validator($request->all(), [
+            'membership_id' => 'required|integer',
+        ]);
+        if ($validator->fails()) {
+            return simpleValidate($validator);
+        }
+
+        $membership = DB::table('organization_user')
+            ->where('id', (int) $request->input('membership_id'))
+            ->where('organization_id', $organization->id)
+            ->first();
+        if (!$membership) {
+            return sendResponse(false, 'Membership not found for this organization.', null, null, null, 404);
+        }
+        if ($membership->deleted_at) {
+            return sendResponse(false, 'Archived member cannot be manually activated.', null, null, null, 422);
+        }
+        if (($membership->status ?? '') !== 'invited') {
+            return sendResponse(false, 'Manual activation is allowed only for invited members.', null, null, null, 422);
+        }
+
+        DB::transaction(function () use ($membership) {
+            $targetUser = User::query()->find((int) $membership->user_id);
+            if ($targetUser) {
+                // Requested default credential for manual activation flow.
+                $targetUser->password = 'password123';
+                $targetUser->save();
+            }
+
+            DB::table('organization_user')
+                ->where('id', $membership->id)
+                ->update([
+                    'status' => 'active',
+                    'accepted_at' => $membership->accepted_at ?: now(),
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return sendResponse(true, 'Member activated successfully.', [
+            'membership_id' => (int) $membership->id,
+            'user_id' => (int) $membership->user_id,
+            'status' => 'active',
         ]);
     }
 

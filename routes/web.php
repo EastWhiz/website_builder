@@ -122,10 +122,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:admin,member')->group(function () {
         // Team / company settings shell (Phase 3.1)
         Route::inertia('/team-settings', 'Organizations/TeamSettings')->name('organization.team.settings');
+        Route::get('/team-settings/members/{membershipId}/edit', function ($membershipId) {
+            return Inertia::render('Organizations/TeamMemberEdit', compact('membershipId'));
+        })->name('organization.team.members.editPage');
         Route::get('/api/team-roles', [OrganizationTeamController::class, 'rolesIndex'])->name('organization.team.roles.index');
         Route::get('/api/team-members', [OrganizationTeamController::class, 'membersIndex'])->name('organization.team.members.index');
+        Route::get('/api/team-members/{membershipId}', [OrganizationTeamController::class, 'showMember'])->name('organization.team.members.show');
         Route::post('/api/team-members/invite', [OrganizationTeamController::class, 'invite'])->name('organization.team.members.invite');
         Route::patch('/api/team-members/role', [OrganizationTeamController::class, 'updateRole'])->name('organization.team.members.updateRole');
+        Route::patch('/api/team-members/update', [OrganizationTeamController::class, 'updateMember'])->name('organization.team.members.update');
+        Route::patch('/api/team-members/activate', [OrganizationTeamController::class, 'activateMember'])->name('organization.team.members.activate');
         Route::patch('/api/team-members/archive', [OrganizationTeamController::class, 'softDeleteMember'])->name('organization.team.members.archive');
         Route::patch('/api/team-members/restore', [OrganizationTeamController::class, 'restoreMember'])->name('organization.team.members.restore');
 
