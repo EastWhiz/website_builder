@@ -29,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
 
         Gate::define('org.permission', function (User $user, string $permissionKey): bool {
+            if ((int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin')) {
+                return true;
+            }
+
             $organization = $user->currentOrganization();
             if (!$organization) {
                 return false;
@@ -50,12 +54,12 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::define('org.role.crud', function (User $user): bool {
-            // Super Admin-only role CRUD (legacy platform admin role_id=1).
-            return (int) ($user->role_id ?? 0) === 1;
+            // Super Admin or platform admin can fully manage roles.
+            return (int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin');
         });
 
         Gate::define('org.permission.matrix.update', function (User $user): bool {
-            if ((int) ($user->role_id ?? 0) === 1) {
+            if ((int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin')) {
                 return true;
             }
 

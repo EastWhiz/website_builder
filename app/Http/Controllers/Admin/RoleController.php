@@ -12,9 +12,24 @@ use Illuminate\Support\Facades\Validator;
 
 class RoleController extends Controller
 {
+    private function isPrivilegedPlatformAdmin(): bool
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return false;
+        }
+
+        return (int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin');
+    }
+
     private function rejectIfSystemRole(Role $role)
     {
-        // Step 3B.3: immutable system roles.
+        // Privileged platform admins can bypass role limitations as requested.
+        if ($this->isPrivilegedPlatformAdmin()) {
+            return null;
+        }
+
+        // Step 3B.3 default guard for non-privileged actors.
         if ((bool) $role->is_system) {
             return sendResponse(false, 'System roles cannot be edited or archived.', null, null, null, 422);
         }
@@ -236,7 +251,7 @@ class RoleController extends Controller
         return sendResponse(true, 'Role updated successfully!', $role->fresh()->load('permissions:id,role_id,permission_key'));
     }
 
-    public function archive(int $id)
+    public function archive(Request $request, int $id)
     {
         $role = Role::findOrFail($id);
         $systemGuard = $this->rejectIfSystemRole($role);

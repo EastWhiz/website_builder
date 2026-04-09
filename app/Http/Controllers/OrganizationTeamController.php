@@ -18,6 +18,15 @@ use Illuminate\Validation\ValidationException;
 
 class OrganizationTeamController extends Controller
 {
+    private function isPrivilegedPlatformAdmin(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return (int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin');
+    }
+
     private function canManageTeamMember(Request $request, Organization $organization): bool
     {
         $user = $request->user();
@@ -25,8 +34,8 @@ class OrganizationTeamController extends Controller
             return false;
         }
 
-        // Super Admin fallback.
-        if ((int) ($user->role_id ?? 0) === 1) {
+        // Super Admin or Platform Admin can bypass org-role limitations.
+        if ($this->isPrivilegedPlatformAdmin($user)) {
             return true;
         }
 
@@ -52,8 +61,8 @@ class OrganizationTeamController extends Controller
         $user = $request->user();
         $organization = $user?->currentOrganization();
 
-        // Allow Super Admin to target organization explicitly.
-        if (!$organization && (int) ($user->role_id ?? 0) === 1 && $request->filled('organization_id')) {
+        // Allow privileged platform admins to target organization explicitly.
+        if (!$organization && $this->isPrivilegedPlatformAdmin($user) && $request->filled('organization_id')) {
             $organization = Organization::find((int) $request->get('organization_id'));
         }
 
