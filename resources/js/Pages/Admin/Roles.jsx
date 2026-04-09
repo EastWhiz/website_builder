@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 
@@ -39,6 +39,9 @@ const PERMISSION_KEYS = [
 ];
 
 export default function Roles() {
+    const { auth } = usePage().props;
+    const permissions = auth?.permissions || {};
+    const canRoleCrud = !!permissions.org_role_crud;
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -75,9 +78,12 @@ export default function Roles() {
     };
 
     useEffect(() => {
+        if (!canRoleCrud) {
+            return;
+        }
         loadRoles();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scope]);
+    }, [scope, canRoleCrud]);
 
     const resetForm = () => {
         setEditingId(null);
@@ -208,6 +214,10 @@ export default function Roles() {
             <div className="py-8">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     <div className="bg-white shadow sm:rounded-lg p-6">
+                        {!canRoleCrud ? (
+                            <div className="text-sm text-red-700">You are not authorized to manage roles.</div>
+                        ) : (
+                        <>
                         <div className="flex items-center gap-3 mb-4">
                             <label className="text-sm font-medium text-gray-700">Scope</label>
                             <select
@@ -375,6 +385,8 @@ export default function Roles() {
                                 </form>
                             </div>
                         </div>
+                        </>
+                        )}
                     </div>
                 </div>
             </div>

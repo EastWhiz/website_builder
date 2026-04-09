@@ -1,9 +1,11 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
 export default function TeamSettings() {
+    const { auth } = usePage().props;
+    const permissions = auth?.permissions || {};
     const [loading, setLoading] = useState(true);
     const [members, setMembers] = useState([]);
     const [organization, setOrganization] = useState(null);
@@ -200,6 +202,7 @@ export default function TeamSettings() {
                             Organization: <span className="font-medium">{organization?.name || '-'}</span>
                         </p>
 
+                        {permissions.member_invite && (
                         <form onSubmit={handleInvite} className="mt-4 border rounded-md p-4 bg-gray-50">
                             <p className="text-sm font-medium text-gray-800 mb-3">Invite member</p>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -250,6 +253,7 @@ export default function TeamSettings() {
                                 </button>
                             </div>
                         </form>
+                        )}
 
                         <div className="mt-4 flex items-center gap-3 flex-wrap">
                             <input
@@ -353,13 +357,13 @@ export default function TeamSettings() {
                                                 <td className="px-4 py-2">
                                                     <button
                                                         type="button"
-                                                        disabled={updatingRoleFor === m.membership_id}
+                                                        disabled={updatingRoleFor === m.membership_id || !permissions.member_role_assign}
                                                         onClick={() => handleRoleUpdate(m.membership_id)}
                                                         className="px-2 py-1 text-xs rounded bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60"
                                                     >
                                                         {updatingRoleFor === m.membership_id ? 'Saving...' : 'Save Role'}
                                                     </button>
-                                                    {!archived && (
+                                                    {!archived && permissions.member_role_assign && (
                                                         <Link
                                                             href={route('organization.team.members.editPage', m.membership_id)}
                                                             className="ml-2 px-2 py-1 text-xs rounded border border-indigo-500 text-indigo-700 hover:bg-indigo-50"
@@ -367,7 +371,7 @@ export default function TeamSettings() {
                                                             Edit
                                                         </Link>
                                                     )}
-                                                    {!archived && String(m.membership_status).toLowerCase() === 'invited' && (
+                                                    {!archived && permissions.member_activate_complete && String(m.membership_status).toLowerCase() === 'invited' && (
                                                         <button
                                                             type="button"
                                                             disabled={memberActionLoadingId === m.membership_id}
@@ -378,6 +382,7 @@ export default function TeamSettings() {
                                                         </button>
                                                     )}
                                                     {archived ? (
+                                                        permissions.member_restore && (
                                                         <button
                                                             type="button"
                                                             disabled={memberActionLoadingId === m.membership_id}
@@ -392,7 +397,9 @@ export default function TeamSettings() {
                                                         >
                                                             {memberActionLoadingId === m.membership_id ? '...' : 'Restore'}
                                                         </button>
+                                                        )
                                                     ) : (
+                                                        permissions.member_soft_delete && (
                                                         <button
                                                             type="button"
                                                             disabled={memberActionLoadingId === m.membership_id}
@@ -407,6 +414,7 @@ export default function TeamSettings() {
                                                         >
                                                             {memberActionLoadingId === m.membership_id ? '...' : 'Archive'}
                                                         </button>
+                                                        )
                                                     )}
                                                 </td>
                                             </tr>

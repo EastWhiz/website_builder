@@ -6,7 +6,9 @@ import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+    const { auth } = usePage().props;
+    const user = auth.user;
+    const permissions = auth.permissions || {};
     // console.log(user);
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
@@ -82,12 +84,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                         >
                                             API Platforms
                                         </NavLink>
-                                        <NavLink
-                                            href={route('admin.roles.manage')}
-                                            active={route().current('admin.roles.manage')}
-                                        >
-                                            Roles
-                                        </NavLink>
+                                        {permissions.org_role_crud && (
+                                            <NavLink
+                                                href={route('admin.roles.manage')}
+                                                active={route().current('admin.roles.manage')}
+                                            >
+                                                Roles
+                                            </NavLink>
+                                        )}
                                     </div>
                                 </> : <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
@@ -255,12 +259,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     API Platforms
                                 </ResponsiveNavLink>
-                                <ResponsiveNavLink
-                                    href={route('admin.roles.manage')}
-                                    active={route().current('admin.roles.manage')}
-                                >
-                                    Roles
-                                </ResponsiveNavLink>
+                                {permissions.org_role_crud && (
+                                    <ResponsiveNavLink
+                                        href={route('admin.roles.manage')}
+                                        active={route().current('admin.roles.manage')}
+                                    >
+                                        Roles
+                                    </ResponsiveNavLink>
+                                )}
                             </> : <>
                                 <ResponsiveNavLink
                                     href={route('organization.team.settings')}

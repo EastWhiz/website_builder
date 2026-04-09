@@ -12,12 +12,22 @@ use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class OrganizationTeamController extends Controller
 {
+    private function denyUnlessCan(Request $request, string $permissionKey)
+    {
+        if (!Gate::forUser($request->user())->allows('org.permission', $permissionKey)) {
+            return sendResponse(false, 'Unauthorized action.', null, null, null, 403);
+        }
+
+        return null;
+    }
+
     private function isPrivilegedPlatformAdmin(?User $user): bool
     {
         if (!$user) {
@@ -152,6 +162,10 @@ class OrganizationTeamController extends Controller
 
     public function rolesIndex()
     {
+        if (!Gate::forUser(request()->user())->allows('org.permission', 'role.view')) {
+            return sendResponse(false, 'Unauthorized action.', null, null, null, 403);
+        }
+
         $roles = Role::query()
             ->where('scope', 'organization')
             ->where('is_active', true)
@@ -172,6 +186,10 @@ class OrganizationTeamController extends Controller
         }
         if (!$this->canManageTeamMember($request, $organization)) {
             return sendResponse(false, 'Only organization owner/admin can view member details.', null, null, null, 403);
+        }
+        $deny = $this->denyUnlessCan($request, 'member.role.assign');
+        if ($deny) {
+            return $deny;
         }
 
         $member = DB::table('organization_user as ou')
@@ -216,6 +234,11 @@ class OrganizationTeamController extends Controller
     public function invite(Request $request)
     {
         $organization = $this->resolveOrganization($request);
+        $deny = $this->denyUnlessCan($request, 'member.invite');
+        if ($deny) {
+            return $deny;
+        }
+
         if (!$organization) {
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }
@@ -290,6 +313,11 @@ class OrganizationTeamController extends Controller
     public function updateRole(Request $request)
     {
         $organization = $this->resolveOrganization($request);
+        $deny = $this->denyUnlessCan($request, 'member.role.assign');
+        if ($deny) {
+            return $deny;
+        }
+
         if (!$organization) {
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }
@@ -347,6 +375,10 @@ class OrganizationTeamController extends Controller
         }
         if (!$this->canManageTeamMember($request, $organization)) {
             return sendResponse(false, 'Only organization owner/admin can edit members.', null, null, null, 403);
+        }
+        $deny = $this->denyUnlessCan($request, 'member.role.assign');
+        if ($deny) {
+            return $deny;
         }
 
         $validator = validator($request->all(), [
@@ -438,6 +470,10 @@ class OrganizationTeamController extends Controller
         if (!$this->canManageTeamMember($request, $organization)) {
             return sendResponse(false, 'Only organization owner/admin can manually activate invited members.', null, null, null, 403);
         }
+        $deny = $this->denyUnlessCan($request, 'member.activate_complete');
+        if ($deny) {
+            return $deny;
+        }
 
         $validator = validator($request->all(), [
             'membership_id' => 'required|integer',
@@ -490,6 +526,11 @@ class OrganizationTeamController extends Controller
     public function softDeleteMember(Request $request)
     {
         $organization = $this->resolveOrganization($request);
+        $deny = $this->denyUnlessCan($request, 'member.soft_delete');
+        if ($deny) {
+            return $deny;
+        }
+
         if (!$organization) {
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }
@@ -582,6 +623,11 @@ class OrganizationTeamController extends Controller
     public function restoreMember(Request $request)
     {
         $organization = $this->resolveOrganization($request);
+        $deny = $this->denyUnlessCan($request, 'member.restore');
+        if ($deny) {
+            return $deny;
+        }
+
         if (!$organization) {
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }

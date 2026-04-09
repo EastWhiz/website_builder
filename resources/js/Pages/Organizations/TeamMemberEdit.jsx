@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
 export default function TeamMemberEdit() {
-    const { membershipId } = usePage().props;
+    const { membershipId, auth } = usePage().props;
+    const permissions = auth?.permissions || {};
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [roles, setRoles] = useState([]);
@@ -241,7 +242,7 @@ export default function TeamMemberEdit() {
                                     {submitting ? 'Saving...' : 'Update Member'}
                                 </button>
 
-                                {String(member?.membership_status || '').toLowerCase() === 'invited' && (
+                                {permissions.member_activate_complete && String(member?.membership_status || '').toLowerCase() === 'invited' && (
                                     <button
                                         type="button"
                                         onClick={handleManualActivate}

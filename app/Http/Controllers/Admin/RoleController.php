@@ -8,10 +8,19 @@ use App\Models\RolePermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 
 class RoleController extends Controller
 {
+    private function denyUnlessRoleCrud()
+    {
+        if (!Gate::forUser(Auth::user())->allows('org.role.crud')) {
+            return sendResponse(false, 'Unauthorized action.', null, null, null, 403);
+        }
+        return null;
+    }
+
     private function isPrivilegedPlatformAdmin(): bool
     {
         $user = Auth::user();
@@ -113,6 +122,11 @@ class RoleController extends Controller
 
     public function index(Request $request)
     {
+        $deny = $this->denyUnlessRoleCrud();
+        if ($deny) {
+            return $deny;
+        }
+
         $scope = trim((string) $request->get('scope', 'organization'));
         if (!in_array($scope, ['organization', 'platform'], true)) {
             $scope = 'organization';
@@ -146,6 +160,11 @@ class RoleController extends Controller
 
     public function store(Request $request)
     {
+        $deny = $this->denyUnlessRoleCrud();
+        if ($deny) {
+            return $deny;
+        }
+
         $validator = Validator::make($request->all(), [
             'scope' => 'required|string|in:organization,platform',
             'key' => 'required|string|max:80',
@@ -200,6 +219,11 @@ class RoleController extends Controller
 
     public function update(Request $request, int $id)
     {
+        $deny = $this->denyUnlessRoleCrud();
+        if ($deny) {
+            return $deny;
+        }
+
         $role = Role::with('permissions:id,role_id,permission_key')->findOrFail($id);
         $systemGuard = $this->rejectIfSystemRole($role);
         if ($systemGuard) {
@@ -253,6 +277,11 @@ class RoleController extends Controller
 
     public function archive(Request $request, int $id)
     {
+        $deny = $this->denyUnlessRoleCrud();
+        if ($deny) {
+            return $deny;
+        }
+
         $role = Role::findOrFail($id);
         $systemGuard = $this->rejectIfSystemRole($role);
         if ($systemGuard) {

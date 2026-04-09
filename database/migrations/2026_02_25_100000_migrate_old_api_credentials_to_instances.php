@@ -23,7 +23,8 @@ return new class extends Migration
         });
 
         $mapping = ApiMigrationMappingSeeder::getMapping();
-        $credentials = UserApiCredential::whereNull('migrated_at')->get();
+        // Avoid SoftDeletes global scope during migration bootstrap where deleted_at may not exist yet.
+        $credentials = UserApiCredential::withoutGlobalScopes()->whereNull('migrated_at')->get();
 
         foreach ($credentials as $cred) {
             $this->migrateUserCredentials($cred, $mapping);
