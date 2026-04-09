@@ -82,6 +82,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                         >
                                             API Platforms
                                         </NavLink>
+                                        <NavLink
+                                            href={route('admin.roles.manage')}
+                                            active={route().current('admin.roles.manage')}
+                                        >
+                                            Roles
+                                        </NavLink>
                                     </div>
                                 </> : <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
@@ -248,6 +254,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                     active={route().current('api.categories.manage')}
                                 >
                                     API Platforms
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink
+                                    href={route('admin.roles.manage')}
+                                    active={route().current('admin.roles.manage')}
+                                >
+                                    Roles
                                 </ResponsiveNavLink>
                             </> : <>
                                 <ResponsiveNavLink

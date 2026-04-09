@@ -16,6 +16,7 @@ use App\Http\Controllers\ThankYouPageController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\ApiCategoryController;
 use App\Http\Controllers\Admin\ApiCategoryFieldController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\UserApiInstanceController;
 use App\Http\Controllers\Admin\OrganizationController;
@@ -113,6 +114,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/organizations/provision', [OrganizationController::class, 'provision'])->name('admin.organizations.provision');
         Route::put('/organizations/{id}', [OrganizationController::class, 'update'])->name('admin.organizations.update');
         Route::patch('/organizations/{id}/status', [OrganizationController::class, 'updateStatus'])->name('admin.organizations.updateStatus');
+
+        // Roles (Super Admin only) - Phase 3B
+        Route::inertia('/roles-management', 'Admin/Roles')->name('admin.roles.manage');
+        Route::get('/roles', [RoleController::class, 'index'])->name('admin.roles.index');
+        Route::post('/roles', [RoleController::class, 'store'])->name('admin.roles.store');
+        Route::put('/roles/{id}', [RoleController::class, 'update'])->name('admin.roles.update');
+        Route::patch('/roles/{id}/archive', [RoleController::class, 'archive'])->name('admin.roles.archive');
     });
 
     Route::middleware('role:member')->prefix('member')->group(function () {
