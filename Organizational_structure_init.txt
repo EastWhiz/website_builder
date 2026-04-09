@@ -1,0 +1,326 @@
+================================================================================
+ORGANIZATIONAL STRUCTURE — INITIAL REQUIREMENTS & IMPLEMENTATION FLOW
+================================================================================
+Document purpose: Capture agreed client direction, map it to the existing Page
+Builder (website_builder) system, and outline an implementation approach for
+team review. No application code is specified here; this is for approval before
+build.
+
+Last updated: 2026-04-04 (revised — stakeholder answers; integration catalog rule)
+
+--------------------------------------------------------------------------------
+1. CURRENT SYSTEM SNAPSHOT (PAGE BUILDER — THIS REPO)
+--------------------------------------------------------------------------------
+
+Identity & access
+- Users table drives authentication. Users have role_id → roles (Role model
+  exists; expand as needed).
+- No organization/company entity today; resources are scoped by user_id.
+
+Core resources (all tied to user_id today)
+- Angles, Angle templates, Thank you pages, Template-related content.
+- API instances: UserApiInstance (+ values) per user, categories from ApiCategory
+  (catalog of platform types). Target: Super Admin alone creates new integration
+  types (Network API / Pixel / Service catalog entries); organizations manage
+  their own instances and credentials against that catalog (see Section 2.5).
+- Legacy UserApiCredential (deprecated path; migration toward instances).
+- OTP / Unimatrix-style credentials: per-user service credentials.
+- Profile: pixels, API platforms UI, DeepL key on user, CRM settings (admin email).
+
+External sync
+- User API instances and platform definitions sync to CRM via existing HTTP
+  integration (Builder → CRM). CRM behavior is out of scope for this repo but
+  must stay consistent with org-scoped IDs once introduced.
+
+Implication: Introducing organizations means deciding, for each resource above,
+whether ownership is org-level, user-level with org membership, or hybrid
+(global vs per-sub-user APIs per client).
+
+--------------------------------------------------------------------------------
+2. CLIENT REQUIREMENTS — CONSOLIDATED UNDERSTANDING
+--------------------------------------------------------------------------------
+
+2.1 Organization & account lifecycle
+- Companies are not created by public self-signup; Super Admin provisions
+  organizations.
+- Primary organizational contact (top email) retains a normal user_id and is the
+  anchor for Page Builder + CRM workflow.
+- Team management (sub-users, invitations, related settings) uses a dedicated
+  Team / Company settings page — not only the generic Profile screen.
+- Profile may still hold personal/account fields; org team operations live on
+  the separate team management area.
+- One email address cannot belong to multiple companies (single-company rule).
+- No hard deletes for the org account: deactivate and “hold” state; lifecycle
+  may later tie to billing/cancel.
+
+2.2 Sub-users
+- Invited by the org (admin flow); activation link; sub-user sets own password.
+- Roles (examples named by client): Admin, Manager, Media Buyer — with
+  permission granularity to be defined in matrices below.
+- Sub-user removal: use soft delete only (no hard delete of the user row as the
+  default “delete” action). When a sub-user is soft-deleted, related Builder
+  data for that user is also soft-deleted in cascade, including but not limited
+  to: angles, angle templates, integrations (API instances, related values),
+  and other user-scoped assets as enumerated during implementation (thank-you
+  pages, OTP credentials, pixels, etc., per product decision). Restore vs
+  permanent purge policy can be a later phase.
+
+2.3 Page Builder — capability expectations (client)
+- Admin: full control to move landing pages; see all themes/pages by sub-user;
+  transfer assets at will; see all API hooks by sub-user for troubleshooting.
+- Non-admin (e.g. Media Buyer): limited to assigned scope unless granted
+  (exact matrix TBD).
+
+2.4 CRM (client — conceptual; mostly CRM app)
+- Global cap: org-wide total set by admin; independent of sub-users’ existence.
+- Optional: split cap equally across users, or per-user lead caps — configurable
+  by Admin/Manager; optional to use per-user caps at all.
+- Schedules, rules, invoices: each sub-user manages their own (not only
+  org-admin-only for these areas).
+- CRM Super Admin: no visibility into tenant CRM data; training via videos.
+- Page Builder Super Admin: edit privileges, training support; may clone/move
+  pages between organizations — with full audit logging (see Section 3).
+
+2.5 Integrations — ownership model (client)
+- Creating *new* integrations in the system (new Platforms, Pixel, Service,
+  or other catalog/platform definitions that tenants can then plug into) is
+  **Super Admin only**. This matches “what exists in the product” as a platform
+  catalog (e.g. ApiCategory / field definitions, pixel types, service types).
+- Admin (org) can assign permissions so sub-users may or may not add/edit their
+  own *instances* (credentials, named instances) within that catalog.
+- Admin may define org-wide (global) API credentials for the team OR allow each
+  sub-user to maintain their own instances — top-level policy.
+- Companies manage their own *integration instances* (credentials, configuration,
+  effective use in Builder) within the types Super Admin has provisioned. They
+  do not create new platform/catalog integration types.
+
+2.6 Integration taxonomy (product grouping — client direction)
+- Network APIs: Trackbox, iRev, Lead Greed, Get Linked, …
+- Pixels: Facebook, Voluum, Taboola CPC truncations, …
+- Services: DeepL, Unimatrix, AWeber, …
+
+UX grouping + permission boundaries for tenants. **Catalog** entries for any
+new API/Pixel/Service remain Super Admin–created; tenant UI only consumes and
+configures instances.
+
+--------------------------------------------------------------------------------
+3. STAKEHOLDER ANSWERS (FORMERLY OPEN QUESTIONS)
+--------------------------------------------------------------------------------
+
+3.1 Sub-user deleted — what happens to their pages?
+RESOLVED: Use soft delete for sub-users. When a sub-user is soft-deleted,
+cascade soft-delete their related data: angles, templates, integrations (API
+instances and dependent records), and other scoped entities as aligned in a
+cascade matrix (see implementation checklist). No automatic reassignment to
+another buyer on delete; data remains recoverable until any future “force
+delete” or retention policy.
+
+3.2 CRM — besides caps, who manages schedules, rules, invoices?
+RESOLVED: Every sub-user manages their own schedules, rules, etc. (in addition
+to the org-level cap model described in 2.4).
+
+3.3 Team management — Profile only vs dedicated screen?
+RESOLVED: There should be a separate page for team management (company/team
+settings), not only the profile page.
+
+3.4 Super Admin moves pages between companies — rules and logging?
+RESOLVED: Require complete audit logs: who moved what, source, destination,
+timestamps, and identifiers sufficient for support and compliance (user id,
+optional org ids, angle/template ids). Additional business rules (naming
+conflicts, CRM linkage updates) remain to be specified in the permission
+matrix and CRM contract.
+
+3.5 Super Admin vs companies — who creates integrations?
+RESOLVED (refined): **New** integrations (APIs, Pixels, Services, etc. — i.e.
+new catalog/platform definitions in the Builder) are **created by Super Admin
+only.** Organizations do not add brand-new integration *types* to the system.
+Organizations **do** manage their own **instances** (credentials, configuration)
+for those integrations, per org policy and permissions — without needing Super
+Admin for day-to-day instance setup once the type exists.
+
+--------------------------------------------------------------------------------
+4. PROPOSED CONCEPTUAL MODEL (FOR IMPLEMENTATION PLANNING)
+--------------------------------------------------------------------------------
+
+4.1 Entities (new or extended)
+- Organization (company): name, status (active | on_hold | deactivated), billing
+  fields (future), primary_user_id or owner email reference, timestamps.
+- Organization membership: user_id, organization_id, membership role
+  (org_admin | org_manager | org_media_buyer or enum), status (invited | active
+  | suspended), invited_at, accepted_at.
+- Optional: invitation tokens table or Laravel’s password reset / notification
+  pattern for invite links.
+- Audit log (cross-org moves, sensitive transfers): actor_user_id, action,
+  entity_type, entity_id, from_organization_id, to_organization_id, metadata
+  (JSON), created_at; immutable append-only.
+
+4.2 User model
+- Add organization_id (nullable during migration) OR only link via membership
+  if multi-step migration preferred. Simplest long-term: every sub-user has one
+  org via membership; owner is also a member with org_admin.
+- Sub-users: soft deletes (deleted_at on users or membership row + user
+  soft-delete — choose one pattern and cascade consistently).
+- Enforce at application layer: email unique globally → enforces one company
+  per email as long as signup creates user+org together under Super Admin.
+
+4.3 Resource ownership (recommended direction for minimal disruption)
+- Phase A (compatibility): keep user_id on Angle, AngleTemplate, ThankYouPage,
+  UserApiInstance, etc., but add organization_id (denormalized) OR resolve org
+  through user’s membership for queries. Prefer explicit organization_id on
+  content rows if queries are org-scoped often (better indexes, simpler auth).
+- Phase B: “assigned_to_user_id” on angles/pages for media buyer assignment;
+  transfer = update assignment + audit log.
+- Soft deletes: add deleted_at (or equivalent) to angles, templates, API
+  instances, and other cascaded tables; scope all default queries to exclude
+  soft-deleted rows; define restore path for org admins if required later.
+
+Exact choice should be validated against export/CRM payloads (save-lead,
+api_payload) so org or buyer identifiers sync correctly if needed.
+
+4.4 Roles — two layers
+- Platform role (existing): super_admin, user, etc. — for Builder-wide actions
+  (cross-org moves with full audit; **creating/maintaining the global
+  integration catalog** — new APIs, pixel types, service definitions, OTP service
+  catalog entries as applicable).
+- Organization role (new): Admin / Manager / Media Buyer within one org —
+  enforced in policies/middleware for angles, API **instances**, pixels config,
+  invites.
+
+Avoid overloading a single role_id for both; use org_membership.role or a
+permission JSON if fine-grained flags are required (e.g. “can_edit_pixels”).
+
+Note: Super Admin retains exclusive (or governing) responsibility for **catalog**
+CRUD; tenant code paths must not allow org users to create new ApiCategory-style
+records unless product explicitly adds a delegated workflow later.
+
+--------------------------------------------------------------------------------
+5. USER FLOWS (HIGH LEVEL)
+--------------------------------------------------------------------------------
+
+5.1 Super Admin creates organization
+- Create Organization record (company name, status active).
+- Create owner User (company email, temporary password or invite flow — TBD) OR
+  link existing user if pre-seeded.
+- Attach owner as org_admin membership.
+- CRM: if CRM stores org, push create-org + owner mapping (coordinate with CRM
+  team).
+
+5.2 Org Admin invites sub-user
+- Enter name + email; system creates invited membership or pending user record;
+  send activation email; user sets password; status → active.
+- Enforce email not already tied to another org.
+
+5.2b Org Admin soft-deletes sub-user
+- Mark sub-user (and membership) soft-deleted; cascade soft-delete dependent
+  Builder data per matrix; block login; hide from active team lists unless
+  “show archived” filter.
+- Exports already deployed to the public web may need explicit policy (existing
+  zips vs Builder access).
+
+5.3 Deactivate organization (hold)
+- Set organization status on_hold/deactivated; block logins or reduce to read-
+  only per policy; cascade suspend memberships; do not delete rows.
+- Existing exports on the web may still run — define policy (often allow until
+  expiry or hard block via flag).
+
+5.4 Page transfer (Org Admin) and Super Admin cross-org
+- Org-level: select pages/angles → target sub-user or org pool → persist
+  assignment + audit (who, when, from → to).
+- Super Admin cross-org: same mechanism with source_org and target_org checks;
+  every operation writes a complete audit record (who moved what, where from,
+  where to, when).
+
+5.5 Integrations
+- Super Admin: introduce new integration types in the catalog (and sync to CRM
+  definitions where applicable today).
+- Policy flag: org_integration_mode = shared | per_user (or granular per
+  category group: Network / Pixels / Services).
+- If shared: resolve API instance from org-level defaults when exporting or
+  editing forms.
+- If per user: keep current UserApiInstance per sub-user; Admin can view all
+  for support.
+- Companies configure their own **instances** under policy above (no Super
+  Admin needed for routine credential/instance work once the type exists).
+
+--------------------------------------------------------------------------------
+6. IMPLEMENTATION PHASES (BUILDER REPO — SUGGESTED ORDER)
+--------------------------------------------------------------------------------
+
+Phase 0 — Alignment
+- Finalize permission matrix (roles × angles, transfer, APIs, pixels, OTP,
+  invites). Finalize cascade soft-delete matrix per table.
+- CRM contract: schedules/rules/invoices per sub-user + org cap model.
+
+Phase 1 — Data model & auth
+- Migrations: organizations, organization_user (membership), status fields,
+  soft deletes on users and dependent tables as agreed.
+- Middleware: resolve current_organization from session (for users with single
+  org) or explicit switcher (future).
+- Gates/policies: org_admin, org_manager, org_media_buyer checks.
+
+Phase 2 — Super Admin org provisioning UI
+- Create org + owner user; list orgs; deactivate/hold.
+
+Phase 3 — Dedicated Team / Company settings page
+- List members, invite, resend invite, soft-delete sub-user with cascade;
+  integration policy (shared vs per-user); link from main nav or settings hub.
+
+Phase 4 — Content scoping & transfer
+- Query updates: angles/templates lists filter by organization; respect soft
+  deletes.
+- Admin views: all sub-users’ assets; transfer and audit log.
+- Super Admin: cross-org move/clone with mandatory audit log records.
+- Export pipeline: AngleTemplateController / zip export respects instance
+  resolution and archived users.
+
+Phase 5 — Integration grouping (UX) + tenant instance setup
+- Re-group UI: Network APIs, Pixels, Services.
+- Keep Super Admin tooling authoritative for **new** catalog entries; ensure
+  tenant flows focus on **instances** only (org policy, shared vs per-user).
+
+Phase 6 — CRM coordination
+- Extend sync payloads with organization_id / user scope for caps, schedules,
+  rules, invoices per CRM design.
+
+--------------------------------------------------------------------------------
+7. PERFORMANCE & OPERATIONAL NOTES
+--------------------------------------------------------------------------------
+
+- Add indexes: organization_id on angles, angle_templates, user_api_instances
+  (if denormalized), membership (organization_id, user_id) unique where
+  appropriate; deleted_at composite indexes where soft deletes are queried.
+- List screens: eager load owner and assigned user; avoid N+1 when Admin views
+  “all sub-users’ pages.”
+- Large orgs: paginate; consider cached counts (pages per user) only if needed.
+- Audit logs: append-only, indexed by org_id, actor_id, created_at; consider
+  async write for high-volume if ever needed.
+- Soft-delete/hold: prefer deleted_at + status columns; single source of truth
+  for “can login” vs “archived content.”
+
+--------------------------------------------------------------------------------
+8. OUT OF SCOPE FOR THIS DOCUMENT
+--------------------------------------------------------------------------------
+
+- Detailed CRM schema and cap / schedule / rule / invoice engines (CRM codebase).
+- Payment/billing integration for hold/cancel states.
+- Exact email copy for invitations.
+- Long-term retention / hard purge of soft-deleted tenants (policy TBD).
+
+--------------------------------------------------------------------------------
+9. APPROVAL CHECKLIST
+--------------------------------------------------------------------------------
+
+[ ] Stakeholders confirm Section 2 matches sales/legal intent.
+[ ] Section 3 stakeholder answers accepted as final (or amended in writing).
+[ ] Soft-delete cascade matrix signed off (exact tables and restore policy).
+[ ] Ownership model (Section 4.3) chosen: org_id on content vs join-only.
+[ ] Permission matrix signed off.
+[ ] CRM team signs off on sync identifiers for org, sub-users, and per-user
+    schedules/rules/invoices.
+[ ] Super Admin cross-org move/clone + audit log fields approved.
+[ ] Split approved: Super Admin = new integration **catalog** types only;
+    organizations = **instances** and credentials (no tenant-created catalog).
+
+================================================================================
+END OF DOCUMENT
+================================================================================

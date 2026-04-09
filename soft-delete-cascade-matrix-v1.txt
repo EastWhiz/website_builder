@@ -1,0 +1,49 @@
+SOFT-DELETE CASCADE MATRIX V1 (PHASE 0 LOCK)
+
+Intent
+- Sub-user deletion is soft-delete only.
+- Related data is soft-deleted (not hard-deleted) according to matrix below.
+- Restore policy can be introduced later; default behavior is archive.
+
+Actor Action
+- Trigger: Org Admin/Manager or Super Admin soft-deletes a sub-user.
+
+Primary Entity
+- users: SOFT DELETE (deleted_at set)
+
+Cascade Targets (Builder repo)
+- angles: SOFT DELETE where user_id = deleted user
+- angle_templates: SOFT DELETE where user_id = deleted user
+- thank_you_pages: SOFT DELETE where user_id = deleted user
+- user_api_instances: SOFT DELETE where user_id = deleted user
+- user_api_instance_values: SOFT DELETE where user_api_instance_id in soft-deleted instances
+- otp_service_credentials: SOFT DELETE (if table supports) where user_id = deleted user
+- user_api_credentials (legacy): SOFT DELETE or mark archived where user_id = deleted user
+
+Non-delete / Preserve
+- audit logs: PRESERVE (immutable)
+- global integration catalog (ApiCategory / fields): PRESERVE
+- organization records: PRESERVE
+
+Visibility Rules After Soft Delete
+- Archived user and related archived content hidden from default lists.
+- Optional "show archived" filter for admin/manager and super admin views.
+- Archived user cannot authenticate/use builder flows.
+
+Export/Runtime Guard
+- Existing exported zips remain subject to org status policy.
+- Builder must prevent new edit/export actions under archived user context.
+
+Technical Notes
+- Add deleted_at indexes where needed for list performance.
+- Ensure query scopes exclude soft-deleted rows by default.
+- Avoid physical cascade deletes in foreign keys for these paths.
+
+Open Decision (approval needed)
+- restore flow availability:
+  - Option A: allow restore for Org Admin/Manager
+  - Option B: allow restore only by Super Admin
+  - Option C: no restore in v1
+
+Status
+- Phase 0 soft-delete matrix lock: DRAFT FOR APPROVAL

@@ -1,0 +1,66 @@
+PERMISSION MATRIX V1 (PHASE 0 LOCK)
+
+Roles
+- Super Admin (platform-wide)
+- Org Admin
+- Org Manager
+- Media Buyer
+
+Legend
+- ALLOW = can execute directly
+- CONDITIONAL = allow only within assigned scope / extra guard
+- DENY = blocked
+
+1) Organization & Team
+- org.create .................. Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- org.update_status ........... Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- member.invite ............... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- member.activate_complete .... Super Admin: CONDITIONAL | Org Admin: CONDITIONAL | Org Manager: CONDITIONAL | Media Buyer: CONDITIONAL
+- member.role.assign .......... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- member.soft_delete .......... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- member.restore (optional) ... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+
+2) Role Management
+- role.view ................... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: CONDITIONAL | Media Buyer: DENY
+- role.create ................. Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- role.update ................. Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- role.archive ................ Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+
+3) Content (Angles/Templates/Pages)
+- content.view_own ............ Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: ALLOW
+- content.view_org_all ........ Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- content.create .............. Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: ALLOW
+- content.update_own .......... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: ALLOW
+- content.update_org_all ...... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- content.soft_delete ......... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: CONDITIONAL
+- content.transfer_in_org ..... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- content.move_cross_org ...... Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- content.clone_cross_org ..... Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+
+4) Integrations
+- integration.catalog.create ... Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- integration.catalog.update ... Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- integration.catalog.archive .. Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+- integration.instance.view_own  Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: ALLOW
+- integration.instance.view_org  Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: CONDITIONAL
+- integration.instance.create ... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: CONDITIONAL
+- integration.instance.update ... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: CONDITIONAL
+- integration.instance.soft_del . Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: CONDITIONAL
+
+5) Audit & Logs
+- audit.view_org .............. Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- audit.view_cross_org ........ Super Admin: ALLOW | Org Admin: DENY | Org Manager: DENY | Media Buyer: DENY
+
+6) Permission Matrix / Policy Management
+- permission.matrix.view ...... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: CONDITIONAL | Media Buyer: DENY
+- permission.matrix.update .... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: CONDITIONAL | Media Buyer: DENY
+
+Guardrails (mandatory)
+- Org users cannot role.create / role.update / role.archive.
+- In-use roles cannot hard-delete; archive only.
+- Role assignment cannot exceed actor authority (no escalation).
+- Every cross-org move/clone must produce immutable audit record.
+- Org Manager can update permission matrix only when explicitly delegated by Org Admin (e.g., `permission.matrix.update.delegate=true`).
+
+Status
+- Phase 0 matrix lock: DRAFT FOR APPROVAL

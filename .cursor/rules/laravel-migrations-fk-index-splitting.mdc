@@ -1,0 +1,29 @@
+---
+description: Split columns, indexes, and foreign keys into separate migrations
+globs: database/migrations/*.php
+alwaysApply: false
+---
+
+# Laravel migration rule: split FKs and indexes
+
+In this repository, **never combine** column adds, index adds, and foreign key adds in the same migration when touching existing tables.
+
+## Required pattern
+
+- **Migration A (columns only)**: add/alter columns (and make it **idempotent** if the DB might be partially migrated; use `Schema::hasColumn` where appropriate).
+- **Migration B (indexes only)**: add indexes in a separate migration. Prefer index names that are stable and explicit.
+- **Migration C (foreign keys only)**: add foreign keys in a separate migration, and only when the environment is known-safe.
+
+## Live-safety constraint (MySQL engines)
+
+Some environments may have existing tables not compatible with FK constraints (engine mismatch). Therefore:
+
+- Foreign key migrations must be **safe**:
+  - Either **skip** adding FKs when not safe (e.g., only add when tables are InnoDB), or
+  - Be planned as a separate “engine conversion” migration before FK creation.
+
+## Why
+
+- Prevents production deploy failures due to partial DDL application or FK engine constraints.
+- Makes re-running migrations safe after interrupted deploys.
+

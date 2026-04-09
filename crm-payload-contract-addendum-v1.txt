@@ -1,0 +1,50 @@
+CRM PAYLOAD CONTRACT ADDENDUM V1 (PHASE 0 LOCK)
+
+Purpose
+- Define additional payload identifiers for org-aware Builder -> CRM communication.
+- Preserve backward compatibility with current payload consumers.
+
+Applies To
+- save-lead payloads and API sync payloads sent from Builder where relevant.
+
+New/Extended Fields (proposed)
+1) Organization context
+- organization_id: integer|string (required for org-enabled records)
+- organization_status: string (active|on_hold|deactivated) when relevant to enforcement
+
+2) User context
+- owner_user_id: integer|string (org owner user id)
+- actor_user_id: integer|string (who performed action in Builder)
+- subject_user_id: integer|string (record owner/sub-user context)
+- actor_role_key: string (e.g., super_admin, org_admin, org_manager, media_buyer)
+
+3) Content context (for transfer/clone related operations)
+- source_organization_id: integer|string (cross-org only)
+- destination_organization_id: integer|string (cross-org only)
+- action_type: string (move|clone|update|delete|restore)
+
+4) Integration context
+- integration_scope: string (shared|per_user)
+- integration_instance_owner_user_id: integer|string (when per_user mode)
+- integration_category_key: string (network_api|pixel|service if needed)
+
+Backward Compatibility Rules
+- Existing required fields remain unchanged.
+- New fields are additive; CRM should treat missing fields as legacy payload.
+- Builder should include new keys only when org feature flag is enabled OR values exist.
+
+Validation Rules (Builder side)
+- organization_id must be present for org-enabled entities/actions.
+- actor_user_id must always represent authenticated Builder user making the change.
+- For cross-org actions, source_organization_id and destination_organization_id are mandatory.
+
+Audit Alignment
+- Payload actor/context fields must match local audit log entries for the same operation.
+
+Open Decisions (approval needed)
+- Exact primitive types expected by CRM (int vs string normalization).
+- Which endpoints require full org/user context versus minimal context.
+- Whether organization_status is required in every request or only enforcement-critical ones.
+
+Status
+- Phase 0 CRM addendum lock: DRAFT FOR APPROVAL

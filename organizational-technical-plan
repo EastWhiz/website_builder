@@ -1,0 +1,279 @@
+ORGANIZATIONAL TECHNICAL DEVELOPMENT PLAN
+
+Objective
+- Implement organization-based multi-user architecture in Builder with minimal disruption to existing user_id flows.
+- Keep integration catalog creation Super Admin-only.
+- Let organizations manage integration instances (credentials/config), not catalog types.
+- Support expandable roles via Role CRUD with strict governance (Super Admin controls role templates).
+
+Scope (Builder Repo)
+- Organization provisioning (Super Admin).
+- Team management (Org Admin/Manager): invite, activate, soft-delete sub-users.
+- Org-scoped content access: angles, templates, pages, API instances, OTP/pixels where applicable.
+- Cross-org move/clone by Super Admin with mandatory audit logs.
+- Integration UX grouping: Network APIs / Pixels / Services.
+
+Out of Scope
+- CRM internal schema/engine for caps/rules/schedules/invoices.
+- Billing/payment hold automation.
+- Long-term retention/force-delete policy.
+
+----------------------------------------------------------------------
+PHASE 0: DESIGN LOCK (1-2 days)
+----------------------------------------------------------------------
+Deliverables
+- Final permission matrix (Super Admin, Org Admin, Org Manager, Media Buyer).
+- Soft-delete cascade matrix (exact tables and rules).
+- CRM contract addendum (org_id and user scope fields).
+- Role governance lock:
+  - Super Admin: role.create / role.update / role.archive / role.view.
+  - Org Admin: role.assign + permission.matrix.view + permission.matrix.update.
+  - Org Manager: role.assign + permission.matrix.view; permission.matrix.update only when explicitly delegated by Org Admin.
+  - Org Admin/Manager: no role CRUD (create/update/archive roles remains Super Admin-only).
+  - Media Buyer: no role management.
+
+Small steps
+Status convention: [DONE] completed, [NEXT] currently in progress, [TODO] pending.
+- Step 0.1: Freeze role names and ownership model (catalog vs instances).
+- Step 0.2: Freeze permission keys list (page, integration, transfer, team, role).
+- Step 0.3: Freeze cascade matrix table-by-table (soft-delete targets).
+- Step 0.4: Freeze CRM payload keys and backward-compat rules.
+- Step 0.5: Sign-off checkpoint (no Phase 1 work before approval).
+
+Acceptance
+- Written sign-off on matrix + cascade list + payload contract.
+
+Phase 0 Artifacts
+- permission-matrix-v1.txt
+- soft-delete-cascade-matrix-v1.txt
+- crm-payload-contract-addendum-v1.txt
+
+----------------------------------------------------------------------
+PHASE 1: DATA MODEL + AUTHORIZATION (2-4 days)
+----------------------------------------------------------------------
+Backend Changes
+- Add organizations table:
+  - id, name, status (active|on_hold|deactivated), primary_user_id (nullable), timestamps.
+- Add organization_user (membership) table:
+  - id, organization_id, user_id, role_id, status (invited|active|suspended), invited_at, accepted_at, timestamps, soft delete (if chosen).
+- Add roles + role_permissions model for extensible role templates:
+  - roles: id, scope (platform|organization), key, name, description, is_system, is_active, created_by, timestamps.
+  - role_permissions: id, role_id, permission_key, timestamps.
+- Add/enable soft deletes:
+  - users (if approved), angles, angle_templates, user_api_instances, user_api_instance_values,
+    thank_you_pages, otp credentials/pixels tables as finalized in cascade matrix.
+- Add organization_id to high-traffic domain tables (preferred) OR enforce via membership joins.
+
+Indexes
+- organization_id on org-scoped entities.
+- (organization_id, user_id) unique on membership.
+- deleted_at composite indexes for filtered lists.
+- role_id index on membership; unique (scope, key) on roles.
+
+Authorization
+- Add policy/gate layer for org roles:
+  - view/edit own assigned assets.
+  - org-wide visibility for Admin/Manager as approved.
+  - cross-org operations restricted to Super Admin only.
+- Add role guardrails:
+  - org users cannot create/update/archive roles.
+  - archive role instead of delete when role is in use.
+  - prevent role assignment escalation outside actor permissions.
+
+Small steps
+- Step 1.1 [DONE]: Create migrations for organizations + membership.
+- Step 1.2 [DONE]: Add roles/role_permissions tables and seed base roles.
+- Step 1.3 [DONE]: Add organization_id columns (or join strategy) to scoped resources.
+- Step 1.4 [DONE]: Add soft-delete columns to approved cascade tables.
+- Note: to ensure live-server migrations never fail due to FK engine mismatches,
+  org-related migrations in Phase 1 are implemented **FK-free** (indexes only).
+- Step 1.5 [DONE]: Add indexes and constraints (unique keys, FK-free for live safety).
+- Step 1.6 [DONE]: Implement model relations and query scopes.
+- Step 1.7 [DONE]: Implement gates/policies for org roles + role guardrails.
+- Step 1.8 [DONE]: Run migration + rollback tests on staging snapshot.
+
+Acceptance
+- Migrations run clean.
+- Existing non-org flows remain functional for baseline users.
+- Role checks block unauthorized actions.
+- Phase 1 status: COMPLETE
+
+----------------------------------------------------------------------
+PHASE 2: SUPER ADMIN ORG PROVISIONING (2-3 days)
+----------------------------------------------------------------------
+Features
+- Super Admin UI/API to create organization + owner account.
+- Organization list and status controls (active/on_hold/deactivated).
+- No hard delete; status transitions only.
+
+Acceptance
+- Super Admin can create org and owner in one flow.
+- Hold/deactivate blocks member access per policy.
+
+Small steps
+- Step 2.1 [DONE]: Build org create API endpoint and validation.
+- Step 2.2 [DONE]: Create owner user + org_admin membership transactionally.
+- Step 2.3 [DONE]: Build Super Admin org list page with status filters.
+- Step 2.4 [DONE]: Add hold/deactivate actions with policy checks.
+- Step 2.5 [DONE]: Add activity logging for org lifecycle actions.
+
+----------------------------------------------------------------------
+PHASE 3: TEAM MANAGEMENT PAGE (3-5 days)
+----------------------------------------------------------------------
+Features
+- New dedicated Team/Company settings page.
+- Invite sub-user (name, email, role), send activation link.
+- Sub-user sets own password via activation flow.
+- Soft-delete sub-user action with cascade soft-delete of dependent assets.
+- "Archived users" view/filter.
+- Role assignment UI in team page (role list filtered to active org-scope roles).
+
+Acceptance
+- Invite/activation works end-to-end.
+- Soft-delete hides user and related assets from active views.
+- No hard delete path exposed in UI.
+
+Small steps
+- Step 3.1: Create Team/Company settings route and shell page.
+- Step 3.1 [DONE]: Create Team/Company settings route and shell page.
+- Step 3.2 [DONE]: Build members list API (active + archived toggle).
+- Step 3.3 [DONE]: Build invite API + email activation link flow.
+- Step 3.4 [DONE]: Build activation completion flow (set password + activate).
+- Step 3.5 [DONE]: Add role assignment UI and update endpoint.
+- Step 3.6 [DONE]: Add soft-delete member action + dependency cascade trigger.
+- Step 3.7 [DONE]: Add restore flow (optional if approved for v1).
+
+----------------------------------------------------------------------
+PHASE 3B: ROLE MANAGEMENT (SUPER ADMIN) (2-3 days)
+----------------------------------------------------------------------
+Features
+- Super Admin Role CRUD screen (create/edit/archive roles and permissions).
+- Keep protected system roles non-editable/non-archivable if marked `is_system`.
+- Permission key whitelist used by role editor.
+
+Acceptance
+- Super Admin can create/modify/archive non-system roles.
+- Org users cannot access role CRUD endpoints/UI.
+- Role assignment reflects newly active roles without code changes.
+
+Small steps
+- Step 3B.1 [DONE]: Build role list/create/update/archive APIs.
+- Step 3B.2 [DONE]: Enforce permission-key whitelist in backend validator.
+- Step 3B.3 [DONE]: Block edits for is_system roles (if policy enabled).
+- Step 3B.4 [DONE]: Build Super Admin role management UI.
+- Step 3B.5 [DONE]: Connect role assignment dropdown to active role list.
+
+----------------------------------------------------------------------
+PHASE 4: ORG SCOPING + TRANSFERS + AUDIT (4-6 days)
+----------------------------------------------------------------------
+Features
+- Org-scoped listing/query updates for:
+  - angles, angle templates, pages, integrations and relevant profile sections.
+- Transfer ownership/assignment within org (Admin/Manager as approved).
+- Super Admin cross-org move/clone.
+- Audit logging table + write path for every move/clone:
+  - actor_user_id, action, entity_type, entity_id, from_org_id, to_org_id, metadata, created_at.
+
+Acceptance
+- Users only see assets allowed by role + org.
+- Every move/clone operation creates an immutable audit record.
+- Cross-org action only possible by Super Admin.
+
+Small steps
+- Step 4.1: Apply org scopes to list/query endpoints (angles/templates/pages/APIs).
+- Step 4.2: Add assignment transfer API for in-org moves.
+- Step 4.3: Add Super Admin cross-org move/clone API path.
+- Step 4.4: Implement audit_log table + central logging helper/service.
+- Step 4.5: Add UI actions for transfer/clone with confirmation modals.
+- Step 4.6: Add read-only audit log viewer (Super Admin + permitted admins).
+
+----------------------------------------------------------------------
+PHASE 5: INTEGRATIONS MODEL ENFORCEMENT + UX GROUPING (3-5 days)
+----------------------------------------------------------------------
+Rules to Enforce
+- Super Admin only can create new integration catalog entries (API/Pixel/Service types).
+- Org users can only create/edit integration instances under existing catalog entries.
+
+Features
+- Group integration UI sections:
+  - Network APIs
+  - Pixels
+  - Services
+- Keep current instance workflow; add role guards for create/edit/delete instance access.
+- Remove tenant code paths that could create catalog-level entities.
+
+Acceptance
+- Tenant cannot create catalog type.
+- Tenant can manage instances according to granted permissions.
+- Grouped UI visible and role-aware.
+
+Small steps
+- Step 5.1: Separate catalog endpoints (Super Admin) from instance endpoints (org users).
+- Step 5.2: Add policy checks preventing tenant catalog CRUD.
+- Step 5.3: Refactor UI into Network APIs / Pixels / Services groups.
+- Step 5.4: Update role checks on instance create/edit/delete actions.
+- Step 5.5: Verify existing integrations (including AWeber) remain functional.
+
+----------------------------------------------------------------------
+PHASE 6: EXPORT + CRM COORDINATION (2-4 days)
+----------------------------------------------------------------------
+Builder Changes
+- Ensure export and runtime payloads carry org/user scoping fields if required.
+- Validate AngleTemplate export paths for archived users and org policies.
+
+CRM Contract Touchpoints (Builder-side only)
+- Include agreed identifiers in payloads:
+  - organization_id
+  - owner/sub-user context (as finalized)
+  - existing lead + API payload remains backward compatible where possible.
+
+Acceptance
+- Existing export paths still work.
+- New org/user fields present in payload contract tests.
+
+Small steps
+- Step 6.1: Add org/user identifiers to builder-to-CRM payload builders.
+- Step 6.2: Guard legacy payload compatibility with fallbacks/defaults.
+- Step 6.3: Validate export path behavior for archived users/org states.
+- Step 6.4: Add integration tests for save-lead and API sync payload shape.
+- Step 6.5: Run end-to-end staging checks with one multi-user org.
+
+----------------------------------------------------------------------
+TEST PLAN (MANDATORY BEFORE GO-LIVE)
+----------------------------------------------------------------------
+Functional
+- Super Admin creates org and owner.
+- Org Admin invites sub-user; activation/password set.
+- Role matrix checks (Admin/Manager/Media Buyer) for pages, APIs, team actions.
+- Super Admin role CRUD works; org users can assign but cannot CRUD roles.
+- Soft-delete user cascades dependent assets and hides from active lists.
+- Super Admin cross-org move/clone logs accurately.
+- Tenant blocked from creating new integration catalog types.
+
+Regression
+- Existing single-user projects still open/edit/export.
+- API instance save/sync still works.
+- AWeber and other existing integration flows unaffected.
+
+Performance
+- Verify org-scoped list endpoints with pagination.
+- Validate no obvious N+1 on admin "view all sub-user assets" screens.
+
+----------------------------------------------------------------------
+ROLLBACK / SAFETY
+----------------------------------------------------------------------
+- Feature flags for org-aware routing and team page visibility.
+- Non-destructive DB migration strategy (additive first).
+- Soft delete only; no hard delete in initial rollout.
+
+----------------------------------------------------------------------
+RELEASE CHECKLIST
+----------------------------------------------------------------------
+[ ] Phase 0 sign-offs complete.
+[ ] DB migrations reviewed and tested on staging snapshot.
+[ ] Permission matrix implemented and QA verified.
+[ ] Role CRUD governance verified (Super Admin-only CRUD; org assignment-only).
+[ ] Audit logs validated for move/clone actions.
+[ ] Integration catalog guardrails verified (Super Admin-only create).
+[ ] Export + CRM payload compatibility validated.
+[ ] UAT approved by stakeholders.
