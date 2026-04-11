@@ -17,6 +17,7 @@ Legend
 - member.invite ............... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
 - member.activate_complete .... Super Admin: CONDITIONAL | Org Admin: CONDITIONAL | Org Manager: CONDITIONAL | Media Buyer: CONDITIONAL
 - member.role.assign .......... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
+- member.edit ................. Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
 - member.soft_delete .......... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
 - member.restore (optional) ... Super Admin: ALLOW | Org Admin: ALLOW | Org Manager: ALLOW | Media Buyer: DENY
 

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
@@ -60,6 +62,32 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('org.role.crud', function (User $user): bool {
             // Super Admin or platform admin can fully manage roles.
             return (int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin');
+        });
+
+        /**
+         * Who may change their own organization role (team list / edit member).
+         * Matches org owner, platform admin, role key org_admin, or seeded org-admin-style permissions.
+         */
+        Gate::define('org.member.assign_own_org_role', function (User $user, Organization $organization): bool {
+            if ((int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin')) {
+                return true;
+            }
+            if ((int) $organization->primary_user_id === (int) $user->id) {
+                return true;
+            }
+            $key = DB::table('organization_user as ou')
+                ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+                ->where('ou.organization_id', $organization->id)
+                ->where('ou.user_id', $user->id)
+                ->whereNull('ou.deleted_at')
+                ->where('ou.status', 'active')
+                ->value('r.key');
+            if ($key === 'org_admin') {
+                return true;
+            }
+
+            return Gate::forUser($user)->allows('org.permission', 'permission.matrix.update')
+                && Gate::forUser($user)->allows('org.permission', 'member.role.assign');
         });
 
         Gate::define('org.permission.matrix.update', function (User $user): bool {

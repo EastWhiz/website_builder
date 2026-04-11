@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
 
@@ -31,6 +32,34 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $orgTeamAdmin = false;
+        if ($user) {
+            if ((int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin')) {
+                $orgTeamAdmin = true;
+            } else {
+                $org = $user->currentOrganization();
+                if ($org) {
+                    if ((int) $org->primary_user_id === (int) $user->id) {
+                        $orgTeamAdmin = true;
+                    } else {
+                        $roleKey = DB::table('organization_user as ou')
+                            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+                            ->where('ou.organization_id', $org->id)
+                            ->where('ou.user_id', $user->id)
+                            ->whereNull('ou.deleted_at')
+                            ->where('ou.status', 'active')
+                            ->value('r.key');
+                        $orgTeamAdmin = ($roleKey === 'org_admin');
+                    }
+                }
+            }
+        }
+
+        $canAssignOwnOrgRole = false;
+        if ($user && ($currentOrg = $user->currentOrganization())) {
+            $canAssignOwnOrgRole = Gate::forUser($user)->allows('org.member.assign_own_org_role', $currentOrg);
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -40,10 +69,13 @@ class HandleInertiaRequests extends Middleware
                     'permission_matrix_update' => Gate::forUser($user)->allows('org.permission.matrix.update'),
                     'member_invite' => Gate::forUser($user)->allows('org.permission', 'member.invite'),
                     'member_role_assign' => Gate::forUser($user)->allows('org.permission', 'member.role.assign'),
+                    'member_edit' => Gate::forUser($user)->allows('org.permission', 'member.edit'),
                     'member_soft_delete' => Gate::forUser($user)->allows('org.permission', 'member.soft_delete'),
                     'member_restore' => Gate::forUser($user)->allows('org.permission', 'member.restore'),
                     'member_activate_complete' => Gate::forUser($user)->allows('org.permission', 'member.activate_complete'),
                     'role_view' => Gate::forUser($user)->allows('org.permission', 'role.view'),
+                    'org_team_admin' => $orgTeamAdmin,
+                    'can_assign_own_org_role' => $canAssignOwnOrgRole,
                 ] : [],
             ],
         ];

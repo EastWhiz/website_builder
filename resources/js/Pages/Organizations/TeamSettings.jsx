@@ -6,6 +6,17 @@ import Swal from 'sweetalert2';
 export default function TeamSettings() {
     const { auth } = usePage().props;
     const permissions = auth?.permissions || {};
+    const currentUserId = auth?.user?.id;
+
+    const rowIsOrgAdmin = (m) => String(m.role_key || '') === 'org_admin';
+    const canManageOrgAdminTargets = !!permissions.org_team_admin;
+    /** Org-admin members can only be acted on by org owner / org_admin key / platform admin (org_team_admin). */
+    const canActOnOrgAdminMemberRow = (m) => !rowIsOrgAdmin(m) || canManageOrgAdminTargets;
+
+    const canEditRowOrgRole = (m) =>
+        !!permissions.member_role_assign &&
+        (Number(m.user_id) !== Number(currentUserId) || !!permissions.can_assign_own_org_role) &&
+        canActOnOrgAdminMemberRow(m);
     const [loading, setLoading] = useState(true);
     const [members, setMembers] = useState([]);
     const [organization, setOrganization] = useState(null);
@@ -58,6 +69,9 @@ export default function TeamSettings() {
     }, [archived]);
 
     useEffect(() => {
+        if (!permissions.member_role_assign) {
+            return;
+        }
         fetch(route('organization.team.roles.index'), { headers: { Accept: 'application/json' } })
             .then((r) => r.json())
             .then((res) => {
@@ -66,7 +80,8 @@ export default function TeamSettings() {
                 }
             })
             .catch(() => {});
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [permissions.member_role_assign]);
 
     const handleInvite = async (e) => {
         e.preventDefault();
@@ -312,23 +327,27 @@ export default function TeamSettings() {
                                                 <td className="px-4 py-2">{m.email}</td>
                                                 <td className="px-4 py-2">{m.phone}</td>
                                                 <td className="px-4 py-2">
-                                                    <select
-                                                        value={roleDrafts[m.membership_id] ?? String(m.organization_role_id ?? '')}
-                                                        onChange={(e) =>
-                                                            setRoleDrafts((prev) => ({
-                                                                ...prev,
-                                                                [m.membership_id]: e.target.value,
-                                                            }))
-                                                        }
-                                                        className="border rounded px-2 py-1 text-xs min-w-[140px]"
-                                                    >
-                                                        <option value="">Select role</option>
-                                                        {roles.map((r) => (
-                                                            <option key={r.id} value={r.id}>
-                                                                {r.name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                    {canEditRowOrgRole(m) ? (
+                                                        <select
+                                                            value={roleDrafts[m.membership_id] ?? String(m.organization_role_id ?? '')}
+                                                            onChange={(e) =>
+                                                                setRoleDrafts((prev) => ({
+                                                                    ...prev,
+                                                                    [m.membership_id]: e.target.value,
+                                                                }))
+                                                            }
+                                                            className="border rounded px-2 py-1 text-xs min-w-[140px]"
+                                                        >
+                                                            <option value="">Select role</option>
+                                                            {roles.map((r) => (
+                                                                <option key={r.id} value={r.id}>
+                                                                    {r.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-700">{m.role_name || '-'}</span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-2">
                                                     {(() => {
@@ -355,67 +374,80 @@ export default function TeamSettings() {
                                                     })()}
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                    <button
-                                                        type="button"
-                                                        disabled={updatingRoleFor === m.membership_id || !permissions.member_role_assign}
-                                                        onClick={() => handleRoleUpdate(m.membership_id)}
-                                                        className="px-2 py-1 text-xs rounded bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60"
-                                                    >
-                                                        {updatingRoleFor === m.membership_id ? 'Saving...' : 'Save Role'}
-                                                    </button>
-                                                    {!archived && permissions.member_role_assign && (
-                                                        <Link
-                                                            href={route('organization.team.members.editPage', m.membership_id)}
-                                                            className="ml-2 px-2 py-1 text-xs rounded border border-indigo-500 text-indigo-700 hover:bg-indigo-50"
-                                                        >
-                                                            Edit
-                                                        </Link>
-                                                    )}
-                                                    {!archived && permissions.member_activate_complete && String(m.membership_status).toLowerCase() === 'invited' && (
-                                                        <button
-                                                            type="button"
-                                                            disabled={memberActionLoadingId === m.membership_id}
-                                                            onClick={() => handleManualActivate(m)}
-                                                            className="ml-2 px-2 py-1 text-xs rounded border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-60"
-                                                        >
-                                                            {memberActionLoadingId === m.membership_id ? '...' : 'Activate'}
-                                                        </button>
-                                                    )}
-                                                    {archived ? (
-                                                        permissions.member_restore && (
-                                                        <button
-                                                            type="button"
-                                                            disabled={memberActionLoadingId === m.membership_id}
-                                                            onClick={() =>
-                                                                runMemberAction(
-                                                                    m.membership_id,
-                                                                    'organization.team.members.restore',
-                                                                    'Member Restored'
-                                                                )
-                                                            }
-                                                            className="ml-2 px-2 py-1 text-xs rounded border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-60"
-                                                        >
-                                                            {memberActionLoadingId === m.membership_id ? '...' : 'Restore'}
-                                                        </button>
-                                                        )
-                                                    ) : (
-                                                        permissions.member_soft_delete && (
-                                                        <button
-                                                            type="button"
-                                                            disabled={memberActionLoadingId === m.membership_id}
-                                                            onClick={() =>
-                                                                runMemberAction(
-                                                                    m.membership_id,
-                                                                    'organization.team.members.archive',
-                                                                    'Member Archived'
-                                                                )
-                                                            }
-                                                            className="ml-2 px-2 py-1 text-xs rounded border border-red-500 text-red-700 hover:bg-red-50 disabled:opacity-60"
-                                                        >
-                                                            {memberActionLoadingId === m.membership_id ? '...' : 'Archive'}
-                                                        </button>
-                                                        )
-                                                    )}
+                                                    <div className="inline-flex flex-wrap items-center gap-2">
+                                                        {canEditRowOrgRole(m) && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={updatingRoleFor === m.membership_id}
+                                                                onClick={() => handleRoleUpdate(m.membership_id)}
+                                                                className="px-2 py-1 text-xs rounded bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60"
+                                                            >
+                                                                {updatingRoleFor === m.membership_id ? 'Saving...' : 'Save Role'}
+                                                            </button>
+                                                        )}
+                                                        {!archived &&
+                                                            permissions.member_edit &&
+                                                            canActOnOrgAdminMemberRow(m) && (
+                                                            <Link
+                                                                href={route('organization.team.members.editPage', m.membership_id)}
+                                                                className="px-2 py-1 text-xs rounded border border-indigo-500 text-indigo-700 hover:bg-indigo-50"
+                                                            >
+                                                                Edit
+                                                            </Link>
+                                                        )}
+                                                        {archived ? (
+                                                            permissions.member_restore &&
+                                                            canActOnOrgAdminMemberRow(m) && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={memberActionLoadingId === m.membership_id}
+                                                                    onClick={() =>
+                                                                        runMemberAction(
+                                                                            m.membership_id,
+                                                                            'organization.team.members.restore',
+                                                                            'Member Restored'
+                                                                        )
+                                                                    }
+                                                                    className="px-2 py-1 text-xs rounded border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-60"
+                                                                >
+                                                                    {memberActionLoadingId === m.membership_id ? '...' : 'Restore'}
+                                                                </button>
+                                                            )
+                                                        ) : (
+                                                            permissions.member_soft_delete &&
+                                                            canActOnOrgAdminMemberRow(m) && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={memberActionLoadingId === m.membership_id}
+                                                                    onClick={() =>
+                                                                        runMemberAction(
+                                                                            m.membership_id,
+                                                                            'organization.team.members.archive',
+                                                                            'Member Archived'
+                                                                        )
+                                                                    }
+                                                                    className="px-2 py-1 text-xs rounded border border-red-500 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                                                >
+                                                                    {memberActionLoadingId === m.membership_id ? '...' : 'Archive'}
+                                                                </button>
+                                                            )
+                                                        )}
+                                                        {!archived &&
+                                                            permissions.member_activate_complete &&
+                                                            canActOnOrgAdminMemberRow(m) &&
+                                                            String(m.membership_status ?? '').toLowerCase() === 'invited' && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={memberActionLoadingId === m.membership_id}
+                                                                    onClick={() => handleManualActivate(m)}
+                                                                    className="px-3 py-1.5 text-xs font-semibold rounded-md bg-green-600 text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 disabled:opacity-60"
+                                                                >
+                                                                    {memberActionLoadingId === m.membership_id
+                                                                        ? 'Activating…'
+                                                                        : 'Activate'}
+                                                                </button>
+                                                            )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))

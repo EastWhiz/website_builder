@@ -3,45 +3,49 @@ import { Head, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 
-const PERMISSION_KEYS = [
-    'org.create',
-    'org.update_status',
-    'member.invite',
-    'member.activate_complete',
-    'member.role.assign',
-    'member.soft_delete',
-    'member.restore',
-    'role.view',
-    'role.create',
-    'role.update',
-    'role.archive',
-    'content.view_own',
-    'content.view_org_all',
-    'content.create',
-    'content.update_own',
-    'content.update_org_all',
-    'content.soft_delete',
-    'content.transfer_in_org',
-    'content.move_cross_org',
-    'content.clone_cross_org',
-    'integration.catalog.create',
-    'integration.catalog.update',
-    'integration.catalog.archive',
-    'integration.instance.view_own',
-    'integration.instance.view_org',
-    'integration.instance.create',
-    'integration.instance.update',
-    'integration.instance.soft_del',
-    'audit.view_org',
-    'audit.view_cross_org',
-    'permission.matrix.view',
-    'permission.matrix.update',
+/** Display order and human-readable labels (keys must match `RoleController::allowedPermissionKeys`). */
+const PERMISSION_ENTRIES = [
+    { key: 'org.create', label: 'Create organization' },
+    { key: 'org.update_status', label: 'Update organization status' },
+    { key: 'member.invite', label: 'Invite member' },
+    { key: 'member.activate_complete', label: 'Manually activate invited member' },
+    { key: 'member.role.assign', label: 'Assign member roles (inline)' },
+    { key: 'member.edit', label: 'Edit team member profile' },
+    { key: 'member.soft_delete', label: 'Archive / soft-delete member' },
+    { key: 'member.restore', label: 'Restore archived member' },
+    { key: 'role.view', label: 'View roles' },
+    { key: 'role.create', label: 'Create roles' },
+    { key: 'role.update', label: 'Update roles' },
+    { key: 'role.archive', label: 'Archive roles' },
+    { key: 'content.view_own', label: 'View own content' },
+    { key: 'content.view_org_all', label: 'View all content in organization' },
+    { key: 'content.create', label: 'Create content' },
+    { key: 'content.update_own', label: 'Update own content' },
+    { key: 'content.update_org_all', label: 'Update any content in organization' },
+    { key: 'content.soft_delete', label: 'Soft-delete content' },
+    { key: 'content.transfer_in_org', label: 'Transfer content within organization' },
+    { key: 'content.move_cross_org', label: 'Move content across organizations' },
+    { key: 'content.clone_cross_org', label: 'Clone content across organizations' },
+    { key: 'integration.catalog.create', label: 'Create integration catalog entries' },
+    { key: 'integration.catalog.update', label: 'Update integration catalog' },
+    { key: 'integration.catalog.archive', label: 'Archive integration catalog' },
+    { key: 'integration.instance.view_own', label: 'View own integration instances' },
+    { key: 'integration.instance.view_org', label: 'View organization integration instances' },
+    { key: 'integration.instance.create', label: 'Create integration instances' },
+    { key: 'integration.instance.update', label: 'Update integration instances' },
+    { key: 'integration.instance.soft_del', label: 'Soft-delete integration instances' },
+    { key: 'audit.view_org', label: 'View audit logs (organization)' },
+    { key: 'audit.view_cross_org', label: 'View audit logs (cross-organization)' },
+    { key: 'permission.matrix.view', label: 'View permission matrix' },
+    { key: 'permission.matrix.update', label: 'Update permission matrix' },
 ];
 
 export default function Roles() {
     const { auth } = usePage().props;
     const permissions = auth?.permissions || {};
     const canRoleCrud = !!permissions.org_role_crud;
+    /** Super / platform admins only; matches RoleController::isPrivilegedPlatformAdmin + org.role.crud. */
+    const canManageSystemRoles = canRoleCrud;
     const [roles, setRoles] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -268,16 +272,16 @@ export default function Roles() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleEdit(r)}
-                                                                className="text-indigo-600 hover:text-indigo-800 mr-3"
-                                                                disabled={r.is_system}
+                                                                className="text-indigo-600 hover:text-indigo-800 mr-3 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                disabled={r.is_system && !canManageSystemRoles}
                                                             >
                                                                 Edit
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleArchive(r)}
-                                                                className="text-red-600 hover:text-red-800"
-                                                                disabled={r.is_system || !r.is_active}
+                                                                className="text-red-600 hover:text-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                                disabled={(r.is_system && !canManageSystemRoles) || !r.is_active}
                                                             >
                                                                 Archive
                                                             </button>
@@ -352,14 +356,15 @@ export default function Roles() {
                                         <p className="text-sm font-medium text-gray-700 mb-1">Permissions</p>
                                         <div className="max-h-56 overflow-auto border rounded-md bg-white p-2">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-                                                {PERMISSION_KEYS.map((perm) => (
-                                                    <label key={perm} className="inline-flex items-center gap-2 text-xs text-gray-700">
+                                                {PERMISSION_ENTRIES.map(({ key, label }) => (
+                                                    <label key={key} className="inline-flex items-start gap-2 text-xs text-gray-700">
                                                         <input
                                                             type="checkbox"
-                                                            checked={form.permissions.includes(perm)}
-                                                            onChange={() => togglePermission(perm)}
+                                                            className="mt-0.5 shrink-0"
+                                                            checked={form.permissions.includes(key)}
+                                                            onChange={() => togglePermission(key)}
                                                         />
-                                                        <span>{perm}</span>
+                                                        <span className="font-medium text-gray-900">{label}</span>
                                                     </label>
                                                 ))}
                                             </div>

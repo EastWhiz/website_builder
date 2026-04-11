@@ -15,8 +15,11 @@ class RolePermissionSeeder extends Seeder
     {
         $permissionsByRole = [
             'org_admin' => [
+                'role.view',
                 'member.invite',
                 'member.role.assign',
+                'member.edit',
+                'member.activate_complete',
                 'member.soft_delete',
                 'member.restore',
                 'permission.matrix.view',
@@ -30,8 +33,11 @@ class RolePermissionSeeder extends Seeder
                 'audit.view_org',
             ],
             'org_manager' => [
+                'role.view',
                 'member.invite',
                 'member.role.assign',
+                'member.edit',
+                'member.activate_complete',
                 'member.soft_delete',
                 'member.restore',
                 'permission.matrix.view',

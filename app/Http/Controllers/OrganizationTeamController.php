@@ -10,9 +10,12 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
+use Illuminate\Auth\Events\PasswordResetLinkSent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -60,10 +63,89 @@ class OrganizationTeamController extends Controller
             ->where('ou.organization_id', $organization->id)
             ->where('ou.user_id', $user->id)
             ->whereNull('ou.deleted_at')
+            ->where('ou.status', 'active')
             ->select('r.key as role_key')
             ->first();
 
         return ($actorMembership->role_key ?? null) === 'org_admin';
+    }
+
+    /**
+     * Whether the membership row refers to an organization-scoped org_admin role.
+     * Pass rows from organization_user (role_id) or joined rows that include role_key.
+     */
+    private function membershipRepresentsOrgAdmin(object $row): bool
+    {
+        if (($row->role_key ?? null) === 'org_admin') {
+            return true;
+        }
+        $roleId = (int) ($row->role_id ?? $row->organization_role_id ?? 0);
+        if ($roleId <= 0) {
+            return false;
+        }
+
+        return Role::query()
+            ->where('id', $roleId)
+            ->where('scope', 'organization')
+            ->where('key', 'org_admin')
+            ->exists();
+    }
+
+    /**
+     * Org admin accounts may be viewed or changed only by org owner / org_admin key / platform admin.
+     *
+     * @return \Illuminate\Http\JsonResponse|null
+     */
+    private function denyUnlessCanManageOrgAdminTarget(Request $request, Organization $organization, object $membershipRow): ?\Illuminate\Http\JsonResponse
+    {
+        if (!$this->membershipRepresentsOrgAdmin($membershipRow)) {
+            return null;
+        }
+        if ($this->canManageTeamMember($request, $organization)) {
+            return null;
+        }
+
+        return sendResponse(
+            false,
+            'Only an organization administrator can view or modify organization admin accounts.',
+            null,
+            null,
+            null,
+            403
+        );
+    }
+
+    /**
+     * Org role changes for another member are gated by member.role.assign / member.edit.
+     * Changing your own org role is allowed only for org owner, org_admin key, or platform admin.
+     */
+    private function mayActorChangeTargetOrgRole(Request $request, Organization $organization, int $targetUserId): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+        if ((int) $targetUserId !== (int) $user->id) {
+            return true;
+        }
+
+        return Gate::forUser($user)->allows('org.member.assign_own_org_role', $organization);
+    }
+
+    /**
+     * Load/update full member profile: organization owner, or anyone with member.edit (incl. platform admin via org.permission).
+     */
+    private function canViewOrEditTeamMemberDetails(Request $request, Organization $organization): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+        if ((int) $organization->primary_user_id === (int) $user->id) {
+            return true;
+        }
+
+        return Gate::forUser($user)->allows('org.permission', 'member.edit');
     }
 
     private function resolveOrganization(Request $request): ?Organization
@@ -160,9 +242,14 @@ class OrganizationTeamController extends Controller
         ]);
     }
 
-    public function rolesIndex()
+    public function rolesIndex(Request $request)
     {
-        if (!Gate::forUser(request()->user())->allows('org.permission', 'role.view')) {
+        $gate = Gate::forUser($request->user());
+        $canList = $gate->allows('org.permission', 'role.view')
+            || $gate->allows('org.permission', 'member.invite')
+            || $gate->allows('org.permission', 'member.role.assign')
+            || $gate->allows('org.permission', 'member.edit');
+        if (!$canList) {
             return sendResponse(false, 'Unauthorized action.', null, null, null, 403);
         }
 
@@ -171,6 +258,15 @@ class OrganizationTeamController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'key']);
+
+        if ($roles->isEmpty()) {
+            $roles = Role::query()
+                ->where('scope', 'organization')
+                ->where('is_system', true)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'key']);
+        }
 
         return sendResponse(true, 'Organization roles retrieved successfully!', $roles);
     }
@@ -184,12 +280,8 @@ class OrganizationTeamController extends Controller
         if (!$organization) {
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }
-        if (!$this->canManageTeamMember($request, $organization)) {
-            return sendResponse(false, 'Only organization owner/admin can view member details.', null, null, null, 403);
-        }
-        $deny = $this->denyUnlessCan($request, 'member.role.assign');
-        if ($deny) {
-            return $deny;
+        if (!$this->canViewOrEditTeamMemberDetails($request, $organization)) {
+            return sendResponse(false, 'You are not allowed to view this team member.', null, null, null, 403);
         }
 
         $member = DB::table('organization_user as ou')
@@ -217,6 +309,11 @@ class OrganizationTeamController extends Controller
 
         if (!$member) {
             return sendResponse(false, 'Member not found for this organization.', null, null, null, 404);
+        }
+
+        $denyOrgAdmin = $this->denyUnlessCanManageOrgAdminTarget($request, $organization, $member);
+        if ($denyOrgAdmin) {
+            return $denyOrgAdmin;
         }
 
         return sendResponse(true, 'Member retrieved successfully.', [
@@ -289,7 +386,25 @@ class OrganizationTeamController extends Controller
             'updated_at' => now(),
         ]);
 
-        $status = Password::broker()->sendResetLink(['email' => $user->email]);
+        $status = Password::broker()->sendResetLink(
+            ['email' => $user->email],
+            function ($user, string $token) use ($organization) {
+                $inviteUrl = url(route('password.reset', [
+                    'token' => $token,
+                    'email' => $user->getEmailForPasswordReset(),
+                ], false));
+
+                Log::info('Team member invitation password-setup link (same token as email)', [
+                    'organization_id' => $organization->id,
+                    'user_id' => $user->id,
+                    'email' => $user->getEmailForPasswordReset(),
+                    'url' => $inviteUrl,
+                ]);
+
+                $user->sendPasswordResetNotification($token);
+                Event::dispatch(new PasswordResetLinkSent($user));
+            }
+        );
 
         if ($status !== Password::RESET_LINK_SENT) {
             return sendResponse(false, 'Member invited, but activation email could not be sent.', [
@@ -340,6 +455,22 @@ class OrganizationTeamController extends Controller
             return sendResponse(false, 'Membership not found for this organization.', null, null, null, 404);
         }
 
+        $denyOrgAdmin = $this->denyUnlessCanManageOrgAdminTarget($request, $organization, $membership);
+        if ($denyOrgAdmin) {
+            return $denyOrgAdmin;
+        }
+
+        if (!$this->mayActorChangeTargetOrgRole($request, $organization, (int) $membership->user_id)) {
+            return sendResponse(
+                false,
+                'You cannot change your own organization role. An organization administrator can update it for you.',
+                null,
+                null,
+                null,
+                422
+            );
+        }
+
         $role = Role::query()
             ->where('id', (int) $request->input('role_id'))
             ->where('scope', 'organization')
@@ -373,12 +504,8 @@ class OrganizationTeamController extends Controller
         if (!$organization) {
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }
-        if (!$this->canManageTeamMember($request, $organization)) {
-            return sendResponse(false, 'Only organization owner/admin can edit members.', null, null, null, 403);
-        }
-        $deny = $this->denyUnlessCan($request, 'member.role.assign');
-        if ($deny) {
-            return $deny;
+        if (!$this->canViewOrEditTeamMemberDetails($request, $organization)) {
+            return sendResponse(false, 'You are not allowed to edit this team member.', null, null, null, 403);
         }
 
         $validator = validator($request->all(), [
@@ -401,13 +528,32 @@ class OrganizationTeamController extends Controller
             return sendResponse(false, 'Membership not found for this organization.', null, null, null, 404);
         }
 
+        $denyOrgAdmin = $this->denyUnlessCanManageOrgAdminTarget($request, $organization, $membership);
+        if ($denyOrgAdmin) {
+            return $denyOrgAdmin;
+        }
+
         $targetUser = User::query()->find((int) $membership->user_id);
         if (!$targetUser) {
             return sendResponse(false, 'User not found.', null, null, null, 404);
         }
 
+        $newRoleId = (int) $request->input('role_id');
+        $currentRoleId = (int) ($membership->role_id ?? 0);
+        $isSelf = (int) $membership->user_id === (int) $request->user()->id;
+        if ($isSelf && $newRoleId !== $currentRoleId && !Gate::forUser($request->user())->allows('org.member.assign_own_org_role', $organization)) {
+            return sendResponse(
+                false,
+                'You cannot change your own organization role. An organization administrator can update it for you.',
+                null,
+                null,
+                null,
+                422
+            );
+        }
+
         $role = Role::query()
-            ->where('id', (int) $request->input('role_id'))
+            ->where('id', $newRoleId)
             ->where('scope', 'organization')
             ->where('is_active', true)
             ->first();
@@ -496,6 +642,11 @@ class OrganizationTeamController extends Controller
             return sendResponse(false, 'Manual activation is allowed only for invited members.', null, null, null, 422);
         }
 
+        $denyOrgAdmin = $this->denyUnlessCanManageOrgAdminTarget($request, $organization, $membership);
+        if ($denyOrgAdmin) {
+            return $denyOrgAdmin;
+        }
+
         DB::transaction(function () use ($membership) {
             $targetUser = User::query()->find((int) $membership->user_id);
             if ($targetUser) {
@@ -564,6 +715,11 @@ class OrganizationTeamController extends Controller
         }
         if ((int) $organization->primary_user_id === (int) $targetUser->id) {
             return sendResponse(false, 'Primary organization owner cannot be archived from this action.', null, null, null, 422);
+        }
+
+        $denyOrgAdmin = $this->denyUnlessCanManageOrgAdminTarget($request, $organization, $membership);
+        if ($denyOrgAdmin) {
+            return $denyOrgAdmin;
         }
 
         DB::transaction(function () use ($organization, $membership, $targetUser) {
@@ -648,6 +804,11 @@ class OrganizationTeamController extends Controller
         }
         if (!$membership->deleted_at) {
             return sendResponse(false, 'Member is not archived.', null, null, null, 422);
+        }
+
+        $denyOrgAdmin = $this->denyUnlessCanManageOrgAdminTarget($request, $organization, $membership);
+        if ($denyOrgAdmin) {
+            return $denyOrgAdmin;
         }
 
         $targetUser = User::withTrashed()->find((int) $membership->user_id);

@@ -56,6 +56,7 @@ class RoleController extends Controller
             'member.invite',
             'member.activate_complete',
             'member.role.assign',
+            'member.edit',
             'member.soft_delete',
             'member.restore',
 

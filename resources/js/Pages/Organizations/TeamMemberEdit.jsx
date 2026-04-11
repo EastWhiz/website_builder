@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 export default function TeamMemberEdit() {
     const { membershipId, auth } = usePage().props;
     const permissions = auth?.permissions || {};
+    const canAssignOwnOrgRole = !!permissions.can_assign_own_org_role;
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [roles, setRoles] = useState([]);
@@ -206,10 +207,15 @@ export default function TeamMemberEdit() {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                                     <select
                                         required
-                                        disabled={loading}
+                                        disabled={
+                                            loading ||
+                                            (!!member &&
+                                                Number(member.user_id) === Number(auth?.user?.id) &&
+                                                !canAssignOwnOrgRole)
+                                        }
                                         value={form.role_id}
                                         onChange={(e) => handleChange('role_id', e.target.value)}
-                                        className="w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                        className="w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                     >
                                         <option value="">Select role</option>
                                         {roles.map((r) => (
@@ -218,6 +224,13 @@ export default function TeamMemberEdit() {
                                             </option>
                                         ))}
                                     </select>
+                                    {member &&
+                                        Number(member.user_id) === Number(auth?.user?.id) &&
+                                        !canAssignOwnOrgRole && (
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Your organization role can only be changed by an organization admin.
+                                            </p>
+                                        )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
