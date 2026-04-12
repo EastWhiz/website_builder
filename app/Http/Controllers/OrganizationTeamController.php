@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
+use App\Notifications\OrganizationTeamInvitationNotification;
 use Illuminate\Auth\Events\PasswordResetLinkSent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -146,6 +147,26 @@ class OrganizationTeamController extends Controller
         }
 
         return Gate::forUser($user)->allows('org.permission', 'member.edit');
+    }
+
+    private function inviterOrganizationRoleLabel(Request $request, Organization $organization): string
+    {
+        $user = $request->user();
+        if (!$user) {
+            return '';
+        }
+        if ($this->isPrivilegedPlatformAdmin($user)) {
+            return 'Platform Administrator';
+        }
+        $roleName = DB::table('organization_user as ou')
+            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.organization_id', $organization->id)
+            ->where('ou.user_id', $user->id)
+            ->whereNull('ou.deleted_at')
+            ->where('ou.status', 'active')
+            ->value('r.name');
+
+        return $roleName ? (string) $roleName : 'Team member';
     }
 
     private function resolveOrganization(Request $request): ?Organization
@@ -388,21 +409,28 @@ class OrganizationTeamController extends Controller
 
         $status = Password::broker()->sendResetLink(
             ['email' => $user->email],
-            function ($user, string $token) use ($organization) {
+            function ($invitedUser, string $token) use ($organization, $request) {
                 $inviteUrl = url(route('password.reset', [
                     'token' => $token,
-                    'email' => $user->getEmailForPasswordReset(),
+                    'email' => $invitedUser->getEmailForPasswordReset(),
+                    'invitation' => '1',
                 ], false));
 
-                Log::info('Team member invitation password-setup link (same token as email)', [
+                Log::info('Team member invitation accept link (same token as email)', [
                     'organization_id' => $organization->id,
-                    'user_id' => $user->id,
-                    'email' => $user->getEmailForPasswordReset(),
+                    'user_id' => $invitedUser->id,
+                    'email' => $invitedUser->getEmailForPasswordReset(),
                     'url' => $inviteUrl,
                 ]);
 
-                $user->sendPasswordResetNotification($token);
-                Event::dispatch(new PasswordResetLinkSent($user));
+                $inviter = $request->user();
+                $invitedUser->notify(new OrganizationTeamInvitationNotification(
+                    $token,
+                    (string) $organization->name,
+                    $inviter ? (string) $inviter->name : 'Your organization',
+                    $this->inviterOrganizationRoleLabel($request, $organization),
+                ));
+                Event::dispatch(new PasswordResetLinkSent($invitedUser));
             }
         );
 
@@ -414,7 +442,7 @@ class OrganizationTeamController extends Controller
             ], null, null, 422);
         }
 
-        return sendResponse(true, 'Invitation sent successfully. Activation link email has been sent.', [
+        return sendResponse(true, 'Invitation sent successfully. The invitee will receive an email with a link to accept.', [
             'user_id' => $user->id,
             'email' => $user->email,
             'organization_id' => $organization->id,

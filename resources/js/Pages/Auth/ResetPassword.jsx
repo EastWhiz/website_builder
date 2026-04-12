@@ -5,7 +5,7 @@ import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Head, useForm } from '@inertiajs/react';
 
-export default function ResetPassword({ token, email }) {
+export default function ResetPassword({ token, email, invitation = false }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         token: token,
         email: email,
@@ -21,11 +21,19 @@ export default function ResetPassword({ token, email }) {
         });
     };
 
+    const submitLabel = invitation ? 'Accept Invitation' : 'Reset Password';
+    const pageTitle = invitation ? 'Accept Invitation' : 'Reset Password';
+
     return (
         <GuestLayout>
-            <Head title="Reset Password" />
+            <Head title={pageTitle} />
 
             <form onSubmit={submit}>
+                {invitation ? (
+                    <p className="mb-4 text-sm text-gray-600">
+                        Set a password below to accept your invitation and activate your account.
+                    </p>
+                ) : null}
                 <div>
                     <InputLabel htmlFor="email" value="Email" />
 
@@ -85,7 +93,7 @@ export default function ResetPassword({ token, email }) {
 
                 <div className="mt-4 flex items-center justify-end">
                     <PrimaryButton className="ms-4" disabled={processing}>
-                        Reset Password
+                        {submitLabel}
                     </PrimaryButton>
                 </div>
             </form>
