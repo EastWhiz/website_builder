@@ -5,12 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Angle;
 use App\Models\AngleTemplate;
 use App\Models\Organization;
+use App\Models\OrganizationMailSetting;
 use App\Models\OtpServiceCredential;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
 use App\Notifications\OrganizationTeamInvitationNotification;
+use App\Services\OrganizationMailerRegistry;
+use App\Support\OrganizationAccess;
 use Illuminate\Auth\Events\PasswordResetLinkSent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,45 +33,6 @@ class OrganizationTeamController extends Controller
         }
 
         return null;
-    }
-
-    private function isPrivilegedPlatformAdmin(?User $user): bool
-    {
-        if (!$user) {
-            return false;
-        }
-
-        return (int) ($user->role_id ?? 0) === 1 || (($user->role->name ?? null) === 'admin');
-    }
-
-    private function canManageTeamMember(Request $request, Organization $organization): bool
-    {
-        $user = $request->user();
-        if (!$user) {
-            return false;
-        }
-
-        // Super Admin or Platform Admin can bypass org-role limitations.
-        if ($this->isPrivilegedPlatformAdmin($user)) {
-            return true;
-        }
-
-        // Organization owner always allowed.
-        if ((int) $organization->primary_user_id === (int) $user->id) {
-            return true;
-        }
-
-        // Org admin role allowed.
-        $actorMembership = DB::table('organization_user as ou')
-            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
-            ->where('ou.organization_id', $organization->id)
-            ->where('ou.user_id', $user->id)
-            ->whereNull('ou.deleted_at')
-            ->where('ou.status', 'active')
-            ->select('r.key as role_key')
-            ->first();
-
-        return ($actorMembership->role_key ?? null) === 'org_admin';
     }
 
     /**
@@ -102,7 +66,8 @@ class OrganizationTeamController extends Controller
         if (!$this->membershipRepresentsOrgAdmin($membershipRow)) {
             return null;
         }
-        if ($this->canManageTeamMember($request, $organization)) {
+        $user = $request->user();
+        if ($user && OrganizationAccess::canUserFullyManageTeam($user, $organization)) {
             return null;
         }
 
@@ -155,7 +120,7 @@ class OrganizationTeamController extends Controller
         if (!$user) {
             return '';
         }
-        if ($this->isPrivilegedPlatformAdmin($user)) {
+        if (OrganizationAccess::isPrivilegedPlatformAdmin($user)) {
             return 'Platform Administrator';
         }
         $roleName = DB::table('organization_user as ou')
@@ -175,7 +140,7 @@ class OrganizationTeamController extends Controller
         $organization = $user?->currentOrganization();
 
         // Allow privileged platform admins to target organization explicitly.
-        if (!$organization && $this->isPrivilegedPlatformAdmin($user) && $request->filled('organization_id')) {
+        if (!$organization && OrganizationAccess::isPrivilegedPlatformAdmin($user) && $request->filled('organization_id')) {
             $organization = Organization::find((int) $request->get('organization_id'));
         }
 
@@ -258,6 +223,9 @@ class OrganizationTeamController extends Controller
                 'id' => $organization->id,
                 'name' => $organization->name,
                 'status' => $organization->status,
+                'organization_mail_configured' => OrganizationMailSetting::query()
+                    ->where('organization_id', $organization->id)
+                    ->exists(),
             ],
             'members' => $members,
         ]);
@@ -361,6 +329,34 @@ class OrganizationTeamController extends Controller
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }
 
+        $organization->loadMissing('mailSetting');
+        if (!$organization->mailSetting) {
+            return sendResponse(
+                false,
+                'Your organization has not configured outbound email yet. Open Profile, complete Organization email settings (SMTP username, app password, and from address), save, then try inviting again.',
+                ['requires_organization_mail' => true],
+                null,
+                null,
+                422
+            );
+        }
+
+        $invitationMailerName = OrganizationMailerRegistry::register($organization);
+        if (!$invitationMailerName) {
+            return sendResponse(
+                false,
+                'Organization email settings could not be applied. Please open Profile, review Organization email settings, save again, then retry the invitation.',
+                ['requires_organization_mail' => true],
+                null,
+                null,
+                422
+            );
+        }
+
+        $orgMail = $organization->mailSetting;
+        $invitationFromAddress = (string) $orgMail->mail_from_address;
+        $invitationFromName = (string) ($orgMail->mail_from_name ?: $organization->name);
+
         $validator = validator($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
@@ -409,7 +405,13 @@ class OrganizationTeamController extends Controller
 
         $status = Password::broker()->sendResetLink(
             ['email' => $user->email],
-            function ($invitedUser, string $token) use ($organization, $request) {
+            function ($invitedUser, string $token) use (
+                $organization,
+                $request,
+                $invitationMailerName,
+                $invitationFromAddress,
+                $invitationFromName
+            ) {
                 $inviteUrl = url(route('password.reset', [
                     'token' => $token,
                     'email' => $invitedUser->getEmailForPasswordReset(),
@@ -429,6 +431,9 @@ class OrganizationTeamController extends Controller
                     (string) $organization->name,
                     $inviter ? (string) $inviter->name : 'Your organization',
                     $this->inviterOrganizationRoleLabel($request, $organization),
+                    $invitationMailerName,
+                    $invitationFromAddress,
+                    $invitationFromName,
                 ));
                 Event::dispatch(new PasswordResetLinkSent($invitedUser));
             }
@@ -641,7 +646,8 @@ class OrganizationTeamController extends Controller
         if (!$organization) {
             return sendResponse(false, 'No active organization context found.', null, null, null, 422);
         }
-        if (!$this->canManageTeamMember($request, $organization)) {
+        $actor = $request->user();
+        if (!$actor || !OrganizationAccess::canUserFullyManageTeam($actor, $organization)) {
             return sendResponse(false, 'Only organization owner/admin can manually activate invited members.', null, null, null, 403);
         }
         $deny = $this->denyUnlessCan($request, 'member.activate_complete');

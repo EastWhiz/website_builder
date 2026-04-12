@@ -8,8 +8,16 @@ import PixelFormFields from './Partials/PixelFormFields';
 import OtpServicesFormFields from './Partials/OtpServicesFormFields';
 import CrmSettingsForm from './Partials/CrmSettingsForm';
 import DeepLApiKeyForm from './Partials/DeepLApiKeyForm';
+import OrganizationMailSettingsForm from './Partials/OrganizationMailSettingsForm';
 
-export default function Edit({ mustVerifyEmail, status, crmSettings, deepl_api_key }) {
+export default function Edit({
+    mustVerifyEmail,
+    status,
+    crmSettings,
+    deepl_api_key,
+    canManageOrganizationMail,
+    organizationMailSettings,
+}) {
     return (
         <AuthenticatedLayout
             header={
@@ -53,6 +61,15 @@ export default function Edit({ mustVerifyEmail, status, crmSettings, deepl_api_k
                     {crmSettings && (
                         <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
                             <CrmSettingsForm crmSettings={crmSettings} className="max-w-xl" />
+                        </div>
+                    )}
+
+                    {canManageOrganizationMail && organizationMailSettings && (
+                        <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                            <OrganizationMailSettingsForm
+                                organizationMailSettings={organizationMailSettings}
+                                className="max-w-xl"
+                            />
                         </div>
                     )}
 

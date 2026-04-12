@@ -9,6 +9,7 @@ use App\Http\Controllers\GrokController;
 use App\Http\Controllers\OtpServiceController;
 use App\Http\Controllers\OtpServiceCredentialController;
 use App\Http\Controllers\OtpVerificationController;
+use App\Http\Controllers\OrganizationMailSettingsController;
 use App\Http\Controllers\OrganizationTeamController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
@@ -185,6 +186,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::patch('/profile/deepl-api-key', [ProfileController::class, 'updateDeeplApiKey'])->name('profile.update-deepl-api-key');
+        Route::put('/profile/organization-mail-settings', [OrganizationMailSettingsController::class, 'update'])->name('profile.organization-mail-settings.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
         // API Credentials routes

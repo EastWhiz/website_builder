@@ -1,0 +1,30 @@
+---
+description: Never run destructive Laravel/DB commands without explicit user approval and a verified backup
+alwaysApply: true
+---
+
+# Database safety: no data loss from agent commands
+
+## Forbidden without explicit user permission **and** a confirmed backup
+
+Do **not** run (or script) any of the following in the agent terminal unless the user has **clearly asked** for that specific destructive action **and** stated that a **backup exists** (or backup was just taken):
+
+- `php artisan migrate:fresh`
+- `php artisan migrate:fresh --seed`
+- `php artisan migrate:refresh`
+- `php artisan migrate:reset`
+- `php artisan db:wipe`
+- Dropping or truncating tables via `mysql`, `phpMyAdmin` exports of DROP/TRUNCATE, or ad-hoc SQL that removes data
+
+## Allowed when the user requests normal schema work
+
+- `php artisan migrate` — applies **pending** migrations only; does not wipe the database. Still avoid running migrations against databases the user treats as irreplaceable unless they asked to run migrations.
+
+## If migrations or DB changes are needed
+
+1. Prefer **additive** migrations (`migrate` only).
+2. If the user’s problem seems to require a **reset**, **explain** that it destroys data, list alternatives (backup, `migrate` only, manual fix), and **wait** for explicit approval before any forbidden command.
+
+## Rationale
+
+The user’s local and shared databases may contain irreplaceable data. Destructive Artisan commands are irreversible without a backup.

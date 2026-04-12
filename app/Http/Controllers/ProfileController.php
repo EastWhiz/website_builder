@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Setting;
+use App\Support\OrganizationAccess;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,11 +31,40 @@ class ProfileController extends Controller
             ];
         }
 
+        $user = $request->user();
+        $organization = $user->currentOrganization();
+        $canManageOrganizationMail = false;
+        $organizationMailSettings = null;
+        if ($organization && OrganizationAccess::canUserFullyManageTeam($user, $organization)) {
+            $canManageOrganizationMail = true;
+            $organization->loadMissing('mailSetting');
+            $mail = $organization->mailSetting;
+            if ($mail && ($mail->smtp_encryption === null || $mail->smtp_encryption === '')) {
+                $smtpEncryption = 'none';
+            } elseif ($mail && $mail->smtp_encryption) {
+                $smtpEncryption = $mail->smtp_encryption;
+            } else {
+                $smtpEncryption = 'tls';
+            }
+            $organizationMailSettings = [
+                'smtp_host' => $mail->smtp_host ?? 'smtp.gmail.com',
+                'smtp_port' => $mail->smtp_port ?? 587,
+                'smtp_encryption' => $smtpEncryption,
+                'smtp_username' => $mail->smtp_username ?? '',
+                'smtp_password' => '',
+                'mail_from_address' => $mail->mail_from_address ?? '',
+                'mail_from_name' => $mail->mail_from_name ?? '',
+                'smtp_password_set' => $mail !== null,
+            ];
+        }
+
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
             'crmSettings' => $crmSettings,
             'deepl_api_key' => $request->user()->deepl_api_key,
+            'canManageOrganizationMail' => $canManageOrganizationMail,
+            'organizationMailSettings' => $organizationMailSettings,
         ]);
     }
 

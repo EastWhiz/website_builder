@@ -12,6 +12,9 @@ class OrganizationTeamInvitationNotification extends Notification
         public string $organizationName,
         public string $inviterName,
         public string $inviterRoleLabel,
+        public ?string $mailerName = null,
+        public ?string $fromAddress = null,
+        public ?string $fromName = null,
     ) {}
 
     /**
@@ -30,7 +33,7 @@ class OrganizationTeamInvitationNotification extends Notification
             'invitation' => '1',
         ], false));
 
-        return (new MailMessage)
+        $message = (new MailMessage)
             ->subject('Invitation to Join Our Network')
             ->markdown('mail.organization-team-invitation', [
                 'inviteeName' => $notifiable->name,
@@ -39,5 +42,15 @@ class OrganizationTeamInvitationNotification extends Notification
                 'inviterRole' => $this->inviterRoleLabel,
                 'acceptUrl' => $acceptUrl,
             ]);
+
+        if ($this->mailerName) {
+            $message->mailer($this->mailerName);
+        }
+
+        $fromAddress = $this->fromAddress ?: (string) config('mail.from.address');
+        $fromName = $this->fromName ?? (string) config('mail.from.name');
+        $message->from($fromAddress, $fromName);
+
+        return $message;
     }
 }

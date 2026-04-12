@@ -83,10 +83,21 @@ export default function TeamSettings() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [permissions.member_role_assign]);
 
+    const inviteMailReady = organization?.organization_mail_configured === true;
+
     const handleInvite = async (e) => {
         e.preventDefault();
         if (!inviteForm.name || !inviteForm.email || !inviteForm.phone || !inviteForm.role_id) {
             Swal.fire({ title: 'Missing fields', text: 'Please fill all invite fields.', icon: 'warning' });
+            return;
+        }
+        if (!inviteMailReady) {
+            Swal.fire({
+                title: 'Organization email not configured',
+                html: 'Invitations use your organization&apos;s SMTP settings. Open <strong>Profile</strong>, complete <strong>Organization email settings</strong>, save, then try again.',
+                icon: 'warning',
+                confirmButtonText: 'OK',
+            });
             return;
         }
         try {
@@ -103,7 +114,12 @@ export default function TeamSettings() {
             });
             const result = await response.json();
             if (!response.ok || !result.success) {
-                Swal.fire({ title: 'Invite failed', text: result.message || 'Could not send invite.', icon: 'error' });
+                const isMail = result.data?.requires_organization_mail;
+                Swal.fire({
+                    title: isMail ? 'Email settings required' : 'Invite failed',
+                    text: result.message || 'Could not send invite.',
+                    icon: isMail ? 'warning' : 'error',
+                });
                 return;
             }
             Swal.fire({ title: 'Invitation sent', text: result.message, icon: 'success' });
@@ -218,7 +234,26 @@ export default function TeamSettings() {
                         </p>
 
                         {permissions.member_invite && (
-                        <form onSubmit={handleInvite} className="mt-4 border rounded-md p-4 bg-gray-50">
+                        <div className="mt-4">
+                            {!loading && organization && !inviteMailReady && (
+                                <div
+                                    className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                                    role="alert"
+                                >
+                                    <p className="font-medium">Organization email settings are required to send invitations</p>
+                                    <p className="mt-1 text-amber-900">
+                                        Configure SMTP under Profile → Organization email settings (username, app password, from
+                                        address), then return here to invite team members.
+                                    </p>
+                                    <Link
+                                        href={route('profile.edit')}
+                                        className="mt-2 inline-block font-medium text-indigo-700 underline hover:text-indigo-900"
+                                    >
+                                        Open Profile — email settings
+                                    </Link>
+                                </div>
+                            )}
+                        <form onSubmit={handleInvite} className="border rounded-md p-4 bg-gray-50">
                             <p className="text-sm font-medium text-gray-800 mb-3">Invite member</p>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                                 <input
@@ -226,26 +261,30 @@ export default function TeamSettings() {
                                     placeholder="Name"
                                     value={inviteForm.name}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, name: e.target.value }))}
-                                    className="border rounded px-3 py-2 text-sm"
+                                    disabled={!inviteMailReady}
+                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                                 />
                                 <input
                                     type="email"
                                     placeholder="Email"
                                     value={inviteForm.email}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, email: e.target.value }))}
-                                    className="border rounded px-3 py-2 text-sm"
+                                    disabled={!inviteMailReady}
+                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                                 />
                                 <input
                                     type="text"
                                     placeholder="Phone"
                                     value={inviteForm.phone}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, phone: e.target.value }))}
-                                    className="border rounded px-3 py-2 text-sm"
+                                    disabled={!inviteMailReady}
+                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                                 />
                                 <select
                                     value={inviteForm.role_id}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, role_id: e.target.value }))}
-                                    className="border rounded px-3 py-2 text-sm"
+                                    disabled={!inviteMailReady}
+                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                                 >
                                     <option value="">Select role</option>
                                     {roles.map((r) => (
@@ -261,13 +300,14 @@ export default function TeamSettings() {
                             <div className="mt-3">
                                 <button
                                     type="submit"
-                                    disabled={inviting}
+                                    disabled={inviting || !inviteMailReady}
                                     className="px-3 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
                                 >
                                     {inviting ? 'Sending...' : 'Send Invite'}
                                 </button>
                             </div>
                         </form>
+                        </div>
                         )}
 
                         <div className="mt-4 flex items-center gap-3 flex-wrap">

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Organization extends Model
 {
@@ -45,6 +46,11 @@ class Organization extends Model
     public function apiInstances(): HasMany
     {
         return $this->hasMany(UserApiInstance::class);
+    }
+
+    public function mailSetting(): HasOne
+    {
+        return $this->hasOne(OrganizationMailSetting::class);
     }
 }
 
