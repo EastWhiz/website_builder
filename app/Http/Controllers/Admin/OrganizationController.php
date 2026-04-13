@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\TransferOrganizationMemberRequest;
+use App\Http\Requests\Admin\ValidateOrganizationMemberTransferRequest;
 use App\Models\Organization;
 use App\Models\OrganizationActivityLog;
 use App\Models\Role;
+use App\Services\OrganizationMemberTransferValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class OrganizationController extends Controller
 {
@@ -209,6 +213,140 @@ class OrganizationController extends Controller
     {
         $org = Organization::with('owner:id,name,email,phone')->findOrFail($id);
         return sendResponse(true, 'Organization retrieved successfully!', $org);
+    }
+
+    /**
+     * Step 3C.1 preflight: validate user cross-org transfer preconditions.
+     */
+    public function validateMemberTransfer(
+        ValidateOrganizationMemberTransferRequest $request,
+        OrganizationMemberTransferValidator $validator
+    ) {
+        $validated = $request->validated();
+        try {
+            $context = $validator->validate(
+                (int) $validated['user_id'],
+                isset($validated['source_organization_id']) ? (int) $validated['source_organization_id'] : null,
+                (int) $validated['target_organization_id']
+            );
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first() ?: 'Transfer pre-check failed.';
+
+            return sendResponse(false, (string) $message, [
+                'errors' => $e->errors(),
+            ], null, null, 422);
+        }
+
+        return sendResponse(true, 'Transfer pre-check passed. Member is eligible to move.', $context);
+    }
+
+    /**
+     * Step 3C.2 + 3C.3: move membership in place and update org-scoped assets in a transaction.
+     */
+    public function transferMember(
+        TransferOrganizationMemberRequest $request,
+        OrganizationMemberTransferValidator $validator
+    ) {
+        $validated = $request->validated();
+        try {
+            $context = $validator->validate(
+                (int) $validated['user_id'],
+                isset($validated['source_organization_id']) ? (int) $validated['source_organization_id'] : null,
+                (int) $validated['target_organization_id']
+            );
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first() ?: 'Member transfer validation failed.';
+
+            return sendResponse(false, (string) $message, [
+                'errors' => $e->errors(),
+            ], null, null, 422);
+        }
+
+        $fromOrgId = (int) ($context['source_organization']['id'] ?? 0);
+        $toOrgId = (int) $context['target_organization']['id'];
+        $userId = (int) $context['user']['id'];
+
+        $updatedCounts = DB::transaction(function () use ($context, $fromOrgId, $toOrgId, $userId) {
+            if (!empty($context['membership']['id'])) {
+                DB::table('organization_user')
+                    ->where('id', (int) $context['membership']['id'])
+                    ->update([
+                        'organization_id' => $toOrgId,
+                        'role_id' => (int) $context['resolved_target_role']['id'],
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                DB::table('organization_user')->insert([
+                    'organization_id' => $toOrgId,
+                    'user_id' => $userId,
+                    'role_id' => (int) $context['resolved_target_role']['id'],
+                    'status' => 'active',
+                    'invited_at' => now(),
+                    'accepted_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $counts = [];
+            foreach (['angles', 'angle_templates', 'thank_you_pages', 'user_api_instances'] as $table) {
+                $query = DB::table($table)->where('user_id', $userId);
+                if ($fromOrgId > 0) {
+                    $query->where('organization_id', $fromOrgId);
+                } else {
+                    $query->whereNull('organization_id');
+                }
+                $counts[$table] = $query->update([
+                    'organization_id' => $toOrgId,
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return $counts;
+        });
+
+        $updatedMembership = DB::table('organization_user as ou')
+            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.user_id', $userId)
+            ->where('ou.organization_id', $toOrgId)
+            ->whereNull('ou.deleted_at')
+            ->select([
+                'ou.id as membership_id',
+                'ou.organization_id',
+                'ou.user_id',
+                'ou.role_id',
+                'ou.status',
+                'r.key as role_key',
+                'r.name as role_name',
+            ])
+            ->first();
+
+        $this->logOrgAction($toOrgId, 'org.member.transfer_cross_org', [
+            'user_id' => $userId,
+            'membership_id' => (int) ($updatedMembership->membership_id ?? 0),
+            'from_org_id' => $fromOrgId > 0 ? $fromOrgId : null,
+            'to_org_id' => $toOrgId,
+            'from_role' => [
+                'id' => (int) ($context['membership']['role_id'] ?? 0),
+                'key' => (string) ($context['membership']['role_key'] ?? ''),
+                'name' => (string) ($context['membership']['role_name'] ?? ''),
+            ],
+            'to_role' => [
+                'id' => (int) ($context['resolved_target_role']['id'] ?? 0),
+                'key' => (string) ($context['resolved_target_role']['key'] ?? ''),
+                'name' => (string) ($context['resolved_target_role']['name'] ?? ''),
+            ],
+            'updated_assets' => $updatedCounts,
+        ]);
+
+        return sendResponse(true, 'Member moved to target organization successfully.', [
+            'user' => $context['user'],
+            'from_organization' => $context['source_organization'],
+            'to_organization' => $context['target_organization'],
+            'membership' => $updatedMembership,
+            'updated_assets' => $updatedCounts,
+            'mode' => $context['mode'],
+        ]);
     }
 
     /**

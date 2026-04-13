@@ -113,6 +113,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/organizations/{id}', [OrganizationController::class, 'show'])->name('admin.organizations.show');
         Route::post('/organizations', [OrganizationController::class, 'store'])->name('admin.organizations.store');
         Route::post('/organizations/provision', [OrganizationController::class, 'provision'])->name('admin.organizations.provision');
+        Route::post('/organizations/validate-member-transfer', [OrganizationController::class, 'validateMemberTransfer'])->name('admin.organizations.validateMemberTransfer');
+        Route::post('/organizations/transfer-member', [OrganizationController::class, 'transferMember'])->name('admin.organizations.transferMember');
         Route::put('/organizations/{id}', [OrganizationController::class, 'update'])->name('admin.organizations.update');
         Route::patch('/organizations/{id}/status', [OrganizationController::class, 'updateStatus'])->name('admin.organizations.updateStatus');
 

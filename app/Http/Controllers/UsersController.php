@@ -16,14 +16,43 @@ class UsersController extends Controller
 {
     public function index(Request $request)
     {
-        // with('angleTemplates')->
-        $templates = User::when($request->get('q'), function ($q) use ($request) {
-            $q->where(function ($q) use ($request) {
-                $q->orWhere('name', 'LIKE', '%' . $request->q . '%');
-            });
-        })->when($request->get('sort'), function ($q) use ($request) {
-            $q->orderBy(...explode(' ', $request->get('sort')));
-        })->cursorPaginate($request->page_count);
+        $templates = User::query()
+            ->leftJoin('organization_user as ou', function ($join) {
+                $join->on('ou.user_id', '=', 'users.id')
+                    ->whereNull('ou.deleted_at');
+            })
+            ->leftJoin('organizations as org', 'org.id', '=', 'ou.organization_id')
+            ->leftJoin('roles as org_role', 'org_role.id', '=', 'ou.role_id')
+            ->when($request->get('q'), function ($q) use ($request) {
+                $search = '%' . $request->q . '%';
+                $q->where(function ($q) use ($search) {
+                    $q->where('users.name', 'LIKE', $search)
+                        ->orWhere('users.email', 'LIKE', $search)
+                        ->orWhere('org.name', 'LIKE', $search);
+                });
+            })
+            ->when($request->get('sort'), function ($q) use ($request) {
+                $sortParts = explode(' ', $request->get('sort'));
+                $column = $sortParts[0] ?? 'users.id';
+                $direction = strtolower($sortParts[1] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+                $allowedColumns = ['users.id', 'users.name', 'users.created_at', 'org.name'];
+                if (!in_array($column, $allowedColumns, true)) {
+                    $column = 'users.id';
+                }
+                $q->orderBy($column, $direction);
+            }, function ($q) {
+                $q->orderBy('users.id', 'asc');
+            })
+            ->select([
+                'users.*',
+                'ou.organization_id as current_organization_id',
+                'ou.status as current_membership_status',
+                'ou.role_id as current_organization_role_id',
+                'org_role.key as current_organization_role_key',
+                'org_role.name as current_organization_role_name',
+                'org.name as current_organization_name',
+            ])
+            ->cursorPaginate($request->page_count);
         return sendResponse(true, 'Users retrieved successfully!', $templates);
     }
 

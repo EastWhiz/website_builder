@@ -7,6 +7,7 @@ import 'react-international-phone/style.css';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import {
     AppProvider, Card,
     IndexFilters,
@@ -67,11 +68,15 @@ export default function Dashboard() {
     }));
 
     const sortOptions = [
-        { label: 'Id', value: 'id asc', directionLabel: 'Ascending' },
-        { label: 'Id', value: 'id desc', directionLabel: 'Descending' },
+        { label: 'Id', value: 'users.id asc', directionLabel: 'Ascending' },
+        { label: 'Id', value: 'users.id desc', directionLabel: 'Descending' },
+        { label: 'Name', value: 'users.name asc', directionLabel: 'Ascending' },
+        { label: 'Name', value: 'users.name desc', directionLabel: 'Descending' },
+        { label: 'Organization', value: 'org.name asc', directionLabel: 'Ascending' },
+        { label: 'Organization', value: 'org.name desc', directionLabel: 'Descending' },
     ];
 
-    const [sortSelected, setSortSelected] = useState(['id asc']);
+    const [sortSelected, setSortSelected] = useState(['users.id asc']);
     const [queryValue, setQueryValue] = useState("");
     const { mode, setMode } = useSetIndexFiltersMode();
     const onHandleCancel = () => { };
@@ -250,6 +255,17 @@ export default function Dashboard() {
             <IndexTable.Cell>
                 {value.name}
             </IndexTable.Cell>
+            <IndexTable.Cell>
+                {value.current_organization_role_name || '-'}
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                {value.current_organization_name || '-'}
+            </IndexTable.Cell>
+            <IndexTable.Cell>
+                {value.current_membership_status
+                    ? String(value.current_membership_status).charAt(0).toUpperCase() + String(value.current_membership_status).slice(1)
+                    : '-'}
+            </IndexTable.Cell>
             <IndexTable.Cell >
                 {convertISOToYMD(value.created_at)}
             </IndexTable.Cell>
@@ -263,6 +279,19 @@ export default function Dashboard() {
                 <MuiButton size='small' variant='contained' color='error' className='cptlz' sx={{ ml: 1 }} onClick={() => handleDeleteUser(value.id)}>
                     <DeleteIcon sx={{ fontSize: "16px", mr: 1 }} /> Delete
                 </MuiButton>
+                {value.current_organization_role_key !== 'org_admin' &&
+                    String(value.current_membership_status || '').toLowerCase() !== 'invited' && (
+                    <MuiButton
+                        size='small'
+                        variant='contained'
+                        color='primary'
+                        className='cptlz'
+                        sx={{ ml: 1 }}
+                        onClick={() => openMoveUserModal(value)}
+                    >
+                        <SwapHorizIcon sx={{ fontSize: "16px", mr: 1 }} /> Move
+                    </MuiButton>
+                )}
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
@@ -270,6 +299,11 @@ export default function Dashboard() {
     const [addUserModalOpen, setAddUserModalOpen] = useState(false);
     const [newUser, setNewUser] = useState({ name: '', email: '', phone: '', password: '' });
     const [creatingUser, setCreatingUser] = useState(false);
+    const [moveUserModalOpen, setMoveUserModalOpen] = useState(false);
+    const [selectedUserForMove, setSelectedUserForMove] = useState(null);
+    const [organizations, setOrganizations] = useState([]);
+    const [targetOrganizationId, setTargetOrganizationId] = useState('');
+    const [movingUser, setMovingUser] = useState(false);
 
     const modalStyle = {
         position: 'absolute',
@@ -322,6 +356,119 @@ export default function Dashboard() {
             });
         }
         setCreatingUser(false);
+    };
+
+    const fetchOrganizations = async () => {
+        try {
+            const url = new URL(route('admin.organizations.list'));
+            url.searchParams.set('page_count', '200');
+            const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                return;
+            }
+            const rows = result?.data?.data || [];
+            setOrganizations(rows);
+        } catch (err) {
+            // No-op fallback: modal can still open with empty options.
+        }
+    };
+
+    const openMoveUserModal = async (user) => {
+        setSelectedUserForMove(user);
+        setTargetOrganizationId('');
+        setMoveUserModalOpen(true);
+        if (organizations.length === 0) {
+            await fetchOrganizations();
+        }
+    };
+
+    const closeMoveModal = () => {
+        setMoveUserModalOpen(false);
+        setSelectedUserForMove(null);
+        setTargetOrganizationId('');
+    };
+
+    const handleMoveUser = async () => {
+        if (!selectedUserForMove || !targetOrganizationId) {
+            return;
+        }
+
+        try {
+            setMovingUser(true);
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const payload = {
+                user_id: selectedUserForMove.id,
+                source_organization_id: selectedUserForMove.current_organization_id || null,
+                target_organization_id: Number(targetOrganizationId),
+            };
+            const precheckRes = await fetch(route('admin.organizations.validateMemberTransfer'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                },
+                body: JSON.stringify(payload),
+            });
+            const precheck = await precheckRes.json();
+            if (!precheckRes.ok || !precheck.success) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Move validation failed',
+                    text: precheck.message || 'User cannot be moved.',
+                });
+                return;
+            }
+
+            const confirm = await Swal.fire({
+                title: 'Confirm user move',
+                text: `Assign ${selectedUserForMove.name} to selected organization?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, move user',
+                cancelButtonText: 'Cancel',
+            });
+            if (!confirm.isConfirmed) {
+                return;
+            }
+
+            const transferRes = await fetch(route('admin.organizations.transferMember'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                },
+                body: JSON.stringify(payload),
+            });
+            const transfer = await transferRes.json();
+            if (!transferRes.ok || !transfer.success) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Move failed',
+                    text: transfer.message || 'Could not move user.',
+                });
+                return;
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'User moved',
+                text: transfer.message || 'User moved successfully.',
+            });
+
+            closeMoveModal();
+            setReload((v) => !v);
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Move failed',
+                text: 'Could not move user.',
+            });
+        } finally {
+            setMovingUser(false);
+        }
     };
 
     return (
@@ -388,6 +535,9 @@ export default function Dashboard() {
                                             headings={[
                                                 { title: 'ID' },
                                                 { title: 'Name' },
+                                                { title: 'Role' },
+                                                { title: 'Organization' },
+                                                { title: 'Status' },
                                                 { title: 'User Added' },
                                                 { title: 'Action' },
                                             ]}
@@ -489,6 +639,70 @@ export default function Dashboard() {
                                 </MuiButton>
                                 <MuiButton variant="contained" color="primary" className="cptlz" onClick={handleAddUser} disabled={creatingUser || !newUser.name || !newUser.email || !newUser.phone || !newUser.password}>
                                     {creatingUser ? 'Creating...' : 'Create User'}
+                                </MuiButton>
+                            </Box>
+                        </Box>
+                    </Fade>
+                </Modal>
+                <Modal
+                    aria-labelledby="move-user-modal-title"
+                    aria-describedby="move-user-modal-description"
+                    open={moveUserModalOpen}
+                    onClose={closeMoveModal}
+                    closeAfterTransition
+                    slots={{ backdrop: Backdrop }}
+                    slotProps={{ backdrop: { timeout: 100 } }}
+                >
+                    <Fade in={moveUserModalOpen}>
+                        <Box sx={modalStyle}>
+                            <h3 id="move-user-modal-title" style={{ marginBottom: '10px', fontSize: 22 }}>Move User</h3>
+                            <TextField
+                                label="User"
+                                value={selectedUserForMove ? `${selectedUserForMove.name} (U${selectedUserForMove.id})` : ''}
+                                fullWidth
+                                size="small"
+                                disabled
+                            />
+                            <TextField
+                                label="Current Organization"
+                                value={selectedUserForMove?.current_organization_name || 'Not attached'}
+                                fullWidth
+                                size="small"
+                                disabled
+                            />
+                            <p style={{ marginTop: '-4px', marginBottom: '6px', color: '#6b7280', fontSize: '13px' }}>
+                                Selecting a target organization will assign this user to that organization.
+                            </p>
+                            <TextField
+                                select
+                                SelectProps={{ native: true }}
+                                label="Target Organization"
+                                value={targetOrganizationId}
+                                onChange={(e) => setTargetOrganizationId(e.target.value)}
+                                fullWidth
+                                size="small"
+                            >
+                                <option value="">Select organization</option>
+                                {organizations
+                                    .filter((org) => Number(org.id) !== Number(selectedUserForMove?.current_organization_id || 0))
+                                    .map((org) => (
+                                        <option key={org.id} value={org.id}>
+                                            {org.name}
+                                        </option>
+                                    ))}
+                            </TextField>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                                <MuiButton onClick={closeMoveModal} sx={{ mr: 1 }} className="cptlz" disabled={movingUser}>
+                                    Cancel
+                                </MuiButton>
+                                <MuiButton
+                                    variant="contained"
+                                    color="primary"
+                                    className="cptlz"
+                                    onClick={handleMoveUser}
+                                    disabled={movingUser || !targetOrganizationId}
+                                >
+                                    {movingUser ? 'Moving...' : 'Confirm Move'}
                                 </MuiButton>
                             </Box>
                         </Box>

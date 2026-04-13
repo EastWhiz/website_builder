@@ -144,6 +144,42 @@ Small steps
 - Step 3.7 [DONE]: Add restore flow (optional if approved for v1).
 
 ----------------------------------------------------------------------
+PHASE 3C: USER / MEMBER TRANSFER BETWEEN ORGANIZATIONS (Super Admin)
+----------------------------------------------------------------------
+Objective
+- Move a **single team member (user)** from a **source organization** (e.g. Org QWE) to a **target organization** (e.g. Org XYZ), together with **that user’s org-scoped assets**.
+- This is **not** a whole-organization move; only the chosen user’s membership and their scoped data are affected.
+
+Related one-time need (legacy / migration)
+- **Attach existing users** who currently have **no** `organization_user` row (and typically **null** `organization_id` on scoped content) to a chosen organization: create membership, set `organization_id` on all applicable scoped rows for that user, inside a transaction + audit. Default target role should be explicit (e.g. org_admin for first user of a new org, or a selected role).
+
+Locked requirements (cross-org move QWE → XYZ)
+- **Org owner / primary user:** Do **not** allow the move until the user is no longer blocked as **owner of the source org** — e.g. if `organizations.primary_user_id` is this user (or equivalent policy), require **reassigning primary** or changing membership/role so the source org is not left invalid. Reason for move is **not** recorded; only **that** the move occurred.
+- **Role:** The **meaning** of the user’s role is preserved: resolve the **target** `organization_user.role_id` by matching **`roles.key`** (and `scope` = organization) in the **target** org. Do **not** copy the numeric `role_id` from the source org blindly (FK would point at the wrong role row).
+- **Primary keys / no soft-delete for this operation:** Keep all row **ids** unchanged. **UPDATE** `organization_id` (and remapped `role_id` on `organization_user` as needed) **in place**. Do **not** soft-delete the membership row or assets **as part of the move** (no `deleted_at` toggles for move semantics).
+- **Scoped asset updates:** For tables that carry `organization_id` for org-scoped content (at minimum: `angles`, `angle_templates`, `thank_you_pages`, `user_api_instances`; extend the list if new org-scoped tables are added), run:
+  - `UPDATE ... SET organization_id = <target> WHERE user_id = <user> AND organization_id = <source>`
+  so other users’ rows and wrong orgs are never touched.
+- **Membership row:** Prefer **UPDATE** the existing `organization_user` row: same `id`, new `organization_id` (and new `role_id` after key resolution), subject to **unique (`organization_id`, `user_id`)** — ensure no duplicate active row for `(target_org, user)` before committing.
+- **Audit:** Append an **immutable** audit/activity record: `actor_user_id`, action type (e.g. member_moved_cross_org), `user_id`, `from_org_id`, `to_org_id`, optional old/new role keys or ids, optional counts or metadata (which tables updated). Align with Phase 4 audit expectations where possible.
+
+Authorization
+- **Super Admin** (or a dedicated permission such as existing cross-org content permissions) performs cross-org user moves. Org-level admins do **not** arbitrarily move members to another org unless explicitly added later.
+
+Acceptance
+- Owner-guard blocks move until source org primary/ownership is fixed.
+- After move, user has exactly one intended membership to target org; assets for that user under source org now show target `organization_id`.
+- Audit row exists for every successful move.
+- No soft-delete used solely to implement the move.
+
+Small steps
+- Step 3C.1 [DONE]: Backend service: validate source/target orgs, owner/primary_user_id guard, uniqueness on `organization_user`.
+- Step 3C.2 [DONE]: Resolve target role by `roles.key`; UPDATE `organization_user` in place.
+- Step 3C.3 [DONE]: UPDATE all org-scoped asset tables (user + source org scope); wrap in DB transaction.
+- Step 3C.4 [DONE]: Write audit/activity log entry (shared helper if Phase 4 table exists).
+- Step 3C.5 [DONE]: Super Admin API + UI (select user, source org, target org, confirm); optional bulk/legacy attach command or admin tool for users without org is deferred.
+
+----------------------------------------------------------------------
 PHASE 3B: ROLE MANAGEMENT (SUPER ADMIN) (2-3 days)
 ----------------------------------------------------------------------
 Features
@@ -170,7 +206,7 @@ Features
 - Org-scoped listing/query updates for:
   - angles, angle templates, pages, integrations and relevant profile sections.
 - Transfer ownership/assignment within org (Admin/Manager as approved).
-- Super Admin cross-org move/clone.
+- Super Admin cross-org move/clone (see **Phase 3C** for moving a **team member** + assets between orgs; Phase 4 covers broader scoping, clone, and audit infrastructure).
 - Audit logging table + write path for every move/clone:
   - actor_user_id, action, entity_type, entity_id, from_org_id, to_org_id, metadata, created_at.
 
