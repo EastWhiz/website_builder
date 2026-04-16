@@ -24,7 +24,9 @@ export default function Dashboard() {
 
     const page = usePage().props;
     const roleId = page?.auth?.user?.role_id;
+    const roleName = page?.auth?.user?.role?.name;
     const permissions = page?.auth?.permissions || {};
+    const isPrivilegedPlatformAdmin = Number(roleId) === 1 || roleName === 'admin';
     const canTransferInOrg = Boolean(permissions.content_transfer_in_org);
     const canCloneCrossOrg = Boolean(permissions.content_clone_cross_org);
     const canViewAdminColumns = Number(roleId) === 1 || Boolean(permissions.org_role_crud);
@@ -527,7 +529,7 @@ export default function Dashboard() {
             content: 'Duplicate Angles',
             onAction: duplicateAnglesHandler,
         },
-        ...(roleId && roleId == 1 ? [{
+        ...(!isPrivilegedPlatformAdmin ? [{
             content: 'Assign to User',
             onAction: () => { setActiveTwo(true) },
         }] : []),
@@ -535,7 +537,7 @@ export default function Dashboard() {
             content: 'Assign to Organization',
             onAction: openAssignOrgModal,
         }] : []),
-        ...(canTransferInOrg ? [{
+        ...(canTransferInOrg && !isPrivilegedPlatformAdmin ? [{
             content: 'Assign to Org User',
             onAction: openInOrgAssignModal,
         }] : []),
