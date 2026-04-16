@@ -74,6 +74,7 @@ class HandleInertiaRequests extends Middleware
                     'member_restore' => Gate::forUser($user)->allows('org.permission', 'member.restore'),
                     'member_activate_complete' => Gate::forUser($user)->allows('org.permission', 'member.activate_complete'),
                     'role_view' => Gate::forUser($user)->allows('org.permission', 'role.view'),
+                    'content_view_org_all' => Gate::forUser($user)->allows('org.permission', 'content.view_org_all'),
                     'content_transfer_in_org' => Gate::forUser($user)->allows('org.permission', 'content.transfer_in_org'),
                     'content_clone_cross_org' => Gate::forUser($user)->allows('org.permission', 'content.clone_cross_org'),
                     'audit_view_org' => Gate::forUser($user)->allows('org.permission', 'audit.view_org'),

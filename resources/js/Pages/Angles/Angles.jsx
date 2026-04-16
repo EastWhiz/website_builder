@@ -27,6 +27,8 @@ export default function Dashboard() {
     const permissions = page?.auth?.permissions || {};
     const canTransferInOrg = Boolean(permissions.content_transfer_in_org);
     const canCloneCrossOrg = Boolean(permissions.content_clone_cross_org);
+    const canViewAdminColumns = Number(roleId) === 1 || Boolean(permissions.org_role_crud);
+    const canViewAssignedUser = Number(roleId) === 1 || Boolean(permissions.content_view_org_all);
     // console.log(roleId);
 
     const [selected, setSelected] = useState(0);
@@ -100,9 +102,7 @@ export default function Dashboard() {
     const [cloneSubmitting, setCloneSubmitting] = useState(false);
     const [cloneSourceOrgId, setCloneSourceOrgId] = useState('');
     const [cloneTargetOrgId, setCloneTargetOrgId] = useState('');
-    const [cloneTargetUserId, setCloneTargetUserId] = useState('');
     const [organizations, setOrganizations] = useState([]);
-    const [allUsers, setAllUsers] = useState([]);
 
     // Translation state
     const [translateModalOpen, setTranslateModalOpen] = useState(false);
@@ -365,17 +365,6 @@ export default function Dashboard() {
         return result?.data?.data || [];
     };
 
-    const fetchAllUsers = async () => {
-        const url = new URL(route('users.list'));
-        url.searchParams.set('page_count', '500');
-        const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-            throw new Error(result.message || 'Could not load users.');
-        }
-        return result?.data?.data || [];
-    };
-
     const openAssignOrgModal = async () => {
         if (!ensureExplicitSelection()) return;
         try {
@@ -478,10 +467,6 @@ export default function Dashboard() {
                 const orgRows = await fetchOrganizations();
                 setOrganizations(orgRows);
             }
-            if (allUsers.length === 0) {
-                const userRows = await fetchAllUsers();
-                setAllUsers(userRows);
-            }
             const selectedOrgIds = [...new Set(getSelectedRows().map((row) => Number(row.organization_id || 0)).filter((v) => v > 0))];
             if (selectedOrgIds.length !== 1) {
                 Swal.fire("Invalid selection", "Selected rows must belong to exactly one source organization for clone.", "error");
@@ -489,7 +474,6 @@ export default function Dashboard() {
             }
             setCloneSourceOrgId(String(selectedOrgIds[0]));
             setCloneTargetOrgId('');
-            setCloneTargetUserId('');
             setCloneModalOpen(true);
         } catch (error) {
             Swal.fire("Error!", error?.message || 'Could not open clone modal.', "error");
@@ -497,7 +481,7 @@ export default function Dashboard() {
     };
 
     const submitClone = async () => {
-        if (!cloneSourceOrgId || !cloneTargetOrgId || !cloneTargetUserId) return;
+        if (!cloneSourceOrgId || !cloneTargetOrgId) return;
         const rows = getSelectedRows();
         if (rows.length === 0) {
             Swal.fire("Invalid selection", "Please reselect rows and try again.", "error");
@@ -515,7 +499,6 @@ export default function Dashboard() {
                 body: JSON.stringify({
                     source_organization_id: Number(cloneSourceOrgId),
                     target_organization_id: Number(cloneTargetOrgId),
-                    target_user_id: Number(cloneTargetUserId),
                     items: rows.map((row) => ({ type: 'angle', id: Number(row.id) })),
                 }),
             });
@@ -760,7 +743,12 @@ export default function Dashboard() {
             <IndexTable.Cell>
                 {value.name}
             </IndexTable.Cell>
-            {roleId && roleId == 1 &&
+            {canViewAdminColumns && (
+                <IndexTable.Cell>
+                    {value?.organization?.name || '-'}
+                </IndexTable.Cell>
+            )}
+            {canViewAssignedUser &&
                 <IndexTable.Cell>
                     {`(ID: U${value.user.id}) ${value.user.name}`}
                 </IndexTable.Cell>
@@ -818,8 +806,6 @@ export default function Dashboard() {
             </IndexTable.Cell>
         </IndexTable.Row >
     ));
-
-    const cloneTargetUsers = allUsers.filter((u) => Number(u.current_organization_id || 0) === Number(cloneTargetOrgId || 0));
 
     return (
         <AppProvider i18n={en}>
@@ -945,7 +931,7 @@ export default function Dashboard() {
                     primaryAction={{
                         content: cloneSubmitting ? 'Cloning...' : 'Confirm Clone',
                         onAction: submitClone,
-                        disabled: cloneSubmitting || !cloneSourceOrgId || !cloneTargetOrgId || !cloneTargetUserId,
+                        disabled: cloneSubmitting || !cloneSourceOrgId || !cloneTargetOrgId,
                     }}
                     secondaryActions={[{ content: 'Cancel', onAction: () => setCloneModalOpen(false) }]}
                 >
@@ -972,20 +958,6 @@ export default function Dashboard() {
                                 ]}
                                 value={cloneTargetOrgId}
                                 onChange={setCloneTargetOrgId}
-                            />
-                        </div>
-                        <div style={{ marginTop: '12px' }}>
-                            <ShopifySelect
-                                label="Target User"
-                                options={[
-                                    { label: 'Select target user...', value: '' },
-                                    ...cloneTargetUsers.map((user) => ({
-                                        label: `${user.name} (U${user.id})`,
-                                        value: String(user.id),
-                                    })),
-                                ]}
-                                value={cloneTargetUserId}
-                                onChange={setCloneTargetUserId}
                             />
                         </div>
                     </Modal.Section>
@@ -1048,7 +1020,8 @@ export default function Dashboard() {
                                             headings={[
                                                 { title: 'ID' },
                                                 { title: 'Title' },
-                                                ...(roleId && roleId == 1 ? [{ title: 'Assigned to User' }] : []),
+                                                ...(canViewAdminColumns ? [{ title: 'Organization' }] : []),
+                                                ...(canViewAssignedUser ? [{ title: 'Assigned to User' }] : []),
                                                 { title: 'Body Count', alignment: 'center' },
                                                 { title: 'CSS Count', alignment: 'center' },
                                                 { title: 'JS Count', alignment: 'center' },

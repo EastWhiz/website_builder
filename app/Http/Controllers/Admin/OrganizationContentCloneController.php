@@ -30,21 +30,17 @@ class OrganizationContentCloneController extends Controller
         $validated = $request->validated();
         $sourceOrgId = (int) $validated['source_organization_id'];
         $targetOrgId = (int) $validated['target_organization_id'];
-        $targetUserId = (int) $validated['target_user_id'];
         $items = $this->normalizeItems((array) ($validated['items'] ?? []));
 
         if ($items === []) {
             return sendResponse(false, 'No valid items to clone.', null, null, null, 422);
         }
 
-        $targetMembershipExists = DB::table('organization_user')
-            ->where('organization_id', $targetOrgId)
-            ->where('user_id', $targetUserId)
-            ->where('status', 'active')
-            ->whereNull('deleted_at')
-            ->exists();
-        if (!$targetMembershipExists) {
-            return sendResponse(false, 'Target user must be an active member of target organization.', null, null, null, 422);
+        // For clones into another organization, the cloned row(s) should be
+        // owned by the target organization's primary user.
+        $targetUserId = $this->resolveRegisteredOrganizationUserId($targetOrgId);
+        if ($targetUserId < 1) {
+            return sendResponse(false, 'Target organization does not have a valid registered user.', null, null, null, 422);
         }
 
         $countsByType = [];
@@ -98,7 +94,7 @@ class OrganizationContentCloneController extends Controller
             $sourceOrgId,
             $targetOrgId,
             [
-                'target_user_id' => $targetUserId,
+                'resolved_target_user_id' => $targetUserId,
                 'counts_by_type' => $countsByType,
                 'items' => $clonedItems,
             ]
@@ -107,7 +103,7 @@ class OrganizationContentCloneController extends Controller
         return sendResponse(true, 'Content cloned successfully.', [
             'from_org_id' => $sourceOrgId,
             'to_org_id' => $targetOrgId,
-            'target_user_id' => $targetUserId,
+            'resolved_target_user_id' => $targetUserId,
             'counts_by_type' => $countsByType,
             'items' => $clonedItems,
         ]);
@@ -272,5 +268,28 @@ class OrganizationContentCloneController extends Controller
             }
             DB::table('user_api_instance_values')->insert($payload);
         }
+    }
+
+    private function resolveRegisteredOrganizationUserId(int $organizationId): int
+    {
+        if ($organizationId < 1) {
+            return 0;
+        }
+
+        $ownerId = DB::table('organizations')
+            ->where('id', $organizationId)
+            ->value('primary_user_id');
+
+        $ownerId = (int) ($ownerId ?? 0);
+        if ($ownerId < 1) {
+            return 0;
+        }
+
+        $isUsable = DB::table('users')
+            ->where('id', $ownerId)
+            ->whereNull('deleted_at')
+            ->exists();
+
+        return $isUsable ? $ownerId : 0;
     }
 }
