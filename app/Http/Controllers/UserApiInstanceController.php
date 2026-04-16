@@ -6,9 +6,11 @@ use App\Http\Controllers\ApiCredentialsController;
 use App\Models\ApiCategory;
 use App\Models\UserApiInstance;
 use App\Models\UserApiInstanceValue;
+use App\Support\OrganizationAccess;
 use App\Services\ApiInstanceValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class UserApiInstanceController extends Controller
 {
@@ -23,8 +25,17 @@ class UserApiInstanceController extends Controller
      */
     public function index(Request $request)
     {
-        $instances = Auth::user()
-            ->apiInstances()
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+        $canViewOrgAll = $user
+            ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
+            : false;
+        $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
+
+        $instances = UserApiInstance::query()
+            ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
+            ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
             ->with(['category', 'values.field'])
             ->whereHas('category', fn ($q) => $q->where('is_active', true))
             ->orderBy('api_category_id')
@@ -81,6 +92,7 @@ class UserApiInstanceController extends Controller
 
         $instance = UserApiInstance::create([
             'user_id' => Auth::id(),
+            'organization_id' => $request->user()?->currentOrganization()?->id,
             'api_category_id' => $category->id,
             'name' => $validated['name'],
             'is_active' => true,
@@ -266,12 +278,21 @@ class UserApiInstanceController extends Controller
      */
     public function getByCategory($categoryId)
     {
+        $user = Auth::user();
+        $organization = $user?->currentOrganization();
+        $canViewOrgAll = $user
+            ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
+            : false;
+        $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
+
         $category = ApiCategory::query()->find($categoryId);
         if (!$category) {
             return response()->json(['success' => true, 'data' => []]);
         }
-        $instances = Auth::user()
-            ->apiInstances()
+        $instances = UserApiInstance::query()
+            ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
+            ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
             ->with(['category', 'values.field'])
             ->where('api_category_id', $categoryId)
             ->orderBy('name')

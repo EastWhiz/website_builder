@@ -134,7 +134,6 @@ Acceptance
 - No hard delete path exposed in UI.
 
 Small steps
-- Step 3.1: Create Team/Company settings route and shell page.
 - Step 3.1 [DONE]: Create Team/Company settings route and shell page.
 - Step 3.2 [DONE]: Build members list API (active + archived toggle).
 - Step 3.3 [DONE]: Build invite API + email activation link flow.
@@ -202,26 +201,48 @@ Small steps
 ----------------------------------------------------------------------
 PHASE 4: ORG SCOPING + TRANSFERS + AUDIT (4-6 days)
 ----------------------------------------------------------------------
+Scope lock (updated after production issues)
+- This phase is split into two clear layers for content ownership:
+  1) **Organization pool assignment** (Super Admin): assign content to an organization only.
+  2) **User assignment inside organization** (Org Admin/Manager): assign/shift org-pooled content to members.
+- Super Admin does **not** directly assign org content to end users in this phase’s primary flow.
+
 Features
 - Org-scoped listing/query updates for:
   - angles, angle templates, pages, integrations and relevant profile sections.
-- Transfer ownership/assignment within org (Admin/Manager as approved).
-- Super Admin cross-org move/clone (see **Phase 3C** for moving a **team member** + assets between orgs; Phase 4 covers broader scoping, clone, and audit infrastructure).
-- Audit logging table + write path for every move/clone:
+- **Org pool first** assignment flow:
+  - Super Admin assigns selected content to `organization_id` only (no direct user assignment in this step).
+  - Org admin then assigns to org members.
+- Visibility model for org content:
+  - Org Admin/Manager can view all content in their organization (pool + user-assigned).
+  - Members can view only content assigned to themselves.
+- Legacy compatibility:
+  - Handle rows with null `organization_id` (pre-org era) without blocking assignment.
+  - Do not require pre-existing source assignment to move into org pool.
+- Super Admin cross-org clone path (member move remains in Phase 3C).
+- Audit logging write path for transfer/clone operations:
   - actor_user_id, action, entity_type, entity_id, from_org_id, to_org_id, metadata, created_at.
+- UI clarity:
+  - Show `Organization` column in relevant lists (e.g., Angles), display `-` when unassigned.
 
-Acceptance
-- Users only see assets allowed by role + org.
-- Every move/clone operation creates an immutable audit record.
-- Cross-org action only possible by Super Admin.
+Acceptance (must all pass)
+- Super Admin assigns content to org pool; content appears under that org context.
+- Org Admin login for target org can see all org-assigned items (including items assigned to any org user).
+- Member login sees only member-assigned items; org pool items are hidden until assigned.
+- For legacy null-org rows, assignment to org succeeds and becomes visible in target org.
+- No cross-org visibility leakage.
+- Every transfer/clone operation creates an immutable audit record.
 
-Small steps
-- Step 4.1: Apply org scopes to list/query endpoints (angles/templates/pages/APIs).
-- Step 4.2: Add assignment transfer API for in-org moves.
-- Step 4.3: Add Super Admin cross-org move/clone API path.
-- Step 4.4: Implement audit_log table + central logging helper/service.
-- Step 4.5: Add UI actions for transfer/clone with confirmation modals.
-- Step 4.6: Add read-only audit log viewer (Super Admin + permitted admins).
+Small steps (re-baselined)
+- Step 4.1 [DONE]: Re-apply org scopes to list/query endpoints (angles/templates/pages/APIs) with deterministic org context resolution.
+- Step 4.2 [DONE]: Add/verify org-pool assignment API (Super Admin -> organization only), including legacy null-org rows.
+- Step 4.3 [DONE]: Add/verify in-org assignment API (Org Admin/Manager -> org users) and ensure member-only visibility.
+- Step 4.4 [DONE]: Add/verify Super Admin cross-org clone API path (non-member clone paths only).
+- Step 4.5 [DONE]: Add/verify UI actions + confirmation modals for:
+  - assign to organization (Super Admin),
+  - assign/shift to org users (Org Admin/Manager),
+  - cross-org clone (Super Admin).
+- Step 4.6 [DONE]: Expand/normalize audit logging + read-only audit log viewer (Super Admin + permitted org admins).
 
 ----------------------------------------------------------------------
 PHASE 5: INTEGRATIONS MODEL ENFORCEMENT + UX GROUPING (3-5 days)

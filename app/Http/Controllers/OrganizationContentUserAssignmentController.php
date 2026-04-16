@@ -1,0 +1,196 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\AssignOrganizationContentToUserRequest;
+use App\Services\OrganizationActivityLogger;
+use App\Support\OrganizationAccess;
+use Illuminate\Support\Facades\DB;
+
+class OrganizationContentUserAssignmentController extends Controller
+{
+    /** @var array<string, string> */
+    private const TABLES = [
+        'angle' => 'angles',
+        'angle_template' => 'angle_templates',
+        'thank_you_page' => 'thank_you_pages',
+        'user_api_instance' => 'user_api_instances',
+    ];
+
+    public function __construct(private readonly OrganizationActivityLogger $activityLogger)
+    {
+    }
+
+    /**
+     * Step 4.3: Assign org-scoped content to a member inside the same organization.
+     */
+    public function assignToUser(AssignOrganizationContentToUserRequest $request)
+    {
+        $user = $request->user();
+        $targetUserId = (int) $request->input('to_user_id');
+        $organizationId = $this->resolveOrganizationId($request);
+        if ($organizationId instanceof \Illuminate\Http\JsonResponse) {
+            return $organizationId;
+        }
+
+        if (!$this->isActiveOrgMember($targetUserId, $organizationId)) {
+            return sendResponse(false, 'Selected user is not an active member of this organization.', null, null, null, 422);
+        }
+
+        if (!$this->mayAssignWithinOrganization($user, $organizationId)) {
+            return sendResponse(false, 'You are not allowed to assign content in this organization.', null, null, null, 403);
+        }
+
+        $items = $this->normalizeItems((array) $request->input('items', []));
+        if ($items === []) {
+            return sendResponse(false, 'No valid items to assign.', null, null, null, 422);
+        }
+
+        $countsByType = [];
+        $assignedItems = [];
+
+        try {
+            DB::transaction(function () use ($items, $targetUserId, $organizationId, &$countsByType, &$assignedItems) {
+                foreach ($items as $item) {
+                    $type = $item['type'];
+                    $id = $item['id'];
+                    $table = self::TABLES[$type];
+
+                    $record = DB::table($table)
+                        ->where('id', $id)
+                        ->where('organization_id', $organizationId)
+                        ->whereNull('deleted_at')
+                        ->first(['id', 'user_id']);
+
+                    if (!$record) {
+                        throw new \RuntimeException("Could not assign {$type} #{$id}. It is not available in this organization.");
+                    }
+
+                    $updated = DB::table($table)
+                        ->where('id', $id)
+                        ->update([
+                            'user_id' => $targetUserId,
+                            'updated_at' => now(),
+                        ]);
+
+                    if ($updated !== 1) {
+                        throw new \RuntimeException("Could not assign {$type} #{$id}.");
+                    }
+
+                    $countsByType[$type] = ($countsByType[$type] ?? 0) + 1;
+                    $assignedItems[] = [
+                        'type' => $type,
+                        'id' => $id,
+                        'from_user_id' => (int) ($record->user_id ?? 0),
+                        'to_user_id' => $targetUserId,
+                    ];
+                }
+            });
+        } catch (\RuntimeException $e) {
+            return sendResponse(false, $e->getMessage(), null, null, null, 422);
+        } catch (\Throwable $e) {
+            return sendResponse(false, 'In-organization assignment failed.', null, null, null, 500);
+        }
+
+        $this->activityLogger->logMoveOrClone(
+            $organizationId,
+            'org.content.assign_to_user_in_org',
+            'organization_content_batch',
+            null,
+            $organizationId,
+            $organizationId,
+            [
+                'to_user_id' => $targetUserId,
+                'counts_by_type' => $countsByType,
+                'items' => $assignedItems,
+            ]
+        );
+
+        return sendResponse(true, 'Content assigned to user successfully.', [
+            'organization_id' => $organizationId,
+            'to_user_id' => $targetUserId,
+            'counts_by_type' => $countsByType,
+            'items' => $assignedItems,
+        ]);
+    }
+
+    private function mayAssignWithinOrganization(?\App\Models\User $actor, int $organizationId): bool
+    {
+        if (!$actor) {
+            return false;
+        }
+        if (OrganizationAccess::isPrivilegedPlatformAdmin($actor)) {
+            return true;
+        }
+
+        $actorOrg = $actor->currentOrganization();
+        if (!$actorOrg || (int) $actorOrg->id !== $organizationId) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function resolveOrganizationId(AssignOrganizationContentToUserRequest $request): int|\Illuminate\Http\JsonResponse
+    {
+        $requestedOrgId = $request->input('organization_id');
+        $actor = $request->user();
+
+        if ($requestedOrgId !== null && $requestedOrgId !== '') {
+            $orgId = (int) $requestedOrgId;
+            if (!OrganizationAccess::isPrivilegedPlatformAdmin($actor)) {
+                $current = $actor?->currentOrganization();
+                if (!$current || (int) $current->id !== $orgId) {
+                    return sendResponse(false, 'You can assign content only within your own organization.', null, null, null, 403);
+                }
+            }
+            return $orgId;
+        }
+
+        $current = $actor?->currentOrganization();
+        if ($current) {
+            return (int) $current->id;
+        }
+
+        return sendResponse(false, 'Organization context is required.', null, null, null, 422);
+    }
+
+    private function isActiveOrgMember(int $userId, int $organizationId): bool
+    {
+        return DB::table('organization_user')
+            ->where('organization_id', $organizationId)
+            ->where('user_id', $userId)
+            ->where('status', 'active')
+            ->whereNull('deleted_at')
+            ->exists();
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rawItems
+     * @return list<array{type: string, id: int}>
+     */
+    private function normalizeItems(array $rawItems): array
+    {
+        $seen = [];
+        $out = [];
+
+        foreach ($rawItems as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $type = isset($row['type']) ? (string) $row['type'] : '';
+            $id = isset($row['id']) ? (int) $row['id'] : 0;
+            if ($id < 1 || !isset(self::TABLES[$type])) {
+                continue;
+            }
+            $key = $type . ':' . $id;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = ['type' => $type, 'id' => $id];
+        }
+
+        return $out;
+    }
+}

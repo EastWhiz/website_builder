@@ -6,29 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\TransferOrganizationMemberRequest;
 use App\Http\Requests\Admin\ValidateOrganizationMemberTransferRequest;
 use App\Models\Organization;
-use App\Models\OrganizationActivityLog;
 use App\Models\Role;
+use App\Services\OrganizationActivityLogger;
 use App\Services\OrganizationMemberTransferValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class OrganizationController extends Controller
 {
-    private function logOrgAction(?int $organizationId, string $action, array $metadata = []): void
+    public function __construct(private readonly OrganizationActivityLogger $activityLogger)
     {
-        try {
-            OrganizationActivityLog::create([
-                'organization_id' => $organizationId,
-                'actor_user_id' => Auth::id(),
-                'action' => $action,
-                'metadata' => $metadata,
-            ]);
-        } catch (\Throwable $e) {
-            // Logging should never break primary admin actions.
-        }
     }
 
     public function index(Request $request)
@@ -97,7 +86,7 @@ class OrganizationController extends Controller
             'primary_user_id' => $request->input('primary_user_id'),
         ]);
 
-        $this->logOrgAction($org->id, 'org.create', [
+        $this->activityLogger->log($org->id, 'org.create', [
             'name' => $org->name,
             'status' => $org->status,
             'primary_user_id' => $org->primary_user_id,
@@ -168,7 +157,7 @@ class OrganizationController extends Controller
             return ['organization' => $org, 'owner' => $owner];
         });
 
-        $this->logOrgAction($result['organization']->id ?? null, 'org.provision', [
+        $this->activityLogger->log($result['organization']->id ?? null, 'org.provision', [
             'org_name' => $request->input('org_name'),
             'org_status' => $request->input('org_status', 'active'),
             'owner_email' => $request->input('owner_email'),
@@ -198,7 +187,7 @@ class OrganizationController extends Controller
         $org->status = $request->input('status');
         $org->save();
 
-        $this->logOrgAction($org->id, 'org.status.update', [
+        $this->activityLogger->log($org->id, 'org.status.update', [
             'from' => $from,
             'to' => $org->status,
         ]);
@@ -321,23 +310,28 @@ class OrganizationController extends Controller
             ])
             ->first();
 
-        $this->logOrgAction($toOrgId, 'org.member.transfer_cross_org', [
-            'user_id' => $userId,
-            'membership_id' => (int) ($updatedMembership->membership_id ?? 0),
-            'from_org_id' => $fromOrgId > 0 ? $fromOrgId : null,
-            'to_org_id' => $toOrgId,
-            'from_role' => [
-                'id' => (int) ($context['membership']['role_id'] ?? 0),
-                'key' => (string) ($context['membership']['role_key'] ?? ''),
-                'name' => (string) ($context['membership']['role_name'] ?? ''),
-            ],
-            'to_role' => [
-                'id' => (int) ($context['resolved_target_role']['id'] ?? 0),
-                'key' => (string) ($context['resolved_target_role']['key'] ?? ''),
-                'name' => (string) ($context['resolved_target_role']['name'] ?? ''),
-            ],
-            'updated_assets' => $updatedCounts,
-        ]);
+        $this->activityLogger->logMoveOrClone(
+            $toOrgId,
+            'org.member.transfer_cross_org',
+            'organization_member',
+            $userId,
+            $fromOrgId > 0 ? $fromOrgId : null,
+            $toOrgId,
+            [
+                'membership_id' => (int) ($updatedMembership->membership_id ?? 0),
+                'from_role' => [
+                    'id' => (int) ($context['membership']['role_id'] ?? 0),
+                    'key' => (string) ($context['membership']['role_key'] ?? ''),
+                    'name' => (string) ($context['membership']['role_name'] ?? ''),
+                ],
+                'to_role' => [
+                    'id' => (int) ($context['resolved_target_role']['id'] ?? 0),
+                    'key' => (string) ($context['resolved_target_role']['key'] ?? ''),
+                    'name' => (string) ($context['resolved_target_role']['name'] ?? ''),
+                ],
+                'updated_assets' => $updatedCounts,
+            ]
+        );
 
         return sendResponse(true, 'Member moved to target organization successfully.', [
             'user' => $context['user'],
@@ -408,7 +402,7 @@ class OrganizationController extends Controller
         }
         $org->owner->save();
 
-        $this->logOrgAction($org->id, 'org.update', [
+        $this->activityLogger->log($org->id, 'org.update', [
             'from' => $before,
             'to' => [
                 'name' => $org->name,

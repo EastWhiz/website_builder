@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\ThankYouPage;
+use App\Support\OrganizationAccess;
 use App\Services\ThankYouPageImageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,8 +25,17 @@ class ThankYouPageController extends Controller
      */
     public function index(Request $request): Response
     {
-        $thankYouPages = $request->user()
-            ->thankYouPages()
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+        $canViewOrgAll = $user
+            ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
+            : false;
+        $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
+
+        $thankYouPages = ThankYouPage::query()
+            ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
+            ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
             ->orderBy('name')
             ->get()
             ->map(fn (ThankYouPage $page) => [
@@ -48,8 +59,17 @@ class ThankYouPageController extends Controller
      */
     public function apiIndex(Request $request)
     {
-        $pages = $request->user()
-            ->thankYouPages()
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+        $canViewOrgAll = $user
+            ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
+            : false;
+        $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
+
+        $pages = ThankYouPage::query()
+            ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
+            ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
+            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -83,6 +103,7 @@ class ThankYouPageController extends Controller
 
         $page = ThankYouPage::create([
             'user_id' => $request->user()->id,
+            'organization_id' => $request->user()?->currentOrganization()?->id,
             'name' => $validated['name'],
             'title_text' => $validated['title_text'],
             'description' => $validated['description'] ?? null,

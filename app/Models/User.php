@@ -68,7 +68,18 @@ class User extends Authenticatable
      */
     public function currentOrganization(): ?Organization
     {
-        return $this->organizations()->wherePivot('status', 'active')->first();
+        $ownedOrganization = Organization::query()
+            ->where('primary_user_id', $this->id)
+            ->first();
+        if ($ownedOrganization) {
+            return $ownedOrganization;
+        }
+
+        return $this->organizations()
+            ->wherePivot('status', 'active')
+            ->wherePivotNull('deleted_at')
+            ->orderByPivot('updated_at', 'desc')
+            ->first();
     }
 
     public function angleTemplates()

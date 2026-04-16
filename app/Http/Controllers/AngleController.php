@@ -12,7 +12,10 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Models\ExtraContent;
 use App\Models\User;
+use App\Support\OrganizationAccess;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 
 class AngleController extends Controller
@@ -22,20 +25,44 @@ class AngleController extends Controller
      */
     public function index(Request $request)
     {
-        // where('user_id', Auth::user()->id)->
-        $angles = Angle::with(['user', 'contents' => function ($query) {
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+        $canViewOrgAll = $user
+            ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
+            : false;
+        $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
+
+        $angles = Angle::with(['user', 'organization:id,name', 'contents' => function ($query) {
             $query->select('type', 'angle_uuid'); // columns you want
-        }])->when($request->get('q'), function ($q) use ($request) {
+        }])
+        ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
+        ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
+        ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
+        ->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
                 $q->orWhere('name', 'LIKE', '%' . $request->q . '%');
             });
         })->when($request->get('sort'), function ($q) use ($request) {
             $q->orderBy(...explode(' ', $request->get('sort')));
-        })->select(['id', 'name', 'uuid', 'user_id'])->cursorPaginate($request->page_count);
+        })->select(['id', 'name', 'uuid', 'user_id', 'organization_id'])->cursorPaginate($request->page_count);
 
         $templates = Template::get()->select(['id', 'name']);
 
-        $users = User::where('role_id', 2)->get()->select(['id', 'name']);
+        $users = User::query()
+            ->when($organization, function ($q) use ($organization) {
+                // whereHas() runs on the related Organization model; pivot helpers are invalid there.
+                // Use an explicit membership subquery on organization_user instead.
+                $q->whereExists(function ($sub) use ($organization) {
+                    $sub->select(DB::raw('1'))
+                        ->from('organization_user')
+                        ->whereColumn('organization_user.user_id', 'users.id')
+                        ->where('organization_user.organization_id', $organization->id)
+                        ->where('organization_user.status', 'active')
+                        ->whereNull('organization_user.deleted_at');
+                });
+            }, fn ($q) => $q->where('role_id', 2))
+            ->select(['id', 'name'])
+            ->get();
 
         return sendResponse(true, 'Angles retrieved successfully!', $angles, $templates, $users);
     }

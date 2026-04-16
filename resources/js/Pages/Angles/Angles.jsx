@@ -24,6 +24,9 @@ export default function Dashboard() {
 
     const page = usePage().props;
     const roleId = page?.auth?.user?.role_id;
+    const permissions = page?.auth?.permissions || {};
+    const canTransferInOrg = Boolean(permissions.content_transfer_in_org);
+    const canCloneCrossOrg = Boolean(permissions.content_clone_cross_org);
     // console.log(roleId);
 
     const [selected, setSelected] = useState(0);
@@ -87,6 +90,19 @@ export default function Dashboard() {
     const [usersOptions, setUsersOptions] = useState([]);
     const [activeTwo, setActiveTwo] = useState(false);
     const [selectedUsersOption, setSelectedUsersOption] = useState([]);
+    const [assignOrgModalOpen, setAssignOrgModalOpen] = useState(false);
+    const [assignOrgSubmitting, setAssignOrgSubmitting] = useState(false);
+    const [assignOrgId, setAssignOrgId] = useState('');
+    const [inOrgAssignModalOpen, setInOrgAssignModalOpen] = useState(false);
+    const [inOrgAssignSubmitting, setInOrgAssignSubmitting] = useState(false);
+    const [inOrgTargetUser, setInOrgTargetUser] = useState(null);
+    const [cloneModalOpen, setCloneModalOpen] = useState(false);
+    const [cloneSubmitting, setCloneSubmitting] = useState(false);
+    const [cloneSourceOrgId, setCloneSourceOrgId] = useState('');
+    const [cloneTargetOrgId, setCloneTargetOrgId] = useState('');
+    const [cloneTargetUserId, setCloneTargetUserId] = useState('');
+    const [organizations, setOrganizations] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
 
     // Translation state
     const [translateModalOpen, setTranslateModalOpen] = useState(false);
@@ -324,6 +340,201 @@ export default function Dashboard() {
             });
     }
 
+    const getSelectedRows = () => tableRows.filter((row) => selectedResources.includes(row.id));
+
+    const ensureExplicitSelection = () => {
+        if (allResourcesSelected) {
+            Swal.fire("Selection required", "Please select specific rows only for this action.", "warning");
+            return false;
+        }
+        if (selectedResources.length === 0) {
+            Swal.fire("Selection required", "Please select at least one angle.", "warning");
+            return false;
+        }
+        return true;
+    };
+
+    const fetchOrganizations = async () => {
+        const url = new URL(route('admin.organizations.list'));
+        url.searchParams.set('page_count', '500');
+        const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Could not load organizations.');
+        }
+        return result?.data?.data || [];
+    };
+
+    const fetchAllUsers = async () => {
+        const url = new URL(route('users.list'));
+        url.searchParams.set('page_count', '500');
+        const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || 'Could not load users.');
+        }
+        return result?.data?.data || [];
+    };
+
+    const openAssignOrgModal = async () => {
+        if (!ensureExplicitSelection()) return;
+        try {
+            if (organizations.length === 0) {
+                const orgRows = await fetchOrganizations();
+                setOrganizations(orgRows);
+            }
+            setAssignOrgId('');
+            setAssignOrgModalOpen(true);
+        } catch (error) {
+            Swal.fire("Error!", error?.message || 'Could not open organization assignment.', "error");
+        }
+    };
+
+    const submitAssignOrg = async () => {
+        if (!assignOrgId) return;
+        const rows = getSelectedRows();
+        if (rows.length === 0) {
+            Swal.fire("Invalid selection", "Please reselect rows and try again.", "error");
+            return;
+        }
+
+        try {
+            setAssignOrgSubmitting(true);
+            const response = await fetch(route('admin.organizations.assignContent'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    organization_id: Number(assignOrgId),
+                    items: rows.map((row) => ({ type: 'angle', id: Number(row.id) })),
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Organization assignment failed.');
+            }
+
+            setAssignOrgModalOpen(false);
+            handleSelectionChange('all', false);
+            setReload(!reload);
+            Swal.fire("Success!", result.message || 'Angles assigned to organization.', "success");
+        } catch (error) {
+            Swal.fire("Error!", error?.message || 'Organization assignment failed.', "error");
+        } finally {
+            setAssignOrgSubmitting(false);
+        }
+    };
+
+    const openInOrgAssignModal = () => {
+        if (!ensureExplicitSelection()) return;
+        setInOrgTargetUser(null);
+        setInOrgAssignModalOpen(true);
+    };
+
+    const submitInOrgAssign = async () => {
+        if (!inOrgTargetUser?.value) return;
+        const rows = getSelectedRows();
+        if (rows.length === 0) {
+            Swal.fire("Invalid selection", "Please reselect rows and try again.", "error");
+            return;
+        }
+
+        try {
+            setInOrgAssignSubmitting(true);
+            const response = await fetch(route('organization.content.assign_to_user'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    organization_id: null,
+                    to_user_id: Number(inOrgTargetUser.value),
+                    items: rows.map((row) => ({ type: 'angle', id: Number(row.id) })),
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'In-org user assignment failed.');
+            }
+
+            setInOrgAssignModalOpen(false);
+            handleSelectionChange('all', false);
+            setReload(!reload);
+            Swal.fire("Success!", result.message || 'Angles assigned to user.', "success");
+        } catch (error) {
+            Swal.fire("Error!", error?.message || 'In-org user assignment failed.', "error");
+        } finally {
+            setInOrgAssignSubmitting(false);
+        }
+    };
+
+    const openCloneModal = async () => {
+        if (!ensureExplicitSelection()) return;
+        try {
+            if (organizations.length === 0) {
+                const orgRows = await fetchOrganizations();
+                setOrganizations(orgRows);
+            }
+            if (allUsers.length === 0) {
+                const userRows = await fetchAllUsers();
+                setAllUsers(userRows);
+            }
+            const selectedOrgIds = [...new Set(getSelectedRows().map((row) => Number(row.organization_id || 0)).filter((v) => v > 0))];
+            if (selectedOrgIds.length !== 1) {
+                Swal.fire("Invalid selection", "Selected rows must belong to exactly one source organization for clone.", "error");
+                return;
+            }
+            setCloneSourceOrgId(String(selectedOrgIds[0]));
+            setCloneTargetOrgId('');
+            setCloneTargetUserId('');
+            setCloneModalOpen(true);
+        } catch (error) {
+            Swal.fire("Error!", error?.message || 'Could not open clone modal.', "error");
+        }
+    };
+
+    const submitClone = async () => {
+        if (!cloneSourceOrgId || !cloneTargetOrgId || !cloneTargetUserId) return;
+        const rows = getSelectedRows();
+        if (rows.length === 0) {
+            Swal.fire("Invalid selection", "Please reselect rows and try again.", "error");
+            return;
+        }
+
+        try {
+            setCloneSubmitting(true);
+            const response = await fetch(route('admin.organizations.cloneContent'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    source_organization_id: Number(cloneSourceOrgId),
+                    target_organization_id: Number(cloneTargetOrgId),
+                    target_user_id: Number(cloneTargetUserId),
+                    items: rows.map((row) => ({ type: 'angle', id: Number(row.id) })),
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Cross-org clone failed.');
+            }
+
+            setCloneModalOpen(false);
+            handleSelectionChange('all', false);
+            setReload(!reload);
+            Swal.fire("Success!", result.message || 'Angles cloned successfully.', "success");
+        } catch (error) {
+            Swal.fire("Error!", error?.message || 'Cross-org clone failed.', "error");
+        } finally {
+            setCloneSubmitting(false);
+        }
+    };
+
     const promotedBulkActions = [
         {
             content: 'Select Themes',
@@ -336,6 +547,18 @@ export default function Dashboard() {
         ...(roleId && roleId == 1 ? [{
             content: 'Assign to User',
             onAction: () => { setActiveTwo(true) },
+        }] : []),
+        ...(canTransferInOrg && roleId == 1 ? [{
+            content: 'Assign to Organization',
+            onAction: openAssignOrgModal,
+        }] : []),
+        ...(canTransferInOrg ? [{
+            content: 'Assign to Org User',
+            onAction: openInOrgAssignModal,
+        }] : []),
+        ...(canCloneCrossOrg && roleId == 1 ? [{
+            content: 'Clone Cross Org',
+            onAction: openCloneModal,
         }] : [])
     ];
 
@@ -596,6 +819,8 @@ export default function Dashboard() {
         </IndexTable.Row >
     ));
 
+    const cloneTargetUsers = allUsers.filter((u) => Number(u.current_organization_id || 0) === Number(cloneTargetOrgId || 0));
+
     return (
         <AppProvider i18n={en}>
             <AuthenticatedLayout
@@ -664,6 +889,105 @@ export default function Dashboard() {
                             value={selectedUsersOption}
                             onChange={(e) => setSelectedUsersOption(e)}
                         />
+                    </Modal.Section>
+                </Modal>
+                <Modal
+                    open={assignOrgModalOpen}
+                    onClose={() => setAssignOrgModalOpen(false)}
+                    title="Assign Angles To Organization"
+                    primaryAction={{
+                        content: assignOrgSubmitting ? 'Assigning...' : 'Confirm Assign',
+                        onAction: submitAssignOrg,
+                        disabled: assignOrgSubmitting || !assignOrgId,
+                    }}
+                    secondaryActions={[{ content: 'Cancel', onAction: () => setAssignOrgModalOpen(false) }]}
+                >
+                    <Modal.Section>
+                        <p style={{ marginBottom: '12px' }}>Selected angles: <strong>{selectedResources.length}</strong></p>
+                        <ShopifySelect
+                            label="Target Organization"
+                            options={[
+                                { label: 'Select organization...', value: '' },
+                                ...organizations.map((org) => ({ label: org.name, value: String(org.id) })),
+                            ]}
+                            value={assignOrgId}
+                            onChange={setAssignOrgId}
+                        />
+                    </Modal.Section>
+                </Modal>
+                <Modal
+                    open={inOrgAssignModalOpen}
+                    onClose={() => setInOrgAssignModalOpen(false)}
+                    title="Assign Angles To User (In Organization)"
+                    primaryAction={{
+                        content: inOrgAssignSubmitting ? 'Assigning...' : 'Confirm Assign',
+                        onAction: submitInOrgAssign,
+                        disabled: inOrgAssignSubmitting || !inOrgTargetUser?.value,
+                    }}
+                    secondaryActions={[{ content: 'Cancel', onAction: () => setInOrgAssignModalOpen(false) }]}
+                >
+                    <Modal.Section>
+                        <p style={{ marginBottom: '12px' }}>Selected angles: <strong>{selectedResources.length}</strong></p>
+                        <Select
+                            menuPortalTarget={document.body}
+                            styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                            placeholder="Select organization user..."
+                            options={usersOptions}
+                            value={inOrgTargetUser}
+                            onChange={(value) => setInOrgTargetUser(value)}
+                        />
+                    </Modal.Section>
+                </Modal>
+                <Modal
+                    open={cloneModalOpen}
+                    onClose={() => setCloneModalOpen(false)}
+                    title="Clone Angles Across Organizations"
+                    primaryAction={{
+                        content: cloneSubmitting ? 'Cloning...' : 'Confirm Clone',
+                        onAction: submitClone,
+                        disabled: cloneSubmitting || !cloneSourceOrgId || !cloneTargetOrgId || !cloneTargetUserId,
+                    }}
+                    secondaryActions={[{ content: 'Cancel', onAction: () => setCloneModalOpen(false) }]}
+                >
+                    <Modal.Section>
+                        <p style={{ marginBottom: '12px' }}>Selected angles: <strong>{selectedResources.length}</strong></p>
+                        <ShopifySelect
+                            label="Source Organization"
+                            options={[
+                                { label: 'Select source organization...', value: '' },
+                                ...organizations.map((org) => ({ label: org.name, value: String(org.id) })),
+                            ]}
+                            value={cloneSourceOrgId}
+                            onChange={setCloneSourceOrgId}
+                            disabled
+                        />
+                        <div style={{ marginTop: '12px' }}>
+                            <ShopifySelect
+                                label="Target Organization"
+                                options={[
+                                    { label: 'Select target organization...', value: '' },
+                                    ...organizations
+                                        .filter((org) => String(org.id) !== String(cloneSourceOrgId))
+                                        .map((org) => ({ label: org.name, value: String(org.id) })),
+                                ]}
+                                value={cloneTargetOrgId}
+                                onChange={setCloneTargetOrgId}
+                            />
+                        </div>
+                        <div style={{ marginTop: '12px' }}>
+                            <ShopifySelect
+                                label="Target User"
+                                options={[
+                                    { label: 'Select target user...', value: '' },
+                                    ...cloneTargetUsers.map((user) => ({
+                                        label: `${user.name} (U${user.id})`,
+                                        value: String(user.id),
+                                    })),
+                                ]}
+                                value={cloneTargetUserId}
+                                onChange={setCloneTargetUserId}
+                            />
+                        </div>
                     </Modal.Section>
                 </Modal>
                 <div className="py-16">

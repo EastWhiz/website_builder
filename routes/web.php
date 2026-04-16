@@ -11,12 +11,16 @@ use App\Http\Controllers\OtpServiceCredentialController;
 use App\Http\Controllers\OtpVerificationController;
 use App\Http\Controllers\OrganizationMailSettingsController;
 use App\Http\Controllers\OrganizationTeamController;
+use App\Http\Controllers\OrganizationContentUserAssignmentController;
+use App\Http\Controllers\OrganizationAuditLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\ThankYouPageController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\ApiCategoryController;
 use App\Http\Controllers\Admin\ApiCategoryFieldController;
+use App\Http\Controllers\Admin\OrganizationContentAssignmentController;
+use App\Http\Controllers\Admin\OrganizationContentCloneController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\CrmSettingsController;
 use App\Http\Controllers\UserApiInstanceController;
@@ -115,6 +119,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/organizations/provision', [OrganizationController::class, 'provision'])->name('admin.organizations.provision');
         Route::post('/organizations/validate-member-transfer', [OrganizationController::class, 'validateMemberTransfer'])->name('admin.organizations.validateMemberTransfer');
         Route::post('/organizations/transfer-member', [OrganizationController::class, 'transferMember'])->name('admin.organizations.transferMember');
+        Route::post('/organizations/assign-content', [OrganizationContentAssignmentController::class, 'assignToOrganization'])->name('admin.organizations.assignContent');
+        Route::post('/organizations/clone-content', [OrganizationContentCloneController::class, 'cloneCrossOrg'])->name('admin.organizations.cloneContent');
         Route::put('/organizations/{id}', [OrganizationController::class, 'update'])->name('admin.organizations.update');
         Route::patch('/organizations/{id}/status', [OrganizationController::class, 'updateStatus'])->name('admin.organizations.updateStatus');
 
@@ -145,6 +151,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/api/team-members/activate', [OrganizationTeamController::class, 'activateMember'])->name('organization.team.members.activate');
         Route::patch('/api/team-members/archive', [OrganizationTeamController::class, 'softDeleteMember'])->name('organization.team.members.archive');
         Route::patch('/api/team-members/restore', [OrganizationTeamController::class, 'restoreMember'])->name('organization.team.members.restore');
+        Route::post('/api/organization/assign-content-to-user', [OrganizationContentUserAssignmentController::class, 'assignToUser'])
+            ->name('organization.content.assign_to_user');
+        Route::inertia('/audit-logs', 'Organizations/AuditLogs')->name('organization.audit.logs.page');
+        Route::get('/api/audit-logs', [OrganizationAuditLogController::class, 'index'])->name('organization.audit.logs.index');
 
         // User API Instances (authenticated users manage their own instances)
         Route::get('/api/api-categories', [UserApiInstanceController::class, 'categories'])->name('user.api.categories.index');
