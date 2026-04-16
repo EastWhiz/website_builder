@@ -19,6 +19,8 @@ export default function Dashboard() {
 
     const page = usePage().props;
     const roleId = page?.auth?.user?.role_id;
+    const roleName = page?.auth?.user?.role?.name;
+    const isAdmin = Number(roleId) === 1 || roleName === 'admin';
     // console.log(roleId);
 
     const [selected, setSelected] = useState(0);
@@ -243,39 +245,39 @@ export default function Dashboard() {
             <IndexTable.Cell >
                 <Text as="span" alignment="center">
                     <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "#d50000", color: "white" }}>
-                        {value.contents.filter(iter => iter.type == "html").length}
+                        {(value.contents || []).filter(iter => iter.type == "html").length}
                     </Box>
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Text as="span" alignment="center">
                     <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "blue", color: "white" }}>
-                        {value.contents.filter(iter => iter.type == "css").length}
+                        {(value.contents || []).filter(iter => iter.type == "css").length}
                     </Box>
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Text as="span" alignment="center">
                     <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "green", color: "white" }}>
-                        {value.contents.filter(iter => iter.type == "js").length}
+                        {(value.contents || []).filter(iter => iter.type == "js").length}
                     </Box>
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Text as="span" alignment="center">
                     <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "purple", color: "white" }}>
-                        {value.contents.filter(iter => iter.type == "image").length}
+                        {(value.contents || []).filter(iter => iter.type == "image").length}
                     </Box>
                 </Text>
             </IndexTable.Cell>
             <IndexTable.Cell>
                 <Text as="span" alignment="center">
                     <Box component="span" sx={{ borderRadius: "50px", padding: "5px 10px", backgroundColor: "#e99600", color: "white" }}>
-                        {value.contents.filter(iter => iter.type == "font").length}
+                        {(value.contents || []).filter(iter => iter.type == "font").length}
                     </Box>
                 </Text>
             </IndexTable.Cell>
-            {roleId == 1 &&
+            {isAdmin &&
                 <IndexTable.Cell>
                     <Button variant='plain' icon={WrenchIcon} onClick={() => renameTemplateHandler(value)}></Button>
                     <span style={{ marginLeft: "10px" }}></span>
@@ -312,7 +314,7 @@ export default function Dashboard() {
                                             value={pageCount}
                                             onChange={handlePageCount}
                                         />
-                                        {page && page.auth.user.role.name == "admin" &&
+                                        {isAdmin &&
                                             <>
                                                 <span style={{ marginRight: "10px" }}></span>
                                                 <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addTemplate'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
@@ -361,7 +363,7 @@ export default function Dashboard() {
                                                 { title: 'JS Count', alignment: 'center' },
                                                 { title: 'Image Count', alignment: 'center' },
                                                 { title: 'Font Count', alignment: 'center' },
-                                                ...(roleId == 1 ? [{ title: 'Action' }] : []),
+                                                ...(isAdmin ? [{ title: 'Action' }] : []),
                                             ]}
                                             hasMoreItems
                                             selectable={false}
