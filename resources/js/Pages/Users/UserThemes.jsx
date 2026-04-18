@@ -61,6 +61,7 @@ export default function Dashboard() {
     const [pageCount, setPageCount] = useState("10");
 
     const [tableRows, setTableRows] = useState([]);
+    const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
 
     const tabs = [].map((item, index) => ({
         content: item,
@@ -196,6 +197,7 @@ export default function Dashboard() {
     const [cloneMemberOptions, setCloneMemberOptions] = useState([]);
     const [cloneMembersLoading, setCloneMembersLoading] = useState(false);
     const [cloneSubmitting, setCloneSubmitting] = useState(false);
+    const [cloneLandingBulkMode, setCloneLandingBulkMode] = useState(false);
 
     const loadCloneMemberOptions = useCallback(async () => {
         setCloneMembersLoading(true);
@@ -224,6 +226,7 @@ export default function Dashboard() {
     }, []);
 
     const openCloneLandingModal = (row) => {
+        setCloneLandingBulkMode(false);
         setCloneTemplateId(row.id);
         setCloneTemplateName(row.name || '');
         setCloneTargetUser(null);
@@ -231,29 +234,62 @@ export default function Dashboard() {
         loadCloneMemberOptions();
     };
 
+    const openBulkCloneLandingModal = () => {
+        if (allResourcesSelected) {
+            Swal.fire('Selection required', 'Select specific landing pages only (not select-all).', 'warning');
+            return;
+        }
+        if (selectedResources.length === 0) {
+            Swal.fire('Selection required', 'Select at least one landing page.', 'warning');
+            return;
+        }
+        setCloneLandingBulkMode(true);
+        setCloneTemplateId(null);
+        setCloneTemplateName(`${selectedResources.length} landing page${selectedResources.length === 1 ? '' : 's'}`);
+        setCloneTargetUser(null);
+        setCloneLandingModalOpen(true);
+        loadCloneMemberOptions();
+    };
+
     const submitCloneLandingToUser = async () => {
-        if (!cloneTemplateId || !cloneTargetUser?.value) return;
+        if (!cloneTargetUser?.value) return;
+        if (!cloneLandingBulkMode && !cloneTemplateId) return;
+        if (cloneLandingBulkMode && selectedResources.length === 0) return;
+
+        const isBulk = cloneLandingBulkMode;
+        const url = isBulk
+            ? route('organization.content.clone_angle_templates_to_user')
+            : route('organization.content.clone_angle_template_to_user');
+        const body = isBulk
+            ? {
+                angle_template_ids: selectedResources.map((id) => Number(id)),
+                to_user_id: Number(cloneTargetUser.value),
+            }
+            : {
+                angle_template_id: Number(cloneTemplateId),
+                to_user_id: Number(cloneTargetUser.value),
+            };
+
         try {
             setCloneSubmitting(true);
-            const response = await fetch(route('organization.content.clone_angle_template_to_user'), {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                 },
-                body: JSON.stringify({
-                    angle_template_id: Number(cloneTemplateId),
-                    to_user_id: Number(cloneTargetUser.value),
-                }),
+                body: JSON.stringify(body),
             });
             const result = await response.json();
             if (!response.ok || !result.success) {
                 throw new Error(result.message || 'Clone failed.');
             }
             setCloneLandingModalOpen(false);
+            setCloneLandingBulkMode(false);
+            handleSelectionChange('all', false);
             setReload(!reload);
-            Swal.fire('Success!', result.message || 'Landing page cloned to user.', 'success');
+            Swal.fire('Success!', result.message || (isBulk ? 'Landing pages cloned to user.' : 'Landing page cloned to user.'), 'success');
         } catch (e) {
             Swal.fire('Error', e?.message || 'Clone failed.', 'error');
         } finally {
@@ -261,7 +297,9 @@ export default function Dashboard() {
         }
     };
 
-    const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
+    const orgLandingPromotedBulkActions = organizationLandingPagesMode
+        ? [{ content: 'Clone to user', onAction: openBulkCloneLandingModal }]
+        : [];
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
 
     useEffect(() => {
@@ -426,9 +464,9 @@ export default function Dashboard() {
         if (organizationLandingPagesMode) {
             return (
                 <IndexTable.Row
-                    id={value.id}
+                    id={String(value.id)}
                     key={value.id}
-                    selected={selectedResources.includes(value.id)}
+                    selected={selectedResources.includes(String(value.id))}
                     position={index}
                 >
                     <IndexTable.Cell>
@@ -454,9 +492,9 @@ export default function Dashboard() {
 
         return (
             <IndexTable.Row
-                id={value.id}
+                id={String(value.id)}
                 key={value.id}
-                selected={selectedResources.includes(value.id)}
+                selected={selectedResources.includes(String(value.id))}
                 position={index}
             >
                 <IndexTable.Cell>
@@ -743,6 +781,7 @@ export default function Dashboard() {
                                                 allResourcesSelected ? 'All ' : selectedResources.length
                                             }
                                             onSelectionChange={handleSelectionChange}
+                                            promotedBulkActions={orgLandingPromotedBulkActions}
                                             headings={organizationLandingPagesMode ? [
                                                 { title: 'ID' },
                                                 { title: 'Name' },
@@ -756,7 +795,7 @@ export default function Dashboard() {
                                                 { title: 'Action' },
                                             ]}
                                             hasMoreItems
-                                            selectable={false}
+                                            selectable={organizationLandingPagesMode}
                                         >
                                             {rowMarkup}
                                         </IndexTable>
@@ -917,19 +956,37 @@ export default function Dashboard() {
 
             <Modal
                 open={cloneLandingModalOpen}
-                onClose={() => setCloneLandingModalOpen(false)}
-                title="Clone landing page to user"
+                onClose={() => {
+                    setCloneLandingModalOpen(false);
+                    setCloneLandingBulkMode(false);
+                }}
+                title={cloneLandingBulkMode ? 'Clone landing pages to user' : 'Clone landing page to user'}
                 primaryAction={{
                     content: cloneSubmitting ? 'Cloning…' : 'Clone',
                     onAction: submitCloneLandingToUser,
                     disabled: cloneSubmitting || cloneMembersLoading || !cloneTargetUser?.value,
                 }}
-                secondaryActions={[{ content: 'Cancel', onAction: () => setCloneLandingModalOpen(false) }]}
+                secondaryActions={[{
+                    content: 'Cancel',
+                    onAction: () => {
+                        setCloneLandingModalOpen(false);
+                        setCloneLandingBulkMode(false);
+                    },
+                }]}
             >
                 <Modal.Section>
                     <Text as="p" variant="bodyMd">
-                        Duplicate <strong>{cloneTemplateName}</strong> into another organization member&apos;s account.
-                        They receive an independent copy.
+                        {cloneLandingBulkMode ? (
+                            <>
+                                Duplicate <strong>{cloneTemplateName}</strong> into another organization member&apos;s account.
+                                Each page is cloned as an independent copy.
+                            </>
+                        ) : (
+                            <>
+                                Duplicate <strong>{cloneTemplateName}</strong> into another organization member&apos;s account.
+                                They receive an independent copy.
+                            </>
+                        )}
                     </Text>
                     <div style={{ marginTop: '16px' }}>
                         <Select

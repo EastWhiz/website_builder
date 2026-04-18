@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignOrganizationContentToUserRequest;
 use App\Http\Requests\CloneAngleTemplateToUserRequest;
+use App\Http\Requests\CloneAngleTemplatesToUserRequest;
 use App\Http\Requests\CloneThankYouPageToUserRequest;
 use App\Models\AngleTemplate;
 use App\Models\Organization;
@@ -211,18 +212,11 @@ class OrganizationContentUserAssignmentController extends Controller
      */
     public function cloneAngleTemplateToUser(CloneAngleTemplateToUserRequest $request)
     {
-        $actor = $request->user();
-        $organizationId = $this->resolveOrganizationId($request);
-        if ($organizationId instanceof \Illuminate\Http\JsonResponse) {
-            return $organizationId;
+        $ctx = $this->authorizeOrgLandingClone($request);
+        if ($ctx instanceof \Illuminate\Http\JsonResponse) {
+            return $ctx;
         }
-
-        $organization = Organization::find($organizationId);
-        if (!$organization
-            || OrganizationAccess::isPrivilegedPlatformAdmin($actor)
-            || !OrganizationAccess::canUserFullyManageTeam($actor, $organization)) {
-            return sendResponse(false, 'You are not allowed to clone landing pages for this organization.', null, null, null, 403);
-        }
+        ['organization' => $organization, 'organizationId' => $organizationId, 'memberUserIds' => $memberUserIds] = $ctx;
 
         $targetUserId = (int) $request->input('to_user_id');
         $templateId = (int) $request->input('angle_template_id');
@@ -231,19 +225,7 @@ class OrganizationContentUserAssignmentController extends Controller
             return sendResponse(false, 'Selected user is not an active member of this organization.', null, null, null, 422);
         }
 
-        $memberUserIds = OrganizationAccess::activeOrganizationMemberUserIds($organization);
-
-        $source = AngleTemplate::query()
-            ->where('id', $templateId)
-            ->whereNull('deleted_at')
-            ->where(function ($q) use ($organizationId, $memberUserIds) {
-                $q->where('organization_id', $organizationId);
-                if ($memberUserIds !== []) {
-                    $q->orWhereIn('user_id', $memberUserIds);
-                }
-            })
-            ->first();
-
+        $source = $this->findCloneableAngleTemplateForOrg($templateId, $organizationId, $memberUserIds);
         if (!$source) {
             return sendResponse(false, 'Landing page not found in this organization.', null, null, null, 422);
         }
@@ -273,6 +255,115 @@ class OrganizationContentUserAssignmentController extends Controller
             'to_user_id' => $targetUserId,
             'angle_template_id' => $newTemplate->id,
         ]);
+    }
+
+    /**
+     * Clone multiple landing pages (angle templates) to one org member in a single transaction.
+     */
+    public function cloneAngleTemplatesToUser(CloneAngleTemplatesToUserRequest $request)
+    {
+        $ctx = $this->authorizeOrgLandingClone($request);
+        if ($ctx instanceof \Illuminate\Http\JsonResponse) {
+            return $ctx;
+        }
+        ['organizationId' => $organizationId, 'memberUserIds' => $memberUserIds] = $ctx;
+
+        $targetUserId = (int) $request->input('to_user_id');
+        $rawIds = (array) $request->input('angle_template_ids', []);
+        $templateIds = array_values(array_unique(array_filter(array_map('intval', $rawIds), fn (int $id) => $id > 0)));
+
+        if ($templateIds === []) {
+            return sendResponse(false, 'No valid landing page ids to clone.', null, null, null, 422);
+        }
+
+        if (!$this->isActiveOrgMember($targetUserId, $organizationId)) {
+            return sendResponse(false, 'Selected user is not an active member of this organization.', null, null, null, 422);
+        }
+
+        $newIds = [];
+
+        try {
+            DB::transaction(function () use ($templateIds, $targetUserId, $organizationId, $memberUserIds, &$newIds): void {
+                foreach ($templateIds as $templateId) {
+                    $source = $this->findCloneableAngleTemplateForOrg($templateId, $organizationId, $memberUserIds);
+                    if (!$source) {
+                        throw new \RuntimeException("Landing page #{$templateId} was not found in this organization.");
+                    }
+                    $new = $this->angleTemplateCloneService->cloneIntoOrgForUser($source, $targetUserId, $organizationId);
+                    $newIds[] = $new->id;
+                }
+            });
+        } catch (\RuntimeException $e) {
+            return sendResponse(false, $e->getMessage(), null, null, null, 422);
+        } catch (\Throwable $e) {
+            return sendResponse(false, 'Could not clone landing pages.', null, null, null, 500);
+        }
+
+        $this->activityLogger->logMoveOrClone(
+            $organizationId,
+            'org.content.clone_angle_templates_to_user',
+            'organization_content_batch',
+            null,
+            $organizationId,
+            $organizationId,
+            [
+                'to_user_id' => $targetUserId,
+                'source_angle_template_ids' => $templateIds,
+                'new_angle_template_ids' => $newIds,
+                'count' => count($newIds),
+            ]
+        );
+
+        return sendResponse(true, count($newIds) . ' landing page(s) cloned to user successfully.', [
+            'organization_id' => $organizationId,
+            'to_user_id' => $targetUserId,
+            'angle_template_ids' => $newIds,
+            'count' => count($newIds),
+        ]);
+    }
+
+    /**
+     * @return array{organization: Organization, organizationId: int, memberUserIds: list<int>}|JsonResponse
+     */
+    private function authorizeOrgLandingClone(Request $request): array|\Illuminate\Http\JsonResponse
+    {
+        $actor = $request->user();
+        $organizationId = $this->resolveOrganizationId($request);
+        if ($organizationId instanceof \Illuminate\Http\JsonResponse) {
+            return $organizationId;
+        }
+
+        $organization = Organization::find($organizationId);
+        if (!$organization
+            || OrganizationAccess::isPrivilegedPlatformAdmin($actor)
+            || !OrganizationAccess::canUserFullyManageTeam($actor, $organization)) {
+            return sendResponse(false, 'You are not allowed to clone landing pages for this organization.', null, null, null, 403);
+        }
+
+        $memberUserIds = OrganizationAccess::activeOrganizationMemberUserIds($organization);
+
+        return [
+            'organization' => $organization,
+            'organizationId' => $organizationId,
+            'memberUserIds' => $memberUserIds,
+        ];
+    }
+
+    /**
+     * @param  list<int>  $memberUserIds
+     */
+    private function findCloneableAngleTemplateForOrg(int $templateId, int $organizationId, array $memberUserIds): ?AngleTemplate
+    {
+        return AngleTemplate::query()
+            ->where('id', $templateId)
+            ->whereNull('deleted_at')
+            ->where(function ($q) use ($organizationId, $memberUserIds) {
+                $q->where('organization_id', $organizationId);
+                if ($memberUserIds !== []) {
+                    $q->orWhereIn('user_id', $memberUserIds);
+                }
+            })
+            ->first();
     }
 
     private function mayAssignWithinOrganization(?\App\Models\User $actor, int $organizationId): bool

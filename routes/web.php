@@ -157,6 +157,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.content.clone_thank_you_page_to_user');
         Route::post('/api/organization/clone-angle-template-to-user', [OrganizationContentUserAssignmentController::class, 'cloneAngleTemplateToUser'])
             ->name('organization.content.clone_angle_template_to_user');
+        Route::post('/api/organization/clone-angle-templates-to-user', [OrganizationContentUserAssignmentController::class, 'cloneAngleTemplatesToUser'])
+            ->name('organization.content.clone_angle_templates_to_user');
         Route::get('/organization/landing-pages', function () {
             return Inertia::render('Users/UserThemes', [
                 'id' => auth()->id(),
