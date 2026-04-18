@@ -3,8 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignOrganizationContentToUserRequest;
+use App\Http\Requests\CloneThankYouPageToUserRequest;
+use App\Models\Organization;
+use App\Models\ThankYouPage;
 use App\Services\OrganizationActivityLogger;
+use App\Services\ThankYouPageImageService;
 use App\Support\OrganizationAccess;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OrganizationContentUserAssignmentController extends Controller
@@ -17,8 +22,10 @@ class OrganizationContentUserAssignmentController extends Controller
         'user_api_instance' => 'user_api_instances',
     ];
 
-    public function __construct(private readonly OrganizationActivityLogger $activityLogger)
-    {
+    public function __construct(
+        private readonly OrganizationActivityLogger $activityLogger,
+        private readonly ThankYouPageImageService $thankYouPageImageService
+    ) {
     }
 
     /**
@@ -114,6 +121,87 @@ class OrganizationContentUserAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Org admins (and platform super admins): duplicate a thank you page to another org member's account.
+     */
+    public function cloneThankYouPageToUser(CloneThankYouPageToUserRequest $request)
+    {
+        $actor = $request->user();
+        $organizationId = $this->resolveOrganizationId($request);
+        if ($organizationId instanceof \Illuminate\Http\JsonResponse) {
+            return $organizationId;
+        }
+
+        $organization = Organization::find($organizationId);
+        if (!$organization || !OrganizationAccess::canUserFullyManageTeam($actor, $organization)) {
+            return sendResponse(false, 'You are not allowed to clone thank you pages for this organization.', null, null, null, 403);
+        }
+
+        $targetUserId = (int) $request->input('to_user_id');
+        $pageId = (int) $request->input('thank_you_page_id');
+
+        if (!$this->isActiveOrgMember($targetUserId, $organizationId)) {
+            return sendResponse(false, 'Selected user is not an active member of this organization.', null, null, null, 422);
+        }
+
+        $source = ThankYouPage::query()
+            ->where('id', $pageId)
+            ->where('organization_id', $organizationId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$source) {
+            return sendResponse(false, 'Thank you page not found in this organization.', null, null, null, 422);
+        }
+
+        $newPage = null;
+
+        try {
+            DB::transaction(function () use ($source, $targetUserId, $organizationId, &$newPage): void {
+                $newPage = ThankYouPage::create([
+                    'user_id' => $targetUserId,
+                    'organization_id' => $organizationId,
+                    'name' => $source->name,
+                    'title_text' => $source->title_text,
+                    'description' => $source->description,
+                    'hero_background_color' => $source->hero_background_color,
+                    'logo_path' => null,
+                    'profile_image_path' => null,
+                ]);
+
+                $paths = $this->thankYouPageImageService->copyImagesFromPage($source, $newPage);
+                $paths = array_filter($paths, fn ($v) => $v !== null);
+                if ($paths !== []) {
+                    $newPage->update($paths);
+                }
+            });
+        } catch (\RuntimeException $e) {
+            return sendResponse(false, $e->getMessage(), null, null, null, 422);
+        } catch (\Throwable $e) {
+            return sendResponse(false, 'Could not clone thank you page.', null, null, null, 500);
+        }
+
+        $this->activityLogger->logMoveOrClone(
+            $organizationId,
+            'org.content.clone_thank_you_page_to_user',
+            'thank_you_page',
+            (string) ($newPage?->id ?? ''),
+            $organizationId,
+            $organizationId,
+            [
+                'source_thank_you_page_id' => $pageId,
+                'to_user_id' => $targetUserId,
+                'new_thank_you_page_id' => $newPage?->id,
+            ]
+        );
+
+        return sendResponse(true, 'Thank you page cloned to user successfully.', [
+            'organization_id' => $organizationId,
+            'to_user_id' => $targetUserId,
+            'thank_you_page_id' => $newPage?->id,
+        ]);
+    }
+
     private function mayAssignWithinOrganization(?\App\Models\User $actor, int $organizationId): bool
     {
         if (!$actor) {
@@ -131,7 +219,7 @@ class OrganizationContentUserAssignmentController extends Controller
         return true;
     }
 
-    private function resolveOrganizationId(AssignOrganizationContentToUserRequest $request): int|\Illuminate\Http\JsonResponse
+    private function resolveOrganizationId(Request $request): int|\Illuminate\Http\JsonResponse
     {
         $requestedOrgId = $request->input('organization_id');
         $actor = $request->user();

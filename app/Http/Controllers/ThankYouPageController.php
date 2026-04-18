@@ -32,25 +32,39 @@ class ThankYouPageController extends Controller
             : false;
         $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
 
+        $showPageOwnerColumn = $organization && $user
+            && !OrganizationAccess::isPrivilegedPlatformAdmin($user)
+            && OrganizationAccess::canUserFullyManageTeam($user, $organization);
+
         $thankYouPages = ThankYouPage::query()
+            ->when($showPageOwnerColumn, fn ($q) => $q->with(['user:id,name']))
             ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
             ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
             ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
             ->orderBy('name')
             ->get()
-            ->map(fn (ThankYouPage $page) => [
-                'id' => $page->id,
-                'name' => $page->name,
-                'title_text' => $page->title_text,
-                'logo_path' => $page->logo_path,
-                'logo_url' => $page->logo_url,
-                'profile_image_path' => $page->profile_image_path,
-                'profile_image_url' => $page->profile_image_url,
-                'hero_background_color' => $page->hero_background_color,
-            ]);
+            ->map(function (ThankYouPage $page) use ($showPageOwnerColumn) {
+                $row = [
+                    'id' => $page->id,
+                    'user_id' => $page->user_id,
+                    'name' => $page->name,
+                    'title_text' => $page->title_text,
+                    'logo_path' => $page->logo_path,
+                    'logo_url' => $page->logo_url,
+                    'profile_image_path' => $page->profile_image_path,
+                    'profile_image_url' => $page->profile_image_url,
+                    'hero_background_color' => $page->hero_background_color,
+                ];
+                if ($showPageOwnerColumn) {
+                    $row['owner_name'] = $page->user?->name ?? '—';
+                }
+
+                return $row;
+            });
 
         return Inertia::render('ThankYouPages/Index', [
             'thankYouPages' => $thankYouPages,
+            'showThankYouPageOwnerColumn' => $showPageOwnerColumn,
         ]);
     }
 
@@ -219,7 +233,7 @@ class ThankYouPageController extends Controller
     public function preview(Request $request, int $id): View
     {
         $page = ThankYouPage::findOrFail($id);
-        if ($page->user_id !== $request->user()->id) {
+        if (!$this->mayViewThankYouPage($request, $page)) {
             abort(403, 'Unauthorized.');
         }
 
@@ -230,5 +244,36 @@ class ThankYouPageController extends Controller
             'description' => $page->description ?? '',
             'heroBackgroundColor' => $page->hero_background_color ?: '#3B27A8',
         ]);
+    }
+
+    private function userOwnsThankYouPage(Request $request, ThankYouPage $page): bool
+    {
+        return (int) $page->user_id === (int) $request->user()->id;
+    }
+
+    /**
+     * Preview: owner, or org viewer (same org + view all / org team admin).
+     */
+    private function mayViewThankYouPage(Request $request, ThankYouPage $page): bool
+    {
+        if ($this->userOwnsThankYouPage($request, $page)) {
+            return true;
+        }
+
+        $user = $request->user();
+        $org = $user?->currentOrganization();
+        if (!$org || (int) ($page->organization_id ?? 0) !== (int) $org->id) {
+            return false;
+        }
+
+        if (OrganizationAccess::isPrivilegedPlatformAdmin($user)) {
+            return true;
+        }
+
+        if (Gate::forUser($user)->allows('org.permission', 'content.view_org_all')) {
+            return true;
+        }
+
+        return OrganizationAccess::canUserFullyManageTeam($user, $org);
     }
 }

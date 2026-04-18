@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\OrganizationAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -60,6 +61,11 @@ class HandleInertiaRequests extends Middleware
             $canAssignOwnOrgRole = Gate::forUser($user)->allows('org.member.assign_own_org_role', $currentOrg);
         }
 
+        $canCloneThankYouToOrgUser = false;
+        if ($user && ($currentOrg = $user->currentOrganization())) {
+            $canCloneThankYouToOrgUser = OrganizationAccess::canUserFullyManageTeam($user, $currentOrg);
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -85,6 +91,7 @@ class HandleInertiaRequests extends Middleware
                     'audit_view_cross_org' => Gate::forUser($user)->allows('org.permission', 'audit.view_cross_org'),
                     'org_team_admin' => $orgTeamAdmin,
                     'can_assign_own_org_role' => $canAssignOwnOrgRole,
+                    'can_clone_thank_you_to_org_user' => $canCloneThankYouToOrgUser,
                 ] : [],
             ],
         ];

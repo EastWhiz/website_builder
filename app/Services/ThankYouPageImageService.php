@@ -92,6 +92,43 @@ class ThankYouPageImageService
     }
 
     /**
+     * Copy logo/profile files from an existing page into the target user's folder (logo-{targetId}.*).
+     *
+     * @return array{logo_path: ?string, profile_image_path: ?string}
+     */
+    public function copyImagesFromPage(ThankYouPage $source, ThankYouPage $target): array
+    {
+        $this->ensureUserImageDirectory((int) $target->user_id);
+
+        $logoRel = null;
+        $profileRel = null;
+
+        if (!empty($source->logo_path)) {
+            $src = public_path(ltrim((string) $source->logo_path, '/'));
+            if (!is_file($src)) {
+                throw new \RuntimeException('Source logo file is missing on disk.');
+            }
+            $ext = $this->sanitizeExtension(pathinfo($src, PATHINFO_EXTENSION));
+            $logoRel = $this->getUserImageDirRelative((int) $target->user_id) . '/logo-' . (int) $target->id . '.' . $ext;
+            File::copy($src, public_path($logoRel));
+        }
+
+        if (!empty($source->profile_image_path)) {
+            $src = public_path(ltrim((string) $source->profile_image_path, '/'));
+            if (is_file($src)) {
+                $ext = $this->sanitizeExtension(pathinfo($src, PATHINFO_EXTENSION));
+                $profileRel = $this->getUserImageDirRelative((int) $target->user_id) . '/profile-' . (int) $target->id . '.' . $ext;
+                File::copy($src, public_path($profileRel));
+            }
+        }
+
+        return [
+            'logo_path' => $logoRel,
+            'profile_image_path' => $profileRel,
+        ];
+    }
+
+    /**
      * Delete logo and profile image files for a thank-you page (logo-{id}.* and profile-{id}.*).
      */
     public function deleteImagesForPage(ThankYouPage $page): void

@@ -153,6 +153,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/api/team-members/restore', [OrganizationTeamController::class, 'restoreMember'])->name('organization.team.members.restore');
         Route::post('/api/organization/assign-content-to-user', [OrganizationContentUserAssignmentController::class, 'assignToUser'])
             ->name('organization.content.assign_to_user');
+        Route::post('/api/organization/clone-thank-you-page-to-user', [OrganizationContentUserAssignmentController::class, 'cloneThankYouPageToUser'])
+            ->name('organization.content.clone_thank_you_page_to_user');
         Route::inertia('/audit-logs', 'Organizations/AuditLogs')->name('organization.audit.logs.page');
         Route::get('/api/audit-logs', [OrganizationAuditLogController::class, 'index'])->name('organization.audit.logs.index');
 
