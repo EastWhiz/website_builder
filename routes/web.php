@@ -155,6 +155,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('organization.content.assign_to_user');
         Route::post('/api/organization/clone-thank-you-page-to-user', [OrganizationContentUserAssignmentController::class, 'cloneThankYouPageToUser'])
             ->name('organization.content.clone_thank_you_page_to_user');
+        Route::post('/api/organization/clone-angle-template-to-user', [OrganizationContentUserAssignmentController::class, 'cloneAngleTemplateToUser'])
+            ->name('organization.content.clone_angle_template_to_user');
+        Route::get('/organization/landing-pages', function () {
+            return Inertia::render('Users/UserThemes', [
+                'id' => auth()->id(),
+                'organization_landing_pages_mode' => true,
+            ]);
+        })->name('organization.landing-pages');
+        Route::get('/api/organization/landing-pages/list', [UsersController::class, 'organizationLandingPagesList'])
+            ->name('organization.landing-pages.list');
         Route::inertia('/audit-logs', 'Organizations/AuditLogs')->name('organization.audit.logs.page');
         Route::get('/api/audit-logs', [OrganizationAuditLogController::class, 'index'])->name('organization.audit.logs.index');
 

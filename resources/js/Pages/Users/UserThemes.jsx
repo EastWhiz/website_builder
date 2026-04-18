@@ -14,6 +14,7 @@ import {
     Text,
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
+import Select from 'react-select';
 import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, PageDownIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
@@ -23,6 +24,7 @@ import Swal from 'sweetalert2';
 export default function Dashboard() {
 
     const page = usePage().props;
+    const organizationLandingPagesMode = Boolean(page.organization_landing_pages_mode);
     const userId = page.id;
 
     function convertISOToYMD(isoDateString) {
@@ -158,7 +160,9 @@ export default function Dashboard() {
     const onHandleCancel = () => { };
 
     const [pagination, setPagination] = useState({
-        path: route("userThemes.list", userId),
+        path: organizationLandingPagesMode
+            ? route('organization.landing-pages.list')
+            : route('userThemes.list', userId),
         next_cursor: null,
         next_page_url: null,
         prev_cursor: null,
@@ -184,6 +188,78 @@ export default function Dashboard() {
     const [selectedExportAngleTemplateId, setSelectedExportAngleTemplateId] = useState(null);
     const [thankYouPages, setThankYouPages] = useState([]);
     const [selectedThankYouPageId, setSelectedThankYouPageId] = useState('');
+
+    const [cloneLandingModalOpen, setCloneLandingModalOpen] = useState(false);
+    const [cloneTemplateId, setCloneTemplateId] = useState(null);
+    const [cloneTemplateName, setCloneTemplateName] = useState('');
+    const [cloneTargetUser, setCloneTargetUser] = useState(null);
+    const [cloneMemberOptions, setCloneMemberOptions] = useState([]);
+    const [cloneMembersLoading, setCloneMembersLoading] = useState(false);
+    const [cloneSubmitting, setCloneSubmitting] = useState(false);
+
+    const loadCloneMemberOptions = useCallback(async () => {
+        setCloneMembersLoading(true);
+        try {
+            const url = new URL(route('organization.team.members.index'));
+            url.searchParams.set('page_count', '100');
+            url.searchParams.set('archived', 'false');
+            const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+            const result = await res.json();
+            if (!result.success || !result.data?.members?.data) {
+                setCloneMemberOptions([]);
+                return;
+            }
+            const rows = result.data.members.data.filter((m) => String(m.membership_status || '') === 'active');
+            setCloneMemberOptions(
+                rows.map((m) => ({
+                    value: String(m.user_id),
+                    label: `${m.name || 'User'} (${m.email || m.user_id})`,
+                })),
+            );
+        } catch {
+            setCloneMemberOptions([]);
+        } finally {
+            setCloneMembersLoading(false);
+        }
+    }, []);
+
+    const openCloneLandingModal = (row) => {
+        setCloneTemplateId(row.id);
+        setCloneTemplateName(row.name || '');
+        setCloneTargetUser(null);
+        setCloneLandingModalOpen(true);
+        loadCloneMemberOptions();
+    };
+
+    const submitCloneLandingToUser = async () => {
+        if (!cloneTemplateId || !cloneTargetUser?.value) return;
+        try {
+            setCloneSubmitting(true);
+            const response = await fetch(route('organization.content.clone_angle_template_to_user'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    angle_template_id: Number(cloneTemplateId),
+                    to_user_id: Number(cloneTargetUser.value),
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Clone failed.');
+            }
+            setCloneLandingModalOpen(false);
+            setReload(!reload);
+            Swal.fire('Success!', result.message || 'Landing page cloned to user.', 'success');
+        } catch (e) {
+            Swal.fire('Error', e?.message || 'Clone failed.', 'error');
+        } finally {
+            setCloneSubmitting(false);
+        }
+    };
 
     const { selectedResources, allResourcesSelected, handleSelectionChange } = useIndexResourceState(tableRows);
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
@@ -337,49 +413,79 @@ export default function Dashboard() {
 
     const appliedFilters = [];
 
-    const rowMarkup = tableRows.map((value, index) => (
-        <IndexTable.Row
-            id={value.id}
-            key={value.id}
-            selected={selectedResources.includes(value.id)}
-            position={index}
-        >
-            <IndexTable.Cell>
-                {`SP${value.id}`}
-            </IndexTable.Cell>
-            <IndexTable.Cell>
-                {value.name}
-            </IndexTable.Cell>
-            <IndexTable.Cell >
-                {convertISOToYMD(value.created_at)}
-            </IndexTable.Cell>
-            <IndexTable.Cell>
-                <Button variant='plain' icon={PageDownIcon} onClick={() => openExportModal(value.id)}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={EditIcon} onClick={() => {
-                    const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
-                        ? window.appURL 
-                        : window.location.origin;
-                    window.open(`${baseUrl}/angle-templates/preview/${value.id}/`, "_blank");
-                }}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={ViewIcon} onClick={() => {
-                    const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
-                        ? window.appURL 
-                        : window.location.origin;
-                    window.open(`${baseUrl}/angle-templates/preview/${value.id}/`, "_blank");
-                }}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={LanguageIcon} onClick={() => openTranslateModal(value.id)}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleTemplateHandler(value.id)}></Button>
-                <span style={{ margin: "10px" }}></span>
-                <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleTemplateHandler(value.id)}></Button>
-            </IndexTable.Cell>
-        </IndexTable.Row >
-    ));
+    const openLandingPreview = (templateId) => {
+        const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1'))
+            ? window.appURL
+            : window.location.origin;
+        window.open(`${baseUrl}/angle-templates/preview/${templateId}/`, '_blank');
+    };
+
+    const rowMarkup = tableRows.map((value, index) => {
+        const ownerLabel = value.user?.name ?? '—';
+
+        if (organizationLandingPagesMode) {
+            return (
+                <IndexTable.Row
+                    id={value.id}
+                    key={value.id}
+                    selected={selectedResources.includes(value.id)}
+                    position={index}
+                >
+                    <IndexTable.Cell>
+                        {`SP${value.id}`}
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>
+                        {value.name}
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>
+                        {ownerLabel}
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>
+                        {convertISOToYMD(value.created_at)}
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>
+                        <Button variant="plain" icon={ViewIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Preview" />
+                        <span style={{ margin: '10px' }} />
+                        <Button variant="plain" icon={DuplicateIcon} onClick={() => openCloneLandingModal(value)} accessibilityLabel="Clone to user" />
+                    </IndexTable.Cell>
+                </IndexTable.Row>
+            );
+        }
+
+        return (
+            <IndexTable.Row
+                id={value.id}
+                key={value.id}
+                selected={selectedResources.includes(value.id)}
+                position={index}
+            >
+                <IndexTable.Cell>
+                    {`SP${value.id}`}
+                </IndexTable.Cell>
+                <IndexTable.Cell>
+                    {value.name}
+                </IndexTable.Cell>
+                <IndexTable.Cell >
+                    {convertISOToYMD(value.created_at)}
+                </IndexTable.Cell>
+                <IndexTable.Cell>
+                    <Button variant='plain' icon={PageDownIcon} onClick={() => openExportModal(value.id)}></Button>
+                    <span style={{ margin: "10px" }}></span>
+                    <Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)}></Button>
+                    <span style={{ margin: "10px" }}></span>
+                    <Button variant='plain' icon={EditIcon} onClick={() => openLandingPreview(value.id)}></Button>
+                    <span style={{ margin: "10px" }}></span>
+                    <Button variant='plain' icon={ViewIcon} onClick={() => openLandingPreview(value.id)}></Button>
+                    <span style={{ margin: "10px" }}></span>
+                    <Button variant='plain' icon={LanguageIcon} onClick={() => openTranslateModal(value.id)}></Button>
+                    <span style={{ margin: "10px" }}></span>
+                    <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleTemplateHandler(value.id)}></Button>
+                    <span style={{ margin: "10px" }}></span>
+                    <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleTemplateHandler(value.id)}></Button>
+                </IndexTable.Cell>
+            </IndexTable.Row >
+        );
+    });
 
     const openTranslateModal = (angleTemplateId) => {
         setCurrentAngleTemplateId(angleTemplateId);
@@ -574,9 +680,16 @@ export default function Dashboard() {
         <AppProvider i18n={en}>
             <AuthenticatedLayout
                 header={
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Landing Pages
-                    </h2>
+                    <div>
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                            Landing Pages
+                        </h2>
+                        {organizationLandingPagesMode && (
+                            <Text as="p" variant="bodySm" tone="subdued">
+                                All landing pages in your organization. Clone a copy to any active member.
+                            </Text>
+                        )}
+                    </div>
                 }
             >
                 <Head title="Landing Pages" />
@@ -602,7 +715,7 @@ export default function Dashboard() {
                                                 sortOptions={sortOptions}
                                                 sortSelected={sortSelected}
                                                 queryValue={queryValue}
-                                                queryPlaceholder="Search User Themes..."
+                                                queryPlaceholder={organizationLandingPagesMode ? 'Search landing pages…' : 'Search User Themes...'}
                                                 onQueryChange={handleFiltersQueryChange}
                                                 onQueryClear={handleQueryValueRemove}
                                                 onSort={setSortSelected}
@@ -630,7 +743,13 @@ export default function Dashboard() {
                                                 allResourcesSelected ? 'All ' : selectedResources.length
                                             }
                                             onSelectionChange={handleSelectionChange}
-                                            headings={[
+                                            headings={organizationLandingPagesMode ? [
+                                                { title: 'ID' },
+                                                { title: 'Name' },
+                                                { title: 'Page owner' },
+                                                { title: 'Date added' },
+                                                { title: 'Actions' },
+                                            ] : [
                                                 { title: 'ID' },
                                                 { title: 'Name' },
                                                 { title: 'Date Added' },
@@ -792,6 +911,38 @@ export default function Dashboard() {
                         <p className="text-xs text-gray-500">
                             Choose a custom thank you page for this export, or keep the default.
                         </p>
+                    </div>
+                </Modal.Section>
+            </Modal>
+
+            <Modal
+                open={cloneLandingModalOpen}
+                onClose={() => setCloneLandingModalOpen(false)}
+                title="Clone landing page to user"
+                primaryAction={{
+                    content: cloneSubmitting ? 'Cloning…' : 'Clone',
+                    onAction: submitCloneLandingToUser,
+                    disabled: cloneSubmitting || cloneMembersLoading || !cloneTargetUser?.value,
+                }}
+                secondaryActions={[{ content: 'Cancel', onAction: () => setCloneLandingModalOpen(false) }]}
+            >
+                <Modal.Section>
+                    <Text as="p" variant="bodyMd">
+                        Duplicate <strong>{cloneTemplateName}</strong> into another organization member&apos;s account.
+                        They receive an independent copy.
+                    </Text>
+                    <div style={{ marginTop: '16px' }}>
+                        <Select
+                            menuPortalTarget={document.body}
+                            styles={{
+                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                            }}
+                            isLoading={cloneMembersLoading}
+                            placeholder={cloneMembersLoading ? 'Loading members…' : 'Select organization user…'}
+                            options={cloneMemberOptions}
+                            value={cloneTargetUser}
+                            onChange={(v) => setCloneTargetUser(v)}
+                        />
                     </div>
                 </Modal.Section>
             </Modal>

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignOrganizationContentToUserRequest;
+use App\Http\Requests\CloneAngleTemplateToUserRequest;
 use App\Http\Requests\CloneThankYouPageToUserRequest;
+use App\Models\AngleTemplate;
 use App\Models\Organization;
 use App\Models\ThankYouPage;
+use App\Services\AngleTemplateCloneService;
 use App\Services\OrganizationActivityLogger;
 use App\Services\ThankYouPageImageService;
 use App\Support\OrganizationAccess;
@@ -24,7 +27,8 @@ class OrganizationContentUserAssignmentController extends Controller
 
     public function __construct(
         private readonly OrganizationActivityLogger $activityLogger,
-        private readonly ThankYouPageImageService $thankYouPageImageService
+        private readonly ThankYouPageImageService $thankYouPageImageService,
+        private readonly AngleTemplateCloneService $angleTemplateCloneService
     ) {
     }
 
@@ -202,6 +206,75 @@ class OrganizationContentUserAssignmentController extends Controller
         ]);
     }
 
+    /**
+     * Org primary / org_admin: clone a landing page (angle template) to another org member.
+     */
+    public function cloneAngleTemplateToUser(CloneAngleTemplateToUserRequest $request)
+    {
+        $actor = $request->user();
+        $organizationId = $this->resolveOrganizationId($request);
+        if ($organizationId instanceof \Illuminate\Http\JsonResponse) {
+            return $organizationId;
+        }
+
+        $organization = Organization::find($organizationId);
+        if (!$organization
+            || OrganizationAccess::isPrivilegedPlatformAdmin($actor)
+            || !OrganizationAccess::canUserFullyManageTeam($actor, $organization)) {
+            return sendResponse(false, 'You are not allowed to clone landing pages for this organization.', null, null, null, 403);
+        }
+
+        $targetUserId = (int) $request->input('to_user_id');
+        $templateId = (int) $request->input('angle_template_id');
+
+        if (!$this->isActiveOrgMember($targetUserId, $organizationId)) {
+            return sendResponse(false, 'Selected user is not an active member of this organization.', null, null, null, 422);
+        }
+
+        $memberUserIds = OrganizationAccess::activeOrganizationMemberUserIds($organization);
+
+        $source = AngleTemplate::query()
+            ->where('id', $templateId)
+            ->whereNull('deleted_at')
+            ->where(function ($q) use ($organizationId, $memberUserIds) {
+                $q->where('organization_id', $organizationId);
+                if ($memberUserIds !== []) {
+                    $q->orWhereIn('user_id', $memberUserIds);
+                }
+            })
+            ->first();
+
+        if (!$source) {
+            return sendResponse(false, 'Landing page not found in this organization.', null, null, null, 422);
+        }
+
+        try {
+            $newTemplate = $this->angleTemplateCloneService->cloneIntoOrgForUser($source, $targetUserId, $organizationId);
+        } catch (\Throwable $e) {
+            return sendResponse(false, 'Could not clone landing page.', null, null, null, 500);
+        }
+
+        $this->activityLogger->logMoveOrClone(
+            $organizationId,
+            'org.content.clone_angle_template_to_user',
+            'angle_template',
+            (string) $newTemplate->id,
+            $organizationId,
+            $organizationId,
+            [
+                'source_angle_template_id' => $templateId,
+                'to_user_id' => $targetUserId,
+                'new_angle_template_id' => $newTemplate->id,
+            ]
+        );
+
+        return sendResponse(true, 'Landing page cloned to user successfully.', [
+            'organization_id' => $organizationId,
+            'to_user_id' => $targetUserId,
+            'angle_template_id' => $newTemplate->id,
+        ]);
+    }
+
     private function mayAssignWithinOrganization(?\App\Models\User $actor, int $organizationId): bool
     {
         if (!$actor) {
@@ -245,12 +318,7 @@ class OrganizationContentUserAssignmentController extends Controller
 
     private function isActiveOrgMember(int $userId, int $organizationId): bool
     {
-        return DB::table('organization_user')
-            ->where('organization_id', $organizationId)
-            ->where('user_id', $userId)
-            ->where('status', 'active')
-            ->whereNull('deleted_at')
-            ->exists();
+        return OrganizationAccess::isActiveOrganizationMember($userId, $organizationId);
     }
 
     /**

@@ -66,6 +66,12 @@ class HandleInertiaRequests extends Middleware
             $canCloneThankYouToOrgUser = OrganizationAccess::canUserFullyManageTeam($user, $currentOrg);
         }
 
+        $canManageOrgLandingPages = false;
+        if ($user && ($currentOrg = $user->currentOrganization())) {
+            $canManageOrgLandingPages = !OrganizationAccess::isPrivilegedPlatformAdmin($user)
+                && OrganizationAccess::canUserFullyManageTeam($user, $currentOrg);
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
@@ -92,6 +98,7 @@ class HandleInertiaRequests extends Middleware
                     'org_team_admin' => $orgTeamAdmin,
                     'can_assign_own_org_role' => $canAssignOwnOrgRole,
                     'can_clone_thank_you_to_org_user' => $canCloneThankYouToOrgUser,
+                    'can_manage_org_landing_pages' => $canManageOrgLandingPages,
                 ] : [],
             ],
         ];

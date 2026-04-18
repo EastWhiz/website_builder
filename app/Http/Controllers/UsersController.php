@@ -7,6 +7,7 @@ use App\Models\AngleContent;
 use App\Models\AngleTemplate;
 use App\Models\ExtraContent;
 use App\Models\User;
+use App\Support\OrganizationAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -58,15 +59,104 @@ class UsersController extends Controller
 
     public function userThemesList(Request $request, $id)
     {
-        $templates = AngleTemplate::where('user_id', $id)->when($request->get('q'), function ($q) use ($request) {
-            $q->where(function ($q) use ($request) {
-                $q->where('name', 'LIKE', '%' . $request->q . '%');
-                $q->orWhere('id', 'LIKE', '%' . $request->q . '%');
-            });
-        })->when($request->get('sort'), function ($q) use ($request) {
-            $q->orderBy(...explode(' ', $request->get('sort')));
-        })->select(['id', 'name', 'created_at'])->cursorPaginate($request->page_count);
+        if (!$this->mayListLandingPagesForUser($request, (int) $id)) {
+            return sendResponse(false, 'You are not allowed to view this user\'s landing pages.', null, null, null, 403);
+        }
+
+        $templates = AngleTemplate::where('user_id', $id)
+            ->when($request->get('q'), function ($q) use ($request) {
+                $q->where(function ($q) use ($request) {
+                    $q->where('name', 'LIKE', '%' . $request->q . '%');
+                    $q->orWhere('id', 'LIKE', '%' . $request->q . '%');
+                });
+            })
+            ->when($request->get('sort'), function ($q) use ($request) {
+                $q->orderBy(...explode(' ', $request->get('sort')));
+            }, function ($q) {
+                $q->orderBy('id', 'desc');
+            })
+            ->with(['user:id,name'])
+            ->select(['id', 'name', 'created_at', 'user_id'])
+            ->cursorPaginate($request->page_count);
+
         return sendResponse(true, 'Landing Pages retrieved successfully!', $templates);
+    }
+
+    /**
+     * Org admins: all landing pages (angle templates) in the current organization.
+     */
+    public function organizationLandingPagesList(Request $request)
+    {
+        $user = $request->user();
+        $org = $user?->currentOrganization();
+        if (!$org) {
+            return sendResponse(false, 'Organization context is required.', null, null, null, 422);
+        }
+        if (OrganizationAccess::isPrivilegedPlatformAdmin($user)) {
+            return sendResponse(false, 'Unauthorized.', null, null, null, 403);
+        }
+        if (!OrganizationAccess::canUserFullyManageTeam($user, $org)) {
+            return sendResponse(false, 'Unauthorized.', null, null, null, 403);
+        }
+
+        $pageCount = (int) $request->get('page_count', 10);
+        if ($pageCount <= 0) {
+            $pageCount = 10;
+        }
+        if ($pageCount > 100) {
+            $pageCount = 100;
+        }
+
+        $memberUserIds = OrganizationAccess::activeOrganizationMemberUserIds($org);
+
+        $templates = AngleTemplate::query()
+            ->with(['user:id,name'])
+            ->whereNull('deleted_at')
+            ->where(function ($q) use ($org, $memberUserIds) {
+                $q->where('organization_id', (int) $org->id);
+                if ($memberUserIds !== []) {
+                    $q->orWhereIn('user_id', $memberUserIds);
+                }
+            })
+            ->when($request->get('q'), function ($q) use ($request) {
+                $q->where(function ($q) use ($request) {
+                    $q->where('name', 'LIKE', '%' . $request->q . '%')
+                        ->orWhere('id', 'LIKE', '%' . $request->q . '%');
+                });
+            })
+            ->when($request->get('sort'), function ($q) use ($request) {
+                $q->orderBy(...explode(' ', $request->get('sort')));
+            }, function ($q) {
+                $q->orderBy('name', 'asc');
+            })
+            ->select(['id', 'name', 'created_at', 'user_id'])
+            ->cursorPaginate($pageCount);
+
+        return sendResponse(true, 'Organization landing pages retrieved successfully!', $templates);
+    }
+
+    private function mayListLandingPagesForUser(Request $request, int $targetUserId): bool
+    {
+        $actor = $request->user();
+        if (!$actor) {
+            return false;
+        }
+        if ((int) $actor->id === $targetUserId) {
+            return true;
+        }
+
+        $org = $actor->currentOrganization();
+        if (!$org) {
+            return false;
+        }
+        if (!OrganizationAccess::isActiveOrganizationMember($targetUserId, (int) $org->id)) {
+            return false;
+        }
+        if (OrganizationAccess::isPrivilegedPlatformAdmin($actor)) {
+            return true;
+        }
+
+        return OrganizationAccess::canUserFullyManageTeam($actor, $org);
     }
 
     public function store(Request $request)

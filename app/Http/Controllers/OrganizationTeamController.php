@@ -681,7 +681,7 @@ class OrganizationTeamController extends Controller
             return $denyOrgAdmin;
         }
 
-        DB::transaction(function () use ($membership) {
+        DB::transaction(function () use ($membership, $organization) {
             $targetUser = User::query()->find((int) $membership->user_id);
             if ($targetUser) {
                 // Requested default credential for manual activation flow.
@@ -696,6 +696,12 @@ class OrganizationTeamController extends Controller
                     'accepted_at' => $membership->accepted_at ?: now(),
                     'updated_at' => now(),
                 ]);
+
+            OrganizationAccess::migrateUserOrganizationScopedData(
+                (int) $membership->user_id,
+                null,
+                (int) $organization->id
+            );
         });
 
         return sendResponse(true, 'Member activated successfully.', [

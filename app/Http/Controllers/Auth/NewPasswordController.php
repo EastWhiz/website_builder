@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\OrganizationAccess;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -63,6 +64,16 @@ class NewPasswordController extends Controller
                         'accepted_at' => now(),
                         'updated_at' => now(),
                     ]);
+
+                $activatedOrgId = (int) (DB::table('organization_user')
+                    ->where('user_id', $user->id)
+                    ->where('status', 'active')
+                    ->whereNull('deleted_at')
+                    ->orderByDesc('updated_at')
+                    ->value('organization_id') ?? 0);
+                if ($activatedOrgId > 0) {
+                    OrganizationAccess::migrateUserOrganizationScopedData((int) $user->id, null, $activatedOrgId);
+                }
 
                 event(new PasswordReset($user));
             }

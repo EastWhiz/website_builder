@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\ValidateOrganizationMemberTransferRequest;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Services\OrganizationActivityLogger;
+use App\Support\OrganizationAccess;
 use App\Services\OrganizationMemberTransferValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -154,6 +155,8 @@ class OrganizationController extends Controller
                 'updated_at' => now(),
             ]);
 
+            OrganizationAccess::migrateUserOrganizationScopedData((int) $owner->id, null, (int) $org->id);
+
             return ['organization' => $org, 'owner' => $owner];
         });
 
@@ -277,21 +280,9 @@ class OrganizationController extends Controller
                 ]);
             }
 
-            $counts = [];
-            foreach (['angles', 'angle_templates', 'thank_you_pages', 'user_api_instances'] as $table) {
-                $query = DB::table($table)->where('user_id', $userId);
-                if ($fromOrgId > 0) {
-                    $query->where('organization_id', $fromOrgId);
-                } else {
-                    $query->whereNull('organization_id');
-                }
-                $counts[$table] = $query->update([
-                    'organization_id' => $toOrgId,
-                    'updated_at' => now(),
-                ]);
-            }
+            $fromOrgForMigrate = $fromOrgId > 0 ? $fromOrgId : null;
 
-            return $counts;
+            return OrganizationAccess::migrateUserOrganizationScopedData($userId, $fromOrgForMigrate, $toOrgId);
         });
 
         $updatedMembership = DB::table('organization_user as ou')

@@ -28,6 +28,12 @@ export default function AuthenticatedLayout({ header, children }) {
         !isSuperAdmin &&
         !isPlatformAdmin &&
         (isOrgAdminNav || hasTeamSettingsPermission);
+    const canManageOrgLandingPages = Boolean(permissions.can_manage_org_landing_pages);
+    const landingPagesHref = canManageOrgLandingPages
+        ? route('organization.landing-pages')
+        : route('userThemes', { id: user.id });
+    const landingPagesActive =
+        route().current('userThemes') || route().current('organization.landing-pages');
     // console.log(user);
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
@@ -123,8 +129,8 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </NavLink>
                                         )}
                                         <NavLink
-                                            href={route('userThemes', { id: user.id })}
-                                            active={route().current('userThemes')}
+                                            href={landingPagesHref}
+                                            active={landingPagesActive}
                                         >
                                             Landing Pages
                                         </NavLink>
@@ -298,8 +304,8 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </ResponsiveNavLink>
                                 )}
                                 <ResponsiveNavLink
-                                    href={route('userThemes', { id: user.id })}
-                                    active={route().current('userThemes')}
+                                    href={landingPagesHref}
+                                    active={landingPagesActive}
                                 >
                                     Landing Pages
                                 </ResponsiveNavLink>
