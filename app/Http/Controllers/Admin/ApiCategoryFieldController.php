@@ -7,13 +7,31 @@ use App\Models\ApiCategory;
 use App\Models\ApiCategoryField;
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ApiCategoryFieldController extends Controller
 {
+    private function denyUnlessCatalogPermission(Request $request, string $permissionKey)
+    {
+        $user = $request->user();
+        if (!$user || !Gate::forUser($user)->allows('org.permission', $permissionKey)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     public function store(Request $request, $categoryId)
     {
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.update')) {
+            return $denied;
+        }
+
         $category = ApiCategory::findOrFail($categoryId);
 
         $validated = $request->validate([
@@ -46,6 +64,10 @@ class ApiCategoryFieldController extends Controller
 
     public function update(Request $request, $categoryId, $fieldId)
     {
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.update')) {
+            return $denied;
+        }
+
         $field = ApiCategoryField::where('api_category_id', $categoryId)
             ->findOrFail($fieldId);
 
@@ -71,6 +93,11 @@ class ApiCategoryFieldController extends Controller
 
     public function destroy($categoryId, $fieldId)
     {
+        $request = request();
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.archive')) {
+            return $denied;
+        }
+
         $field = ApiCategoryField::where('api_category_id', $categoryId)
             ->findOrFail($fieldId);
 

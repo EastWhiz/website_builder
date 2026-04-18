@@ -1019,11 +1019,11 @@ export default function Dashboard({ id }) {
         loadUserOtpServices();
     }, []);
 
-    // Fetch all API platforms (active + inactive)
+    // Fetch instance-eligible API platforms (active catalog entries only).
     useEffect(() => {
         async function loadApiPlatforms() {
             try {
-                const response = await fetch(route('user.api.categories.all'), {
+                const response = await fetch(route('user.api.categories.index'), {
                     method: 'GET',
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin',

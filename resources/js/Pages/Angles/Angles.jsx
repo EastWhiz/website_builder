@@ -27,6 +27,9 @@ export default function Dashboard() {
     const roleName = page?.auth?.user?.role?.name;
     const permissions = page?.auth?.permissions || {};
     const isPrivilegedPlatformAdmin = Number(roleId) === 1 || roleName === 'admin';
+    const isOrgTeamAdmin = Boolean(permissions.org_team_admin);
+    /** Org owner / org_admin (not platform super admin): simplified assign UX */
+    const isOrgAdminContext = isOrgTeamAdmin && !isPrivilegedPlatformAdmin;
     const canTransferInOrg = Boolean(permissions.content_transfer_in_org);
     const canCloneCrossOrg = Boolean(permissions.content_clone_cross_org);
     const canViewAdminColumns = Number(roleId) === 1 || Boolean(permissions.org_role_crud);
@@ -529,7 +532,7 @@ export default function Dashboard() {
             content: 'Duplicate Angles',
             onAction: duplicateAnglesHandler,
         },
-        ...(!isPrivilegedPlatformAdmin ? [{
+        ...(!isPrivilegedPlatformAdmin && !isOrgAdminContext ? [{
             content: 'Assign to User',
             onAction: () => { setActiveTwo(true) },
         }] : []),
@@ -538,7 +541,7 @@ export default function Dashboard() {
             onAction: openAssignOrgModal,
         }] : []),
         ...(canTransferInOrg && !isPrivilegedPlatformAdmin ? [{
-            content: 'Assign to Org User',
+            content: isOrgAdminContext ? 'Assign to User' : 'Assign to Org User',
             onAction: openInOrgAssignModal,
         }] : []),
         ...(canCloneCrossOrg && roleId == 1 ? [{
@@ -906,7 +909,7 @@ export default function Dashboard() {
                 <Modal
                     open={inOrgAssignModalOpen}
                     onClose={() => setInOrgAssignModalOpen(false)}
-                    title="Assign Angles To User (In Organization)"
+                    title={isOrgAdminContext ? 'Assign Angles To User' : 'Assign Angles To User (In Organization)'}
                     primaryAction={{
                         content: inOrgAssignSubmitting ? 'Assigning...' : 'Confirm Assign',
                         onAction: submitInOrgAssign,

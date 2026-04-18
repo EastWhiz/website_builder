@@ -5,10 +5,17 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import TextInput from '@/Components/TextInput';
+import { usePage } from '@inertiajs/react';
 import { Fragment, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
 export default function ApiFormFields({ mustVerifyEmail, status, className = '' }) {
+    const page = usePage().props;
+    const permissions = page?.auth?.permissions || {};
+    const canCreateInstance = Boolean(permissions.integration_instance_create);
+    const canUpdateInstance = Boolean(permissions.integration_instance_update);
+    const canDeleteInstance = Boolean(permissions.integration_instance_soft_del);
+
     const [groupedData, setGroupedData] = useState([]);
     const [categories, setCategories] = useState([]);
     const [expandedPlatformId, setExpandedPlatformId] = useState(null);
@@ -76,6 +83,10 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     };
 
     const openAddModal = () => {
+        if (!canCreateInstance) {
+            Swal.fire({ title: 'Unauthorized', text: 'You do not have permission to create API instances.', icon: 'warning' });
+            return;
+        }
         setAddPlatformId('');
         setFormName('');
         setFormValues({});
@@ -85,6 +96,10 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     };
 
     const openEditModal = (instance, categoryId) => {
+        if (!canUpdateInstance) {
+            Swal.fire({ title: 'Unauthorized', text: 'You do not have permission to edit API instances.', icon: 'warning' });
+            return;
+        }
         setEditingInstance(instance);
         setEditingCategoryId(categoryId);
         setFormName(instance.name);
@@ -173,6 +188,10 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     };
 
     const handleDelete = async (inst) => {
+        if (!canDeleteInstance) {
+            Swal.fire({ title: 'Unauthorized', text: 'You do not have permission to delete API instances.', icon: 'warning' });
+            return;
+        }
         const result = await Swal.fire({
             title: 'Delete this API?',
             text: `"${inst.name}" will be removed from the list. You can no longer use it in forms.`,
@@ -225,7 +244,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                         Platforms under which you have created APIs. Click a row to expand and manage your APIs.
                             </p>
                         </div>
-                <PrimaryButton onClick={openAddModal}>Add New API</PrimaryButton>
+                {canCreateInstance && <PrimaryButton onClick={openAddModal}>Add New API</PrimaryButton>}
                     </div>
 
             {groupedData.length === 0 ? (
@@ -280,7 +299,9 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                             <thead>
                                                                 <tr className="border-b border-gray-200 bg-gray-50/80">
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">API Name</th>
-                                                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Actions</th>
+                                                                    {(canUpdateInstance || canDeleteInstance) && (
+                                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Actions</th>
+                                                                    )}
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-gray-100">
@@ -292,39 +313,45 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                                 <span className="ml-2 text-xs text-amber-600">(inactive)</span>
                                                                             )}
                                                                         </td>
-                                                                        <td className="px-4 py-2 text-right">
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    openEditModal(inst, group.category.id);
-                                                                                }}
-                                                                                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3"
-                                                                            >
-                                                                                Edit
-                                                                            </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    handleDelete(inst);
-                                                                                }}
-                                                                                disabled={deletingInstanceId === inst.id}
-                                                                                className="inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed text-red-600 hover:text-red-800"
-                                                                            >
-                                                                                {deletingInstanceId === inst.id ? (
-                                                                                    <>
-                                                                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                                                        </svg>
-                                                                                        Deleting…
-                                                                                    </>
-                                                                                ) : (
-                                                                                    'Delete'
+                                                                        {(canUpdateInstance || canDeleteInstance) && (
+                                                                            <td className="px-4 py-2 text-right">
+                                                                                {canUpdateInstance && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            openEditModal(inst, group.category.id);
+                                                                                        }}
+                                                                                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3"
+                                                                                    >
+                                                                                        Edit
+                                                                                    </button>
                                                                                 )}
-                                                                            </button>
-                                                                        </td>
+                                                                                {canDeleteInstance && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            handleDelete(inst);
+                                                                                        }}
+                                                                                        disabled={deletingInstanceId === inst.id}
+                                                                                        className="inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed text-red-600 hover:text-red-800"
+                                                                                    >
+                                                                                        {deletingInstanceId === inst.id ? (
+                                                                                            <>
+                                                                                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                                                                </svg>
+                                                                                                Deleting…
+                                                                                            </>
+                                                                                        ) : (
+                                                                                            'Delete'
+                                                                                        )}
+                                                                                    </button>
+                                                                                )}
+                                                                            </td>
+                                                                        )}
                                                                     </tr>
                                                                 ))}
                                                             </tbody>

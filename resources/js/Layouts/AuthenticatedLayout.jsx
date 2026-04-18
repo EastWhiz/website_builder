@@ -9,6 +9,25 @@ export default function AuthenticatedLayout({ header, children }) {
     const { auth } = usePage().props;
     const user = auth.user;
     const permissions = auth.permissions || {};
+    const roleName = user?.role?.name ?? null;
+    const isSuperAdmin = Number(user?.role_id) === 1;
+    const isPlatformAdmin = roleName === 'admin';
+    const orgTeamAdminFlag = Boolean(permissions.org_team_admin);
+    /** Org primary owner or org_admin membership (not platform super/platform admin). */
+    const isOrgAdminNav = orgTeamAdminFlag && !isSuperAdmin && !isPlatformAdmin;
+    const hasTeamSettingsPermission =
+        Boolean(permissions.member_invite) ||
+        Boolean(permissions.member_role_assign) ||
+        Boolean(permissions.member_edit) ||
+        Boolean(permissions.member_soft_delete) ||
+        Boolean(permissions.member_restore) ||
+        Boolean(permissions.member_activate_complete) ||
+        Boolean(permissions.role_view);
+    /** Super / platform admins have no org team; org admins and permitted members only. */
+    const showTeamSettings =
+        !isSuperAdmin &&
+        !isPlatformAdmin &&
+        (isOrgAdminNav || hasTeamSettingsPermission);
     // console.log(user);
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
@@ -95,12 +114,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </div>
                                 </> : <>
                                     <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                        <NavLink
-                                            href={route('organization.team.settings')}
-                                            active={route().current('organization.team.settings')}
-                                        >
-                                            Team Settings
-                                        </NavLink>
+                                        {showTeamSettings && (
+                                            <NavLink
+                                                href={route('organization.team.settings')}
+                                                active={route().current('organization.team.settings')}
+                                            >
+                                                Team Settings
+                                            </NavLink>
+                                        )}
                                         <NavLink
                                             href={route('userThemes', { id: user.id })}
                                             active={route().current('userThemes')}
@@ -268,12 +289,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </ResponsiveNavLink>
                                 )}
                             </> : <>
-                                <ResponsiveNavLink
-                                    href={route('organization.team.settings')}
-                                    active={route().current('organization.team.settings')}
-                                >
-                                    Team Settings
-                                </ResponsiveNavLink>
+                                {showTeamSettings && (
+                                    <ResponsiveNavLink
+                                        href={route('organization.team.settings')}
+                                        active={route().current('organization.team.settings')}
+                                    >
+                                        Team Settings
+                                    </ResponsiveNavLink>
+                                )}
                                 <ResponsiveNavLink
                                     href={route('userThemes', { id: user.id })}
                                     active={route().current('userThemes')}

@@ -7,11 +7,25 @@ use App\Models\ApiCategory;
 use App\Models\ApiCategoryField;
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ApiCategoryController extends Controller
 {
+    private function denyUnlessCatalogPermission(Request $request, string $permissionKey)
+    {
+        $user = $request->user();
+        if (!$user || !Gate::forUser($user)->allows('org.permission', $permissionKey)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     public function index()
     {
         $categories = ApiCategory::withCount('fields')
@@ -27,6 +41,10 @@ class ApiCategoryController extends Controller
 
     public function store(Request $request)
     {
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.create')) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|unique:api_categories,name',
             'is_active' => 'boolean',
@@ -60,6 +78,10 @@ class ApiCategoryController extends Controller
 
     public function update(Request $request, $id)
     {
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.update')) {
+            return $denied;
+        }
+
         $category = ApiCategory::findOrFail($id);
 
         $validated = $request->validate([
@@ -81,6 +103,11 @@ class ApiCategoryController extends Controller
 
     public function destroy($id)
     {
+        $request = request();
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.archive')) {
+            return $denied;
+        }
+
         $category = ApiCategory::findOrFail($id);
 
         // Check if category has user instances
@@ -101,6 +128,11 @@ class ApiCategoryController extends Controller
 
     public function toggleActive($id)
     {
+        $request = request();
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.update')) {
+            return $denied;
+        }
+
         $category = ApiCategory::findOrFail($id);
         $category->is_active = !$category->is_active;
         $category->save();
@@ -116,6 +148,11 @@ class ApiCategoryController extends Controller
 
     public function syncAllToCrm()
     {
+        $request = request();
+        if ($denied = $this->denyUnlessCatalogPermission($request, 'integration.catalog.update')) {
+            return $denied;
+        }
+
         $categories = ApiCategory::with('fields')->get();
         $summary = [
             'categories' => 0,

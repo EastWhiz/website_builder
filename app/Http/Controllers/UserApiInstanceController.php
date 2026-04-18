@@ -18,6 +18,28 @@ class UserApiInstanceController extends Controller
         protected ApiInstanceValidationService $validationService
     ) {
     }
+
+    private function denyUnlessAnyPermission(Request $request, array $permissionKeys)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized action.',
+            ], 403);
+        }
+
+        foreach ($permissionKeys as $permissionKey) {
+            if (Gate::forUser($user)->allows('org.permission', $permissionKey)) {
+                return null;
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Unauthorized action.',
+        ], 403);
+    }
     /**
      * List user's API instances, grouped by category.
      * Returns all instances (active and inactive) so the API Instance page (Profile) can display them and allow toggling.
@@ -72,6 +94,10 @@ class UserApiInstanceController extends Controller
      */
     public function store(Request $request)
     {
+        if ($denied = $this->denyUnlessAnyPermission($request, ['integration.instance.create'])) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'api_category_id' => 'required|integer|exists:api_categories,id',
             'name' => 'required|string|max:255',
@@ -155,6 +181,10 @@ class UserApiInstanceController extends Controller
      */
     public function update(Request $request, $id)
     {
+        if ($denied = $this->denyUnlessAnyPermission($request, ['integration.instance.update'])) {
+            return $denied;
+        }
+
         $instance = UserApiInstance::with('category.fields')
             ->where('user_id', Auth::id())
             ->findOrFail($id);
@@ -214,6 +244,11 @@ class UserApiInstanceController extends Controller
      */
     public function destroy($id)
     {
+        $request = request();
+        if ($denied = $this->denyUnlessAnyPermission($request, ['integration.instance.soft_del', 'integration.instance.soft_delete'])) {
+            return $denied;
+        }
+
         $instance = UserApiInstance::where('user_id', Auth::id())->findOrFail($id);
         // Inform external CRM before soft-deleting locally
         app(ApiCredentialsController::class)->deleteFromExternalApiFromInstance($instance);
@@ -230,6 +265,11 @@ class UserApiInstanceController extends Controller
      */
     public function toggleActive($id)
     {
+        $request = request();
+        if ($denied = $this->denyUnlessAnyPermission($request, ['integration.instance.update'])) {
+            return $denied;
+        }
+
         $instance = UserApiInstance::where('user_id', Auth::id())->findOrFail($id);
         $instance->update(['is_active' => !$instance->is_active]);
 
@@ -250,22 +290,6 @@ class UserApiInstanceController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $categories,
-        ]);
-    }
-
-    /**
-     * All API categories (active + inactive) for form builder platform list.
-     */
-    public function categoriesAll()
-    {
-        $categories = ApiCategory::query()
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active', 'sort_order']);
 
         return response()->json([
             'success' => true,

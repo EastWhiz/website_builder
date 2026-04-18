@@ -77,6 +77,10 @@ class HandleInertiaRequests extends Middleware
                     'content_view_org_all' => Gate::forUser($user)->allows('org.permission', 'content.view_org_all'),
                     'content_transfer_in_org' => Gate::forUser($user)->allows('org.permission', 'content.transfer_in_org'),
                     'content_clone_cross_org' => Gate::forUser($user)->allows('org.permission', 'content.clone_cross_org'),
+                    'integration_instance_create' => Gate::forUser($user)->allows('org.permission', 'integration.instance.create'),
+                    'integration_instance_update' => Gate::forUser($user)->allows('org.permission', 'integration.instance.update'),
+                    'integration_instance_soft_del' => Gate::forUser($user)->allows('org.permission', 'integration.instance.soft_del')
+                        || Gate::forUser($user)->allows('org.permission', 'integration.instance.soft_delete'),
                     'audit_view_org' => Gate::forUser($user)->allows('org.permission', 'audit.view_org'),
                     'audit_view_cross_org' => Gate::forUser($user)->allows('org.permission', 'audit.view_cross_org'),
                     'org_team_admin' => $orgTeamAdmin,

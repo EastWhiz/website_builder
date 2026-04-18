@@ -39,23 +39,43 @@ export default function Edit({
                     </div>
 
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <ApiFormFields
-                            mustVerifyEmail={mustVerifyEmail}
-                            status={status}
-                            className=""
-                        />
-                    </div>
+                        <h3 className="text-lg font-semibold text-gray-900">Integrations</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Manage integration instances by category.
+                        </p>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <PixelFormFields
-                            className=""
-                        />
-                    </div>
+                        <div className="mt-6 space-y-8">
+                            <section>
+                                <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-600">
+                                    Network APIs
+                                </h4>
+                                <div className="mt-3 rounded-lg border border-gray-200 p-4">
+                                    <ApiFormFields
+                                        mustVerifyEmail={mustVerifyEmail}
+                                        status={status}
+                                        className=""
+                                    />
+                                </div>
+                            </section>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <OtpServicesFormFields
-                            className=""
-                        />
+                            <section>
+                                <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-600">
+                                    Pixels
+                                </h4>
+                                <div className="mt-3 rounded-lg border border-gray-200 p-4">
+                                    <PixelFormFields className="" />
+                                </div>
+                            </section>
+
+                            <section>
+                                <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-600">
+                                    Services
+                                </h4>
+                                <div className="mt-3 rounded-lg border border-gray-200 p-4">
+                                    <OtpServicesFormFields className="" />
+                                </div>
+                            </section>
+                        </div>
                     </div>
 
                     {crmSettings && (

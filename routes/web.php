@@ -158,7 +158,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // User API Instances (authenticated users manage their own instances)
         Route::get('/api/api-categories', [UserApiInstanceController::class, 'categories'])->name('user.api.categories.index');
-        Route::get('/api/api-categories/all', [UserApiInstanceController::class, 'categoriesAll'])->name('user.api.categories.all');
         Route::get('/api/user-api-instances', [UserApiInstanceController::class, 'index'])->name('user.api.instances.index');
         Route::post('/api/user-api-instances', [UserApiInstanceController::class, 'store'])->name('user.api.instances.store');
         Route::get('/api/user-api-instances/category/{categoryId}', [UserApiInstanceController::class, 'getByCategory'])->name('user.api.instances.byCategory');
