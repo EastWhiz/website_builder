@@ -258,7 +258,12 @@ class AngleTemplateController extends Controller
             if ($request->last_iteration == "true") {
 
                 $editedAngleTemplate = AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
-                $editedAngleTemplate->main_html = $request->main_html;
+                $mainHtml = preg_replace(
+                    '/<input\b[^>]*\bname\s*=\s*["\']honeypot_website["\'][^>]*>/i',
+                    '',
+                    (string) $request->main_html
+                );
+                $editedAngleTemplate->main_html = $mainHtml;
                 $editedAngleTemplate->save();
 
                 $old_contents = ExtraContent::where('can_be_deleted', false)->where('angle_template_uuid', $request->angle_template_uuid)->whereIn('type', ['image'])->get();
@@ -462,6 +467,14 @@ class AngleTemplateController extends Controller
         $updatingIndex = $angleTemplate->main_html;
         $updatingCss = $angleTemplate->main_css;
         $updatingJs = $angleTemplate->main_js;
+
+        // Backward compatibility cleanup:
+        // remove legacy honeypot input from older saved forms; runtime script will add `ref_code`.
+        $updatingIndex = preg_replace(
+            '/<input\b[^>]*\bname\s*=\s*["\']honeypot_website["\'][^>]*>/i',
+            '',
+            $updatingIndex
+        );
 
         // UPDATING INDEX WITH IMAGE CHANGES - ANGLES
         $updatingIndex = str_replace(
@@ -1022,7 +1035,41 @@ class AngleTemplateController extends Controller
                     });
                 }
 
+                function isStopSpammingEnabled(form) {
+                    if (!form) return true;
+                    const raw = (form.querySelector('[name="stop_spamming"]')?.value || '').trim().toLowerCase();
+                    if (raw === '') return true;
+                    return !['false', '0', 'no', 'off'].includes(raw);
+                }
+
+                function ensureHoneypotInputs(form) {
+                    if (!form || !isStopSpammingEnabled(form)) return;
+
+                    if (!form.dataset.formLoadedAt) {
+                        form.dataset.formLoadedAt = String(Date.now());
+                    }
+                    upsertHiddenInput(form, 'form_loaded_at', form.dataset.formLoadedAt);
+
+                    let hp = form.querySelector('input[name="ref_code"]');
+                    if (!hp) {
+                        hp = Object.assign(document.createElement("input"), {
+                            type: "text",
+                            name: "ref_code",
+                            value: "",
+                            autocomplete: "off",
+                            tabIndex: -1
+                        });
+                        hp.setAttribute('aria-hidden', 'true');
+                        hp.setAttribute('style', 'position:absolute !important; left:-10000px !important; top:auto !important; width:1px !important; height:1px !important; overflow:hidden !important;');
+                        form.appendChild(hp);
+                    }
+
+                    const durationMs = Math.max(0, Date.now() - Number(form.dataset.formLoadedAt || Date.now()));
+                    upsertHiddenInput(form, 'submission_duration_ms', String(durationMs));
+                }
+
                 function initTelInputs(country) {
+                    document.querySelectorAll("form").forEach((form) => ensureHoneypotInputs(form));
                     document.querySelectorAll(".telInputs").forEach(input => {
                         const iti = intlTelInput(input, {
                             initialCountry: country,
@@ -1057,6 +1104,7 @@ class AngleTemplateController extends Controller
 
                             // Only GetLinked needs cid/pid/so copied from URL; other platforms no-op via isGetLinkedPlatform().
                             syncTrackingParamsFromUrl(input.form);
+                            ensureHoneypotInputs(input.form);
 
                             const raw = input.value.trim();
                             if (!raw) {

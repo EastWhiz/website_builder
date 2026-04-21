@@ -18,6 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get POST data
     $postData = $_POST;
     $getData = $_GET;
+    $saveLeadSlug = trim((string) ($postData['save_lead_slug'] ?? ''));
+    $formTypeForSpam = trim((string) ($postData['form_type'] ?? ''));
+    $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
+    maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
 
     // Helper function to get value or empty string
     function getVal($arr, $key)

@@ -5,19 +5,109 @@
  * This should be included in all API files after getting the main API response
  */
 
-function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatus = 'success', $data = null)
+function getValInside($arr, $key)
 {
-    // Helper function to get value or empty string
-    function getValInside($arr, $key)
-    {
-        return isset($arr[$key]) ? $arr[$key] : '';
+    return isset($arr[$key]) ? $arr[$key] : '';
+}
+
+function truthyValue($value): bool
+{
+    if (is_bool($value)) {
+        return $value;
     }
 
-    // Get request IP fallback
-    $requestIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    if (strpos($requestIp, ',') !== false) {
-        $requestIp = trim(explode(',', $requestIp)[0]);
+    $normalized = strtolower(trim((string) $value));
+
+    return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+}
+
+function stopSpammingEnabled(array $postData): bool
+{
+    // Default is ON for backward compatibility and safer behavior.
+    if (!array_key_exists('stop_spamming', $postData)) {
+        return true;
     }
+
+    return truthyValue($postData['stop_spamming']);
+}
+
+function resolveRequestIp(): string
+{
+    $requestIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    if (strpos((string) $requestIp, ',') !== false) {
+        $requestIp = trim(explode(',', (string) $requestIp)[0]);
+    }
+
+    return trim((string) $requestIp);
+}
+
+function evaluateHoneypot(array $postData): array
+{
+    $honeypotFieldNames = ['ref_code', 'website', 'website_url', 'company_website'];
+    foreach ($honeypotFieldNames as $fieldName) {
+        if (isset($postData[$fieldName]) && trim((string) $postData[$fieldName]) !== '') {
+            return ['is_fake' => true, 'reason' => 'honeypot_field_filled'];
+        }
+    }
+
+    if (isset($postData['submission_duration_ms'])) {
+        $durationMs = (int) $postData['submission_duration_ms'];
+        if ($durationMs > 0 && $durationMs < 800) {
+            return ['is_fake' => true, 'reason' => 'submitted_too_fast'];
+        }
+    }
+
+    return ['is_fake' => false, 'reason' => ''];
+}
+
+function maybeBlockFakeLeadAndExit(array $postData, array $getData, string $apiName, ?array $providerPayload = null): void
+{
+    if (!stopSpammingEnabled($postData)) {
+        return;
+    }
+
+    $honeypot = evaluateHoneypot($postData);
+    if (!$honeypot['is_fake']) {
+        return;
+    }
+
+    $fakePayload = is_array($providerPayload) ? $providerPayload : [];
+    $fakePayload['honeypot'] = [
+        'reason' => $honeypot['reason'],
+    ];
+
+    saveLead(
+        $postData,
+        $getData,
+        ['status' => false, 'message' => 'Fake Lead', 'honeypot_reason' => $honeypot['reason']],
+        $apiName,
+        'failure',
+        $fakePayload,
+        [
+            'is_fake_lead' => true,
+            'failure_reason' => 'Fake Lead',
+            'honeypot_reason' => $honeypot['reason'],
+            'blocked_ip' => resolveRequestIp(),
+        ]
+    );
+
+    $cid = trim((string) ($getData['cid'] ?? $postData['cid'] ?? ''));
+    $pid = trim((string) ($getData['pid'] ?? $postData['pid'] ?? ''));
+    $so = trim((string) ($getData['so'] ?? $postData['so'] ?? ''));
+
+    header('Location: ' . BASE_URL . '/api_files/thank_you.php?' . http_build_query([
+        'cid' => $cid,
+        'pid' => $pid,
+        'so' => $so,
+    ]));
+    exit();
+}
+
+function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatus = 'success', $data = null, array $options = [])
+{
+
+    // Get request IP fallback
+    $requestIp = resolveRequestIp();
 
     // Extract names
     $firstName = $postData['firstname'] ?? '';
@@ -68,6 +158,10 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'cid' => getValInside($getData, 'cid') ?? '',
         'ip_address' => $leadIp,
         'country' => $leadCountry,
+        'is_fake_lead' => (bool) ($options['is_fake_lead'] ?? false),
+        'failure_reason' => $options['failure_reason'] ?? null,
+        'honeypot_reason' => $options['honeypot_reason'] ?? null,
+        'blocked_ip' => $options['blocked_ip'] ?? null,
     ];
 
     // Send to CRM save-lead API

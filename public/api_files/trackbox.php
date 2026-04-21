@@ -111,6 +111,10 @@ function trackboxNormalizeLangForLg(string $raw): string
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postData = $_POST;
     $getData = $_GET;
+    $saveLeadSlug = trim((string) ($postData['save_lead_slug'] ?? ''));
+    $formTypeForSpam = trim((string) ($postData['form_type'] ?? ''));
+    $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
+    maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
     $dynamicCid = getVal($getData, 'cid');
     $dynamicPid = getVal($getData, 'pid');
     $dynamicSO = getVal($getData, 'so');
