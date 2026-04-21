@@ -174,8 +174,8 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'Content-Type: application/json'
     ]);
     // SSL verification is baked into exported zips by Builder.
-    // Default is enabled; AngleTemplateController replaces these flags during export.
-    $verifySsl = true; // __CRM_VERIFY_SSL__
+    // Disabled to allow staging/self-signed certificate environments.
+    $verifySsl = false; // __CRM_VERIFY_SSL__
     if (!$verifySsl) {
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
