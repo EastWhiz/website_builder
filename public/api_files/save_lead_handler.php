@@ -136,7 +136,7 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
 
     $apiPayload = is_array($data) ? $data : [];
     $apiPayload['aweber_form'] = [
-        'use_aweber' => $postData['use_aweber'] ?? '',
+        'use_aweber' => $postData['use_aweber'] ?? 'no',
         'aweber_user_api_instance_id' => $postData['aweber_user_api_instance_id'] ?? '',
         'aweber_list_ids' => $postData['aweber_list_ids'] ?? '',
     ];

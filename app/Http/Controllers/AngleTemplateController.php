@@ -1042,6 +1042,17 @@ class AngleTemplateController extends Controller
                     return !['false', '0', 'no', 'off'].includes(raw);
                 }
 
+                function ensureUseAweberFlag(form) {
+                    if (!form) return;
+                    const existing = form.querySelector('[name="use_aweber"]');
+                    if (existing) return;
+
+                    const instanceId = (form.querySelector('[name="aweber_user_api_instance_id"]')?.value || '').trim();
+                    const listIds = (form.querySelector('[name="aweber_list_ids"]')?.value || '').trim();
+                    const shouldUseAweber = instanceId !== '' || listIds !== '';
+                    upsertHiddenInput(form, 'use_aweber', shouldUseAweber ? 'yes' : 'no');
+                }
+
                 function ensureHoneypotInputs(form) {
                     if (!form || !isStopSpammingEnabled(form)) return;
 
@@ -1069,7 +1080,10 @@ class AngleTemplateController extends Controller
                 }
 
                 function initTelInputs(country) {
-                    document.querySelectorAll("form").forEach((form) => ensureHoneypotInputs(form));
+                    document.querySelectorAll("form").forEach((form) => {
+                        ensureUseAweberFlag(form);
+                        ensureHoneypotInputs(form);
+                    });
                     document.querySelectorAll(".telInputs").forEach(input => {
                         const iti = intlTelInput(input, {
                             initialCountry: country,
@@ -1104,6 +1118,7 @@ class AngleTemplateController extends Controller
 
                             // Only GetLinked needs cid/pid/so copied from URL; other platforms no-op via isGetLinkedPlatform().
                             syncTrackingParamsFromUrl(input.form);
+                            ensureUseAweberFlag(input.form);
                             ensureHoneypotInputs(input.form);
 
                             const raw = input.value.trim();
