@@ -9,6 +9,7 @@ class ApiCategory extends Model
 {
     protected $fillable = [
         'name',
+        'integration_group',
         'is_active',
         'sort_order',
     ];
@@ -16,6 +17,7 @@ class ApiCategory extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',
+        'integration_group' => 'string',
     ];
 
     public function fields(): HasMany

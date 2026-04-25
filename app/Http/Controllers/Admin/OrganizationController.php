@@ -7,11 +7,15 @@ use App\Http\Requests\Admin\TransferOrganizationMemberRequest;
 use App\Http\Requests\Admin\ValidateOrganizationMemberTransferRequest;
 use App\Models\Organization;
 use App\Models\Role;
+use App\Models\Setting;
+use App\Models\User;
 use App\Services\OrganizationActivityLogger;
 use App\Support\OrganizationAccess;
 use App\Services\OrganizationMemberTransferValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -74,7 +78,7 @@ class OrganizationController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'status' => 'nullable|string|in:active,deactivated',
-            'primary_user_id' => 'nullable|integer|exists:users,id',
+            'primary_user_id' => 'required|integer|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -92,6 +96,12 @@ class OrganizationController extends Controller
             'status' => $org->status,
             'primary_user_id' => $org->primary_user_id,
         ]);
+
+        $owner = null;
+        if (!empty($org->primary_user_id)) {
+            $owner = User::query()->find((int) $org->primary_user_id);
+        }
+        $this->syncOrganizationMembershipToCrm($org, $owner, 'org_admin', 'active', true);
 
         return sendResponse(true, 'Organization created successfully!', $org);
     }
@@ -167,6 +177,14 @@ class OrganizationController extends Controller
             'owner_user_id' => $result['owner']->id ?? null,
         ]);
 
+        $this->syncOrganizationMembershipToCrm(
+            $result['organization'] ?? null,
+            $result['owner'] ?? null,
+            'org_admin',
+            'active',
+            true
+        );
+
         return sendResponse(true, 'Organization and owner provisioned successfully!', $result);
     }
 
@@ -194,6 +212,8 @@ class OrganizationController extends Controller
             'from' => $from,
             'to' => $org->status,
         ]);
+
+        $this->syncOrganizationMembershipToCrm($org->fresh(), $org->owner, 'org_admin', 'active', true);
 
         return sendResponse(true, 'Organization status updated successfully!', $org);
     }
@@ -404,7 +424,76 @@ class OrganizationController extends Controller
             ],
         ]);
 
+        $this->syncOrganizationMembershipToCrm($org->fresh(), $org->owner, 'org_admin', 'active', true);
+
         return sendResponse(true, 'Organization updated successfully!', $org->fresh()->load('owner:id,name,email,phone'));
     }
-}
 
+    /**
+     * Sync organization + owner membership state to CRM.
+     * This is best-effort and must not block Builder flows.
+     */
+    private function syncOrganizationMembershipToCrm(
+        ?Organization $organization,
+        ?User $owner,
+        string $orgRole = 'org_admin',
+        string $membershipStatus = 'active',
+        bool $setAsPrimaryOwner = true
+    ): void {
+        try {
+            if (!$organization) {
+                return;
+            }
+
+            if (!$owner) {
+                Log::warning('CRM organization sync skipped: owner missing', [
+                    'organization_id' => $organization->id,
+                    'organization_name' => $organization->name,
+                ]);
+                return;
+            }
+
+            $nameParts = preg_split('/\s+/', trim((string) $owner->name)) ?: [];
+            $firstName = trim((string) ($nameParts[0] ?? 'Owner'));
+            $lastName = trim((string) (count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : $firstName));
+            $webBuilderUserId = (string) ('U'.$owner->id);
+
+            $payload = [
+                'organizationId' => (int) $organization->id,
+                'organizationName' => (string) $organization->name,
+                'organizationStatus' => (string) $organization->status,
+                'webBuilderUserId' => $webBuilderUserId,
+                'primaryWebBuilderUserId' => $webBuilderUserId,
+                'setAsPrimaryOwner' => $setAsPrimaryOwner,
+                'orgRole' => $orgRole,
+                'membershipStatus' => $membershipStatus,
+                'email' => (string) $owner->email,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'contact' => (string) ($owner->phone ?? ''),
+                // Allows CRM to create first-time synced users with the same credential.
+                'passwordHash' => (string) ($owner->password ?? ''),
+            ];
+
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/sync-organization-membership', $payload);
+
+            if (!$response->successful()) {
+                Log::error('CRM organization sync failed', [
+                    'organization_id' => $organization->id,
+                    'owner_user_id' => $owner->id,
+                    'status' => $response->status(),
+                    'response' => $response->json(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('CRM organization sync exception', [
+                'organization_id' => $organization?->id,
+                'owner_user_id' => $owner?->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+}

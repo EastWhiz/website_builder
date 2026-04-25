@@ -101,10 +101,9 @@ class ApiCredentialsController extends Controller
                 array_merge($validated, ['user_id' => $user->id])
             );
 
-            // Call external API to sync the specific provider's credentials
-            // Skip syncing if running on localhost
-            $host = request()->getHost();
-            if ($host !== 'localhost' && $host !== '127.0.0.1') {
+            // Call CRM API to sync the specific provider's credentials.
+            // Keep disabled in automated tests only.
+            if (!app()->environment('testing')) {
                 $this->syncToExternalApi($credentials, $provider, $user->id);
             }
 
@@ -542,9 +541,7 @@ class ApiCredentialsController extends Controller
      */
     public function syncToExternalApiFromInstance(UserApiInstance $instance): void
     {
-        $host = request()->getHost();
-        $skipLocalhost = config('app.env') === 'local';
-        if ($skipLocalhost && in_array($host, ['localhost', '127.0.0.1'], true)) {
+        if (app()->environment('testing')) {
             return;
         }
         try {

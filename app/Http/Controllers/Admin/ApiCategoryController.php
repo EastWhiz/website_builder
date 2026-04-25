@@ -47,12 +47,14 @@ class ApiCategoryController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|unique:api_categories,name',
+            'integration_group' => 'nullable|in:network,services,pixels',
             'is_active' => 'boolean',
             'sort_order' => 'integer|min:0'
         ]);
 
         $category = ApiCategory::create([
             'name' => $validated['name'],
+            'integration_group' => $this->normalizeIntegrationGroup($validated['integration_group'] ?? null, $validated['name']),
             'is_active' => $validated['is_active'] ?? true,
             'sort_order' => $validated['sort_order'] ?? 0,
         ]);
@@ -86,9 +88,15 @@ class ApiCategoryController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|unique:api_categories,name,' . $id,
+            'integration_group' => 'nullable|in:network,services,pixels',
             'is_active' => 'boolean',
             'sort_order' => 'integer|min:0'
         ]);
+
+        $validated['integration_group'] = $this->normalizeIntegrationGroup(
+            $validated['integration_group'] ?? $category->integration_group ?? null,
+            $validated['name']
+        );
 
         $category->update($validated);
 
@@ -188,8 +196,8 @@ class ApiCategoryController extends Controller
     private function syncFieldToCrm(ApiCategoryField $field): void
     {
         try {
-            // Avoid CRM calls when running in local/test environments.
-            if (app()->environment('local', 'testing')) {
+            // Avoid CRM calls in automated tests.
+            if (app()->environment('testing')) {
                 return;
             }
 
@@ -227,14 +235,15 @@ class ApiCategoryController extends Controller
     private function syncCategoryToCrm(ApiCategory $category): void
     {
         try {
-            // Avoid CRM calls when running in local/test environments.
-            if (app()->environment('local', 'testing')) {
+            // Avoid CRM calls in automated tests.
+            if (app()->environment('testing')) {
                 return;
             }
 
             $payload = [
                 'externalId' => (string) $category->id,
                 'name' => $category->name,
+                'integration_group' => $this->normalizeIntegrationGroup($category->integration_group, $category->name),
                 'is_active' => (bool) $category->is_active,
                 'sort_order' => (int) $category->sort_order,
             ];
@@ -257,5 +266,32 @@ class ApiCategoryController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    private function normalizeIntegrationGroup(?string $group, string $name): string
+    {
+        $value = strtolower(trim((string) ($group ?? '')));
+        if (in_array($value, ['network', 'services', 'pixels'], true)) {
+            return $value;
+        }
+
+        $nameLower = strtolower(trim($name));
+        if ($nameLower !== '') {
+            $pixelTokens = ['pixel', 'facebook', 'meta', 'taboola', 'voluum', 'tiktok'];
+            foreach ($pixelTokens as $token) {
+                if (str_contains($nameLower, $token)) {
+                    return 'pixels';
+                }
+            }
+
+            $serviceTokens = ['service', 'aweber', 'deepl', 'unimatrix'];
+            foreach ($serviceTokens as $token) {
+                if (str_contains($nameLower, $token)) {
+                    return 'services';
+                }
+            }
+        }
+
+        return 'network';
     }
 }

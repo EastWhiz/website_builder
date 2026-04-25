@@ -112,8 +112,7 @@ class ApiCategoryFieldController extends Controller
     private function syncFieldToCrm(ApiCategoryField $field): void
     {
         try {
-            $host = request()->getHost();
-            if ($host === 'localhost' || $host === '127.0.0.1') {
+            if (app()->environment('testing')) {
                 return;
             }
 

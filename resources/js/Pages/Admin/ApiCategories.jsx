@@ -15,6 +15,7 @@ export default function ApiCategories({ auth }) {
     const [editingCategory, setEditingCategory] = useState(null);
     const [formData, setFormData] = useState({
         name: '',
+        integration_group: 'network',
         is_active: true,
         sort_order: 0,
     });
@@ -68,6 +69,7 @@ export default function ApiCategories({ auth }) {
         setEditingCategory(category);
         setFormData({
             name: category.name,
+            integration_group: category.integration_group || 'network',
             is_active: category.is_active,
             sort_order: category.sort_order,
         });
@@ -79,6 +81,7 @@ export default function ApiCategories({ auth }) {
         setEditingCategory(null);
         setFormData({
             name: '',
+            integration_group: 'network',
             is_active: true,
             sort_order: 0,
         });
@@ -628,6 +631,9 @@ export default function ApiCategories({ auth }) {
                                                             Fields
                                                         </th>
                                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                            Group
+                                                        </th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                             Sort Order
                                                         </th>
                                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -649,6 +655,11 @@ export default function ApiCategories({ auth }) {
                                                             <td className="px-6 py-4 whitespace-nowrap">
                                                                 <div className="text-sm text-gray-500">
                                                                     {category.fields_count || 0}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="text-sm text-gray-500 capitalize">
+                                                                    {category.integration_group || 'network'}
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -729,6 +740,26 @@ export default function ApiCategories({ auth }) {
                                             </div>
 
                                             <div>
+                                                <InputLabel htmlFor="integration_group" value="Integration Group *" />
+                                                <select
+                                                    id="integration_group"
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    value={formData.integration_group}
+                                                    onChange={(e) =>
+                                                        setFormData({
+                                                            ...formData,
+                                                            integration_group: e.target.value,
+                                                        })
+                                                    }
+                                                    required
+                                                >
+                                                    <option value="network">Network</option>
+                                                    <option value="services">Services</option>
+                                                    <option value="pixels">Pixels</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
                                                 <InputLabel htmlFor="sort_order" value="Sort Order" />
                                                 <TextInput
                                                     id="sort_order"
@@ -776,4 +807,3 @@ export default function ApiCategories({ auth }) {
         </AuthenticatedLayout>
     );
 }
-

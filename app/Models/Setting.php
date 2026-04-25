@@ -34,6 +34,11 @@ class Setting extends Model
      */
     public static function getCrmBaseUrl(): string
     {
+        if (app()->environment('local')) {
+            $localUrl = trim((string) env('CRM_LOCAL_BASE_URL', 'http://localhost'));
+            return $localUrl !== '' ? rtrim($localUrl, '/') : 'http://localhost';
+        }
+
         $mode = static::get('crm_mode', 'production');
         $url = $mode === 'dev'
             ? (static::get('crm_url_dev') ?: static::get('crm_url_production', 'https://crm.diy'))
@@ -49,6 +54,10 @@ class Setting extends Model
      */
     public static function getCrmVerifySsl(): bool
     {
+        if (app()->environment('local')) {
+            return false;
+        }
+
         $v = static::get('crm_verify_ssl', '1');
 
         return $v === '1' || $v === 'true' || $v === true;
