@@ -35,8 +35,8 @@ class Setting extends Model
     public static function getCrmBaseUrl(): string
     {
         if (app()->environment('local')) {
-            $localUrl = trim((string) env('CRM_LOCAL_BASE_URL', 'http://localhost'));
-            return $localUrl !== '' ? rtrim($localUrl, '/') : 'http://localhost';
+            $localUrl = trim((string) env('CRM_LOCAL_BASE_URL', 'http://localhost/crm12/public'));
+            return $localUrl !== '' ? rtrim($localUrl, '/') : 'http://localhost/crm12/public';
         }
 
         $mode = static::get('crm_mode', 'production');

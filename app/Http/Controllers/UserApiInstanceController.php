@@ -53,18 +53,29 @@ class UserApiInstanceController extends Controller
             ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
             : false;
         $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
+        $orgAdminUserIds = $organization
+            ? $this->organizationAdminUserIds((int) $organization->id)
+            : [];
 
         $instances = UserApiInstance::query()
             ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
             ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
-            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
-            ->with(['category', 'values.field'])
+            ->when($organization && !$canViewOrgAll, function ($q) use ($user, $orgAdminUserIds) {
+                $q->where(function ($scoped) use ($user, $orgAdminUserIds) {
+                    $scoped->where('user_id', (int) ($user?->id ?? 0));
+                    if (!empty($orgAdminUserIds)) {
+                        $scoped->orWhereIn('user_id', $orgAdminUserIds);
+                    }
+                });
+            })
+            ->with(['category', 'values.field', 'user:id,name'])
             ->whereHas('category', fn ($q) => $q->where('is_active', true))
             ->orderBy('api_category_id')
             ->orderBy('name')
             ->get();
 
-        $grouped = $instances->groupBy('api_category_id')->map(function ($items) {
+        $authUserId = (int) ($user?->id ?? 0);
+        $grouped = $instances->groupBy('api_category_id')->map(function ($items) use ($authUserId) {
             $category = $items->first()->category;
             if (!$category || !$category->is_active) {
                 return null;
@@ -79,6 +90,9 @@ class UserApiInstanceController extends Controller
                     'name' => $i->name,
                     'is_active' => $i->is_active,
                     'credentials' => $i->credentials,
+                    'owner_user_id' => (int) ($i->user_id ?? 0),
+                    'owner_name' => trim((string) ($i->user?->name ?? '')),
+                    'is_owned_by_current_user' => (int) ($i->user_id ?? 0) === $authUserId,
                 ])->values()->all(),
             ];
         })->filter()->values()->all();
@@ -308,6 +322,9 @@ class UserApiInstanceController extends Controller
             ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
             : false;
         $isPlatformAdmin = OrganizationAccess::isPrivilegedPlatformAdmin($user);
+        $orgAdminUserIds = $organization
+            ? $this->organizationAdminUserIds((int) $organization->id)
+            : [];
 
         $category = ApiCategory::query()->find($categoryId);
         if (!$category) {
@@ -316,11 +333,20 @@ class UserApiInstanceController extends Controller
         $instances = UserApiInstance::query()
             ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
             ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
-            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
-            ->with(['category', 'values.field'])
+            ->when($organization && !$canViewOrgAll, function ($q) use ($user, $orgAdminUserIds) {
+                $q->where(function ($scoped) use ($user, $orgAdminUserIds) {
+                    $scoped->where('user_id', (int) ($user?->id ?? 0));
+                    if (!empty($orgAdminUserIds)) {
+                        $scoped->orWhereIn('user_id', $orgAdminUserIds);
+                    }
+                });
+            })
+            ->with(['category', 'values.field', 'user:id,name'])
             ->where('api_category_id', $categoryId)
             ->orderBy('name')
             ->get();
+
+        $authUserId = (int) ($user?->id ?? 0);
 
         return response()->json([
             'success' => true,
@@ -330,7 +356,30 @@ class UserApiInstanceController extends Controller
                 'is_active' => $i->is_active,
                 'credentials' => $i->credentials,
                 'category_name' => $i->category?->name,
+                'owner_user_id' => (int) ($i->user_id ?? 0),
+                'owner_name' => trim((string) ($i->user?->name ?? '')),
+                'is_owned_by_current_user' => (int) ($i->user_id ?? 0) === $authUserId,
             ]),
         ]);
+    }
+
+    /**
+     * Resolve active organization admin user IDs for an organization.
+     *
+     * @return array<int, int>
+     */
+    private function organizationAdminUserIds(int $organizationId): array
+    {
+        return \Illuminate\Support\Facades\DB::table('organization_user as ou')
+            ->join('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.organization_id', $organizationId)
+            ->whereNull('ou.deleted_at')
+            ->where('ou.status', 'active')
+            ->where('r.key', 'org_admin')
+            ->pluck('ou.user_id')
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 }

@@ -15,6 +15,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     const canCreateInstance = Boolean(permissions.integration_instance_create);
     const canUpdateInstance = Boolean(permissions.integration_instance_update);
     const canDeleteInstance = Boolean(permissions.integration_instance_soft_del);
+    const authUserId = Number(page?.auth?.user?.id || 0);
 
     const [groupedData, setGroupedData] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -224,6 +225,16 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         }
     };
 
+    const getOwnerLabel = (inst) => {
+        if (inst?.is_owned_by_current_user || Number(inst?.owner_user_id || 0) === authUserId) {
+            return 'Own';
+        }
+        if (inst?.owner_name && String(inst.owner_name).trim() !== '') {
+            return inst.owner_name;
+        }
+        return 'Admin';
+    };
+
     if (loading) {
         return (
             <section className={className}>
@@ -299,6 +310,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                             <thead>
                                                                 <tr className="border-b border-gray-200 bg-gray-50/80">
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">API Name</th>
+                                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Owner</th>
                                                                     {(canUpdateInstance || canDeleteInstance) && (
                                                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Actions</th>
                                                                     )}
@@ -312,6 +324,9 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                             {!inst.is_active && (
                                                                                 <span className="ml-2 text-xs text-amber-600">(inactive)</span>
                                                                             )}
+                                                                        </td>
+                                                                        <td className="px-4 py-2 text-sm text-gray-600">
+                                                                            {getOwnerLabel(inst)}
                                                                         </td>
                                                                         {(canUpdateInstance || canDeleteInstance) && (
                                                                             <td className="px-4 py-2 text-right">

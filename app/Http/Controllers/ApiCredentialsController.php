@@ -680,9 +680,18 @@ class ApiCredentialsController extends Controller
         $apiType = $this->getCrmApiTypeForInstance($instance);
 
         $displayName = trim($instance->name ?? '');
+        $categoryName = (string) ($category->name ?? '');
+        $categoryGroup = $this->normalizeIntegrationGroupForSync(
+            $category->integration_group ?? null,
+            $categoryName
+        );
         $payload = [
             'apiType' => $apiType,
             'apiCategoryId' => (string) $instance->api_category_id,
+            'apiCategoryExternalId' => (string) $instance->api_category_id,
+            'apiCategoryName' => $categoryName,
+            'apiCategoryIsActive' => true,
+            'integrationGroup' => $categoryGroup,
             'builderApiInstanceId' => (string) $instance->id,
             'apiName' => $displayName,
             'name' => $displayName,
@@ -710,6 +719,33 @@ class ApiCredentialsController extends Controller
         }
 
         return $payload;
+    }
+
+    /**
+     * Normalize integration group to the CRM contract values.
+     */
+    private function normalizeIntegrationGroupForSync(?string $value, string $categoryName = ''): string
+    {
+        $value = strtolower(trim((string) $value));
+        if (in_array($value, ['network', 'services', 'pixels'], true)) {
+            return $value;
+        }
+
+        $name = strtolower(trim($categoryName));
+        if ($name !== '') {
+            if (str_contains($name, 'pixel')) {
+                return 'pixels';
+            }
+            if (
+                str_contains($name, 'service')
+                || str_contains($name, 'aweber')
+                || str_contains($name, 'deepl')
+            ) {
+                return 'services';
+            }
+        }
+
+        return 'network';
     }
 
     /**

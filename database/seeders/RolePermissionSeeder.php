@@ -55,6 +55,8 @@ class RolePermissionSeeder extends Seeder
                 'content.create',
                 'content.update_own',
                 'integration.instance.view_own',
+                'integration.instance.create',
+                'integration.instance.update',
             ],
             'admin' => [
                 'role.view',
@@ -91,4 +93,3 @@ class RolePermissionSeeder extends Seeder
         }
     }
 }
-

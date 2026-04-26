@@ -8,6 +8,7 @@ use App\Models\Organization;
 use App\Models\OrganizationMailSetting;
 use App\Models\OtpServiceCredential;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
@@ -19,6 +20,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -403,6 +406,14 @@ class OrganizationTeamController extends Controller
             'updated_at' => now(),
         ]);
 
+        $this->syncOrganizationMembershipToCrm(
+            $organization->fresh(),
+            $user->fresh(),
+            (string) ($role->key ?: 'media_buyer'),
+            'invited',
+            false
+        );
+
         $status = Password::broker()->sendResetLink(
             ['email' => $user->email],
             function ($invitedUser, string $token) use (
@@ -629,6 +640,18 @@ class OrganizationTeamController extends Controller
                 ]);
         });
 
+        $requestedStatus = (string) $request->input('status', 'active');
+        $membershipStatus = $requestedStatus === 'active' ? 'active' : 'suspended';
+        $this->syncOrganizationMembershipToCrm(
+            $organization->fresh(),
+            $targetUser->fresh(),
+            (string) ($role->key ?: 'media_buyer'),
+            $membershipStatus,
+            false,
+            Hash::make('password123'),
+            false
+        );
+
         return sendResponse(true, 'Member updated successfully.', [
             'membership_id' => (int) $membership->id,
             'user_id' => (int) $targetUser->id,
@@ -681,12 +704,15 @@ class OrganizationTeamController extends Controller
             return $denyOrgAdmin;
         }
 
-        DB::transaction(function () use ($membership, $organization) {
+        $syncedUser = null;
+        $syncedRoleKey = 'media_buyer';
+        DB::transaction(function () use ($membership, $organization, &$syncedUser, &$syncedRoleKey) {
             $targetUser = User::query()->find((int) $membership->user_id);
             if ($targetUser) {
                 // Requested default credential for manual activation flow.
                 $targetUser->password = 'password123';
                 $targetUser->save();
+                $syncedUser = $targetUser->fresh();
             }
 
             DB::table('organization_user')
@@ -702,13 +728,93 @@ class OrganizationTeamController extends Controller
                 null,
                 (int) $organization->id
             );
+
+            $roleKey = DB::table('roles')
+                ->where('id', (int) $membership->role_id)
+                ->value('key');
+            if (is_string($roleKey) && trim($roleKey) !== '') {
+                $syncedRoleKey = $roleKey;
+            }
         });
+
+        $this->syncOrganizationMembershipToCrm(
+            $organization->fresh(),
+            $syncedUser,
+            $syncedRoleKey,
+            'active',
+            false,
+            null,
+            true
+        );
 
         return sendResponse(true, 'Member activated successfully.', [
             'membership_id' => (int) $membership->id,
             'user_id' => (int) $membership->user_id,
             'status' => 'active',
         ]);
+    }
+
+    /**
+     * Best-effort organization membership sync to CRM.
+     */
+    private function syncOrganizationMembershipToCrm(
+        ?Organization $organization,
+        ?User $memberUser,
+        string $orgRole = 'media_buyer',
+        string $membershipStatus = 'active',
+        bool $setAsPrimaryOwner = false,
+        ?string $passwordHashOverride = null,
+        bool $updatePasswordForExisting = false
+    ): void {
+        try {
+            if (!$organization || !$memberUser) {
+                return;
+            }
+
+            $nameParts = preg_split('/\s+/', trim((string) $memberUser->name)) ?: [];
+            $firstName = trim((string) ($nameParts[0] ?? 'User'));
+            $lastName = trim((string) (count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : $firstName));
+            $webBuilderUserId = (string) ('U'.$memberUser->id);
+            $primaryWebBuilderUserId = (string) ('U'.((int) ($organization->primary_user_id ?: $memberUser->id)));
+
+            $payload = [
+                'organizationId' => (int) $organization->id,
+                'organizationName' => (string) $organization->name,
+                'organizationStatus' => (string) $organization->status,
+                'webBuilderUserId' => $webBuilderUserId,
+                'primaryWebBuilderUserId' => $primaryWebBuilderUserId,
+                'setAsPrimaryOwner' => $setAsPrimaryOwner,
+                'orgRole' => $orgRole,
+                'membershipStatus' => $membershipStatus,
+                'email' => (string) $memberUser->email,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'contact' => (string) ($memberUser->phone ?? ''),
+                // For create-if-missing flows we can pass default hash; existing password updates are controlled by flag.
+                'passwordHash' => (string) ($passwordHashOverride ?: ($memberUser->password ?? '')),
+                'updatePasswordForExisting' => $updatePasswordForExisting,
+            ];
+
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/sync-organization-membership', $payload);
+
+            if (!$response->successful()) {
+                Log::error('CRM organization member sync failed', [
+                    'organization_id' => $organization->id,
+                    'user_id' => $memberUser->id,
+                    'status' => $response->status(),
+                    'response' => $response->json(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('CRM organization member sync exception', [
+                'organization_id' => $organization?->id,
+                'user_id' => $memberUser?->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -909,4 +1015,3 @@ class OrganizationTeamController extends Controller
         ]);
     }
 }
-
