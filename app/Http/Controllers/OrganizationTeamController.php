@@ -333,32 +333,24 @@ class OrganizationTeamController extends Controller
         }
 
         $organization->loadMissing('mailSetting');
-        if (!$organization->mailSetting) {
-            return sendResponse(
-                false,
-                'Your organization has not configured outbound email yet. Open Profile, complete Organization email settings (SMTP username, app password, and from address), save, then try inviting again.',
-                ['requires_organization_mail' => true],
-                null,
-                null,
-                422
-            );
-        }
+        $invitationMailerName = null;
+        $invitationFromAddress = '';
+        $invitationFromName = (string) $organization->name;
+        $canSendInvitationEmail = false;
 
-        $invitationMailerName = OrganizationMailerRegistry::register($organization);
-        if (!$invitationMailerName) {
-            return sendResponse(
-                false,
-                'Organization email settings could not be applied. Please open Profile, review Organization email settings, save again, then retry the invitation.',
-                ['requires_organization_mail' => true],
-                null,
-                null,
-                422
-            );
+        if ($organization->mailSetting) {
+            $invitationMailerName = OrganizationMailerRegistry::register($organization);
+            if ($invitationMailerName) {
+                $orgMail = $organization->mailSetting;
+                $invitationFromAddress = (string) $orgMail->mail_from_address;
+                $invitationFromName = (string) ($orgMail->mail_from_name ?: $organization->name);
+                $canSendInvitationEmail = true;
+            } else {
+                Log::warning('Organization invite mailer is not usable; invite will be created without email send.', [
+                    'organization_id' => $organization->id,
+                ]);
+            }
         }
-
-        $orgMail = $organization->mailSetting;
-        $invitationFromAddress = (string) $orgMail->mail_from_address;
-        $invitationFromName = (string) ($orgMail->mail_from_name ?: $organization->name);
 
         $validator = validator($request->all(), [
             'name' => 'required|string|max:255',
@@ -414,56 +406,90 @@ class OrganizationTeamController extends Controller
             false
         );
 
-        $status = Password::broker()->sendResetLink(
-            ['email' => $user->email],
-            function ($invitedUser, string $token) use (
-                $organization,
-                $request,
-                $invitationMailerName,
-                $invitationFromAddress,
-                $invitationFromName
-            ) {
-                $inviteUrl = url(route('password.reset', [
-                    'token' => $token,
-                    'email' => $invitedUser->getEmailForPasswordReset(),
-                    'invitation' => '1',
-                ], false));
+        $status = null;
+        $emailSent = false;
+        $mailFailureReason = null;
+        if ($canSendInvitationEmail) {
+            try {
+                $status = Password::broker()->sendResetLink(
+                    ['email' => $user->email],
+                    function ($invitedUser, string $token) use (
+                        $organization,
+                        $request,
+                        $invitationMailerName,
+                        $invitationFromAddress,
+                        $invitationFromName
+                    ) {
+                        $inviteUrl = url(route('password.reset', [
+                            'token' => $token,
+                            'email' => $invitedUser->getEmailForPasswordReset(),
+                            'invitation' => '1',
+                        ], false));
 
-                Log::info('Team member invitation accept link (same token as email)', [
+                        Log::info('Team member invitation accept link (same token as email)', [
+                            'organization_id' => $organization->id,
+                            'user_id' => $invitedUser->id,
+                            'email' => $invitedUser->getEmailForPasswordReset(),
+                            'url' => $inviteUrl,
+                        ]);
+
+                        $inviter = $request->user();
+                        $invitedUser->notify(new OrganizationTeamInvitationNotification(
+                            $token,
+                            (string) $organization->name,
+                            $inviter ? (string) $inviter->name : 'Your organization',
+                            $this->inviterOrganizationRoleLabel($request, $organization),
+                            $invitationMailerName,
+                            $invitationFromAddress,
+                            $invitationFromName,
+                        ));
+                        Event::dispatch(new PasswordResetLinkSent($invitedUser));
+                    }
+                );
+                $emailSent = $status === Password::RESET_LINK_SENT;
+                if (!$emailSent) {
+                    $mailFailureReason = $this->resolveInvitationMailFailureReason($status);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Organization invitation email failed', [
                     'organization_id' => $organization->id,
-                    'user_id' => $invitedUser->id,
-                    'email' => $invitedUser->getEmailForPasswordReset(),
-                    'url' => $inviteUrl,
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
                 ]);
-
-                $inviter = $request->user();
-                $invitedUser->notify(new OrganizationTeamInvitationNotification(
-                    $token,
-                    (string) $organization->name,
-                    $inviter ? (string) $inviter->name : 'Your organization',
-                    $this->inviterOrganizationRoleLabel($request, $organization),
-                    $invitationMailerName,
-                    $invitationFromAddress,
-                    $invitationFromName,
-                ));
-                Event::dispatch(new PasswordResetLinkSent($invitedUser));
+                $mailFailureReason = 'email settings are invalid or unavailable';
             }
-        );
-
-        if ($status !== Password::RESET_LINK_SENT) {
-            return sendResponse(false, 'Member invited, but activation email could not be sent.', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'mail_status' => $status,
-            ], null, null, 422);
+        } else {
+            $mailFailureReason = 'organization email settings are not configured';
         }
 
-        return sendResponse(true, 'Invitation sent successfully. The invitee will receive an email with a link to accept.', [
+        $message = $emailSent
+            ? 'Invitation sent successfully. The invitee will receive an email with a link to accept.'
+            : (
+                'Member invited successfully. Email was not sent due to ' . ($mailFailureReason ?: 'a temporary mail issue') . '.'
+            );
+
+        return sendResponse(true, $message, [
             'user_id' => $user->id,
             'email' => $user->email,
             'organization_id' => $organization->id,
             'role_id' => $role->id,
+            'email_sent' => $emailSent,
+            'mail_status' => $status,
+            'requires_organization_mail' => !$emailSent,
+            'mail_failure_reason' => $emailSent ? null : $mailFailureReason,
         ]);
+    }
+
+    /**
+     * Map password broker mail failures to short, non-technical reasons.
+     */
+    private function resolveInvitationMailFailureReason(?string $status): string
+    {
+        return match ($status) {
+            Password::INVALID_USER => 'the invitee email is not recognized',
+            Password::RESET_THROTTLED => 'too many attempts, please try again shortly',
+            default => 'email service is temporarily unavailable',
+        };
     }
 
     /**

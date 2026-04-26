@@ -91,15 +91,6 @@ export default function TeamSettings() {
             Swal.fire({ title: 'Missing fields', text: 'Please fill all invite fields.', icon: 'warning' });
             return;
         }
-        if (!inviteMailReady) {
-            Swal.fire({
-                title: 'Organization email not configured',
-                html: 'Invitations use your organization&apos;s SMTP settings. Open <strong>Profile</strong>, complete <strong>Organization email settings</strong>, save, then try again.',
-                icon: 'warning',
-                confirmButtonText: 'OK',
-            });
-            return;
-        }
         try {
             setInviting(true);
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -115,14 +106,25 @@ export default function TeamSettings() {
             const result = await response.json();
             if (!response.ok || !result.success) {
                 const isMail = result.data?.requires_organization_mail;
+                const failureReason = result?.data?.mail_failure_reason || result?.data?.user_facing_reason;
                 Swal.fire({
                     title: isMail ? 'Email settings required' : 'Invite failed',
-                    text: result.message || 'Could not send invite.',
+                    text: failureReason ? `Email was not sent due to ${failureReason}.` : (result.message || 'Could not send invite.'),
                     icon: isMail ? 'warning' : 'error',
                 });
                 return;
             }
-            Swal.fire({ title: 'Invitation sent', text: result.message, icon: 'success' });
+            const emailSent = result?.data?.email_sent === true;
+            const failureReason = result?.data?.mail_failure_reason;
+            Swal.fire({
+                title: emailSent ? 'Invitation sent' : 'Member invited',
+                text:
+                    result.message ||
+                    (emailSent
+                        ? 'Invitation email has been sent.'
+                        : `Invitee was created, but email was not sent due to ${failureReason || 'a mail issue'}.`),
+                icon: emailSent ? 'success' : 'warning',
+            });
             setInviteForm({ name: '', email: '', phone: '', role_id: '' });
             loadMembers();
         } catch {
@@ -240,16 +242,15 @@ export default function TeamSettings() {
                                     className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
                                     role="alert"
                                 >
-                                    <p className="font-medium">Organization email settings are required to send invitations</p>
+                                    <p className="font-medium">Organization email settings are not configured</p>
                                     <p className="mt-1 text-amber-900">
-                                        Configure SMTP under Profile → Organization email settings (username, app password, from
-                                        address), then return here to invite team members.
+                                        You can still invite members, but they will not receive invitation email until SMTP is configured. Configure SMTP under Profile - Organization email settings (username, app password, from address).
                                     </p>
                                     <Link
                                         href={route('profile.edit')}
                                         className="mt-2 inline-block font-medium text-indigo-700 underline hover:text-indigo-900"
                                     >
-                                        Open Profile — email settings
+                                        Open Profile - email settings
                                     </Link>
                                 </div>
                             )}
@@ -261,30 +262,26 @@ export default function TeamSettings() {
                                     placeholder="Name"
                                     value={inviteForm.name}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, name: e.target.value }))}
-                                    disabled={!inviteMailReady}
-                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                    className="border rounded px-3 py-2 text-sm"
                                 />
                                 <input
                                     type="email"
                                     placeholder="Email"
                                     value={inviteForm.email}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, email: e.target.value }))}
-                                    disabled={!inviteMailReady}
-                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                    className="border rounded px-3 py-2 text-sm"
                                 />
                                 <input
                                     type="text"
                                     placeholder="Phone"
                                     value={inviteForm.phone}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, phone: e.target.value }))}
-                                    disabled={!inviteMailReady}
-                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                    className="border rounded px-3 py-2 text-sm"
                                 />
                                 <select
                                     value={inviteForm.role_id}
                                     onChange={(e) => setInviteForm((v) => ({ ...v, role_id: e.target.value }))}
-                                    disabled={!inviteMailReady}
-                                    className="border rounded px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                                    className="border rounded px-3 py-2 text-sm"
                                 >
                                     <option value="">Select role</option>
                                     {roles.map((r) => (
@@ -300,7 +297,7 @@ export default function TeamSettings() {
                             <div className="mt-3">
                                 <button
                                     type="submit"
-                                    disabled={inviting || !inviteMailReady}
+                                    disabled={inviting}
                                     className="px-3 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
                                 >
                                     {inviting ? 'Sending...' : 'Send Invite'}
@@ -501,4 +498,5 @@ export default function TeamSettings() {
         </AuthenticatedLayout>
     );
 }
+
 
