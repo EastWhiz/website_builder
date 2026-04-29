@@ -111,6 +111,14 @@ class UserApiInstanceController extends Controller
         if ($denied = $this->denyUnlessAnyPermission($request, ['integration.instance.create'])) {
             return $denied;
         }
+        $actor = $request->user();
+        $organization = $actor?->currentOrganization();
+        if (!$actor || !$organization || !OrganizationAccess::canUserFullyManageTeam($actor, $organization)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only organization admin can create API instances.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'api_category_id' => 'required|integer|exists:api_categories,id',
@@ -132,7 +140,7 @@ class UserApiInstanceController extends Controller
 
         $instance = UserApiInstance::create([
             'user_id' => Auth::id(),
-            'organization_id' => $request->user()?->currentOrganization()?->id,
+            'organization_id' => $organization->id,
             'api_category_id' => $category->id,
             'name' => $validated['name'],
             'is_active' => true,

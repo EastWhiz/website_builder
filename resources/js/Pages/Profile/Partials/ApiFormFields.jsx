@@ -260,7 +260,9 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
 
             {groupedData.length === 0 ? (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-                    You have not added any APIs yet. Click &quot;Add New API&quot; to create one.
+                    {canCreateInstance
+                        ? 'You have not added any APIs yet. Click "Add New API" to create one.'
+                        : 'No API instances found.'}
                         </div>
             ) : (
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
