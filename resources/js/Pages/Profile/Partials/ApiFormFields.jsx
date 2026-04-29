@@ -15,6 +15,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     const canCreateInstance = Boolean(permissions.integration_instance_create);
     const canUpdateInstance = Boolean(permissions.integration_instance_update);
     const canDeleteInstance = Boolean(permissions.integration_instance_soft_del);
+    const isOrgTeamAdmin = Boolean(permissions.org_team_admin);
     const authUserId = Number(page?.auth?.user?.id || 0);
 
     const [groupedData, setGroupedData] = useState([]);
@@ -97,7 +98,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     };
 
     const openEditModal = (instance, categoryId) => {
-        if (!canUpdateInstance) {
+        if (!canEditRowInstance(instance)) {
             Swal.fire({ title: 'Unauthorized', text: 'You do not have permission to edit API instances.', icon: 'warning' });
             return;
         }
@@ -189,7 +190,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
     };
 
     const handleDelete = async (inst) => {
-        if (!canDeleteInstance) {
+        if (!canDeleteRowInstance(inst)) {
             Swal.fire({ title: 'Unauthorized', text: 'You do not have permission to delete API instances.', icon: 'warning' });
             return;
         }
@@ -234,6 +235,14 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
         }
         return 'Admin';
     };
+
+    const canEditRowInstance = (inst) =>
+        Boolean(canUpdateInstance) &&
+        (Boolean(inst?.is_owned_by_current_user) || Number(inst?.owner_user_id || 0) === authUserId || isOrgTeamAdmin);
+
+    const canDeleteRowInstance = (inst) =>
+        Boolean(canDeleteInstance) &&
+        (Boolean(inst?.is_owned_by_current_user) || Number(inst?.owner_user_id || 0) === authUserId || isOrgTeamAdmin);
 
     if (loading) {
         return (
@@ -313,7 +322,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                 <tr className="border-b border-gray-200 bg-gray-50/80">
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">API Name</th>
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Owner</th>
-                                                                    {(canUpdateInstance || canDeleteInstance) && (
+                                                                    {(canEditRowInstance(inst) || canDeleteRowInstance(inst)) && (
                                                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Actions</th>
                                                                     )}
                                                                 </tr>
@@ -330,9 +339,9 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                         <td className="px-4 py-2 text-sm text-gray-600">
                                                                             {getOwnerLabel(inst)}
                                                                         </td>
-                                                                        {(canUpdateInstance || canDeleteInstance) && (
+                                                                        {(canEditRowInstance(inst) || canDeleteRowInstance(inst)) && (
                                                                             <td className="px-4 py-2 text-right">
-                                                                                {canUpdateInstance && (
+                                                                                {canEditRowInstance(inst) && (
                                                                                     <button
                                                                                         type="button"
                                                                                         onClick={(e) => {
@@ -344,7 +353,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                                         Edit
                                                                                     </button>
                                                                                 )}
-                                                                                {canDeleteInstance && (
+                                                                                {canDeleteRowInstance(inst) && (
                                                                                     <button
                                                                                         type="button"
                                                                                         onClick={(e) => {
