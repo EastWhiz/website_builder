@@ -290,6 +290,8 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                         <tbody className="divide-y divide-gray-200 bg-white">
                             {groupedData.map((group) => {
                                 const isExpanded = expandedPlatformId === group.category.id;
+                                const showAnyRowActions = Array.isArray(group?.instances)
+                                    && group.instances.some((row) => canEditRowInstance(row) || canDeleteRowInstance(row));
                 return (
                                     <Fragment key={group.category.id}>
                                         <tr
@@ -322,7 +324,7 @@ export default function ApiFormFields({ mustVerifyEmail, status, className = '' 
                                                                 <tr className="border-b border-gray-200 bg-gray-50/80">
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">API Name</th>
                                                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Owner</th>
-                                                                    {(canEditRowInstance(inst) || canDeleteRowInstance(inst)) && (
+                                                                    {showAnyRowActions && (
                                                                         <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Actions</th>
                                                                     )}
                                                                 </tr>
