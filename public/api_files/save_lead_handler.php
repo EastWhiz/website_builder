@@ -140,6 +140,8 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'aweber_user_api_instance_id' => $postData['aweber_user_api_instance_id'] ?? '',
         'aweber_list_ids' => $postData['aweber_list_ids'] ?? '',
     ];
+    // Deterministic API instance mapping for CRM history/cap attribution.
+    $apiPayload['user_api_instance_id'] = $postData['user_api_instance_id'] ?? '';
 
     // Prepare lead data
     $leadData = [
