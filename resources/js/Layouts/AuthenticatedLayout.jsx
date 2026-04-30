@@ -15,6 +15,7 @@ export default function AuthenticatedLayout({ header, children }) {
     const orgTeamAdminFlag = Boolean(permissions.org_team_admin);
     /** Org primary owner or org_admin membership (not platform super/platform admin). */
     const isOrgAdminNav = orgTeamAdminFlag && !isSuperAdmin && !isPlatformAdmin;
+    const canSeeThemesAndAngles = isSuperAdmin || isPlatformAdmin || isOrgAdminNav;
     const hasTeamSettingsPermission =
         Boolean(permissions.member_invite) ||
         Boolean(permissions.member_role_assign) ||
@@ -58,22 +59,26 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Dashboard
                                 </NavLink>
                             </div>
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('templates')}
-                                    active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                                >
-                                    Themes
-                                </NavLink>
-                            </div>
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('angles')}
-                                    active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
-                                >
-                                    Angles
-                                </NavLink>
-                            </div>
+                            {canSeeThemesAndAngles && (
+                                <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                    <NavLink
+                                        href={route('templates')}
+                                        active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                                    >
+                                        Themes
+                                    </NavLink>
+                                </div>
+                            )}
+                            {canSeeThemesAndAngles && (
+                                <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                    <NavLink
+                                        href={route('angles')}
+                                        active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                                    >
+                                        Angles
+                                    </NavLink>
+                                </div>
+                            )}
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
                                     href={route('thank-you-pages.index')}
@@ -242,18 +247,22 @@ export default function AuthenticatedLayout({ header, children }) {
                         >
                             Dashboard
                         </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('templates')}
-                            active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
-                        >
-                            Themes
-                        </ResponsiveNavLink>
-                        <ResponsiveNavLink
-                            href={route('angles')}
-                            active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
-                        >
-                            Angles
-                        </ResponsiveNavLink>
+                        {canSeeThemesAndAngles && (
+                            <ResponsiveNavLink
+                                href={route('templates')}
+                                active={route().current('templates') || route().current('addTemplate') || route().current('editTemplate')}
+                            >
+                                Themes
+                            </ResponsiveNavLink>
+                        )}
+                        {canSeeThemesAndAngles && (
+                            <ResponsiveNavLink
+                                href={route('angles')}
+                                active={route().current('angles') || route().current('addAngle') || route().current('editAngle')}
+                            >
+                                Angles
+                            </ResponsiveNavLink>
+                        )}
                         <ResponsiveNavLink
                             href={route('thank-you-pages.index')}
                             active={route().current('thank-you-pages.index') || route().current('thank-you-pages.create') || route().current('thank-you-pages.edit')}

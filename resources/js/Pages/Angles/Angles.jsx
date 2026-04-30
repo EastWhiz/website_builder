@@ -96,7 +96,7 @@ export default function Dashboard() {
 
     const [usersOptions, setUsersOptions] = useState([]);
     const [activeTwo, setActiveTwo] = useState(false);
-    const [selectedUsersOption, setSelectedUsersOption] = useState([]);
+    const [selectedUsersOption, setSelectedUsersOption] = useState(null);
     const [assignOrgModalOpen, setAssignOrgModalOpen] = useState(false);
     const [assignOrgSubmitting, setAssignOrgSubmitting] = useState(false);
     const [assignOrgId, setAssignOrgId] = useState('');
@@ -295,30 +295,65 @@ export default function Dashboard() {
             });
     }
 
-    const assignToOtherUsersHandler = () => {
-        const formData = new FormData();
-        formData.append('angles_ids', JSON.stringify(selectedResources));
-        formData.append('all_check', allResourcesSelected);
-        formData.append('search_query', JSON.stringify(myUrl.search));
-        formData.append('selected_user', JSON.stringify(selectedUsersOption));
-        fetch(route('assign.to.users'), {
-            method: 'POST',
-            body: formData,
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                console.log(data);
-                if (data.success == true) {
-                    handleSelectionChange('all', false)
-                    setReload(!reload);
-                    setActiveTwo(false);
-                    Swal.fire("Success!", data.message, "success");
-                }
-            })
-            .catch((error) => {
+    const assignToOtherUsersHandler = async () => {
+        const selectedUserId = Number(selectedUsersOption?.value || 0);
+        if (!selectedUserId) {
+            Swal.fire("Selection required", "Please select a user.", "warning");
+            return;
+        }
+        if (selectedResources.length === 0 || allResourcesSelected) {
+            Swal.fire("Selection required", "Please select specific angle rows.", "warning");
+            return;
+        }
 
-                console.error(error);
-            });
+        try {
+            let response;
+
+            if (!isPrivilegedPlatformAdmin) {
+                response = await fetch(route('organization.content.assign_to_user'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]')?.content || '',
+                    },
+                    body: JSON.stringify({
+                        organization_id: null,
+                        to_user_id: selectedUserId,
+                        items: selectedResources.map((id) => ({ type: 'angle', id: Number(id) })),
+                    }),
+                });
+            } else {
+                const formData = new FormData();
+                formData.append('angles_ids', JSON.stringify(selectedResources));
+                formData.append('all_check', allResourcesSelected);
+                formData.append('search_query', JSON.stringify(myUrl.search));
+                formData.append('selected_user', JSON.stringify(selectedUsersOption));
+                response = await fetch(route('assign.to.users'), {
+                    method: 'POST',
+                    body: formData,
+                });
+            }
+
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                throw new Error(response.status === 403
+                    ? 'You are not allowed to assign angles to this user.'
+                    : 'Unexpected server response.');
+            }
+
+            const data = await response.json();
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.message || 'Angle assignment failed.');
+            }
+
+            handleSelectionChange('all', false);
+            setReload(!reload);
+            setActiveTwo(false);
+            setSelectedUsersOption(null);
+            Swal.fire("Success!", data.message || "Angles assigned successfully.", "success");
+        } catch (error) {
+            Swal.fire("Error!", error?.message || "Angle assignment failed.", "error");
+        }
     }
 
     const duplicateAnglesHandler = () => {

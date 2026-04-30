@@ -36,7 +36,8 @@ class AngleController extends Controller
             $query->select('type', 'angle_uuid'); // columns you want
         }])
         ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
-        ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
+        // Fallback: if org context is missing for a normal member session, still show the user's own angles.
+        ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
         ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
         ->when($request->get('q'), function ($q) use ($request) {
             $q->where(function ($q) use ($request) {
@@ -266,9 +267,16 @@ class AngleController extends Controller
                         "uuid" => $request->uuid,
                         "asset_unique_uuid" => $request->asset_unique_uuid,
                         "name" => $request->name,
+                        "organization_id" => $request->user()?->currentOrganization()?->id,
                     ]);
                 } else {
-                    $generatedAngle = Angle::create($request->all());
+                    $generatedAngle = Angle::create([
+                        'user_id' => (int) Auth::id(),
+                        'organization_id' => $request->user()?->currentOrganization()?->id,
+                        'name' => (string) $request->name,
+                        'uuid' => (string) $request->uuid,
+                        'asset_unique_uuid' => (string) $request->asset_unique_uuid,
+                    ]);
                 }
 
                 AngleContent::where('angle_uuid', $request->uuid)->whereIn('type', ['html', 'css', 'js'])->delete();

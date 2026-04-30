@@ -207,6 +207,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/angles/list', [AngleController::class, 'index'])->name('angles.list');
 
         Route::post('/angles-applying', [AngleTemplateController::class, 'anglesApplying'])->name('angles.applying');
+        Route::get('/api/landing-pages/create-options', [AngleTemplateController::class, 'createOptions'])->name('landing-pages.create-options');
+        Route::post('/api/landing-pages/create-from-angle-template', [AngleTemplateController::class, 'createFromAngleTemplate'])->name('landing-pages.create-from-angle-template');
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

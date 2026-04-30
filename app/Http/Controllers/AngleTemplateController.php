@@ -12,9 +12,11 @@ use App\Models\ApiCategory;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
 use App\Services\ApiExportService;
+use App\Support\OrganizationAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -187,6 +189,7 @@ class AngleTemplateController extends Controller
                         'angle_id' => $currentAngle->id,
                         'template_id' => $currentTemplate->id,
                         'user_id' => Auth::user()->id,
+                        'organization_id' => $request->user()?->currentOrganization()?->id,
                         'name' => "$currentTemplate->name ($currentAngle->name)",
                         'main_html' =>  $updatingIndex,
                         'main_css' =>  $updatingCss,
@@ -199,6 +202,124 @@ class AngleTemplateController extends Controller
             //
         } catch (\Exception $e) {
             return sendResponse(false, 'Angle applying facing issues: ' . $e->getMessage());
+        }
+    }
+
+    public function createOptions(Request $request)
+    {
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+        $canViewOrgAll = $user
+            ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
+            : false;
+
+        $angles = Angle::query()
+            ->when($organization, fn ($q) => $q->where('organization_id', (int) $organization->id))
+            ->when(!$organization, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
+            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $templates = Template::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return sendResponse(true, 'Landing page create options fetched successfully.', [
+            'angles' => $angles,
+            'templates' => $templates,
+        ]);
+    }
+
+    public function createFromAngleTemplate(Request $request)
+    {
+        $validated = $request->validate([
+            'angle_id' => ['required', 'integer'],
+            'template_id' => ['required', 'integer'],
+        ]);
+
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+        $canViewOrgAll = $user
+            ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all')
+            : false;
+
+        $angle = Angle::query()
+            ->where('id', (int) $validated['angle_id'])
+            ->whereNull('deleted_at')
+            ->when($organization, fn ($q) => $q->where('organization_id', (int) $organization->id))
+            ->when(!$organization, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
+            ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
+            ->with('contents')
+            ->first();
+
+        if (!$angle) {
+            return sendResponse(false, 'Selected angle is not available.', null, null, null, 422);
+        }
+
+        $template = Template::query()->where('id', (int) $validated['template_id'])->first();
+        if (!$template) {
+            return sendResponse(false, 'Selected theme is not available.', null, null, null, 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $allBodies = $angle->contents()->where('type', 'html')->get();
+            $updatingIndex = (string) $template->index;
+
+            $updatingCss = '';
+            $template->contents()->where('type', 'css')->get()->each(function ($item) use (&$updatingCss) {
+                $updatingCss .= $item->content;
+            });
+
+            $updatingJs = '';
+            $template->contents()->where('type', 'js')->get()->each(function ($item) use (&$updatingJs) {
+                $updatingJs .= $item->content . "\n";
+            });
+
+            foreach ($allBodies as $key => $body) {
+                $bodyKey = $key + 1;
+                $updatingIndex = str_replace("<!--INTERNAL--BD$bodyKey--EXTERNAL-->", $body->content, $updatingIndex);
+            }
+
+            $updatingIndex = preg_replace(
+                '/src="angle_images\//',
+                'src="../../storage/angles/' . $angle->uuid . '/images/' . $angle->asset_unique_uuid . '-',
+                $updatingIndex
+            );
+
+            $updatingIndex = preg_replace(
+                '/src="template_images\//',
+                'src="../../storage/templates/' . $template->uuid . '/images/' . $template->asset_unique_uuid . '-',
+                $updatingIndex
+            );
+
+            $updatingCss = preg_replace(
+                '/fonts\//',
+                '../../storage/templates/' . $template->uuid . '/fonts/' . $template->asset_unique_uuid . '-',
+                $updatingCss
+            );
+
+            $newTemplate = AngleTemplate::create([
+                'uuid' => Str::uuid(),
+                'angle_id' => $angle->id,
+                'template_id' => $template->id,
+                'user_id' => (int) ($user?->id ?? 0),
+                'organization_id' => $organization?->id,
+                'name' => "{$template->name} ({$angle->name})",
+                'main_html' => $updatingIndex,
+                'main_css' => $updatingCss,
+                'main_js' => $updatingJs,
+            ]);
+
+            DB::commit();
+
+            return sendResponse(true, 'Landing page created successfully.', [
+                'angle_template_id' => $newTemplate->id,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return sendResponse(false, 'Could not create landing page. Please try again.');
         }
     }
 
@@ -2036,10 +2157,28 @@ class AngleTemplateController extends Controller
             // Get form_type from HTML and resolve to UserApiInstance (so existing pages keep the correct API)
             $formType = $this->getFormTypeFromHtml($fullHtml);
             $userApiInstance = null;
+            $organization = $user?->currentOrganization();
+            $canViewOrgAll = $user ? Gate::forUser($user)->allows('org.permission', 'content.view_org_all') : false;
+            $orgAdminUserIds = $organization ? $this->organizationAdminUserIds((int) $organization->id) : [];
+
+            $accessibleInstancesQuery = UserApiInstance::query()
+                ->when($organization, fn ($q) => $q->where('organization_id', (int) $organization->id))
+                ->when(!$organization && !OrganizationAccess::isPrivilegedPlatformAdmin($user), fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
+                ->when(
+                    $organization && !OrganizationAccess::isPrivilegedPlatformAdmin($user) && !$canViewOrgAll,
+                    function ($q) use ($user, $orgAdminUserIds) {
+                        $q->where(function ($scoped) use ($user, $orgAdminUserIds) {
+                            $scoped->where('user_id', (int) ($user?->id ?? 0));
+                            if ($orgAdminUserIds !== []) {
+                                $scoped->orWhereIn('user_id', $orgAdminUserIds);
+                            }
+                        });
+                    }
+                );
             // Strict path (newer pages): resolve by selected instance id if present
             $userApiInstanceId = $this->getUserApiInstanceIdFromHtml($fullHtml);
             if ($userApiInstanceId) {
-                $userApiInstance = $user->apiInstances()
+                $userApiInstance = (clone $accessibleInstancesQuery)
                     ->where('id', $userApiInstanceId)
                     ->with(['category.fields', 'values.field'])
                     ->first();
@@ -2051,13 +2190,22 @@ class AngleTemplateController extends Controller
                 if ($categoryName) {
                     $category = ApiCategory::active()->where('name', $categoryName)->first();
                     if ($category) {
-                        $userApiInstance = $user->getApiInstanceByFormType(
-                            $category->id,
-                            $formType,
-                            self::$formTypeToCanonicalName
-                        );
-                        // Load relationships needed for credential injection
-                        $userApiInstance?->load(['category.fields', 'values.field']);
+                        $canonical = self::$formTypeToCanonicalName[$formType] ?? $formType;
+                        $canonicalLower = strtolower($canonical);
+                        $userApiInstance = (clone $accessibleInstancesQuery)
+                            ->where('api_category_id', (int) $category->id)
+                            ->where('is_active', true)
+                            ->with(['category.fields', 'values.field'])
+                            ->get()
+                            ->first(fn ($inst) => strtolower((string) $inst->name) === $canonicalLower);
+
+                        if (!$userApiInstance) {
+                            $userApiInstance = (clone $accessibleInstancesQuery)
+                                ->where('api_category_id', (int) $category->id)
+                                ->where('is_active', true)
+                                ->with(['category.fields', 'values.field'])
+                                ->first();
+                        }
                     }
                 }
             }
@@ -2066,7 +2214,7 @@ class AngleTemplateController extends Controller
             if ($this->getUseAweberFromHtml($fullHtml)) {
                 $aweberInstanceId = $this->getAweberUserApiInstanceIdFromHtml($fullHtml);
                 if ($aweberInstanceId) {
-                    $aweberApiInstance = $user->apiInstances()
+                    $aweberApiInstance = (clone $accessibleInstancesQuery)
                         ->where('id', $aweberInstanceId)
                         ->with(['category.fields', 'values.field'])
                         ->first();
@@ -2639,6 +2787,7 @@ class AngleTemplateController extends Controller
                 'angle_id' => $angleTemplate->angle_id,
                 'template_id' => $angleTemplate->template_id,
                 'user_id' => Auth::id(), // Set current user as owner
+                'organization_id' => $request->user()?->currentOrganization()?->id,
                 'name' => $angleTemplate->name . ' (Copy)',
                 'main_html' => $angleTemplate->main_html,
                 'main_css' => $angleTemplate->main_css,
@@ -4104,6 +4253,26 @@ private function looksLikeInitials(string $text): bool
 
     return false;
 }
+
+    /**
+     * Resolve active organization admin user IDs for an organization.
+     *
+     * @return array<int, int>
+     */
+    private function organizationAdminUserIds(int $organizationId): array
+    {
+        return DB::table('organization_user as ou')
+            ->join('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.organization_id', $organizationId)
+            ->whereNull('ou.deleted_at')
+            ->where('ou.status', 'active')
+            ->where('r.key', 'org_admin')
+            ->pluck('ou.user_id')
+            ->map(static fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
 
 
 }

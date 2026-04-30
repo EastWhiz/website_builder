@@ -198,6 +198,12 @@ export default function Dashboard() {
     const [cloneMembersLoading, setCloneMembersLoading] = useState(false);
     const [cloneSubmitting, setCloneSubmitting] = useState(false);
     const [cloneLandingBulkMode, setCloneLandingBulkMode] = useState(false);
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [createSubmitting, setCreateSubmitting] = useState(false);
+    const [createAngleOptions, setCreateAngleOptions] = useState([]);
+    const [createThemeOptions, setCreateThemeOptions] = useState([]);
+    const [selectedCreateAngle, setSelectedCreateAngle] = useState(null);
+    const [selectedCreateTheme, setSelectedCreateTheme] = useState(null);
 
     const loadCloneMemberOptions = useCallback(async () => {
         setCloneMembersLoading(true);
@@ -300,6 +306,65 @@ export default function Dashboard() {
     const orgLandingPromotedBulkActions = organizationLandingPagesMode
         ? [{ content: 'Clone to user', onAction: openBulkCloneLandingModal }]
         : [];
+
+    const openCreateLandingModal = async () => {
+        try {
+            const response = await fetch(route('landing-pages.create-options'), {
+                headers: { Accept: 'application/json' },
+            });
+            const result = await response.json();
+            if (!response.ok || !result?.success) {
+                throw new Error(result?.message || 'Could not load create options.');
+            }
+            setCreateAngleOptions((result?.data?.angles || []).map((angle) => ({
+                value: String(angle.id),
+                label: angle.name || `Angle #${angle.id}`,
+            })));
+            setCreateThemeOptions((result?.data?.templates || []).map((tpl) => ({
+                value: String(tpl.id),
+                label: tpl.name || `Theme #${tpl.id}`,
+            })));
+            setSelectedCreateAngle(null);
+            setSelectedCreateTheme(null);
+            setCreateModalOpen(true);
+        } catch (e) {
+            Swal.fire('Error', e?.message || 'Could not load options.', 'error');
+        }
+    };
+
+    const submitCreateLandingPage = async () => {
+        if (!selectedCreateAngle?.value || !selectedCreateTheme?.value) {
+            Swal.fire('Selection required', 'Please select an angle and a theme.', 'warning');
+            return;
+        }
+
+        try {
+            setCreateSubmitting(true);
+            const response = await fetch(route('landing-pages.create-from-angle-template'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    angle_id: Number(selectedCreateAngle.value),
+                    template_id: Number(selectedCreateTheme.value),
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result?.success) {
+                throw new Error(result?.message || 'Could not create landing page.');
+            }
+            setCreateModalOpen(false);
+            setReload(!reload);
+            Swal.fire('Success', result?.message || 'Landing page created successfully.', 'success');
+        } catch (e) {
+            Swal.fire('Error', e?.message || 'Could not create landing page.', 'error');
+        } finally {
+            setCreateSubmitting(false);
+        }
+    };
     const handlePageCount = useCallback((value) => { setPageCount(value); setCurrentCursor(null); setReload(!reload); }, [tableRows]);
 
     useEffect(() => {
@@ -738,7 +803,14 @@ export default function Dashboard() {
                         <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                             <div className="p-6 text-gray-900">
                                 <Box>
-                                    <div style={{ display: "flex", justifyContent: "right", marginBottom: "15px" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "15px" }}>
+                                        <div>
+                                            {!organizationLandingPagesMode && (
+                                                <Button onClick={openCreateLandingModal} variant="primary">
+                                                    Create Landing Page
+                                                </Button>
+                                            )}
+                                        </div>
                                         <ShopifySelect
                                             labelInline
                                             label="Rows:"
@@ -823,6 +895,49 @@ export default function Dashboard() {
                     </div>
                 </div>
             </AuthenticatedLayout>
+
+            <Modal
+                open={createModalOpen}
+                onClose={() => setCreateModalOpen(false)}
+                title="Create Landing Page"
+                primaryAction={{
+                    content: createSubmitting ? 'Creating...' : 'Create',
+                    onAction: submitCreateLandingPage,
+                    disabled: createSubmitting || !selectedCreateAngle?.value || !selectedCreateTheme?.value,
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Cancel',
+                        onAction: () => setCreateModalOpen(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <div style={{ marginBottom: '14px' }}>
+                        <Text as="p" variant="bodyMd">Select an Angle and a Theme to generate a landing page.</Text>
+                    </div>
+                    <div style={{ marginBottom: '14px' }}>
+                        <Select
+                            menuPortalTarget={document.body}
+                            styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                            placeholder="Select Angle..."
+                            options={createAngleOptions}
+                            value={selectedCreateAngle}
+                            onChange={setSelectedCreateAngle}
+                        />
+                    </div>
+                    <div>
+                        <Select
+                            menuPortalTarget={document.body}
+                            styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                            placeholder="Select Theme..."
+                            options={createThemeOptions}
+                            value={selectedCreateTheme}
+                            onChange={setSelectedCreateTheme}
+                        />
+                    </div>
+                </Modal.Section>
+            </Modal>
 
             {/* Language Selection Modal */}
             <Modal
