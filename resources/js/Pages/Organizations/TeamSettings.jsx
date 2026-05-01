@@ -337,6 +337,7 @@ export default function TeamSettings() {
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-4 py-2 text-left">Name</th>
+                                        <th className="px-4 py-2 text-left">UID</th>
                                         <th className="px-4 py-2 text-left">Email</th>
                                         <th className="px-4 py-2 text-left">Phone</th>
                                         <th className="px-4 py-2 text-left">Role</th>
@@ -347,13 +348,13 @@ export default function TeamSettings() {
                                 <tbody className="divide-y divide-gray-100">
                                     {loading ? (
                                         <tr>
-                                            <td className="px-4 py-3 text-gray-500" colSpan={6}>
+                                            <td className="px-4 py-3 text-gray-500" colSpan={7}>
                                                 Loading...
                                             </td>
                                         </tr>
                                     ) : members.length === 0 ? (
                                         <tr>
-                                            <td className="px-4 py-3 text-gray-500" colSpan={6}>
+                                            <td className="px-4 py-3 text-gray-500" colSpan={7}>
                                                 No members found.
                                             </td>
                                         </tr>
@@ -361,6 +362,7 @@ export default function TeamSettings() {
                                         members.map((m) => (
                                             <tr key={m.membership_id}>
                                                 <td className="px-4 py-2">{m.name}</td>
+                                                <td className="px-4 py-2">{m.user_id ? `U${m.user_id}` : '-'}</td>
                                                 <td className="px-4 py-2">{m.email}</td>
                                                 <td className="px-4 py-2">{m.phone}</td>
                                                 <td className="px-4 py-2">

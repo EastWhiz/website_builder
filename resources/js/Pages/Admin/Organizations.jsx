@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     AppProvider,
     Card,
@@ -16,6 +16,13 @@ import { useCallback, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 
 export default function Organizations() {
+    const { auth } = usePage().props;
+    const currentUser = auth?.user || null;
+    const isSuperOrPlatformAdmin =
+        Number(currentUser?.id || 0) === 1 ||
+        Number(currentUser?.role_id || 0) === 1 ||
+        String(currentUser?.role?.name || '').toLowerCase() === 'admin';
+
     const resourceName = { singular: 'Organization', plural: 'Organizations' };
 
     const pageOptions = [
@@ -161,6 +168,13 @@ export default function Organizations() {
             <IndexTable.Cell>
                 <div onClick={(e) => e.stopPropagation()}>{org.owner?.name || '-'}</div>
             </IndexTable.Cell>
+            {isSuperOrPlatformAdmin && (
+                <IndexTable.Cell>
+                    <div onClick={(e) => e.stopPropagation()}>
+                        {org.owner?.id ? `U${org.owner.id}` : '-'}
+                    </div>
+                </IndexTable.Cell>
+            )}
             <IndexTable.Cell>
                 <div onClick={(e) => e.stopPropagation()}>{org.owner?.email || '-'}</div>
             </IndexTable.Cell>
@@ -361,6 +375,7 @@ export default function Organizations() {
                                     headings={[
                                         { title: 'Organization' },
                                         { title: 'Owner Name' },
+                                        ...(isSuperOrPlatformAdmin ? [{ title: 'UID' }] : []),
                                         { title: 'Email' },
                                         { title: 'Contact' },
                                         { title: 'Status' },
@@ -394,4 +409,3 @@ export default function Organizations() {
         </AuthenticatedLayout>
     );
 }
-
