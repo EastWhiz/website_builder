@@ -1,4 +1,4 @@
-import InputError from '@/Components/InputError';
+﻿import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -90,7 +90,7 @@ export default function OrganizationMailSettingsForm({
                                         rel="noopener noreferrer"
                                         className="font-medium text-indigo-600 underline hover:text-indigo-800"
                                     >
-                                        Google Account — Security
+                                        Google Account - Security
                                     </a>{' '}
                                     page (while signed in as the Gmail address you will use for SMTP).
                                 </li>
@@ -125,7 +125,7 @@ export default function OrganizationMailSettingsForm({
                                         rel="noopener noreferrer"
                                         className="font-medium text-indigo-600 underline hover:text-indigo-800"
                                     >
-                                        Google Account — Security
+                                        Google Account - Security
                                     </a>
                                     . With 2-Step Verification on, open <strong>2-Step Verification</strong> again.
                                 </li>
@@ -133,6 +133,18 @@ export default function OrganizationMailSettingsForm({
                                     Scroll to <strong>App passwords</strong> (you may need to sign in again). If you do not
                                     see App passwords, your administrator or account type may not allow them; use a
                                     consumer Google account or ask your admin.
+                                </li>
+                                <li>
+                                    For personal Google accounts, you can open App passwords directly here:{' '}
+                                    <a
+                                        href="https://myaccount.google.com/apppasswords"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-medium text-indigo-600 underline hover:text-indigo-800 break-all"
+                                    >
+                                        https://myaccount.google.com/apppasswords
+                                    </a>
+                                    .
                                 </li>
                                 <li>
                                     Create a new app password: choose app <strong>Mail</strong> and device{' '}
@@ -320,3 +332,5 @@ export default function OrganizationMailSettingsForm({
         </section>
     );
 }
+
+
