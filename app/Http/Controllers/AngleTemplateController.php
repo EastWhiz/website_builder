@@ -114,60 +114,6 @@ class AngleTemplateController extends Controller
         }
     }
 
-    /**
-     * Remove legacy honeypot input from HTML safely.
-     * DOM parsing avoids regex backtracking issues on large payloads.
-     */
-    private function sanitizeLandingHtml(string $html): string
-    {
-        if ($html === '') {
-            return $html;
-        }
-
-        try {
-            libxml_use_internal_errors(true);
-            $dom = new \DOMDocument('1.0', 'UTF-8');
-            $wrapped = '<!DOCTYPE html><html><body>' . $html . '</body></html>';
-            $loaded = $dom->loadHTML($wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-
-            if ($loaded !== false) {
-                $xpath = new \DOMXPath($dom);
-                $nodes = $xpath->query('//input[@name="honeypot_website"]');
-                if ($nodes !== false && $nodes->length > 0) {
-                    for ($i = $nodes->length - 1; $i >= 0; $i--) {
-                        $node = $nodes->item($i);
-                        if ($node && $node->parentNode) {
-                            $node->parentNode->removeChild($node);
-                        }
-                    }
-                }
-
-                $body = $dom->getElementsByTagName('body')->item(0);
-                if ($body) {
-                    $sanitized = '';
-                    foreach ($body->childNodes as $child) {
-                        $sanitized .= $dom->saveHTML($child);
-                    }
-                    if ($sanitized !== '') {
-                        return $sanitized;
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            // Fall through to regex fallback.
-        } finally {
-            libxml_clear_errors();
-            libxml_use_internal_errors(false);
-        }
-
-        $fallback = preg_replace(
-            '/<input\b[^>]*\bname\s*=\s*["\']honeypot_website["\'][^>]*>/i',
-            '',
-            $html
-        );
-
-        return $fallback === null ? $html : $fallback;
-    }
 
     public function anglesApplying(Request $request)
     {
@@ -381,9 +327,6 @@ class AngleTemplateController extends Controller
     public function saveEditedAngleTemplate(Request $request)
     {
         // return $request;
-        if (!$request->has('main_html')) {
-            return sendResponse(false, 'Landing page HTML is missing. Please reload the editor and try again.');
-        }
 
         for ($i = 0; $i < $request->chunk_count; $i++) {
             $imageFile = $request->file('image' . $i);
@@ -437,9 +380,7 @@ class AngleTemplateController extends Controller
             if ($request->last_iteration == "true") {
 
                 $editedAngleTemplate = AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
-                $rawMainHtml = (string) $request->main_html;
-                $mainHtml = $this->sanitizeLandingHtml($rawMainHtml);
-                $editedAngleTemplate->main_html = $mainHtml;
+                $editedAngleTemplate->main_html = (string) $request->main_html;
                 $editedAngleTemplate->save();
 
                 $old_contents = ExtraContent::where('can_be_deleted', false)->where('angle_template_uuid', $request->angle_template_uuid)->whereIn('type', ['image'])->get();
@@ -643,14 +584,6 @@ class AngleTemplateController extends Controller
         $updatingIndex = $angleTemplate->main_html;
         $updatingCss = $angleTemplate->main_css;
         $updatingJs = $angleTemplate->main_js;
-
-        // Backward compatibility cleanup:
-        // remove legacy honeypot input from older saved forms; runtime script will add `ref_code`.
-        $updatingIndex = preg_replace(
-            '/<input\b[^>]*\bname\s*=\s*["\']honeypot_website["\'][^>]*>/i',
-            '',
-            $updatingIndex
-        );
 
         // UPDATING INDEX WITH IMAGE CHANGES - ANGLES
         $updatingIndex = str_replace(

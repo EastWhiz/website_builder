@@ -29,11 +29,6 @@ function syncFormTrackingParamsFromUrl(formEl) {
     });
 }
 
-function stripLegacyHoneypotField(html) {
-    if (!html || typeof html !== 'string') return html;
-    return html.replace(/<input\b[^>]*\bname\s*=\s*["']honeypot_website["'][^>]*>/gi, '');
-}
-
 export default function Dashboard({ id }) {
 
     const mainQuery = usePage().props;
@@ -752,7 +747,6 @@ export default function Dashboard({ id }) {
                 setData(json.data);
 
                 let updated = json.data.main_html;
-                updated = stripLegacyHoneypotField(updated);
                 
                 // Clean any separator variations that might have slipped through
                 updated = cleanSeparator(updated);
@@ -917,7 +911,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "stop_spamming" || name == "redirect_to_broker" || name == "broker_redirect_delay" || name == "use_aweber" || name == "aweber_user_api_instance_id" || name == "aweber_list_ids" || name == "cid" || name == "pid" || name == "so" || name == "honeypot_website" || name == "ref_code" || name == "form_loaded_at" || name == "submission_duration_ms" || name == "zipcode" || name == "currentAdvisor" || name == "ageRange" || name == "retirementPlan" || name == "businessOwner" || name == "totalInvestableAssets" || name == "investableAssetsDetail" || name == "annualIncome") return null;
+                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "stop_spamming" || name == "redirect_to_broker" || name == "broker_redirect_delay" || name == "use_aweber" || name == "aweber_user_api_instance_id" || name == "aweber_list_ids" || name == "cid" || name == "pid" || name == "so" || name == "ref_code" || name == "form_loaded_at" || name == "submission_duration_ms" || name == "zipcode" || name == "currentAdvisor" || name == "ageRange" || name == "retirementPlan" || name == "businessOwner" || name == "totalInvestableAssets" || name == "investableAssetsDetail" || name == "annualIncome") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
