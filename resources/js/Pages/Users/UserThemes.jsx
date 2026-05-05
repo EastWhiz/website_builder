@@ -524,7 +524,9 @@ export default function Dashboard() {
     };
 
     const rowMarkup = tableRows.map((value, index) => {
-        const ownerLabel = value.user?.name ?? '—';
+        const ownerName = value.user?.name ?? '—';
+        const ownerUid = value.user?.id ? `U${value.user.id}` : null;
+        const ownerLabel = ownerUid ? `${ownerName} (${ownerUid})` : ownerName;
 
         if (organizationLandingPagesMode) {
             return (
@@ -548,6 +550,8 @@ export default function Dashboard() {
                     </IndexTable.Cell>
                     <IndexTable.Cell>
                         <Button variant="plain" icon={ViewIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Preview" />
+                        <span style={{ margin: '10px' }} />
+                        <Button variant="plain" icon={PageDownIcon} onClick={() => openExportModal(value.id)} accessibilityLabel="Export" />
                         <span style={{ margin: '10px' }} />
                         <Button variant="plain" icon={DuplicateIcon} onClick={() => openCloneLandingModal(value)} accessibilityLabel="Clone to user" />
                     </IndexTable.Cell>
