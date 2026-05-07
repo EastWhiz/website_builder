@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once 'config.php';
 include_once 'save_lead_handler.php';
 include_once 'api_error_helper.php';
@@ -39,7 +39,7 @@ function parseGetLinkedPhoneForExport(string $phone, string $areaCode, string $c
         return ['valid' => false, 'phone' => '', 'areaCode' => ''];
     }
 
-    // E.164 → national digits + calling code as +CC (same idea as provider's getCountryCode + getNationalNumber)
+    // E.164 â†’ national digits + calling code as +CC (same idea as provider's getCountryCode + getNationalNumber)
     if (preg_match('/^\+([1-9]\d{1,2})(\d{4,14})$/', $clean, $m)) {
         return [
             'valid' => true,
@@ -59,7 +59,7 @@ function parseGetLinkedPhoneForExport(string $phone, string $areaCode, string $c
 }
 
 /**
- * Koi: custom1–3 = cid/pid/so, comment, offerWebsite (see koi.php / koiads reference).
+ * Koi: custom1â€“3 = cid/pid/so, comment, offerWebsite (see koi.php / koiads reference).
  * Meeseeks: offerName + custom5 (see meeseeksmedia.php).
  */
 function applyGetLinkedTypeOverrides(
@@ -144,7 +144,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $saveLeadSlug = trim((string) ($postData['save_lead_slug'] ?? ''));
     $formTypeForSpam = trim((string) ($postData['form_type'] ?? ''));
     $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
+    
     maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
+    maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
     $dynamicCid = getVal($getData, 'cid');
     $dynamicPid = getVal($getData, 'pid');
     $dynamicSO = getVal($getData, 'so');
@@ -317,3 +319,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $getData = $_GET ?? [];
 header('Location: ' . BASE_URL . '?cid=' . urlencode($getData['cid'] ?? '') . '&pid=' . urlencode($getData['pid'] ?? '') . '&so=' . urlencode($getData['so'] ?? '') . '&api_error=' . urlencode('Method not allowed'));
 exit();
+
+

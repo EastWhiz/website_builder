@@ -41,6 +41,138 @@ function resolveRequestIp(): string
     return trim((string) $requestIp);
 }
 
+function normalizeLeadEmail($email): string
+{
+    return strtolower(trim((string) $email));
+}
+
+function resolveDuplicateApiIdentifier(array $postData, string $apiName): string
+{
+    $instanceId = trim((string) ($postData['user_api_instance_id'] ?? ''));
+    if ($instanceId !== '') {
+        return 'instance:' . $instanceId;
+    }
+
+    $slug = trim((string) ($postData['save_lead_slug'] ?? ''));
+    if ($slug !== '') {
+        return 'slug:' . strtolower($slug);
+    }
+
+    $formType = trim((string) ($postData['form_type'] ?? ''));
+    if ($formType !== '') {
+        return 'form_type:' . strtolower($formType);
+    }
+
+    return 'api:' . strtolower(trim((string) $apiName));
+}
+
+function checkDuplicateLeadInCrm(array $postData, string $apiName): array
+{
+    $email = normalizeLeadEmail($postData['email'] ?? '');
+    if ($email === '') {
+        return ['checked' => false, 'is_duplicate' => false];
+    }
+
+    $organizationIdRaw = $postData['organization_id'] ?? null;
+    $organizationId = null;
+    if (is_numeric($organizationIdRaw) && (int) $organizationIdRaw > 0) {
+        $organizationId = (int) $organizationIdRaw;
+    }
+
+    $payload = [
+        'email' => $email,
+        'api_identifier' => resolveDuplicateApiIdentifier($postData, $apiName),
+        'api_type' => trim((string) $apiName),
+        'user_api_instance_id' => trim((string) ($postData['user_api_instance_id'] ?? '')),
+        'organization_id' => $organizationId,
+        'web_builder_user_id' => isset($postData['web_builder_user_id']) ? ('U' . trim((string) $postData['web_builder_user_id'])) : null,
+    ];
+
+    $crmBaseUrl = 'https://crm.diy';
+    $ch = curl_init(rtrim($crmBaseUrl, '/') . '/api/v1/check-duplicate-lead');
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    $verifySsl = false; // __CRM_VERIFY_SSL__
+    if (!$verifySsl) {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    }
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+
+    $responseBody = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_errno($ch) ? curl_error($ch) : '';
+    curl_close($ch);
+
+    if ($curlError !== '') {
+        error_log('Duplicate check API error: ' . $curlError);
+        return ['checked' => false, 'is_duplicate' => false];
+    }
+
+    if ($httpCode < 200 || $httpCode >= 300 || !$responseBody) {
+        return ['checked' => false, 'is_duplicate' => false];
+    }
+
+    $decoded = json_decode($responseBody, true);
+    if (!is_array($decoded)) {
+        return ['checked' => false, 'is_duplicate' => false];
+    }
+
+    $isDuplicate = false;
+    if (array_key_exists('is_duplicate', $decoded)) {
+        $isDuplicate = truthyValue($decoded['is_duplicate']);
+    } elseif (isset($decoded['data']) && is_array($decoded['data']) && array_key_exists('is_duplicate', $decoded['data'])) {
+        $isDuplicate = truthyValue($decoded['data']['is_duplicate']);
+    }
+
+    return ['checked' => true, 'is_duplicate' => $isDuplicate];
+}
+
+function maybeBlockDuplicateLeadAndExit(array $postData, array $getData, string $apiName): void
+{
+    $email = normalizeLeadEmail($postData['email'] ?? '');
+    if ($email === '') {
+        return;
+    }
+
+    $check = checkDuplicateLeadInCrm($postData, $apiName);
+    if (!$check['checked'] || !$check['is_duplicate']) {
+        return;
+    }
+
+    $duplicatePayload = [
+        'duplicate_check' => [
+            'reason' => 'Duplicate Email',
+            'matched_lead_id' => $check['matched_lead_id'] ?? null,
+        ],
+    ];
+
+    saveLead(
+        $postData,
+        $getData,
+        ['status' => false, 'message' => 'Duplicate Email'],
+        $apiName,
+        'failure',
+        $duplicatePayload,
+        [
+            'failure_reason' => 'Duplicate Email',
+        ]
+    );
+
+    $cid = trim((string) ($getData['cid'] ?? $postData['cid'] ?? ''));
+    $pid = trim((string) ($getData['pid'] ?? $postData['pid'] ?? ''));
+    $so = trim((string) ($getData['so'] ?? $postData['so'] ?? ''));
+
+    header('Location: ' . BASE_URL . '/api_files/thank_you.php?' . http_build_query([
+        'cid' => $cid,
+        'pid' => $pid,
+        'so' => $so,
+    ]));
+    exit();
+}
+
 function evaluateHoneypot(array $postData): array
 {
     $honeypotFieldNames = ['ref_code', 'website', 'website_url', 'company_website'];

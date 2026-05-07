@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once 'config.php';
 include_once 'save_lead_handler.php';
 include_once 'api_error_helper.php'; // Extract readable error from API responses
@@ -38,7 +38,7 @@ function parseTrackboxPhoneForExport(string $phone, string $countryIso2): array
         return ['valid' => true, 'phone' => $clean, 'country' => $country];
     }
 
-    // US 10-digit national → +1… (common when intl-tel-input not used)
+    // US 10-digit national â†’ +1â€¦ (common when intl-tel-input not used)
     if ($country === 'US' && preg_match('/^\d{10}$/', $clean)) {
         return ['valid' => true, 'phone' => '+1' . $clean, 'country' => 'US'];
     }
@@ -47,7 +47,7 @@ function parseTrackboxPhoneForExport(string $phone, string $countryIso2): array
 }
 
 /**
- * Optional per–form_type tweaks (TrackboxPlatformProvider::applyTypeOverrides).
+ * Optional perâ€“form_type tweaks (TrackboxPlatformProvider::applyTypeOverrides).
  * Currently no extra keys; extend here if a Trackbox variant needs them.
  */
 function applyTrackboxTypeOverrides(string $formType, array $payload, array $postData, string $dynamicCid): array
@@ -114,7 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $saveLeadSlug = trim((string) ($postData['save_lead_slug'] ?? ''));
     $formTypeForSpam = trim((string) ($postData['form_type'] ?? ''));
     $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
+    
     maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
+    maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
     $dynamicCid = getVal($getData, 'cid');
     $dynamicPid = getVal($getData, 'pid');
     $dynamicSO = getVal($getData, 'so');
@@ -300,3 +302,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $getData = $_GET ?? [];
 header('Location: ' . BASE_URL . '?cid=' . urlencode($getData['cid'] ?? '') . '&pid=' . urlencode($getData['pid'] ?? '') . '&so=' . urlencode($getData['so'] ?? '') . '&api_error=' . urlencode('Method not allowed'));
 exit();
+
+

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once 'config.php';
 include_once 'save_lead_handler.php';
 include_once 'api_error_helper.php';
@@ -34,7 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $saveLeadSlug = trim((string) ($postData['save_lead_slug'] ?? ''));
     $formTypeForSpam = trim((string) ($postData['form_type'] ?? ''));
     $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
+    
     maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
+    maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
     $dynamicCid = getVal($getData, 'cid') ?? '';
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
@@ -66,10 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Payload: same shape as public/api_files/electra.php → lcaapi + fields from electra-version-integration.php
+    // Payload: same shape as public/api_files/electra.php â†’ lcaapi + fields from electra-version-integration.php
     // (firstname/lastname/email/phone/country/area_code/userip/cid/so/pid). RiceLeads/LeadGreed use Rice password + affid from export.
     // - phone: national vs E164 depends on the form (reference uses national; angle template hidden field uses intl-tel full number).
-    // - pid → aff_sub3 (common subid slot); cid/so already map to aff_sub / aff_sub5 / funnel.
+    // - pid â†’ aff_sub3 (common subid slot); cid/so already map to aff_sub / aff_sub5 / funnel.
     $countryRaw = trim(getVal($postData, 'country'));
     $country = '';
     if ($countryRaw !== '') {
@@ -199,3 +201,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $getData = $_GET ?? [];
 header('Location: ' . BASE_URL . '?cid=' . urlencode($getData['cid'] ?? '') . '&pid=' . urlencode($getData['pid'] ?? '') . '&so=' . urlencode($getData['so'] ?? '') . '&api_error=' . urlencode('Method not allowed'));
 exit();
+
+

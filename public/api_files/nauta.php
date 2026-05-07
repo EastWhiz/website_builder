@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once 'config.php'; // Include config to get BASE_URL
 include_once 'save_lead_handler.php'; // Include save lead functionality
 include_once __DIR__ . '/aweber_send_helper.php';
@@ -21,7 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $saveLeadSlug = trim((string) ($postData['save_lead_slug'] ?? ''));
     $formTypeForSpam = trim((string) ($postData['form_type'] ?? ''));
     $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
+    
     maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
+    maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
 
     $dynamicCid = $getData['cid'] ?? '';
     $dynamicPid = $getData['pid'] ?? '';
@@ -160,4 +162,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode('Method not allowed'));
     exit();
 }
+
+
 

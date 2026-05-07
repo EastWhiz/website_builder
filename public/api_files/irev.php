@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include_once 'config.php'; // Include config to get BASE_URL
 include_once 'save_lead_handler.php'; // Include save lead functionality
 include_once 'api_error_helper.php';
@@ -22,7 +22,7 @@ function getVal($arr, $key)
 
 /**
  * Optional phone for iRev (IrevPlatformProvider): if empty, no phone fields are sent.
- * If present, must be valid E.164 (+…digits) or US 10-digit national (no libphonenumber in export).
+ * If present, must be valid E.164 (+â€¦digits) or US 10-digit national (no libphonenumber in export).
  *
  * @return array{valid:bool, phone:?string}
  */
@@ -34,7 +34,7 @@ function parseIrevPhoneForExport(string $phone, string $countryIso2): array
     }
 
     $clean = preg_replace('/[^\d+]/', '', $trimmed);
-    // Same quick path as IrevPlatformProvider (digits after +, length 7–15)
+    // Same quick path as IrevPlatformProvider (digits after +, length 7â€“15)
     if (preg_match('/^\+\d{7,15}$/', $clean)) {
         return ['valid' => true, 'phone' => $clean];
     }
@@ -114,7 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $saveLeadSlug = trim((string) ($postData['save_lead_slug'] ?? ''));
     $formTypeForSpam = trim((string) ($postData['form_type'] ?? ''));
     $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
+    
     maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
+    maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
     $dynamicCid = getVal($getData, 'cid');
     $dynamicPid = getVal($getData, 'pid');
     $dynamicSO = getVal($getData, 'so');
@@ -365,3 +367,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: ' . BASE_URL . '?cid=' . urlencode($getData['cid'] ?? '') . '&pid=' . urlencode($getData['pid'] ?? '') . '&so=' . urlencode($getData['so'] ?? '') . '&api_error=' . urlencode('Method not allowed'));
     exit();
 }
+
+
