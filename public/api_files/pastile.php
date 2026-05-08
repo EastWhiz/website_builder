@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 include_once 'config.php'; // Include config to get BASE_URL
 include_once 'save_lead_handler.php'; // Include save lead functionality
 include_once __DIR__ . '/aweber_send_helper.php';

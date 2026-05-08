@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 include_once 'config.php';
 include_once 'save_lead_handler.php';
 include_once 'api_error_helper.php'; // Extract readable error from API responses
