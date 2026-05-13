@@ -448,6 +448,8 @@ class AngleTemplateController extends Controller
             }
         }
 
+        $selectedThankYouTemplateType = $this->resolveThankYouTemplateType($selectedThankYouPage);
+
         $angleTemplate = AngleTemplate::where('id', $request->angle_template_id)->first();
         $template = $angleTemplate->template;
         $angle = $angleTemplate->angle;
@@ -568,6 +570,10 @@ class AngleTemplateController extends Controller
                     }
                 }
             }
+        }
+
+        if ($selectedThankYouTemplateType === ThankYouPage::TEMPLATE_TYPE_GEO_AWARE_V2) {
+            $this->addGeoAwareThankYouAssetsToZip($zip, is_array($selectedThankYouPage?->v2_content) ? $selectedThankYouPage->v2_content : []);
         }
 
         // Add font files under fonts/ folder
@@ -1264,7 +1270,7 @@ class AngleTemplateController extends Controller
                             });
                             input.form.appendChild(hiddenAreaCode);
 
-                            // Language field (ISO 639-1 primary subtag, uppercase — Trackbox lg)
+                            // Language field (ISO 639-1 primary subtag, uppercase Ã¢â‚¬â€ Trackbox lg)
                             const rawNavLang = (navigator.language || navigator.userLanguage || "en");
                             const langPrimary = (String(rawNavLang).split(/[-_]/)[0] || "en").replace(/[^a-zA-Z]/g, "");
                             const langCode = (langPrimary.length >= 2 ? langPrimary.substring(0, 2) : "en").toUpperCase();
@@ -1317,7 +1323,7 @@ class AngleTemplateController extends Controller
                                 // OTP flow required - keep loader active
                                 await handleOtpVerification(input.form);
                             } else {
-                                // ✅ No OTP required, submit form after IP is ready
+                                // Ã¢Å“â€¦ No OTP required, submit form after IP is ready
                                 input.form.submit();
                             }
                         });
@@ -2215,10 +2221,11 @@ class AngleTemplateController extends Controller
                     continue;
                 }
                 try {
-                    // Special handling for thank_you.php when a custom Thank You Page is selected
+                    // Special handling for thank_you.php when a custom Thank You Page is selected.
+                    // Phase 1: render by template type with backward-compatible legacy default.
                     if ($file === 'thank_you.php' && isset($selectedThankYouPage) && $selectedThankYouPage) {
                         $defaultContent = file_get_contents($filePath);
-                        $fileContent = $this->buildCustomThankYouContent($selectedThankYouPage, $defaultContent);
+                        $fileContent = $this->buildThankYouContentByTemplateType($selectedThankYouPage, $defaultContent);
                     } else {
                         $fileContent = file_get_contents($filePath);
                     }
@@ -2338,7 +2345,7 @@ class AngleTemplateController extends Controller
         'aweber' => 'Aweber',
     ];
 
-    /** form_type → canonical name for matching instance (e.g. meeseeksmedia → meeseeks to match "Meeseeks"). */
+    /** form_type Ã¢â€ â€™ canonical name for matching instance (e.g. meeseeksmedia Ã¢â€ â€™ meeseeks to match "Meeseeks"). */
     private static $formTypeToCanonicalName = [
         'meeseeksmedia' => 'meeseeks',
     ];
@@ -2457,7 +2464,7 @@ class AngleTemplateController extends Controller
             return $content;
         }
 
-        // Dynamic path: UserApiInstance via ApiExportService (skip for OTP files — they use their own injection below)
+        // Dynamic path: UserApiInstance via ApiExportService (skip for OTP files Ã¢â‚¬â€ they use their own injection below)
         $otpFiles = ['otp_generate.php', 'otp_verify.php', 'otp_regenerate.php'];
         if ($filename === 'aweber.php' && $aweberApiInstance) {
             return $this->apiExportService->injectCredentials($content, $filename, $aweberApiInstance);
@@ -2470,7 +2477,7 @@ class AngleTemplateController extends Controller
             }
         }
 
-        // Legacy path: no instance or file not in placeholder map — use legacy credentials if provided (OTP files use their own injection in switch)
+        // Legacy path: no instance or file not in placeholder map Ã¢â‚¬â€ use legacy credentials if provided (OTP files use their own injection in switch)
         if (!$userApiCredentials && !in_array($filename, $otpFiles, true)) {
             return $content;
         }
@@ -2834,7 +2841,7 @@ class AngleTemplateController extends Controller
      */
     private function buildCustomThankYouContent(ThankYouPage $page, string $defaultContent): string
     {
-        // Split default thank_you.php into header (<body> open) and footer (</body>…)
+        // Split default thank_you.php into header (<body> open) and footer (</body>Ã¢â‚¬Â¦)
         $bodyPos = strpos($defaultContent, '<body');
         if ($bodyPos === false) {
             return $defaultContent;
@@ -2906,6 +2913,191 @@ class AngleTemplateController extends Controller
         return $header . $body . $footer;
     }
 
+    /**
+     * Select renderer by thank-you template type.
+     * Defaults to legacy renderer when type is missing/unknown for full backward compatibility.
+     */
+    private function buildThankYouContentByTemplateType(ThankYouPage $page, string $defaultContent): string
+    {
+        $templateType = strtolower(trim((string) ($page->template_type ?? '')));
+
+        switch ($templateType) {
+            case ThankYouPage::TEMPLATE_TYPE_GEO_AWARE_V2:
+                return $this->buildGeoAwareThankYouContent($page, $defaultContent);
+
+            case ThankYouPage::TEMPLATE_TYPE_LEGACY:
+            default:
+                return $this->buildCustomThankYouContent($page, $defaultContent);
+        }
+    }
+
+    private function resolveThankYouTemplateType(?ThankYouPage $page): string
+    {
+        if (!$page) {
+            return ThankYouPage::TEMPLATE_TYPE_LEGACY;
+        }
+
+        $templateType = strtolower(trim((string) ($page->template_type ?? '')));
+        if (!in_array($templateType, [ThankYouPage::TEMPLATE_TYPE_LEGACY, ThankYouPage::TEMPLATE_TYPE_GEO_AWARE_V2], true)) {
+            return ThankYouPage::TEMPLATE_TYPE_LEGACY;
+        }
+
+        return $templateType;
+    }
+
+    private function buildGeoAwareThankYouContent(ThankYouPage $page, string $fallbackDefaultContent): string
+    {
+        $templatePath = public_path('thankyou_templates/geo_aware_v2/thankyou.php');
+        if (!is_file($templatePath)) {
+            return $fallbackDefaultContent;
+        }
+
+        $content = file_get_contents($templatePath);
+        if (!is_string($content) || trim($content) === '') {
+            return $fallbackDefaultContent;
+        }
+
+        // Exported api_files already has config.php for runtime BASE_URL.
+        // Geo-aware date config is shipped as geo_config.php to avoid conflicts.
+        $content = str_replace("__DIR__ . '/config.php'", "__DIR__ . '/geo_config.php'", $content);
+        $content = str_replace('__DIR__ . "/config.php"', '__DIR__ . "/geo_config.php"', $content);
+
+        return $this->applyGeoAwareV2DynamicMappingsForExport($content, is_array($page->v2_content) ? $page->v2_content : []);
+    }
+
+    private function applyGeoAwareV2DynamicMappingsForExport(string $content, array $v2): string
+    {
+        $escape = fn (?string $v, string $d = ''): string => htmlspecialchars(trim((string) ($v ?? '')) !== '' ? trim((string) $v) : $d, ENT_QUOTES, 'UTF-8');
+
+        $bannerText1 = trim((string) ($v2['v2_banner_text_1'] ?? ''));
+        if ($bannerText1 === '') {
+            $bannerText1 = 'Your request has been received. A licensed broker will contact you {{call_phrase}} to guide you through setting up your AI trading account.';
+        }
+        $callSetupText = trim((string) ($v2['v2_call_setup_text'] ?? ''));
+        if ($callSetupText === '') {
+            $callSetupText = 'Your concierge will call {{call_phrase}} to set up your trading account.';
+        }
+        $bannerText1 = str_replace('{{call_phrase}}', '<?= htmlspecialchars($call_phrase, ENT_QUOTES, \'UTF-8\') ?>', $bannerText1);
+        $callSetupText = str_replace('{{call_phrase}}', '<?= htmlspecialchars($call_phrase, ENT_QUOTES, \'UTF-8\') ?>', $callSetupText);
+
+        $content = preg_replace('/<title>.*?<\/title>/si', '<title>' . $escape($v2['v2_page_title'] ?? null, 'AI - Thank You') . '</title>', $content);
+        $content = preg_replace('/(<meta\s+name="description"\s+content=")([^"]*)(")/i', '$1' . $escape($v2['v2_meta_description'] ?? null, 'AI - Thank You') . '$3', $content);
+        $content = preg_replace('/(<meta\s+name="city"\s+content=")([^"]*)(")/i', '$1' . $escape($v2['v2_meta_city'] ?? null, 'Springfield') . '$3', $content);
+        $content = preg_replace('/(<p class="top-strip-text">)(.*?)(<img)/si', '$1' . $escape($v2['v2_top_strip_text'] ?? null, 'Application Approved :: Access Unlocked') . '$3', $content);
+        $content = preg_replace('/(<p class="banner-lmt-text">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_banner_limited_text'] ?? null, 'Limited Spots Available') . '$3', $content);
+        $content = preg_replace('/(<p class="banner-heading">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_banner_heading'] ?? null, 'You\'re On The List.') . '$3', $content);
+        $content = preg_replace('/(<p class="banner-text1">)(.*?)(<\/p>)/si', '$1' . $bannerText1 . '$3', $content);
+        $content = preg_replace('/(<p class="banner-text2">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_banner_text_2'] ?? null, 'We onboard a limited number of users every day to ensure one-on-one support.') . '$3', $content);
+        $content = preg_replace('/(<p class="s1-call-row-text">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_call_scheduled_text'] ?? null, 'Your Call Has Been Scheduled') . '$3', $content);
+        $content = preg_replace('/(<p class="s1-call-setup-text" id="call-text">)(.*?)(<\/p>)/si', '$1' . $callSetupText . '$3', $content);
+        $content = preg_replace('/(<p class="common-heading text-left-mob">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_what_happens_heading'] ?? null, 'What Happens Next') . '$3', $content);
+        $content = preg_replace('/(<p class="footer-txt1">\s*)(.*?)(\s*<\/p>)/si', '$1' . $escape($v2['v2_footer_text'] ?? null, '2026 Â© All Rights Reserved.') . '$3', $content);
+
+        return $content;
+    }
+
+    private function addGeoAwareThankYouAssetsToZip(ZipArchive $zip, array $v2 = []): void
+    {
+        $base = public_path('thankyou_templates/geo_aware_v2');
+        if (!is_dir($base)) {
+            return;
+        }
+
+        $sourceToTarget = [
+            'css' => 'api_files/css',
+            'js' => 'api_files/js',
+            'media' => 'api_files/media',
+            'lib' => 'api_files/lib',
+            'external_assets' => 'api_files/external_assets',
+        ];
+
+        foreach ($sourceToTarget as $srcRel => $zipRel) {
+            $srcDir = $base . DIRECTORY_SEPARATOR . $srcRel;
+            if (!is_dir($srcDir)) {
+                continue;
+            }
+
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($iterator as $fileInfo) {
+                if (!$fileInfo->isFile()) {
+                    continue;
+                }
+                $fullPath = $fileInfo->getPathname();
+                $relative = substr($fullPath, strlen($srcDir) + 1);
+                $zipPath = $zipRel . '/' . str_replace('\\', '/', $relative);
+                $zip->addFile($fullPath, $zipPath);
+            }
+        }
+
+        $geoConfigPath = $base . DIRECTORY_SEPARATOR . 'config.php';
+        $baseConfig = is_file($geoConfigPath) ? (require $geoConfigPath) : [];
+        $geoConfig = $this->buildGeoConfigArrayForExport($baseConfig, $v2);
+        $zip->addFromString('api_files/geo_config.php', $this->buildGeoConfigPhpString($geoConfig));
+    }
+
+    private function buildGeoConfigArrayForExport(array $baseConfig, array $v2): array
+    {
+        $config = is_array($baseConfig) ? $baseConfig : [];
+        if (!isset($config['DEFAULT']) || !is_array($config['DEFAULT'])) {
+            $config['DEFAULT'] = [
+                'cutoff_hour' => 19,
+                'skip_weekends' => true,
+                'sunday_cutoff_hour' => 17,
+                'visitor_tz' => 'UTC',
+            ];
+        }
+
+        $default = $config['DEFAULT'];
+        $cutoff = isset($v2['v2_geo_cutoff_hour']) && $v2['v2_geo_cutoff_hour'] !== '' ? (int) $v2['v2_geo_cutoff_hour'] : (int) ($default['cutoff_hour'] ?? 19);
+        $skip = array_key_exists('v2_geo_skip_weekends', $v2) ? filter_var($v2['v2_geo_skip_weekends'], FILTER_VALIDATE_BOOLEAN) : (bool) ($default['skip_weekends'] ?? true);
+        $sun = isset($v2['v2_geo_sunday_cutoff_hour']) && $v2['v2_geo_sunday_cutoff_hour'] !== '' ? (int) $v2['v2_geo_sunday_cutoff_hour'] : (int) ($default['sunday_cutoff_hour'] ?? 17);
+        $tz = trim((string) ($v2['v2_geo_default_visitor_tz'] ?? ($default['visitor_tz'] ?? 'UTC')));
+        if ($tz === '') {
+            $tz = 'UTC';
+        }
+
+        $config['DEFAULT'] = [
+            'cutoff_hour' => max(0, min(23, $cutoff)),
+            'skip_weekends' => (bool) $skip,
+            'sunday_cutoff_hour' => max(0, min(23, $sun)),
+            'visitor_tz' => $tz,
+        ];
+
+        $rawOverrides = trim((string) ($v2['v2_geo_country_overrides_json'] ?? ''));
+        if ($rawOverrides !== '') {
+            $decoded = json_decode($rawOverrides, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $country => $row) {
+                    $cc = strtoupper(trim((string) $country));
+                    if (!preg_match('/^[A-Z]{2}$/', $cc) || !is_array($row)) {
+                        continue;
+                    }
+                    $baseRow = isset($config[$cc]) && is_array($config[$cc]) ? $config[$cc] : $config['DEFAULT'];
+                    $config[$cc] = [
+                        'cutoff_hour' => isset($row['cutoff_hour']) ? max(0, min(23, (int) $row['cutoff_hour'])) : (int) ($baseRow['cutoff_hour'] ?? $config['DEFAULT']['cutoff_hour']),
+                        'skip_weekends' => array_key_exists('skip_weekends', $row) ? (bool) $row['skip_weekends'] : (bool) ($baseRow['skip_weekends'] ?? $config['DEFAULT']['skip_weekends']),
+                        'sunday_cutoff_hour' => isset($row['sunday_cutoff_hour']) ? max(0, min(23, (int) $row['sunday_cutoff_hour'])) : (int) ($baseRow['sunday_cutoff_hour'] ?? $config['DEFAULT']['sunday_cutoff_hour']),
+                        'visitor_tz' => trim((string) ($row['visitor_tz'] ?? ($baseRow['visitor_tz'] ?? $config['DEFAULT']['visitor_tz']))),
+                    ];
+                    if ($config[$cc]['visitor_tz'] === '') {
+                        $config[$cc]['visitor_tz'] = $config['DEFAULT']['visitor_tz'];
+                    }
+                }
+            }
+        }
+
+        return $config;
+    }
+
+    private function buildGeoConfigPhpString(array $config): string
+    {
+        $export = "<?php\nreturn " . var_export($config, true) . ";\n";
+        return $export;
+    }
+
     private function copyDirectory($source, $destination)
     {
         $disk = Storage::disk('public');
@@ -2952,7 +3144,7 @@ class AngleTemplateController extends Controller
     
         $apiKey = $request->user()->getDeeplApiKey();
         if ($apiKey === '') {
-            return sendResponse(false, 'DeepL API key is required. Please add your DeepL API key in Profile → DeepL API Key Section.');
+            return sendResponse(false, 'DeepL API key is required. Please add your DeepL API key in Profile Ã¢â€ â€™ DeepL API Key Section.');
         }
 
         try {
@@ -2997,7 +3189,7 @@ class AngleTemplateController extends Controller
 
     private function translateHtmlContentMinimal($html, $targetLanguage, $deepLService, $splitSentences = null, $preserveFormatting = null)
     {
-        Log::info('🔍 Starting HTML content parsing', [
+        Log::info('Ã°Å¸â€Â Starting HTML content parsing', [
             'html_length' => strlen($html),
             'target_language' => $targetLanguage
         ]);
@@ -3007,7 +3199,7 @@ class AngleTemplateController extends Controller
         $placeholders = [];
         $placeholderIndex = 0;
 
-        Log::info('📝 Extracting text between HTML tags...');
+        Log::info('Ã°Å¸â€œÂ Extracting text between HTML tags...');
 
         // First, protect script, style, SVG, and other non-translatable tags
         $protectedTags = [];
@@ -3068,8 +3260,8 @@ class AngleTemplateController extends Controller
         $html = preg_replace_callback('/<(td|th|li)[^>]*>.*?<\/\1>/is', function ($matches) use (&$protectedTags) {
             $content = $matches[0];
             // Check if this cell/item contains currency or structured numeric data
-            if (preg_match('/[\$€£¥]\s*[\d,]+\.?\d*/', $content) || 
-                preg_match('/\d+[\d,]*\.?\d*\s*[\$€£¥]/', $content)) {
+            if (preg_match('/[\$Ã¢â€šÂ¬Ã‚Â£Ã‚Â¥]\s*[\d,]+\.?\d*/', $content) || 
+                preg_match('/\d+[\d,]*\.?\d*\s*[\$Ã¢â€šÂ¬Ã‚Â£Ã‚Â¥]/', $content)) {
                 $placeholder = '##PROTECTED_TAG_' . count($protectedTags) . '##';
                 $protectedTags[$placeholder] = $content;
                 return $placeholder;
@@ -3113,7 +3305,7 @@ class AngleTemplateController extends Controller
             // Pattern: 2-4 words, each starting with capital letter, may contain apostrophes/hyphens
             // This prevents names from being translated
             // Multi-word names (first and last name) are most common
-            if (preg_match('/^[A-ZÀ-ŸĀ-Ž][a-zà-ÿā-ž]*[\'\-]?[a-zà-ÿā-ž]*(?:\s+[A-ZÀ-ŸĀ-Ž][a-zà-ÿā-ž]*[\'\-]?[a-zà-ÿā-ž]*){1,3}$/u', $text) && 
+            if (preg_match('/^[A-ZÃƒâ‚¬-Ã…Â¸Ã„â‚¬-Ã…Â½][a-zÃƒÂ -ÃƒÂ¿Ã„Â-Ã…Â¾]*[\'\-]?[a-zÃƒÂ -ÃƒÂ¿Ã„Â-Ã…Â¾]*(?:\s+[A-ZÃƒâ‚¬-Ã…Â¸Ã„â‚¬-Ã…Â½][a-zÃƒÂ -ÃƒÂ¿Ã„Â-Ã…Â¾]*[\'\-]?[a-zÃƒÂ -ÃƒÂ¿Ã„Â-Ã…Â¾]*){1,3}$/u', $text) && 
                 strlen($text) >= 3 && 
                 strlen($text) <= 50 && // Names are typically not longer than 50 chars
                 !preg_match('/\d/', $text) && // Names don't contain numbers
@@ -3125,14 +3317,14 @@ class AngleTemplateController extends Controller
             // Skip text with no letters (but allow in list items if it's part of structured content)
             // IMPORTANT: Don't skip text that contains accented characters (like Spanish, German, French)
             // These are valid translatable content even if they don't match standard ASCII letters
-            $hasLetters = preg_match('/[a-zA-ZÀ-ÿĀ-ž]/u', $text);
-            if (!$isInsideListItem && !$hasLetters && preg_match('/^[^a-zA-ZÀ-ÿĀ-ž]*$/u', $text)) {
+            $hasLetters = preg_match('/[a-zA-ZÃƒâ‚¬-ÃƒÂ¿Ã„â‚¬-Ã…Â¾]/u', $text);
+            if (!$isInsideListItem && !$hasLetters && preg_match('/^[^a-zA-ZÃƒâ‚¬-ÃƒÂ¿Ã„â‚¬-Ã…Â¾]*$/u', $text)) {
                 return $matches[0];
             }
             
             // For very short text, only translate if it's in a list item or has meaningful content
             // Allow accented characters and non-ASCII letters
-            if (strlen($text) < 3 && (!$isInsideListItem || (!$hasLetters && !preg_match('/[%£$€¥]/', $text)))) {
+            if (strlen($text) < 3 && (!$isInsideListItem || (!$hasLetters && !preg_match('/[%Ã‚Â£$Ã¢â€šÂ¬Ã‚Â¥]/', $text)))) {
                 return $matches[0];
             }
             
@@ -3144,7 +3336,7 @@ class AngleTemplateController extends Controller
             
             // Skip text that contains mostly numbers/currency/dates (preserve formatting)
             // Check if text is mostly numeric or currency symbols
-            $nonNumericChars = preg_replace('/[\d\s\$€£¥,\-\.:]/', '', $text);
+            $nonNumericChars = preg_replace('/[\d\s\$Ã¢â€šÂ¬Ã‚Â£Ã‚Â¥,\-\.:]/', '', $text);
             $textRatio = strlen($nonNumericChars) / max(strlen($text), 1);
             
             // Allow text that starts with numbers/percentages if it has substantial text content
@@ -3165,9 +3357,9 @@ class AngleTemplateController extends Controller
             }
             
             // Skip if text contains currency symbols (unless in list items with meaningful text)
-            if (preg_match('/[\$€£¥]/', $text)) {
+            if (preg_match('/[\$Ã¢â€šÂ¬Ã‚Â£Ã‚Â¥]/', $text)) {
                 // Contains currency symbol - check if it's meaningful text or just a number
-                $textRatio = strlen(preg_replace('/[\d\$€£¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
+                $textRatio = strlen(preg_replace('/[\d\$Ã¢â€šÂ¬Ã‚Â£Ã‚Â¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
                 // If less than 40% letters, skip it (it's mostly numbers/currency)
                 if ($textRatio < 0.4) {
                     return $matches[0];
@@ -3181,7 +3373,7 @@ class AngleTemplateController extends Controller
             // Skip if text ends with numbers (likely part of structured layout) - but allow list items
             if (!$isInsideListItem && preg_match('/\d+\s*$/', $text) && strlen($text) > 10) {
                 // Ends with numbers and is long enough - likely structured
-                $textRatio = strlen(preg_replace('/[\d\$€£¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
+                $textRatio = strlen(preg_replace('/[\d\$Ã¢â€šÂ¬Ã‚Â£Ã‚Â¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
                 if ($textRatio < 0.7) {
                     return $matches[0];
                 }
@@ -3190,7 +3382,7 @@ class AngleTemplateController extends Controller
             // Skip if text contains numbers in the middle (like "Parti 49 Canada") - but allow list items
             if (!$isInsideListItem && (preg_match('/\s+\d+\s+/', $text) || preg_match('/\d+[a-zA-Z]|[a-zA-Z]\d+/', $text))) {
                 // Contains numbers mixed with text - be conservative
-                $textRatio = strlen(preg_replace('/[\d\$€£¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
+                $textRatio = strlen(preg_replace('/[\d\$Ã¢â€šÂ¬Ã‚Â£Ã‚Â¥,\-\.:\s]/', '', $text)) / max(strlen($text), 1);
                 if ($textRatio < 0.6) {
                     return $matches[0];
                 }
@@ -3213,14 +3405,14 @@ class AngleTemplateController extends Controller
             $html = str_replace($placeholder, $originalTag, $html);
         }
 
-        Log::info('✅ Text extraction completed', [
+        Log::info('Ã¢Å“â€¦ Text extraction completed', [
             'texts_found_between_tags' => count($textToTranslate),
             'sample_texts' => array_slice(array_map(function($item) {
                 return is_array($item) ? $item['text'] : $item;
             }, array_values($textToTranslate)), 0, 3)
         ]);
 
-        Log::info('📝 Extracting text from HTML attributes...');
+        Log::info('Ã°Å¸â€œÂ Extracting text from HTML attributes...');
 
         // Find common attributes that should be translated
         // Pattern matches: attribute="value" or attribute='value' (handles both single and double quotes)
@@ -3272,7 +3464,7 @@ class AngleTemplateController extends Controller
                 }
             }
 
-        Log::info('✅ Attribute extraction completed', [
+        Log::info('Ã¢Å“â€¦ Attribute extraction completed', [
             'total_texts_to_translate' => count($textToTranslate),
                 'attributes_found' => $attributeCount,
                 'sample_attribute_texts' => array_slice(array_filter(array_map(function($item) {
@@ -3282,11 +3474,11 @@ class AngleTemplateController extends Controller
 
         // If no text to translate, return original
         if (empty($textToTranslate)) {
-            Log::warning('⚠️ No translatable text found, returning original HTML');
+            Log::warning('Ã¢Å¡Â Ã¯Â¸Â No translatable text found, returning original HTML');
             return $html;
         }
 
-        Log::info('🌐 Starting batch translation', [
+        Log::info('Ã°Å¸Å’Â Starting batch translation', [
             'total_items' => count($textToTranslate),
             'target_language' => $targetLanguage
         ]);
@@ -3316,7 +3508,7 @@ class AngleTemplateController extends Controller
             // Translate only unique texts
             $allText = implode("\n---SPLIT---\n", $uniqueTexts);
 
-            Log::info('📤 Sending text to DeepL API', [
+            Log::info('Ã°Å¸â€œÂ¤ Sending text to DeepL API', [
                 'combined_text_length' => strlen($allText),
                 'separator_count' => substr_count($allText, "\n---SPLIT---\n"),
                 'preview' => substr($allText, 0, 200) . (strlen($allText) > 200 ? '...' : '')
@@ -3326,7 +3518,7 @@ class AngleTemplateController extends Controller
             $translatedText = $deepLService->translate($allText, $targetLanguage, null, $splitSentences, $preserveFormatting);
             $apiEndTime = microtime(true);
 
-            Log::info('📥 DeepL API response received', [
+            Log::info('Ã°Å¸â€œÂ¥ DeepL API response received', [
                 'api_call_time_seconds' => round($apiEndTime - $apiStartTime, 2),
                 'translated_text_length' => strlen($translatedText),
                 'preview' => substr($translatedText, 0, 200) . (strlen($translatedText) > 200 ? '...' : '')
@@ -3336,7 +3528,7 @@ class AngleTemplateController extends Controller
             
             // If splitting failed (DeepL translated the separator), try alternative approach
             if (count($translatedParts) !== count($uniqueTexts)) {
-                Log::warning('⚠️ Separator count mismatch, attempting recovery', [
+                Log::warning('Ã¢Å¡Â Ã¯Â¸Â Separator count mismatch, attempting recovery', [
                     'expected' => count($uniqueTexts),
                     'received' => count($translatedParts)
                 ]);
@@ -3346,7 +3538,7 @@ class AngleTemplateController extends Controller
                 
                 // If still doesn't match, try more aggressive splitting with variations
                 if (count($translatedParts) !== count($uniqueTexts)) {
-                    Log::warning('⚠️ Recovery attempt failed, trying alternative separator patterns', [
+                    Log::warning('Ã¢Å¡Â Ã¯Â¸Â Recovery attempt failed, trying alternative separator patterns', [
                         'expected' => count($uniqueTexts),
                         'received' => count($translatedParts)
                     ]);
@@ -3361,7 +3553,7 @@ class AngleTemplateController extends Controller
                 $translatedParts[$key] = $this->cleanSeparator($part);
             }
 
-            Log::info('🔄 Processing translation results', [
+            Log::info('Ã°Å¸â€â€ž Processing translation results', [
                 'expected_parts' => count($uniqueTexts),
                 'received_parts' => count($translatedParts),
                 'total_placeholders' => count($textToTranslate)
@@ -3369,7 +3561,7 @@ class AngleTemplateController extends Controller
             
             // CRITICAL: Ensure counts match before mapping to prevent wrong translations
             if (count($translatedParts) !== count($uniqueTexts)) {
-                Log::error('❌ CRITICAL: Cannot safely map translations - count mismatch', [
+                Log::error('Ã¢ÂÅ’ CRITICAL: Cannot safely map translations - count mismatch', [
                     'expected' => count($uniqueTexts),
                     'received' => count($translatedParts),
                     'difference' => count($uniqueTexts) - count($translatedParts)
@@ -3420,7 +3612,7 @@ class AngleTemplateController extends Controller
                     if ((stripos($textForComparison, 'anmelden') !== false || stripos($textForComparison, 'jetzt') !== false) && 
                         strlen($translation) > strlen($textForComparison) * 2.5) {
                         // Button text got wrong translation - use original instead
-                        Log::error("❌ Button text translation validation failed", [
+                        Log::error("Ã¢ÂÅ’ Button text translation validation failed", [
                             'placeholder' => $placeholder,
                             'original' => $textForComparison,
                             'wrong_translation_length' => strlen($translation),
@@ -3431,7 +3623,7 @@ class AngleTemplateController extends Controller
                 } else {
                     // If not found in map, use original text (shouldn't happen but safety fallback)
                     $translation = $textForComparison;
-                    Log::warning("⚠️ Translation not found in map", [
+                    Log::warning("Ã¢Å¡Â Ã¯Â¸Â Translation not found in map", [
                         'normalized_text' => $normalizedText,
                         'original_text' => substr($textForComparison, 0, 50),
                         'placeholder' => $placeholder
@@ -3465,7 +3657,7 @@ class AngleTemplateController extends Controller
                     if (!isset($retriedTexts[$normalizedText])) {
                         $retriedTexts[$normalizedText] = true;
                         try {
-                            Log::warning("⚠️ Translation unchanged, attempting forced retranslation", [
+                            Log::warning("Ã¢Å¡Â Ã¯Â¸Â Translation unchanged, attempting forced retranslation", [
                                 'placeholder' => $placeholder,
                                 'original' => substr($normalizedOriginal, 0, 50),
                                 'target_language' => $targetLanguage
@@ -3484,14 +3676,14 @@ class AngleTemplateController extends Controller
                                 $uniqueTranslations[$normalizedText] = $retryTranslation;
                                 // Update current translation
                                 $translation = $retryTranslation;
-                                Log::info("✅ Forced retranslation succeeded", [
+                                Log::info("Ã¢Å“â€¦ Forced retranslation succeeded", [
                                     'placeholder' => $placeholder,
                                     'original' => substr($normalizedOriginal, 0, 50),
                                     'new_translation' => substr($translation, 0, 50)
                                 ]);
                             } else {
                                 // Even if retry didn't change, log it for debugging
-                                Log::warning("⚠️ Retry translation still returned unchanged text", [
+                                Log::warning("Ã¢Å¡Â Ã¯Â¸Â Retry translation still returned unchanged text", [
                                     'placeholder' => $placeholder,
                                     'original' => substr($normalizedOriginal, 0, 50),
                                     'retry_result' => substr($retryTranslation, 0, 50),
@@ -3499,7 +3691,7 @@ class AngleTemplateController extends Controller
                                 ]);
                             }
                         } catch (\Exception $e) {
-                            Log::warning("⚠️ Retry translation failed", [
+                            Log::warning("Ã¢Å¡Â Ã¯Â¸Â Retry translation failed", [
                                 'placeholder' => $placeholder,
                                 'error' => $e->getMessage()
                             ]);
@@ -3547,7 +3739,7 @@ class AngleTemplateController extends Controller
                 
                 if (count($loggedTranslations) < 3 && !isset($loggedTranslations[$normalizedText])) {
                     $loggedTranslations[$normalizedText] = true;
-                    Log::info("📋 Translation sample #" . count($loggedTranslations), [
+                    Log::info("Ã°Å¸â€œâ€¹ Translation sample #" . count($loggedTranslations), [
                         'original' => $textForLog,
                         'translated' => $translation,
                         'placeholder' => $placeholder
@@ -3556,14 +3748,14 @@ class AngleTemplateController extends Controller
             }
             
             if ($unchangedCount > 0) {
-                Log::warning("⚠️ Some translations were unchanged", [
+                Log::warning("Ã¢Å¡Â Ã¯Â¸Â Some translations were unchanged", [
                     'unchanged_count' => $unchangedCount,
                     'total_count' => count($textToTranslate),
                     'target_language' => $targetLanguage
                 ]);
             }
 
-            Log::info('🔄 Replacing placeholders in HTML...');
+            Log::info('Ã°Å¸â€â€ž Replacing placeholders in HTML...');
 
             // Replace placeholders with translations
             // Use a single pass with proper escaping to ensure each placeholder is replaced exactly once
@@ -3589,7 +3781,7 @@ class AngleTemplateController extends Controller
                 
                 // Log button text replacement for debugging
                 if (isset($textData['text']) && (stripos($textData['text'], 'anmelden') !== false || stripos($textData['text'], 'jetzt') !== false)) {
-                    Log::info("🔘 Button text replacement", [
+                    Log::info("Ã°Å¸â€Ëœ Button text replacement", [
                         'placeholder' => $placeholder,
                         'original' => $textData['text'],
                         'translated' => $finalTranslation,
@@ -3603,7 +3795,7 @@ class AngleTemplateController extends Controller
                 $html = preg_replace('/' . $escapedPlaceholder . '/', $escapedReplacement, $html, 1);
                 
                 if ($isAttribute && $beforeCount > 0) {
-                    Log::info("🔄 Attribute placeholder replaced", [
+                    Log::info("Ã°Å¸â€â€ž Attribute placeholder replaced", [
                         'placeholder' => $placeholder,
                         'attribute' => $textData['attribute'],
                         'original' => $textData['text'],
@@ -3617,7 +3809,7 @@ class AngleTemplateController extends Controller
                 $replaced = $beforeCount - $afterCount;
                 
                 if ($beforeCount > 1) {
-                    Log::warning("⚠️ Placeholder appeared multiple times", [
+                    Log::warning("Ã¢Å¡Â Ã¯Â¸Â Placeholder appeared multiple times", [
                         'placeholder' => $placeholder,
                         'occurrences' => $beforeCount,
                         'replaced' => $replaced
@@ -3627,7 +3819,7 @@ class AngleTemplateController extends Controller
                 $replacementCount += $replaced;
             }
             
-            Log::info('🔄 Placeholder replacement completed', [
+            Log::info('Ã°Å¸â€â€ž Placeholder replacement completed', [
                 'total_replacements' => $replacementCount,
                 'expected_replacements' => count($translations)
             ]);
@@ -3676,10 +3868,10 @@ class AngleTemplateController extends Controller
                 $html = str_replace($placeholder, $originalContent, $html);
             }
 
-            Log::info('✅ Translation replacement completed successfully');
+            Log::info('Ã¢Å“â€¦ Translation replacement completed successfully');
 
         } catch (\Exception $e) {
-            Log::error('❌ Batch translation failed, falling back to original text', [
+            Log::error('Ã¢ÂÅ’ Batch translation failed, falling back to original text', [
                 'error_message' => $e->getMessage(),
                 'error_line' => $e->getLine(),
                 'error_file' => $e->getFile()
@@ -3687,7 +3879,7 @@ class AngleTemplateController extends Controller
 
             return $html;
         } catch (\Exception $e) {
-            Log::error('❌ Batch translation failed, falling back to original text', [
+            Log::error('Ã¢ÂÅ’ Batch translation failed, falling back to original text', [
                 'error_message' => $e->getMessage(),
                 'error_line' => $e->getLine(),
                 'error_file' => $e->getFile()
@@ -3702,7 +3894,7 @@ class AngleTemplateController extends Controller
             }
         }
 
-        Log::info('🏁 HTML translation process completed', [
+        Log::info('Ã°Å¸ÂÂ HTML translation process completed', [
             'final_html_length' => strlen($html)
         ]);
 
@@ -3922,7 +4114,7 @@ class AngleTemplateController extends Controller
             $text = trim($node->nodeValue);
 
             // Skip numbers / symbols
-            if (!preg_match('/[A-Za-zÀ-ÿ]/u', $text)) {
+            if (!preg_match('/[A-Za-zÃƒâ‚¬-ÃƒÂ¿]/u', $text)) {
                 continue;
             }
 
@@ -4219,7 +4411,7 @@ private function looksLikePersonName(string $text): bool
     $words = preg_split('/\s+/', $text);
 
     foreach ($words as $word) {
-        if (!preg_match('/^[A-ZÀ-Ý][a-zà-ÿ]+$/u', $word)) {
+        if (!preg_match('/^[A-ZÃƒâ‚¬-ÃƒÂ][a-zÃƒÂ -ÃƒÂ¿]+$/u', $word)) {
             return false;
         }
     }
@@ -4234,9 +4426,9 @@ private function looksLikeInitials(string $text): bool
     // Remove spaces for checking (e.g. "R K")
     $compact = str_replace(' ', '', $text);
 
-    // Length 1–4, all uppercase letters
+    // Length 1Ã¢â‚¬â€œ4, all uppercase letters
     if (strlen($compact) >= 1 && strlen($compact) <= 4) {
-        return preg_match('/^[A-ZÀ-Ý]+$/u', $compact) === 1;
+        return preg_match('/^[A-ZÃƒâ‚¬-ÃƒÂ]+$/u', $compact) === 1;
     }
 
     return false;

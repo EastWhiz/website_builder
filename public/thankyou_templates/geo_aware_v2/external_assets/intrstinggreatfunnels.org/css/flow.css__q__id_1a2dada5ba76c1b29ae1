@@ -1,0 +1,3 @@
+/*! purgecss start ignore */body[data-flow-in-progress]{overflow:hidden}
+
+/*! purgecss end ignore */[data-flow-status=inactive]{display:none!important}[data-flow=quick-thanks][data-flow-status=active]{display:block}[data-flow=error-redirect-btn][data-flow-status=active]{display:-webkit-box;display:flex}[data-flow=registration-error][data-flow-status=active]{display:block;color:#c00}

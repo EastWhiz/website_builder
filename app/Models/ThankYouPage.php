@@ -10,6 +10,9 @@ class ThankYouPage extends Model
 {
     use SoftDeletes;
 
+    public const TEMPLATE_TYPE_LEGACY = 'legacy';
+    public const TEMPLATE_TYPE_GEO_AWARE_V2 = 'geo_aware_v2';
+
     protected $fillable = [
         'user_id',
         'organization_id',
@@ -19,6 +22,12 @@ class ThankYouPage extends Model
         'description',
         'profile_image_path',
         'hero_background_color',
+        'template_type',
+        'v2_content',
+    ];
+
+    protected $casts = [
+        'v2_content' => 'array',
     ];
 
     protected static function booted(): void

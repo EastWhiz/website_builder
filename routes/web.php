@@ -250,6 +250,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/thank-you-pages/{id}', [ThankYouPageController::class, 'update'])->name('thank-you-pages.update');
         Route::delete('/thank-you-pages/{id}', [ThankYouPageController::class, 'destroy'])->name('thank-you-pages.destroy');
         Route::get('/thank-you-pages/{id}/preview', [ThankYouPageController::class, 'preview'])->name('thank-you-pages.preview');
+        Route::post('/thank-you-pages/translate', [ThankYouPageController::class, 'translate'])->name('translate.thankYouPage');
 
         // API: list current user's thank you pages (for export dropdown)
         Route::get('/api/thank-you-pages', [ThankYouPageController::class, 'apiIndex'])->name('thank-you-pages.api-index');

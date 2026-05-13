@@ -80,8 +80,24 @@ export default function ThankYouPageForm({
         errors,
     } = useForm({
         name: initialData.name ?? '',
+        template_type: initialData.template_type ?? 'legacy',
         title_text: initialData.title_text ?? '',
         description: initialData.description ?? '',
+        v2_meta_description: initialData.v2_content?.v2_meta_description ?? '',
+        v2_meta_city: initialData.v2_content?.v2_meta_city ?? '',
+        v2_page_title: initialData.v2_content?.v2_page_title ?? '',
+        v2_top_strip_text: initialData.v2_content?.v2_top_strip_text ?? '',
+        v2_banner_limited_text: initialData.v2_content?.v2_banner_limited_text ?? '',
+        v2_banner_heading: initialData.v2_content?.v2_banner_heading ?? '',
+        v2_banner_text_1: initialData.v2_content?.v2_banner_text_1 ?? '',
+        v2_banner_text_2: initialData.v2_content?.v2_banner_text_2 ?? '',
+        v2_call_scheduled_text: initialData.v2_content?.v2_call_scheduled_text ?? '',
+        v2_call_setup_text: initialData.v2_content?.v2_call_setup_text ?? '',
+        v2_geo_cutoff_hour: initialData.v2_content?.v2_geo_cutoff_hour ?? 19,
+        v2_geo_skip_weekends: initialData.v2_content?.v2_geo_skip_weekends ?? true,
+        v2_geo_sunday_cutoff_hour: initialData.v2_content?.v2_geo_sunday_cutoff_hour ?? 17,
+        v2_geo_default_visitor_tz: initialData.v2_content?.v2_geo_default_visitor_tz ?? 'UTC',
+        v2_geo_country_overrides_json: initialData.v2_content?.v2_geo_country_overrides_json ?? '',
         logo: null,
         profile_image: null,
         hero_background_color: initialData.hero_background_color ?? DEFAULT_HERO_COLOR,
@@ -104,6 +120,7 @@ export default function ThankYouPageForm({
     const profileImageUrl = data.remove_profile_image ? null : (initialData.profile_image_url ?? null);
     const logoPreviewUrl = data.logo ? URL.createObjectURL(data.logo) : logoUrl;
     const profilePreviewUrl = data.profile_image ? URL.createObjectURL(data.profile_image) : profileImageUrl;
+    const isLegacy = data.template_type === 'legacy';
 
     const handleRemoveLogo = () => {
         setData({ ...data, remove_logo: true, logo: null });
@@ -133,6 +150,23 @@ export default function ThankYouPageForm({
                     </div>
 
                     <div>
+                        <InputLabel htmlFor="template_type" value="Template type *" />
+                        <select
+                            id="template_type"
+                            className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            value={data.template_type}
+                            onChange={(e) => setData('template_type', e.target.value)}
+                        >
+                            <option value="legacy">Legacy (current)</option>
+                            <option value="geo_aware_v2">Geo-aware v2 (new)</option>
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                            Legacy keeps current behavior. Geo-aware v2 uses the new approved design flow.
+                        </p>
+                        <InputError className="mt-1" message={errors.template_type} />
+                    </div>
+
+                    {isLegacy && <div>
                         <InputLabel htmlFor="logo" value={isEdit ? 'Logo' : 'Logo *'} />
                         {isEdit && (logoUrl || logoPreviewUrl) && (
                             <div className="mt-2 mb-3 flex items-center gap-4">
@@ -155,43 +189,80 @@ export default function ThankYouPageForm({
                             onChange={(file) => setData({ ...data, logo: file, remove_logo: false })}
                             error={errors.logo}
                         />
-                    </div>
+                    </div>}
                 </div>
             </SectionCard>
 
-            <SectionCard
-                title="Thank you message"
-                description="Title and short description shown in the hero section."
-            >
-                <div className="space-y-5">
-                    <div>
-                        <InputLabel htmlFor="title_text" value="Title text *" />
-                        <TextInput
-                            id="title_text"
-                            type="text"
-                            className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            value={data.title_text}
-                            onChange={(e) => setData('title_text', e.target.value)}
-                            placeholder="e.g. Thank you for signing up!"
-                        />
-                        <InputError className="mt-1" message={errors.title_text} />
+            {isLegacy ? (
+                <SectionCard
+                    title="Thank you message"
+                    description="Title and short description shown in the hero section."
+                >
+                    <div className="space-y-5">
+                        <div>
+                            <InputLabel htmlFor="title_text" value="Title text *" />
+                            <TextInput
+                                id="title_text"
+                                type="text"
+                                className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                value={data.title_text}
+                                onChange={(e) => setData('title_text', e.target.value)}
+                                placeholder="e.g. Thank you for signing up!"
+                            />
+                            <InputError className="mt-1" message={errors.title_text} />
+                        </div>
+                        <div>
+                            <InputLabel htmlFor="description" value="Description (optional)" />
+                            <textarea
+                                id="description"
+                                className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                rows={4}
+                                value={data.description}
+                                onChange={(e) => setData('description', e.target.value)}
+                                placeholder="Short message shown below the title"
+                            />
+                            <InputError className="mt-1" message={errors.description} />
+                        </div>
                     </div>
-                    <div>
-                        <InputLabel htmlFor="description" value="Description (optional)" />
-                        <textarea
-                            id="description"
-                            className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            rows={4}
-                            value={data.description}
-                            onChange={(e) => setData('description', e.target.value)}
-                            placeholder="Short message shown below the title"
-                        />
-                        <InputError className="mt-1" message={errors.description} />
+                </SectionCard>
+            ) : (
+                <SectionCard
+                    title="Geo-aware v2 dynamic fields"
+                    description="These fields control the new thank-you page copy."
+                >
+                    <div className="space-y-5">
+                        <div><InputLabel htmlFor="v2_page_title" value="Page title" /><TextInput id="v2_page_title" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_page_title} onChange={(e) => setData('v2_page_title', e.target.value)} /><InputError className="mt-1" message={errors.v2_page_title} /></div>
+                        <div><InputLabel htmlFor="v2_meta_description" value="Meta description" /><TextInput id="v2_meta_description" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_meta_description} onChange={(e) => setData('v2_meta_description', e.target.value)} /><InputError className="mt-1" message={errors.v2_meta_description} /></div>
+                        <div><InputLabel htmlFor="v2_meta_city" value="Meta city" /><TextInput id="v2_meta_city" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_meta_city} onChange={(e) => setData('v2_meta_city', e.target.value)} /><InputError className="mt-1" message={errors.v2_meta_city} /></div>
+                        <div><InputLabel htmlFor="v2_top_strip_text" value="Top strip text" /><TextInput id="v2_top_strip_text" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_top_strip_text} onChange={(e) => setData('v2_top_strip_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_top_strip_text} /></div>
+                        <div><InputLabel htmlFor="v2_banner_limited_text" value="Banner limited text" /><TextInput id="v2_banner_limited_text" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_banner_limited_text} onChange={(e) => setData('v2_banner_limited_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_limited_text} /></div>
+                        <div><InputLabel htmlFor="v2_banner_heading" value="Banner heading" /><TextInput id="v2_banner_heading" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_banner_heading} onChange={(e) => setData('v2_banner_heading', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_heading} /></div>
+                        <div><InputLabel htmlFor="v2_banner_text_1" value="Banner text 1" /><textarea id="v2_banner_text_1" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" rows={3} value={data.v2_banner_text_1} onChange={(e) => setData('v2_banner_text_1', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_text_1} /></div>
+                        <div><InputLabel htmlFor="v2_banner_text_2" value="Banner text 2" /><textarea id="v2_banner_text_2" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" rows={3} value={data.v2_banner_text_2} onChange={(e) => setData('v2_banner_text_2', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_text_2} /></div>
+                        <div><InputLabel htmlFor="v2_call_scheduled_text" value="Call scheduled text" /><TextInput id="v2_call_scheduled_text" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_call_scheduled_text} onChange={(e) => setData('v2_call_scheduled_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_call_scheduled_text} /></div>
+                        <div><InputLabel htmlFor="v2_call_setup_text" value="Call setup text" /><textarea id="v2_call_setup_text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" rows={3} value={data.v2_call_setup_text} onChange={(e) => setData('v2_call_setup_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_call_setup_text} /></div>
+                        <div className="border-t border-gray-200 pt-4">
+                            <p className="text-sm font-semibold text-gray-900 mb-3">Geo/Timezone call settings</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><InputLabel htmlFor="v2_geo_cutoff_hour" value="Default cutoff hour (0-23)" /><TextInput id="v2_geo_cutoff_hour" type="number" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_geo_cutoff_hour} onChange={(e) => setData('v2_geo_cutoff_hour', e.target.value)} /><InputError className="mt-1" message={errors.v2_geo_cutoff_hour} /></div>
+                                <div><InputLabel htmlFor="v2_geo_sunday_cutoff_hour" value="Sunday cutoff hour (0-23)" /><TextInput id="v2_geo_sunday_cutoff_hour" type="number" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_geo_sunday_cutoff_hour} onChange={(e) => setData('v2_geo_sunday_cutoff_hour', e.target.value)} /><InputError className="mt-1" message={errors.v2_geo_sunday_cutoff_hour} /></div>
+                                <div><InputLabel htmlFor="v2_geo_default_visitor_tz" value="Default visitor timezone" /><TextInput id="v2_geo_default_visitor_tz" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_geo_default_visitor_tz} onChange={(e) => setData('v2_geo_default_visitor_tz', e.target.value)} placeholder="e.g. UTC or Europe/Berlin" /><InputError className="mt-1" message={errors.v2_geo_default_visitor_tz} /></div>
+                                <div className="flex items-center gap-2 pt-8">
+                                    <input id="v2_geo_skip_weekends" type="checkbox" checked={Boolean(data.v2_geo_skip_weekends)} onChange={(e) => setData('v2_geo_skip_weekends', e.target.checked)} />
+                                    <InputLabel htmlFor="v2_geo_skip_weekends" value="Skip weekends (roll to Monday)" />
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <InputLabel htmlFor="v2_geo_country_overrides_json" value="Country overrides JSON (optional)" />
+                                <textarea id="v2_geo_country_overrides_json" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 font-mono text-xs" rows={6} value={data.v2_geo_country_overrides_json} onChange={(e) => setData('v2_geo_country_overrides_json', e.target.value)} placeholder='{"DE":{"cutoff_hour":19,"skip_weekends":true,"sunday_cutoff_hour":17,"visitor_tz":"Europe/Berlin"}}' />
+                                <InputError className="mt-1" message={errors.v2_geo_country_overrides_json} />
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </SectionCard>
+                </SectionCard>
+            )}
 
-            <SectionCard
+            {isLegacy && <SectionCard
                 title="Hero image"
                 description="Image displayed in the thank you card (full width, not a profile avatar)."
             >
@@ -222,9 +293,9 @@ export default function ThankYouPageForm({
                         error={errors.profile_image}
                     />
                 </div>
-            </SectionCard>
+            </SectionCard>}
 
-            <SectionCard
+            {isLegacy && <SectionCard
                 title="Appearance"
                 description="Hero section background color (hex)."
             >
@@ -249,7 +320,7 @@ export default function ThankYouPageForm({
                     </div>
                     <InputError className="mt-1" message={errors.hero_background_color} />
                 </div>
-            </SectionCard>
+            </SectionCard>}
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
                 <PrimaryButton type="submit" disabled={processing} className="rounded-lg px-6 py-2.5">

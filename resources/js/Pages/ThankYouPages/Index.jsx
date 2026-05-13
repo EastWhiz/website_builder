@@ -9,7 +9,7 @@ import {
     Modal,
     Text,
 } from '@shopify/polaris';
-import { DeleteIcon, DuplicateIcon, EditIcon, ViewIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, ViewIcon } from '@shopify/polaris-icons';
 import '@shopify/polaris/build/esm/styles.css';
 import en from '@shopify/polaris/locales/en.json';
 import { useCallback, useState } from 'react';
@@ -29,6 +29,23 @@ export default function Index({ thankYouPages = [], status, showThankYouPageOwne
     const [memberOptions, setMemberOptions] = useState([]);
     const [cloneMembersLoading, setCloneMembersLoading] = useState(false);
     const [cloneSubmitting, setCloneSubmitting] = useState(false);
+    const [translateModalOpen, setTranslateModalOpen] = useState(false);
+    const [translatePageId, setTranslatePageId] = useState(null);
+    const [selectedLanguage, setSelectedLanguage] = useState('');
+    const [translating, setTranslating] = useState(false);
+
+    const targetLanguages = [
+        { value: 'DE', label: 'German' },
+        { value: 'ES', label: 'Spanish' },
+        { value: 'FR', label: 'French' },
+        { value: 'IT', label: 'Italian' },
+        { value: 'PT-BR', label: 'Portuguese (Brazilian)' },
+        { value: 'RU', label: 'Russian' },
+        { value: 'AR', label: 'Arabic' },
+        { value: 'TR', label: 'Turkish' },
+        { value: 'NL', label: 'Dutch' },
+        { value: 'PL', label: 'Polish' },
+    ];
 
     const loadActiveMembers = useCallback(async () => {
         setCloneMembersLoading(true);
@@ -62,6 +79,57 @@ export default function Index({ thankYouPages = [], status, showThankYouPageOwne
         setCloneTargetUser(null);
         setCloneModalOpen(true);
         loadActiveMembers();
+    };
+
+    const openTranslateModal = (pageId) => {
+        setTranslatePageId(pageId);
+        setSelectedLanguage('');
+        setTranslateModalOpen(true);
+    };
+
+    const submitTranslate = async () => {
+        if (!translatePageId || !selectedLanguage) return;
+        try {
+            setTranslating(true);
+            Swal.fire({
+                title: 'Translating...',
+                html: 'Please wait while we translate the page.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading(),
+            });
+
+            const response = await fetch(route('translate.thankYouPage'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    thank_you_page_id: Number(translatePageId),
+                    target_language: selectedLanguage,
+                    split_sentences: '1',
+                    preserve_formatting: '0',
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Translation failed.');
+            }
+
+            Swal.close();
+            setTranslateModalOpen(false);
+            router.reload({ preserveScroll: true });
+            Swal.fire('Success!', result.message || 'Translated copy created.', 'success');
+        } catch (e) {
+            Swal.close();
+            Swal.fire('Error', e?.message || 'Translation failed.', 'error');
+        } finally {
+            setTranslating(false);
+        }
     };
 
     const submitCloneToUser = async () => {
@@ -169,6 +237,17 @@ export default function Index({ thankYouPages = [], status, showThankYouPageOwne
                                 icon={EditIcon}
                                 onClick={() => router.get(route('thank-you-pages.edit', page.id))}
                                 accessibilityLabel="Edit"
+                            />
+                        </>
+                    )}
+                    {isRowOwner && (
+                        <>
+                            <span style={{ marginLeft: '10px' }} />
+                            <Button
+                                variant="plain"
+                                icon={LanguageIcon}
+                                onClick={() => openTranslateModal(page.id)}
+                                accessibilityLabel="Translate"
                             />
                         </>
                     )}
@@ -290,6 +369,37 @@ export default function Index({ thankYouPages = [], status, showThankYouPageOwne
                                 value={cloneTargetUser}
                                 onChange={(v) => setCloneTargetUser(v)}
                             />
+                        </div>
+                    </Modal.Section>
+                </Modal>
+                <Modal
+                    open={translateModalOpen}
+                    onClose={() => setTranslateModalOpen(false)}
+                    title="Translate Thank You Page"
+                    primaryAction={{
+                        content: translating ? 'Translating...' : 'Create Translated Variant',
+                        onAction: submitTranslate,
+                        disabled: translating || !selectedLanguage,
+                    }}
+                    secondaryActions={[{ content: 'Cancel', onAction: () => setTranslateModalOpen(false) }]}
+                >
+                    <Modal.Section>
+                        <Text as="p" variant="bodyMd">
+                            This will keep the original unchanged and create a new translated copy.
+                        </Text>
+                        <div style={{ marginTop: '16px' }}>
+                            <select
+                                className="w-full rounded border border-gray-300 px-3 py-2"
+                                value={selectedLanguage}
+                                onChange={(e) => setSelectedLanguage(e.target.value)}
+                            >
+                                <option value="">Select Language</option>
+                                {targetLanguages.map((lang) => (
+                                    <option key={lang.value} value={lang.value}>
+                                        {lang.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </Modal.Section>
                 </Modal>
