@@ -80,11 +80,9 @@ export default function ThankYouPageForm({
         errors,
     } = useForm({
         name: initialData.name ?? '',
-        template_type: initialData.template_type ?? 'legacy',
+        template_type: initialData.template_type ?? (isEdit ? 'legacy' : 'geo_aware_v2'),
         title_text: initialData.title_text ?? '',
         description: initialData.description ?? '',
-        v2_meta_description: initialData.v2_content?.v2_meta_description ?? '',
-        v2_meta_city: initialData.v2_content?.v2_meta_city ?? '',
         v2_page_title: initialData.v2_content?.v2_page_title ?? '',
         v2_top_strip_text: initialData.v2_content?.v2_top_strip_text ?? '',
         v2_banner_limited_text: initialData.v2_content?.v2_banner_limited_text ?? '',
@@ -149,22 +147,7 @@ export default function ThankYouPageForm({
                         <InputError className="mt-1" message={errors.name} />
                     </div>
 
-                    <div>
-                        <InputLabel htmlFor="template_type" value="Template type *" />
-                        <select
-                            id="template_type"
-                            className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            value={data.template_type}
-                            onChange={(e) => setData('template_type', e.target.value)}
-                        >
-                            <option value="legacy">Legacy (current)</option>
-                            <option value="geo_aware_v2">Geo-aware v2 (new)</option>
-                        </select>
-                        <p className="mt-1 text-xs text-gray-500">
-                            Legacy keeps current behavior. Geo-aware v2 uses the new approved design flow.
-                        </p>
-                        <InputError className="mt-1" message={errors.template_type} />
-                    </div>
+                    <input type="hidden" name="template_type" value={data.template_type} />
 
                     {isLegacy && <div>
                         <InputLabel htmlFor="logo" value={isEdit ? 'Logo' : 'Logo *'} />
@@ -227,13 +210,11 @@ export default function ThankYouPageForm({
                 </SectionCard>
             ) : (
                 <SectionCard
-                    title="Geo-aware v2 dynamic fields"
+                    title="Dynamic Content Settings"
                     description="These fields control the new thank-you page copy."
                 >
                     <div className="space-y-5">
                         <div><InputLabel htmlFor="v2_page_title" value="Page title" /><TextInput id="v2_page_title" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_page_title} onChange={(e) => setData('v2_page_title', e.target.value)} /><InputError className="mt-1" message={errors.v2_page_title} /></div>
-                        <div><InputLabel htmlFor="v2_meta_description" value="Meta description" /><TextInput id="v2_meta_description" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_meta_description} onChange={(e) => setData('v2_meta_description', e.target.value)} /><InputError className="mt-1" message={errors.v2_meta_description} /></div>
-                        <div><InputLabel htmlFor="v2_meta_city" value="Meta city" /><TextInput id="v2_meta_city" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_meta_city} onChange={(e) => setData('v2_meta_city', e.target.value)} /><InputError className="mt-1" message={errors.v2_meta_city} /></div>
                         <div><InputLabel htmlFor="v2_top_strip_text" value="Top strip text" /><TextInput id="v2_top_strip_text" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_top_strip_text} onChange={(e) => setData('v2_top_strip_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_top_strip_text} /></div>
                         <div><InputLabel htmlFor="v2_banner_limited_text" value="Banner limited text" /><TextInput id="v2_banner_limited_text" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_banner_limited_text} onChange={(e) => setData('v2_banner_limited_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_limited_text} /></div>
                         <div><InputLabel htmlFor="v2_banner_heading" value="Banner heading" /><TextInput id="v2_banner_heading" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_banner_heading} onChange={(e) => setData('v2_banner_heading', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_heading} /></div>
