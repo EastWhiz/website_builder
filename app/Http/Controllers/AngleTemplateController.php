@@ -436,6 +436,9 @@ class AngleTemplateController extends Controller
 
     public function downloadTemplate(Request $request)
     {
+        $exportStartedAt = microtime(true);
+        $exportProfile = [];
+
         // Optional thank you page selection (used in Phase 9 for custom thank_you.php generation)
         $thankYouPageId = $request->input('thank_you_page_id');
         $selectedThankYouPage = null;
@@ -446,6 +449,11 @@ class AngleTemplateController extends Controller
                 // Do not allow exporting someone else's thank you page
                 $selectedThankYouPage = null;
             }
+        }
+
+        // Export default: when no valid selection is provided, use the new V2 Thank You with default content.
+        if (!$selectedThankYouPage) {
+            $selectedThankYouPage = $this->buildDefaultGeoAwareThankYouPageForExport();
         }
 
         $selectedThankYouTemplateType = $this->resolveThankYouTemplateType($selectedThankYouPage);
@@ -555,7 +563,9 @@ class AngleTemplateController extends Controller
             $relative = str_replace('/storage/', '', $path);
             $fullPath = storage_path('app/public/' . $relative);
             if (file_exists($fullPath)) {
-                $zip->addFile($fullPath, 'images/' . basename($fullPath));
+                $zipPath = 'images/' . basename($fullPath);
+                $zip->addFile($fullPath, $zipPath);
+                $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
             }
         }
 
@@ -566,22 +576,30 @@ class AngleTemplateController extends Controller
                 if ($rel) {
                     $full = public_path($rel);
                     if (file_exists($full)) {
-                        $zip->addFile($full, 'images/' . basename($full));
+                        $zipPath = 'images/' . basename($full);
+                        $zip->addFile($full, $zipPath);
+                        $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
                     }
                 }
             }
         }
 
+        $exportProfile['images_added_ms'] = (int) round((microtime(true) - $exportStartedAt) * 1000);
+
         if ($selectedThankYouTemplateType === ThankYouPage::TEMPLATE_TYPE_GEO_AWARE_V2) {
             $this->addGeoAwareThankYouAssetsToZip($zip, is_array($selectedThankYouPage?->v2_content) ? $selectedThankYouPage->v2_content : []);
         }
+
+        $exportProfile['thankyou_assets_ms'] = (int) round((microtime(true) - $exportStartedAt) * 1000);
 
         // Add font files under fonts/ folder
         foreach ($fontPaths as $path) {
             $relative = str_replace('/storage/', '', $path);
             $fullPath = storage_path('app/public/' . $relative);
             if (file_exists($fullPath)) {
-                $zip->addFile($fullPath, 'fonts/' . basename($fullPath));
+                $zipPath = 'fonts/' . basename($fullPath);
+                $zip->addFile($fullPath, $zipPath);
+                $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
             }
         }
 
@@ -2147,6 +2165,7 @@ class AngleTemplateController extends Controller
             $user = Auth::user();
             $userApiCredentials = $user->apiCredential;
             $filesToExport = $this->getExportFilesList($publicFilesPath, $fullHtml);
+            $apiExportContext = $this->buildApiExportContext($fullHtml);
 
             // Get form_type from HTML and resolve to UserApiInstance (so existing pages keep the correct API)
             $formType = $this->getFormTypeFromHtml($fullHtml);
@@ -2231,13 +2250,15 @@ class AngleTemplateController extends Controller
                     }
 
                     // Use the resolved instance for platform files (will be null for non-platform files)
-                    $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiInstance, $fullHtml, $userApiCredentials, $aweberApiInstance);
+                    $modifiedContent = $this->modifyApiFileContent($fileContent, $file, $userApiInstance, $fullHtml, $userApiCredentials, $aweberApiInstance, $apiExportContext);
                     $zip->addFromString('api_files/' . $file, $modifiedContent);
                 } catch (\Exception $e) {
                     $zip->addFromString('api_files/' . $file, file_get_contents($filePath));
                 }
             }
         }
+
+        $exportProfile['api_files_ms'] = (int) round((microtime(true) - $exportStartedAt) * 1000);
 
         // Close the zip archive and handle errors
         if (!$zip->close()) {
@@ -2259,6 +2280,14 @@ class AngleTemplateController extends Controller
                 'details' => 'Temp directory: ' . sys_get_temp_dir() . ' (writable: ' . (is_writable(sys_get_temp_dir()) ? 'yes' : 'no') . ')'
             ], 500);
         }
+
+        $exportProfile['zip_close_ms'] = (int) round((microtime(true) - $exportStartedAt) * 1000);
+        Log::info('Landing page export timing', [
+            'angle_template_id' => (int) $request->angle_template_id,
+            'thank_you_template_type' => $selectedThankYouTemplateType,
+            'timing' => $exportProfile,
+            'total_ms' => (int) round((microtime(true) - $exportStartedAt) * 1000),
+        ]);
 
         // Verify the zip file was created successfully
         if (!file_exists($zipPath)) {
@@ -2436,13 +2465,16 @@ class AngleTemplateController extends Controller
      * @param \App\Models\UserApiInstance|null $aweberApiInstance Optional AWeber credentials when form uses parallel AWeber
      * @return string The modified content
      */
-    private function modifyApiFileContent($content, $filename, $userApiInstance = null, $fullHTML = null, $userApiCredentials = null, $aweberApiInstance = null)
+    private function modifyApiFileContent($content, $filename, $userApiInstance = null, $fullHTML = null, $userApiCredentials = null, $aweberApiInstance = null, array $exportContext = [])
     {
         // config.php: base URL from form (no credentials needed)
         if ($filename === 'config.php' && $fullHTML) {
-            $crawler = new Crawler($fullHTML);
-            $node = $crawler->filter('input[name="project_directory"]');
-            $value = $node->count() > 0 ? $node->attr('value') : '';
+            $value = (string) ($exportContext['project_directory'] ?? '');
+            if ($value === '') {
+                $crawler = new Crawler($fullHTML);
+                $node = $crawler->filter('input[name="project_directory"]');
+                $value = $node->count() > 0 ? (string) $node->attr('value') : '';
+            }
             if ($value) {
                 $content = str_replace('http://localhost/myAppFolder', $value, $content);
             }
@@ -2451,9 +2483,11 @@ class AngleTemplateController extends Controller
 
         // save_lead_handler.php: inject current CRM base URL (production/dev from admin settings)
         if ($filename === 'save_lead_handler.php') {
-            $crmBaseUrl = \App\Models\Setting::getCrmBaseUrl();
+            $crmBaseUrl = (string) ($exportContext['crm_base_url'] ?? \App\Models\Setting::getCrmBaseUrl());
             $content = str_replace('https://crm.diy', $crmBaseUrl, $content);
-            $verifySsl = \App\Models\Setting::getCrmVerifySsl();
+            $verifySsl = array_key_exists('crm_verify_ssl', $exportContext)
+                ? (bool) $exportContext['crm_verify_ssl']
+                : \App\Models\Setting::getCrmVerifySsl();
             // Replace the placeholder in exported PHP with a literal true/false.
             $content = str_replace('__CRM_VERIFY_SSL__', $verifySsl ? 'true' : 'false', $content);
             return $content;
@@ -2638,114 +2672,26 @@ class AngleTemplateController extends Controller
                         }
                     }
                     
-                    // Inject OTP service credentials (if available)
-                    // Only process if fullHTML is provided and we haven't already injected credentials
-                    if ($fullHTML && strpos($content, 'Injected OTP service configuration during export') === false) {
-                        try {
-                            $crawler = new Crawler($fullHTML);
-                            $otpServiceIdNode = $crawler->filter('input[name="otp_service_id"]');
-                            $otpServiceId = $otpServiceIdNode->count() > 0 ? $otpServiceIdNode->attr('value') : '';
-                            
-                            if ($otpServiceId) {
-                                // Get user's OTP credentials for this service
-                                $userId = Auth::id();
-                                
-                                // Cast service_id to integer for proper matching
-                                $otpServiceIdInt = (int) $otpServiceId;
-                                
-                                // Try multiple query approaches to find the credential
-                                $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
-                                    ->where('service_id', $otpServiceIdInt)
-                                    ->with('service')
-                                    ->first();
-                                
-                                // If not found, try with string comparison
-                                if (!$otpCredential) {
-                                    $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
-                                        ->where('service_id', $otpServiceId)
-                                        ->with('service')
-                                        ->first();
-                                }
-                                
-                                // Fallback: If specific service credential not found, use first available credential for this user
-                                if (!$otpCredential) {
-                                    $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
-                                        ->with('service')
-                                        ->first();
-                                }
-                                
-                                if ($otpCredential) {
-                                    $credentials = $otpCredential->decrypted_credentials;
-                                    $serviceName = strtolower($otpCredential->service->name ?? '');
-                                    
-                                    // Use the actual service_id from the credential (not from form, in case of fallback)
-                                    $actualServiceId = $otpCredential->service_id;
-                                    
-                                    // Inject service configuration (service-agnostic approach)
-                                    // Extract credentials dynamically based on service fields
-                                    $accessKey = '';
-                                    $endpointUrl = '';
-                                    
-                                    // Get access_key and endpoint_url from credentials (works for any service)
-                                    foreach ($credentials as $key => $value) {
-                                        if ($key === 'access_key' || $key === 'api_key' || $key === 'apiKey') {
-                                            $accessKey = $value;
-                                        }
-                                        if ($key === 'endpoint_url' || $key === 'endpoint' || $key === 'url') {
-                                            $endpointUrl = $value;
-                                        }
-                                    }
-                                    
-                                    // Inject service configuration at the top level (after testing mode block)
-                                    if (!empty($accessKey)) {
-                                        // Use actual service_id from credential (not form, in case fallback was used)
-                                        $injectedServiceId = $actualServiceId;
-                                        
-                                        // Create the injection code for top-level injection
-                                        $serviceInjectionCode = "\n// Injected OTP service configuration during export (standalone mode)\n" .
-                                            "if (!isset(\$GLOBALS['otp_service_id'])) {\n" .
-                                            "    \$GLOBALS['otp_service_id'] = '" . addslashes($injectedServiceId) . "';\n" .
-                                            "    \$GLOBALS['otp_service_name'] = '" . addslashes($serviceName) . "';\n" .
-                                            "    \$GLOBALS['otp_access_key'] = '" . addslashes($accessKey) . "';\n" .
-                                            "    \$GLOBALS['otp_endpoint_url'] = '" . addslashes($endpointUrl) . "';\n" .
-                                            "}\n";
-                                        
-                                        // Try to inject after testing mode block first
-                                        if (strpos($content, '// OTP Testing Mode') !== false) {
-                                            // Find the end of the testing mode block - look for the closing brace
-                                            $pattern = '/(\$GLOBALS\[\'otp_testing_mode\'\] = .*?;\n\}\n)/s';
-                                            if (preg_match($pattern, $content, $matches)) {
-                                                // Inject right after the testing mode block
-                                                $content = str_replace(
-                                                    $matches[0],
-                                                    $matches[0] . $serviceInjectionCode,
-                                                    $content
-                                                );
-                                            } else {
-                                                // Fallback: inject after config include
-                                                $content = str_replace(
-                                                    "include_once 'config.php';",
-                                                    "include_once 'config.php';" . $serviceInjectionCode,
-                                                    $content
-                                                );
-                                            }
-                                        } else if (strpos($content, "include_once 'config.php';") !== false) {
-                                            // Inject after config include if testing mode block doesn't exist
-                                            $content = str_replace(
-                                                "include_once 'config.php';",
-                                                "include_once 'config.php';" . $serviceInjectionCode,
-                                                $content
-                                            );
-                                        }
-                                    }
-                                }
+                    // Inject OTP service credentials (if available) using precomputed context.
+                    $serviceInjectionCode = (string) ($exportContext['otp_service_injection_code'] ?? '');
+                    if ($serviceInjectionCode !== '' && strpos($content, 'Injected OTP service configuration during export') === false) {
+                        if (strpos($content, '// OTP Testing Mode') !== false) {
+                            $pattern = '/(\$GLOBALS\[\'otp_testing_mode\'\] = .*?;\n\}\n)/s';
+                            if (preg_match($pattern, $content, $matches)) {
+                                $content = str_replace($matches[0], $matches[0] . $serviceInjectionCode, $content);
+                            } else {
+                                $content = str_replace(
+                                    "include_once 'config.php';",
+                                    "include_once 'config.php';" . $serviceInjectionCode,
+                                    $content
+                                );
                             }
-                        } catch (\Exception $e) {
-                            // Log error for debugging
-                            if (function_exists('logger')) {
-                                logger()->error('OTP credential injection failed: ' . $e->getMessage());
-                                logger()->error('OTP injection stack trace: ' . $e->getTraceAsString());
-                            }
+                        } else if (strpos($content, "include_once 'config.php';") !== false) {
+                            $content = str_replace(
+                                "include_once 'config.php';",
+                                "include_once 'config.php';" . $serviceInjectionCode,
+                                $content
+                            );
                         }
                     }
                     break;
@@ -2766,6 +2712,85 @@ class AngleTemplateController extends Controller
         }
 
         return $content;
+    }
+
+    private function buildApiExportContext(?string $fullHtml): array
+    {
+        $context = [
+            'crm_base_url' => \App\Models\Setting::getCrmBaseUrl(),
+            'crm_verify_ssl' => \App\Models\Setting::getCrmVerifySsl(),
+            'project_directory' => '',
+            'otp_service_injection_code' => '',
+        ];
+
+        if (!$fullHtml) {
+            return $context;
+        }
+
+        try {
+            $crawler = new Crawler($fullHtml);
+            $projectNode = $crawler->filter('input[name="project_directory"]');
+            $context['project_directory'] = $projectNode->count() > 0 ? (string) $projectNode->attr('value') : '';
+
+            $otpServiceNode = $crawler->filter('input[name="otp_service_id"]');
+            $otpServiceId = $otpServiceNode->count() > 0 ? trim((string) $otpServiceNode->attr('value')) : '';
+            if ($otpServiceId === '') {
+                return $context;
+            }
+
+            $userId = Auth::id();
+            $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
+                ->where('service_id', (int) $otpServiceId)
+                ->with('service')
+                ->first();
+
+            if (!$otpCredential) {
+                $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
+                    ->where('service_id', $otpServiceId)
+                    ->with('service')
+                    ->first();
+            }
+
+            if (!$otpCredential) {
+                $otpCredential = \App\Models\OtpServiceCredential::where('user_id', $userId)
+                    ->with('service')
+                    ->first();
+            }
+
+            if (!$otpCredential) {
+                return $context;
+            }
+
+            $credentials = $otpCredential->decrypted_credentials;
+            $serviceName = strtolower((string) ($otpCredential->service->name ?? ''));
+            $accessKey = '';
+            $endpointUrl = '';
+
+            foreach ((array) $credentials as $key => $value) {
+                if ($key === 'access_key' || $key === 'api_key' || $key === 'apiKey') {
+                    $accessKey = (string) $value;
+                }
+                if ($key === 'endpoint_url' || $key === 'endpoint' || $key === 'url') {
+                    $endpointUrl = (string) $value;
+                }
+            }
+
+            if ($accessKey === '') {
+                return $context;
+            }
+
+            $context['otp_service_injection_code'] = "\n// Injected OTP service configuration during export (standalone mode)\n" .
+                "if (!isset(\$GLOBALS['otp_service_id'])) {\n" .
+                "    \$GLOBALS['otp_service_id'] = '" . addslashes((string) $otpCredential->service_id) . "';\n" .
+                "    \$GLOBALS['otp_service_name'] = '" . addslashes($serviceName) . "';\n" .
+                "    \$GLOBALS['otp_access_key'] = '" . addslashes($accessKey) . "';\n" .
+                "    \$GLOBALS['otp_endpoint_url'] = '" . addslashes($endpointUrl) . "';\n" .
+                "}\n";
+        } catch (\Throwable $e) {
+            Log::warning('Unable to build API export context', ['error' => $e->getMessage()]);
+        }
+
+        return $context;
     }
 
     public function duplicateAngleTemplate(Request $request, AngleTemplate $angleTemplate)
@@ -2945,6 +2970,73 @@ class AngleTemplateController extends Controller
         return $templateType;
     }
 
+    private function buildDefaultGeoAwareThankYouPageForExport(): ThankYouPage
+    {
+        $page = new ThankYouPage();
+        $page->template_type = ThankYouPage::TEMPLATE_TYPE_GEO_AWARE_V2;
+        $page->v2_content = $this->geoAwareV2ExportDefaultContent();
+        $page->title_text = $page->v2_content['v2_banner_heading'] ?? "You're On The List.";
+        $page->description = $page->v2_content['v2_banner_text_1'] ?? null;
+
+        return $page;
+    }
+
+    private function geoAwareV2ExportDefaultContent(): array
+    {
+        return [
+            'v2_page_title' => 'AI - Thank You',
+            'v2_top_strip_text' => 'Application Approved :: Access Unlocked',
+            'v2_banner_limited_text' => 'Limited Spots Available',
+            'v2_banner_heading' => "You're On The List.",
+            'v2_banner_text_1' => 'Your request has been received. A licensed broker will contact you {{call_phrase}} to guide you through setting up your AI trading account.',
+            'v2_banner_text_2' => 'We onboard a limited number of users every day to ensure one-on-one support.',
+            'v2_call_scheduled_text' => 'Your Call Has Been Scheduled',
+            'v2_call_setup_text' => 'Your concierge will call {{call_phrase}} to set up your trading account.',
+            'v2_what_happens_heading' => 'What Happens Next',
+            'v2_footer_text' => '2026 (c) All Rights Reserved.',
+            'v2_what_happens_next' => [
+                'heading' => 'What Happens Next',
+                'steps' => [
+                    [
+                        'title' => "You're in the queue.",
+                        'description' => 'Expect a call from your assigned platform broker {{call_phrase}}.',
+                    ],
+                    [
+                        'title' => 'Set up and fund your account',
+                        'description' => 'Your broker will guide you through selecting the right AI platform and funding it.',
+                    ],
+                    [
+                        'title' => 'Start earning automated income',
+                        'description' => 'Once your account is live, your AI trading system will begin executing trades automatically.',
+                    ],
+                ],
+            ],
+            'v2_footer' => [
+                'copyright' => '2026 (c) All Rights Reserved.',
+            ],
+            'v2_registration_prefix' => 'PLEASE REFERENCE YOUR REGISTRATION DATE AS:',
+            'v2_scheduled_label_today' => 'TODAY',
+            'v2_scheduled_label_tomorrow' => 'TOMORROW',
+            'v2_why_wait_heading' => 'Why the wait?',
+            'v2_why_wait_text_1' => "This isn't a mass-market product.",
+            'v2_why_wait_text_2' => 'We limit new user onboarding daily to ensure every customer receives personalized, broker-led guidance.',
+            'v2_why_wait_quote' => "\"We don't rush onboarding - we do it right.\"",
+            'v2_customer_reviews_heading' => 'Customer Reviews',
+            'v2_reviews' => [
+                'items' => [
+                    ['quote' => '"The broker explained everything clearly. I felt confident and supported."', 'author' => '- A.S., Paris'],
+                    ['quote' => '"Wasn\'t sure what to expect, but within a day I was set up and seeing trades."', 'author' => '- P.R., London'],
+                    ['quote' => '"Very professional, no pressure. My account was live right after the call."', 'author' => '- D.T., Munich'],
+                ],
+            ],
+            'v2_geo_cutoff_hour' => 19,
+            'v2_geo_skip_weekends' => true,
+            'v2_geo_sunday_cutoff_hour' => 17,
+            'v2_geo_default_visitor_tz' => 'UTC',
+            'v2_geo_country_overrides_json' => '',
+        ];
+    }
+
     private function buildGeoAwareThankYouContent(ThankYouPage $page, string $fallbackDefaultContent): string
     {
         $templatePath = public_path('thankyou_templates/geo_aware_v2/thankyou.php');
@@ -3003,32 +3095,42 @@ class AngleTemplateController extends Controller
             return;
         }
 
-        $sourceToTarget = [
+        // Keep export fast by including only the directories/files required by thankyou.php.
+        $requiredDirectories = [
             'css' => 'api_files/css',
             'js' => 'api_files/js',
             'media' => 'api_files/media',
             'lib' => 'api_files/lib',
-            'external_assets' => 'api_files/external_assets',
+            // Only include the exact external files required by thankyou.php/funnel.css.
+            'external_assets/static-133.b-cdn.net/72798/build/funnel.css' => 'api_files/external_assets/static-133.b-cdn.net/72798/build/funnel.css',
+            'external_assets/static-133.b-cdn.net/72798/build/funnel.js' => 'api_files/external_assets/static-133.b-cdn.net/72798/build/funnel.js',
+            'external_assets/static-133.b-cdn.net/72798/images/YwXOg0ImYK.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/YwXOg0ImYK.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/CGjYl4KuRb.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/CGjYl4KuRb.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/KdSztqb4ie.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/KdSztqb4ie.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/KdSztqb4ie-m.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/KdSztqb4ie-m.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/q9jizC22Ax.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/q9jizC22Ax.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/arrrLSnSPbm.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/arrrLSnSPbm.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/rasdOksxT.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/rasdOksxT.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/aQ6PtlKXnV-1.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/aQ6PtlKXnV-1.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/aQ6PtlKXnV-2.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/aQ6PtlKXnV-2.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/aQ6PtlKXnV-3.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/aQ6PtlKXnV-3.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/KqNfBw8wLE.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/KqNfBw8wLE.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/JslGSwpSx.gif' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/JslGSwpSx.gif',
+            'external_assets/static-133.b-cdn.net/72798/images/w8jUllThol.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/w8jUllThol.webp',
+            'external_assets/static-133.b-cdn.net/72798/images/w8jUllThol-m.webp' => 'api_files/external_assets/static-133.b-cdn.net/72798/images/w8jUllThol-m.webp',
+            'external_assets/static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516' => 'api_files/external_assets/static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516',
         ];
 
-        foreach ($sourceToTarget as $srcRel => $zipRel) {
-            $srcDir = $base . DIRECTORY_SEPARATOR . $srcRel;
-            if (!is_dir($srcDir)) {
+        foreach ($requiredDirectories as $srcRel => $zipRel) {
+            $srcPath = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $srcRel);
+            if (is_dir($srcPath)) {
+                $this->addDirectoryToZip($zip, $srcPath, $zipRel);
                 continue;
             }
-
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS)
-            );
-
-            foreach ($iterator as $fileInfo) {
-                if (!$fileInfo->isFile()) {
-                    continue;
-                }
-                $fullPath = $fileInfo->getPathname();
-                $relative = substr($fullPath, strlen($srcDir) + 1);
-                $zipPath = $zipRel . '/' . str_replace('\\', '/', $relative);
-                $zip->addFile($fullPath, $zipPath);
+            if (is_file($srcPath)) {
+                $zipPath = str_replace('\\', '/', $zipRel);
+                $zip->addFile($srcPath, $zipPath);
+                $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
             }
         }
 
@@ -3090,6 +3192,42 @@ class AngleTemplateController extends Controller
         }
 
         return $config;
+    }
+
+    private function addDirectoryToZip(ZipArchive $zip, string $srcDir, string $zipBase): void
+    {
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $fileInfo) {
+            if (!$fileInfo->isFile()) {
+                continue;
+            }
+
+            $fullPath = $fileInfo->getPathname();
+            $relative = substr($fullPath, strlen($srcDir) + 1);
+            $zipPath = rtrim(str_replace('\\', '/', $zipBase), '/') . '/' . str_replace('\\', '/', $relative);
+            $zip->addFile($fullPath, $zipPath);
+            $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
+        }
+    }
+
+    private function applyFastCompressionForBinaryEntry(ZipArchive $zip, string $zipPath): void
+    {
+        $binaryExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'woff', 'woff2', 'ttf', 'otf', 'mp4', 'webm', 'pdf'];
+        $ext = strtolower(pathinfo($zipPath, PATHINFO_EXTENSION));
+        if (!in_array($ext, $binaryExtensions, true)) {
+            return;
+        }
+
+        if (method_exists($zip, 'setCompressionName') && defined('ZipArchive::CM_STORE')) {
+            try {
+                $zip->setCompressionName($zipPath, ZipArchive::CM_STORE);
+            } catch (\Throwable $e) {
+                // Best-effort optimization only.
+            }
+        }
     }
 
     private function buildGeoConfigPhpString(array $config): string
