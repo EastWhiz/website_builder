@@ -563,9 +563,9 @@ class AngleTemplateController extends Controller
             $relative = str_replace('/storage/', '', $path);
             $fullPath = storage_path('app/public/' . $relative);
             if (file_exists($fullPath)) {
-                $zipPath = 'images/' . basename($fullPath);
-                $zip->addFile($fullPath, $zipPath);
-                $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
+                $zipEntryPath = 'images/' . basename($fullPath);
+                $zip->addFile($fullPath, $zipEntryPath);
+                $this->applyFastCompressionForBinaryEntry($zip, $zipEntryPath);
             }
         }
 
@@ -576,9 +576,9 @@ class AngleTemplateController extends Controller
                 if ($rel) {
                     $full = public_path($rel);
                     if (file_exists($full)) {
-                        $zipPath = 'images/' . basename($full);
-                        $zip->addFile($full, $zipPath);
-                        $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
+                        $zipEntryPath = 'images/' . basename($full);
+                        $zip->addFile($full, $zipEntryPath);
+                        $this->applyFastCompressionForBinaryEntry($zip, $zipEntryPath);
                     }
                 }
             }
@@ -597,9 +597,9 @@ class AngleTemplateController extends Controller
             $relative = str_replace('/storage/', '', $path);
             $fullPath = storage_path('app/public/' . $relative);
             if (file_exists($fullPath)) {
-                $zipPath = 'fonts/' . basename($fullPath);
-                $zip->addFile($fullPath, $zipPath);
-                $this->applyFastCompressionForBinaryEntry($zip, $zipPath);
+                $zipEntryPath = 'fonts/' . basename($fullPath);
+                $zip->addFile($fullPath, $zipEntryPath);
+                $this->applyFastCompressionForBinaryEntry($zip, $zipEntryPath);
             }
         }
 
