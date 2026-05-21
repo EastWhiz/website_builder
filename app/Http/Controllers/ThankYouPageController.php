@@ -44,7 +44,8 @@ class ThankYouPageController extends Controller
             ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
             ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
             ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
-            ->orderBy('name')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get()
             ->map(function (ThankYouPage $page) use ($showPageOwnerColumn) {
                 $row = [
@@ -89,7 +90,8 @@ class ThankYouPageController extends Controller
             ->when($organization, fn ($q) => $q->where('organization_id', $organization->id))
             ->when(!$organization && !$isPlatformAdmin, fn ($q) => $q->whereRaw('1 = 0'))
             ->when($organization && !$canViewOrgAll, fn ($q) => $q->where('user_id', (int) ($user?->id ?? 0)))
-            ->orderBy('name')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get(['id', 'name', 'template_type']);
 
         return response()->json([
