@@ -11,6 +11,7 @@ use App\Models\ThankYouPage;
 use App\Models\ApiCategory;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
+use App\Services\AngleTemplateMergeService;
 use App\Services\ApiExportService;
 use App\Support\OrganizationAccess;
 use Illuminate\Http\Request;
@@ -26,7 +27,8 @@ use Symfony\Component\DomCrawler\Crawler;
 class AngleTemplateController extends Controller
 {
     public function __construct(
-        private ApiExportService $apiExportService
+        private ApiExportService $apiExportService,
+        private AngleTemplateMergeService $angleTemplateMergeService
     ) {
     }
 
@@ -265,41 +267,7 @@ class AngleTemplateController extends Controller
 
         DB::beginTransaction();
         try {
-            $allBodies = $angle->contents()->where('type', 'html')->get();
-            $updatingIndex = (string) $template->index;
-
-            $updatingCss = '';
-            $template->contents()->where('type', 'css')->get()->each(function ($item) use (&$updatingCss) {
-                $updatingCss .= $item->content;
-            });
-
-            $updatingJs = '';
-            $template->contents()->where('type', 'js')->get()->each(function ($item) use (&$updatingJs) {
-                $updatingJs .= $item->content . "\n";
-            });
-
-            foreach ($allBodies as $key => $body) {
-                $bodyKey = $key + 1;
-                $updatingIndex = str_replace("<!--INTERNAL--BD$bodyKey--EXTERNAL-->", $body->content, $updatingIndex);
-            }
-
-            $updatingIndex = preg_replace(
-                '/src="angle_images\//',
-                'src="../../storage/angles/' . $angle->uuid . '/images/' . $angle->asset_unique_uuid . '-',
-                $updatingIndex
-            );
-
-            $updatingIndex = preg_replace(
-                '/src="template_images\//',
-                'src="../../storage/templates/' . $template->uuid . '/images/' . $template->asset_unique_uuid . '-',
-                $updatingIndex
-            );
-
-            $updatingCss = preg_replace(
-                '/fonts\//',
-                '../../storage/templates/' . $template->uuid . '/fonts/' . $template->asset_unique_uuid . '-',
-                $updatingCss
-            );
+            $merged = $this->angleTemplateMergeService->merge($angle, $template);
 
             $newTemplate = AngleTemplate::create([
                 'uuid' => Str::uuid(),
@@ -308,9 +276,9 @@ class AngleTemplateController extends Controller
                 'user_id' => (int) ($user?->id ?? 0),
                 'organization_id' => $organization?->id,
                 'name' => "{$template->name} ({$angle->name})",
-                'main_html' => $updatingIndex,
-                'main_css' => $updatingCss,
-                'main_js' => $updatingJs,
+                'main_html' => $merged['main_html'],
+                'main_css' => $merged['main_css'],
+                'main_js' => $merged['main_js'],
             ]);
 
             DB::commit();
@@ -321,6 +289,101 @@ class AngleTemplateController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
             return sendResponse(false, 'Could not create landing page. Please try again.');
+        }
+    }
+
+    public function changeTheme(Request $request)
+    {
+        $validated = $request->validate([
+            'angle_template_id' => ['required', 'integer'],
+            'template_id' => ['required', 'integer'],
+        ]);
+
+        $angleTemplate = AngleTemplate::query()
+            ->with(['angle' => fn ($q) => $q->whereNull('deleted_at')])
+            ->where('id', (int) $validated['angle_template_id'])
+            ->first();
+
+        if (!$angleTemplate || !$angleTemplate->angle) {
+            return sendResponse(false, 'Landing page not found.', null, null, null, 404);
+        }
+
+        if (!$this->canManageAngleTemplate($request, $angleTemplate)) {
+            return sendResponse(false, 'You are not allowed to change this landing page.', null, null, null, 403);
+        }
+
+        $template = Template::query()->where('id', (int) $validated['template_id'])->first();
+        if (!$template) {
+            return sendResponse(false, 'Selected theme is not available.', null, null, null, 422);
+        }
+
+        if ((int) $angleTemplate->template_id === (int) $template->id) {
+            return sendResponse(false, 'This landing page already uses the selected theme.', null, null, null, 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $merged = $this->angleTemplateMergeService->merge($angleTemplate->angle, $template);
+
+            $this->clearAngleTemplateCustomAssets($angleTemplate);
+
+            $angleTemplate->template_id = $template->id;
+            $angleTemplate->main_html = $merged['main_html'];
+            $angleTemplate->main_css = $merged['main_css'];
+            $angleTemplate->main_js = $merged['main_js'];
+            $angleTemplate->save();
+
+            DB::commit();
+
+            return sendResponse(true, 'Landing page theme changed successfully.', [
+                'angle_template_id' => $angleTemplate->id,
+                'template_id' => $angleTemplate->template_id,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return sendResponse(false, 'Could not change landing page theme. Please try again.');
+        }
+    }
+
+    private function canManageAngleTemplate(Request $request, AngleTemplate $angleTemplate): bool
+    {
+        $actor = $request->user();
+        if (!$actor) {
+            return false;
+        }
+
+        $ownerId = (int) $angleTemplate->user_id;
+        if ((int) $actor->id === $ownerId) {
+            return true;
+        }
+
+        $org = $actor->currentOrganization();
+        if (!$org) {
+            return false;
+        }
+        if (!OrganizationAccess::isActiveOrganizationMember($ownerId, (int) $org->id)) {
+            return false;
+        }
+        if (OrganizationAccess::isPrivilegedPlatformAdmin($actor)) {
+            return true;
+        }
+
+        return OrganizationAccess::canUserFullyManageTeam($actor, $org);
+    }
+
+    private function clearAngleTemplateCustomAssets(AngleTemplate $angleTemplate): void
+    {
+        $extraContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
+        foreach ($extraContents as $content) {
+            if ($content->type === 'image' && $content->name) {
+                Storage::disk('public')->delete(str_replace('/storage/', '', $content->name));
+            }
+            $content->delete();
+        }
+
+        $folderPath = "angleTemplates/{$angleTemplate->uuid}";
+        if (Storage::disk('public')->exists($folderPath)) {
+            Storage::disk('public')->deleteDirectory($folderPath);
         }
     }
 

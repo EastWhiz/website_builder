@@ -75,8 +75,8 @@ class UsersController extends Controller
             }, function ($q) {
                 $q->orderBy('id', 'desc');
             })
-            ->with(['user:id,name'])
-            ->select(['id', 'name', 'created_at', 'user_id'])
+            ->with(['user:id,name', 'template:id,name'])
+            ->select(['id', 'name', 'created_at', 'user_id', 'template_id'])
             ->cursorPaginate($request->page_count);
 
         return sendResponse(true, 'Landing Pages retrieved successfully!', $templates);
@@ -110,7 +110,7 @@ class UsersController extends Controller
         $memberUserIds = OrganizationAccess::activeOrganizationMemberUserIds($org);
 
         $templates = AngleTemplate::query()
-            ->with(['user:id,name'])
+            ->with(['user:id,name', 'template:id,name'])
             ->whereNull('deleted_at')
             ->where(function ($q) use ($org, $memberUserIds) {
                 $q->where('organization_id', (int) $org->id);
@@ -129,7 +129,7 @@ class UsersController extends Controller
             }, function ($q) {
                 $q->orderBy('name', 'asc');
             })
-            ->select(['id', 'name', 'created_at', 'user_id'])
+            ->select(['id', 'name', 'created_at', 'user_id', 'template_id'])
             ->cursorPaginate($pageCount);
 
         return sendResponse(true, 'Organization landing pages retrieved successfully!', $templates);

@@ -59,8 +59,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::inertia('/dashboard', 'Dashboard')->name('dashboard');
 
         // TEMPLATES ROUTES
-        Route::inertia('/templates/add', 'Templates/AddEditTemplate')->name('addTemplate');
+        Route::get('/templates/add', function () {
+            if ((int) (request()->user()?->role_id ?? 0) !== 1) {
+                abort(403, 'Only Super Admin can manage themes.');
+            }
+
+            return Inertia::render('Templates/AddEditTemplate');
+        })->name('addTemplate');
         Route::get('/templates/edit/{id}', function ($id) {
+            if ((int) (request()->user()?->role_id ?? 0) !== 1) {
+                abort(403, 'Only Super Admin can manage themes.');
+            }
             $existingTemplate = Template::where('id', $id)->with('contents')->first();
             return Inertia::render('Templates/AddEditTemplate', [
                 'template' => $existingTemplate,
@@ -209,6 +218,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/angles-applying', [AngleTemplateController::class, 'anglesApplying'])->name('angles.applying');
         Route::get('/api/landing-pages/create-options', [AngleTemplateController::class, 'createOptions'])->name('landing-pages.create-options');
         Route::post('/api/landing-pages/create-from-angle-template', [AngleTemplateController::class, 'createFromAngleTemplate'])->name('landing-pages.create-from-angle-template');
+        Route::post('/api/landing-pages/change-theme', [AngleTemplateController::class, 'changeTheme'])->name('landing-pages.change-theme');
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

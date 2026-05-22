@@ -15,7 +15,7 @@ import {
     useIndexResourceState, useSetIndexFiltersMode
 } from '@shopify/polaris';
 import Select from 'react-select';
-import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, PageDownIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
+import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, PageDownIcon, ThemeEditIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 import { useCallback, useEffect, useState } from 'react';
@@ -205,6 +205,12 @@ export default function Dashboard() {
     const [selectedCreateAngle, setSelectedCreateAngle] = useState(null);
     const [selectedCreateTheme, setSelectedCreateTheme] = useState(null);
 
+    const [changeThemeModalOpen, setChangeThemeModalOpen] = useState(false);
+    const [changeThemeSubmitting, setChangeThemeSubmitting] = useState(false);
+    const [changeThemeOptions, setChangeThemeOptions] = useState([]);
+    const [selectedChangeTheme, setSelectedChangeTheme] = useState(null);
+    const [changeThemeTarget, setChangeThemeTarget] = useState(null);
+
     const loadCloneMemberOptions = useCallback(async () => {
         setCloneMembersLoading(true);
         try {
@@ -329,6 +335,81 @@ export default function Dashboard() {
             setCreateModalOpen(true);
         } catch (e) {
             Swal.fire('Error', e?.message || 'Could not load options.', 'error');
+        }
+    };
+
+    const openChangeThemeModal = async (row) => {
+        try {
+            const response = await fetch(route('landing-pages.create-options'), {
+                headers: { Accept: 'application/json' },
+            });
+            const result = await response.json();
+            if (!response.ok || !result?.success) {
+                throw new Error(result?.message || 'Could not load themes.');
+            }
+            const currentTemplateId = row.template_id ? String(row.template_id) : null;
+            setChangeThemeOptions(
+                (result?.data?.templates || [])
+                    .filter((tpl) => String(tpl.id) !== currentTemplateId)
+                    .map((tpl) => ({
+                        value: String(tpl.id),
+                        label: tpl.name || `Theme #${tpl.id}`,
+                    }))
+            );
+            setSelectedChangeTheme(null);
+            setChangeThemeTarget(row);
+            setChangeThemeModalOpen(true);
+        } catch (e) {
+            Swal.fire('Error', e?.message || 'Could not load themes.', 'error');
+        }
+    };
+
+    const submitChangeTheme = async () => {
+        if (!changeThemeTarget?.id || !selectedChangeTheme?.value) {
+            Swal.fire('Selection required', 'Please select a theme.', 'warning');
+            return;
+        }
+
+        const confirm = await Swal.fire({
+            title: 'Change theme?',
+            html: 'The landing page will be rebuilt from the angle and the new theme. <strong>Preview edits and custom uploads will be lost.</strong>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#51a70a',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Change theme',
+        });
+
+        if (!confirm.isConfirmed) {
+            return;
+        }
+
+        try {
+            setChangeThemeSubmitting(true);
+            const response = await fetch(route('landing-pages.change-theme'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    angle_template_id: Number(changeThemeTarget.id),
+                    template_id: Number(selectedChangeTheme.value),
+                }),
+            });
+            const result = await response.json();
+            if (!response.ok || !result?.success) {
+                throw new Error(result?.message || 'Could not change theme.');
+            }
+            setChangeThemeModalOpen(false);
+            setChangeThemeTarget(null);
+            setReload(!reload);
+            Swal.fire('Success', result?.message || 'Theme changed successfully.', 'success');
+        } catch (e) {
+            Swal.fire('Error', e?.message || 'Could not change theme.', 'error');
+        } finally {
+            setChangeThemeSubmitting(false);
         }
     };
 
@@ -551,6 +632,8 @@ export default function Dashboard() {
                     <IndexTable.Cell>
                         <Button variant="plain" icon={ViewIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Preview" />
                         <span style={{ margin: '10px' }} />
+                        <Button variant="plain" icon={ThemeEditIcon} onClick={() => openChangeThemeModal(value)} accessibilityLabel="Change theme" />
+                        <span style={{ margin: '10px' }} />
                         <Button variant="plain" icon={PageDownIcon} onClick={() => openExportModal(value.id)} accessibilityLabel="Export" />
                         <span style={{ margin: '10px' }} />
                         <Button variant="plain" icon={DuplicateIcon} onClick={() => openCloneLandingModal(value)} accessibilityLabel="Clone to user" />
@@ -579,6 +662,8 @@ export default function Dashboard() {
                     <Button variant='plain' icon={PageDownIcon} onClick={() => openExportModal(value.id)}></Button>
                     <span style={{ margin: "10px" }}></span>
                     <Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)}></Button>
+                    <span style={{ margin: "10px" }}></span>
+                    <Button variant='plain' icon={ThemeEditIcon} onClick={() => openChangeThemeModal(value)} accessibilityLabel="Change theme"></Button>
                     <span style={{ margin: "10px" }}></span>
                     <Button variant='plain' icon={EditIcon} onClick={() => openLandingPreview(value.id)}></Button>
                     <span style={{ margin: "10px" }}></span>
@@ -899,6 +984,51 @@ export default function Dashboard() {
                     </div>
                 </div>
             </AuthenticatedLayout>
+
+            <Modal
+                open={changeThemeModalOpen}
+                onClose={() => setChangeThemeModalOpen(false)}
+                title="Change Theme"
+                primaryAction={{
+                    content: changeThemeSubmitting ? 'Changing...' : 'Change theme',
+                    onAction: submitChangeTheme,
+                    disabled: changeThemeSubmitting || !selectedChangeTheme?.value,
+                }}
+                secondaryActions={[
+                    {
+                        content: 'Cancel',
+                        onAction: () => setChangeThemeModalOpen(false),
+                    },
+                ]}
+            >
+                <Modal.Section>
+                    <div style={{ marginBottom: '14px' }}>
+                        <Text as="p" variant="bodyMd">
+                            {changeThemeTarget?.name ? (
+                                <>Landing page: <strong>{changeThemeTarget.name}</strong></>
+                            ) : (
+                                'Select a new theme for this landing page.'
+                            )}
+                        </Text>
+                        {changeThemeTarget?.template?.name && (
+                            <Text as="p" variant="bodySm" tone="subdued">
+                                Current theme: {changeThemeTarget.template.name}
+                            </Text>
+                        )}
+                        <Text as="p" variant="bodySm" tone="caution">
+                            Preview edits and custom uploads will be replaced with a fresh merge from the angle and new theme.
+                        </Text>
+                    </div>
+                    <Select
+                        menuPortalTarget={document.body}
+                        styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                        placeholder="Select new theme..."
+                        options={changeThemeOptions}
+                        value={selectedChangeTheme}
+                        onChange={setSelectedChangeTheme}
+                    />
+                </Modal.Section>
+            </Modal>
 
             <Modal
                 open={createModalOpen}

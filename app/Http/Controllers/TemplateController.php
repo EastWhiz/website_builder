@@ -12,6 +12,15 @@ use Illuminate\Support\Str;
 
 class TemplateController extends Controller
 {
+    private function ensureSuperAdmin(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || (int) ($user->role_id ?? 0) !== 1) {
+            return sendResponse(false, 'Only Super Admin can manage themes.', null, null, null, 403);
+        }
+
+        return null;
+    }
     /**
      * Display a listing of the resource.
      */
@@ -42,6 +51,10 @@ class TemplateController extends Controller
      */
     public function addEditProcess(Request $request)
     {
+        if ($response = $this->ensureSuperAdmin($request)) {
+            return $response;
+        }
+
         // return $request;
 
         $validator = Validator::make($request->all(), [
@@ -312,6 +325,10 @@ class TemplateController extends Controller
      */
     public function deleteTemplate(Request $request)
     {
+        if ($response = $this->ensureSuperAdmin($request)) {
+            return $response;
+        }
+
         $template = Template::find($request->template_id);
 
         if (!$template) {
@@ -336,6 +353,10 @@ class TemplateController extends Controller
      */
     public function renameTemplate(Request $request)
     {
+        if ($response = $this->ensureSuperAdmin($request)) {
+            return $response;
+        }
+
         $validator = Validator::make($request->all(), [
             'template_id' => 'required|integer',
             'name' => 'required|string|max:255',

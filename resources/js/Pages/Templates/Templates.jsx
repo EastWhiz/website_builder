@@ -19,8 +19,7 @@ export default function Dashboard() {
 
     const page = usePage().props;
     const roleId = page?.auth?.user?.role_id;
-    const roleName = page?.auth?.user?.role?.name;
-    const isAdmin = Number(roleId) === 1 || roleName === 'admin';
+    const isSuperAdmin = Number(roleId) === 1;
     // console.log(roleId);
 
     const [selected, setSelected] = useState(0);
@@ -277,7 +276,7 @@ export default function Dashboard() {
                     </Box>
                 </Text>
             </IndexTable.Cell>
-            {isAdmin &&
+            {isSuperAdmin &&
                 <IndexTable.Cell>
                     <Button variant='plain' icon={WrenchIcon} onClick={() => renameTemplateHandler(value)}></Button>
                     <span style={{ marginLeft: "10px" }}></span>
@@ -314,7 +313,7 @@ export default function Dashboard() {
                                             value={pageCount}
                                             onChange={handlePageCount}
                                         />
-                                        {isAdmin &&
+                                        {isSuperAdmin &&
                                             <>
                                                 <span style={{ marginRight: "10px" }}></span>
                                                 <MuiButton variant='contained' color='primary' onClick={() => router.get(route('addTemplate'))} sx={{ textTransform: "capitalize", height: "31px" }}>Add</MuiButton>
@@ -363,7 +362,7 @@ export default function Dashboard() {
                                                 { title: 'JS Count', alignment: 'center' },
                                                 { title: 'Image Count', alignment: 'center' },
                                                 { title: 'Font Count', alignment: 'center' },
-                                                ...(isAdmin ? [{ title: 'Action' }] : []),
+                                                ...(isSuperAdmin ? [{ title: 'Action' }] : []),
                                             ]}
                                             hasMoreItems
                                             selectable={false}
