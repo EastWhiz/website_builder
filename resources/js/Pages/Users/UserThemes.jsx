@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, usePage } from '@inertiajs/react';
-import { Box } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 
 import {
     AppProvider,
@@ -630,13 +630,21 @@ export default function Dashboard() {
                         {convertISOToYMD(value.created_at)}
                     </IndexTable.Cell>
                     <IndexTable.Cell>
-                        <Button variant="plain" icon={ViewIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Preview" />
+                        <Tooltip title="Preview landing page" arrow>
+                            <span><Button variant="plain" icon={ViewIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Preview landing page" /></span>
+                        </Tooltip>
                         <span style={{ margin: '10px' }} />
-                        <Button variant="plain" icon={ThemeEditIcon} onClick={() => openChangeThemeModal(value)} accessibilityLabel="Change theme" />
+                        <Tooltip title="Change theme" arrow>
+                            <span><Button variant="plain" icon={ThemeEditIcon} onClick={() => openChangeThemeModal(value)} accessibilityLabel="Change theme" /></span>
+                        </Tooltip>
                         <span style={{ margin: '10px' }} />
-                        <Button variant="plain" icon={PageDownIcon} onClick={() => openExportModal(value.id)} accessibilityLabel="Export" />
+                        <Tooltip title="Export landing page" arrow>
+                            <span><Button variant="plain" icon={PageDownIcon} onClick={() => openExportModal(value.id)} accessibilityLabel="Export landing page" /></span>
+                        </Tooltip>
                         <span style={{ margin: '10px' }} />
-                        <Button variant="plain" icon={DuplicateIcon} onClick={() => openCloneLandingModal(value)} accessibilityLabel="Clone to user" />
+                        <Tooltip title="Clone to user" arrow>
+                            <span><Button variant="plain" icon={DuplicateIcon} onClick={() => openCloneLandingModal(value)} accessibilityLabel="Clone landing page to user" /></span>
+                        </Tooltip>
                     </IndexTable.Cell>
                 </IndexTable.Row>
             );
@@ -659,21 +667,37 @@ export default function Dashboard() {
                     {convertISOToYMD(value.created_at)}
                 </IndexTable.Cell>
                 <IndexTable.Cell>
-                    <Button variant='plain' icon={PageDownIcon} onClick={() => openExportModal(value.id)}></Button>
+                    <Tooltip title="Export landing page" arrow>
+                        <span><Button variant='plain' icon={PageDownIcon} onClick={() => openExportModal(value.id)} accessibilityLabel="Export landing page"></Button></span>
+                    </Tooltip>
                     <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)}></Button>
+                    <Tooltip title="Rename landing page" arrow>
+                        <span><Button variant='plain' icon={WrenchIcon} onClick={() => openRenameModal(value.id, value.name)} accessibilityLabel="Rename landing page"></Button></span>
+                    </Tooltip>
                     <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={ThemeEditIcon} onClick={() => openChangeThemeModal(value)} accessibilityLabel="Change theme"></Button>
+                    <Tooltip title="Change theme" arrow>
+                        <span><Button variant='plain' icon={ThemeEditIcon} onClick={() => openChangeThemeModal(value)} accessibilityLabel="Change theme"></Button></span>
+                    </Tooltip>
                     <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={EditIcon} onClick={() => openLandingPreview(value.id)}></Button>
+                    <Tooltip title="Open editor" arrow>
+                        <span><Button variant='plain' icon={EditIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Open landing page editor"></Button></span>
+                    </Tooltip>
                     <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={ViewIcon} onClick={() => openLandingPreview(value.id)}></Button>
+                    <Tooltip title="Preview landing page" arrow>
+                        <span><Button variant='plain' icon={ViewIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Preview landing page"></Button></span>
+                    </Tooltip>
                     <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={LanguageIcon} onClick={() => openTranslateModal(value.id)}></Button>
+                    <Tooltip title="Translate landing page" arrow>
+                        <span><Button variant='plain' icon={LanguageIcon} onClick={() => openTranslateModal(value.id)} accessibilityLabel="Translate landing page"></Button></span>
+                    </Tooltip>
                     <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleTemplateHandler(value.id)}></Button>
+                    <Tooltip title="Delete landing page" arrow>
+                        <span><Button variant='plain' icon={DeleteIcon} onClick={() => deleteAngleTemplateHandler(value.id)} accessibilityLabel="Delete landing page"></Button></span>
+                    </Tooltip>
                     <span style={{ margin: "10px" }}></span>
-                    <Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleTemplateHandler(value.id)}></Button>
+                    <Tooltip title="Duplicate landing page" arrow>
+                        <span><Button variant='plain' icon={DuplicateIcon} onClick={() => duplicateAngleTemplateHandler(value.id)} accessibilityLabel="Duplicate landing page"></Button></span>
+                    </Tooltip>
                 </IndexTable.Cell>
             </IndexTable.Row >
         );
