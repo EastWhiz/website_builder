@@ -372,7 +372,7 @@ export default function Dashboard() {
 
         const confirm = await Swal.fire({
             title: 'Change theme?',
-            html: 'The landing page will be rebuilt from the angle and the new theme. <strong>Preview edits and custom uploads will be lost.</strong>',
+            html: 'Your <strong>article content and images will stay the same</strong>. The page layout will use the new theme shell with your existing content inside it.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#51a70a',
@@ -1015,8 +1015,8 @@ export default function Dashboard() {
                                 Current theme: {changeThemeTarget.template.name}
                             </Text>
                         )}
-                        <Text as="p" variant="bodySm" tone="caution">
-                            Preview edits and custom uploads will be replaced with a fresh merge from the angle and new theme.
+                        <Text as="p" variant="bodySm" tone="subdued">
+                            Article content and images are kept. Layout updates to the new theme shell.
                         </Text>
                     </div>
                     <Select

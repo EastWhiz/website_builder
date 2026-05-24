@@ -7,6 +7,8 @@ use App\Models\Template;
 
 class AngleTemplateMergeService
 {
+    private const BODY_PLACEHOLDER_PATTERN = '/<!--INTERNAL--BD\d+--EXTERNAL-->/';
+
     /**
      * Merge angle HTML bodies into a theme shell (same logic as new landing page creation).
      *
@@ -32,22 +34,13 @@ class AngleTemplateMergeService
             $mainHtml = str_replace("<!--INTERNAL--BD$bodyKey--EXTERNAL-->", $body->content, $mainHtml);
         }
 
+        $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
+        $mainCss = $this->rewriteTemplateFontPaths($mainCss, $template);
+
         $mainHtml = preg_replace(
             '/src="angle_images\//',
             'src="../../storage/angles/' . $angle->uuid . '/images/' . $angle->asset_unique_uuid . '-',
             $mainHtml
-        );
-
-        $mainHtml = preg_replace(
-            '/src="template_images\//',
-            'src="../../storage/templates/' . $template->uuid . '/images/' . $template->asset_unique_uuid . '-',
-            $mainHtml
-        );
-
-        $mainCss = preg_replace(
-            '/fonts\//',
-            '../../storage/templates/' . $template->uuid . '/fonts/' . $template->asset_unique_uuid . '-',
-            $mainCss
         );
 
         return [
@@ -55,5 +48,332 @@ class AngleTemplateMergeService
             'main_css' => $mainCss,
             'main_js' => $mainJs,
         ];
+    }
+
+    /**
+     * Change theme on an existing landing page: new theme shell + styles, keep current body content/images.
+     *
+     * @return array{main_html: string, main_css: string, main_js: string, content_preserved: bool}
+     */
+    public function changeThemePreservingContent(
+        Angle $angle,
+        string $currentMainHtml,
+        Template $oldTemplate,
+        Template $newTemplate
+    ): array {
+        $oldShellForMatching = $this->buildTemplateShellForMergedComparison($oldTemplate);
+        $bodies = $this->extractBodySegmentsFromMergedHtml($oldShellForMatching, $currentMainHtml);
+        if ($bodies === null || $bodies === []) {
+            $bodies = $this->extractBodySegmentsWithRegexAnchors($oldShellForMatching, $currentMainHtml);
+        }
+        $contentPreserved = $bodies !== null && $bodies !== [];
+
+        if ($contentPreserved) {
+            $sanitizedBodies = array_map(
+                fn (string $body) => $this->wrapBodyForThemeLayout($this->sanitizeBodySegment($body)),
+                $bodies
+            );
+            $mainHtml = $this->injectBodySegmentsIntoShell((string) $newTemplate->index, $sanitizedBodies);
+            $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $newTemplate);
+            $layoutGuardCss = $this->themeChangeLayoutGuardCss();
+        } else {
+            // Safe fallback: preserve current landing HTML as-is (keeps current language/content/images).
+            $mainHtml = '<div class="lp-theme-safe-content">' . $currentMainHtml . '</div>';
+            $layoutGuardCss = $this->themeChangeFallbackGuardCss();
+        }
+
+        $styles = $this->themeStylesOnly($newTemplate);
+        $mainCss = $styles['main_css'] . "\n" . $layoutGuardCss;
+
+        return [
+            'main_html' => $mainHtml,
+            'main_css' => $mainCss,
+            'main_js' => $styles['main_js'],
+            'content_preserved' => $contentPreserved,
+        ];
+    }
+
+    /**
+     * Fallback extractor:
+     * Build a tolerant regex from old shell static anchors and capture body sections between placeholders.
+     *
+     * @return array<int, string>|null
+     */
+    private function extractBodySegmentsWithRegexAnchors(string $templateIndexWithPlaceholders, string $mergedHtml): ?array
+    {
+        if (!preg_match_all(self::BODY_PLACEHOLDER_PATTERN, $templateIndexWithPlaceholders, $matches, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        $placeholders = $matches[0];
+        if ($placeholders === []) {
+            return null;
+        }
+
+        $staticParts = [];
+        $lastEnd = 0;
+        foreach ($placeholders as $placeholder) {
+            $staticParts[] = substr($templateIndexWithPlaceholders, $lastEnd, $placeholder[1] - $lastEnd);
+            $lastEnd = $placeholder[1] + strlen($placeholder[0]);
+        }
+        $staticParts[] = substr($templateIndexWithPlaceholders, $lastEnd);
+
+        $pattern = '/^';
+        $totalParts = count($staticParts);
+        for ($i = 0; $i < $totalParts; $i++) {
+            $pattern .= $this->buildFlexibleQuotedSegmentPattern($staticParts[$i]);
+            if ($i < $totalParts - 1) {
+                $pattern .= '(.*?)';
+            }
+        }
+        $pattern .= '$/is';
+
+        if (!preg_match($pattern, $mergedHtml, $captures)) {
+            return null;
+        }
+
+        $bodies = [];
+        for ($i = 1; $i <= count($placeholders); $i++) {
+            $bodies[] = $captures[$i] ?? '';
+        }
+
+        return $bodies;
+    }
+
+    private function buildFlexibleQuotedSegmentPattern(string $segment): string
+    {
+        $quoted = preg_quote($segment, '/');
+        // Make whitespace tolerant so pretty-print/minify differences do not break extraction.
+        $quoted = preg_replace('/(?:\\\\[rnt]|\\\\ )+/', '\\\\s*', $quoted);
+        // Tolerate accidental spacing between tags.
+        $quoted = str_replace('\\>\\<', '\\>\\s*\\<', $quoted);
+
+        return $quoted;
+    }
+
+    /**
+     * Extract body segments from merged HTML using the old theme shell as a map.
+     *
+     * @return array<int, string>|null
+     */
+    public function extractBodySegmentsFromMergedHtml(string $templateIndexWithPlaceholders, string $mergedHtml): ?array
+    {
+        if (!preg_match_all(self::BODY_PLACEHOLDER_PATTERN, $templateIndexWithPlaceholders, $matches, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        $placeholders = $matches[0];
+        if ($placeholders === []) {
+            return null;
+        }
+
+        $staticParts = [];
+        $lastEnd = 0;
+
+        foreach ($placeholders as $placeholder) {
+            $staticParts[] = substr($templateIndexWithPlaceholders, $lastEnd, $placeholder[1] - $lastEnd);
+            $lastEnd = $placeholder[1] + strlen($placeholder[0]);
+        }
+        $staticParts[] = substr($templateIndexWithPlaceholders, $lastEnd);
+
+        $bodies = [];
+        $pos = 0;
+
+        for ($i = 0; $i < count($placeholders); $i++) {
+            $prefix = $staticParts[$i];
+            if ($prefix !== '') {
+                $prefixPos = strpos($mergedHtml, $prefix, $pos);
+                if ($prefixPos === false) {
+                    return null;
+                }
+                $pos = $prefixPos + strlen($prefix);
+            }
+
+            $suffix = $staticParts[$i + 1];
+            if ($suffix !== '') {
+                $suffixPos = strpos($mergedHtml, $suffix, $pos);
+                if ($suffixPos === false) {
+                    return null;
+                }
+                $bodies[] = substr($mergedHtml, $pos, $suffixPos - $pos);
+                $pos = $suffixPos;
+            } else {
+                $bodies[] = substr($mergedHtml, $pos);
+            }
+        }
+
+        return $bodies;
+    }
+
+    /**
+     * @param  array<int, string>  $bodies
+     */
+    public function injectBodySegmentsIntoShell(string $shell, array $bodies): string
+    {
+        foreach ($bodies as $index => $body) {
+            $bodyKey = $index + 1;
+            $placeholder = "<!--INTERNAL--BD{$bodyKey}--EXTERNAL-->";
+            if (str_contains($shell, $placeholder)) {
+                $shell = str_replace($placeholder, $body, $shell);
+            }
+        }
+
+        return (string) preg_replace(self::BODY_PLACEHOLDER_PATTERN, '', $shell);
+    }
+
+    /**
+     * Theme shell styles only (fallback when body extraction is not possible).
+     *
+     * @return array{main_css: string, main_js: string}
+     */
+    public function themeStylesOnly(Template $template): array
+    {
+        $mainCss = '';
+        $template->contents()->where('type', 'css')->get()->each(function ($item) use (&$mainCss) {
+            $mainCss .= $item->content;
+        });
+
+        $mainJs = '';
+        $template->contents()->where('type', 'js')->get()->each(function ($item) use (&$mainJs) {
+            $mainJs .= $item->content . "\n";
+        });
+
+        $mainCss = $this->rewriteTemplateFontPaths($mainCss, $template);
+
+        return [
+            'main_css' => $mainCss,
+            'main_js' => $mainJs,
+        ];
+    }
+
+    private function rewriteTemplateImagePaths(string $html, Template $template): string
+    {
+        return (string) preg_replace(
+            '/src="template_images\//',
+            'src="../../storage/templates/' . $template->uuid . '/images/' . $template->asset_unique_uuid . '-',
+            $html
+        );
+    }
+
+    private function rewriteTemplateFontPaths(string $css, Template $template): string
+    {
+        return (string) preg_replace(
+            '/fonts\//',
+            '../../storage/templates/' . $template->uuid . '/fonts/' . $template->asset_unique_uuid . '-',
+            $css
+        );
+    }
+
+    /**
+     * Convert template shell placeholders to the same path format used in saved merged landing HTML.
+     * This makes body extraction robust during theme change.
+     */
+    private function buildTemplateShellForMergedComparison(Template $template): string
+    {
+        return $this->rewriteTemplateImagePaths((string) $template->index, $template);
+    }
+
+    /**
+     * Remove preview-editor full-width styles and legacy theme wrapper divs from a body segment.
+     */
+    public function sanitizeBodySegment(string $body): string
+    {
+        $body = trim($body);
+        if ($body === '') {
+            return $body;
+        }
+
+        $body = (string) preg_replace('/\sstyle="\s*"/i', '', $body);
+
+        foreach (['main_parent_container', 'main-container', 'main-con-box'] as $className) {
+            $pattern = '/^<div[^>]*class="[^"]*\\b'
+                . preg_quote($className, '/')
+                . '\\b[^"]*"[^>]*>(.*)<\\/div>\\s*$/is';
+
+            if (preg_match($pattern, $body, $matches)) {
+                $body = trim($matches[1]);
+            }
+        }
+
+        return $body;
+    }
+
+    /**
+     * Center article content when the new theme shell does not constrain body width.
+     */
+    public function wrapBodyForThemeLayout(string $body): string
+    {
+        $body = trim($body);
+        if ($body === '' || str_contains($body, 'lp-theme-body-inner')) {
+            return $body;
+        }
+
+        return '<div class="lp-theme-body-inner">' . $body . '</div>';
+    }
+
+    /**
+     * Layout guard appended after theme change so images/text are not forced to viewport width.
+     */
+    public function themeChangeLayoutGuardCss(): string
+    {
+        return <<<'CSS'
+.lp-theme-body-inner {
+    max-width: 1140px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    box-sizing: border-box;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.lp-theme-body-inner img {
+    max-width: 100% !important;
+    height: auto !important;
+    width: auto !important;
+}
+.lp-theme-body-inner h1,
+.lp-theme-body-inner h2,
+.lp-theme-body-inner h3,
+.lp-theme-body-inner p {
+    max-width: 100%;
+}
+CSS;
+    }
+
+    /**
+     * Stronger guard used only when body remapping fails and we preserve current HTML wholesale.
+     * Prevents unreadable one-word-per-line titles and hidden/oversized images from incompatible theme styles.
+     */
+    public function themeChangeFallbackGuardCss(): string
+    {
+        return <<<'CSS'
+.lp-theme-safe-content {
+    max-width: 1140px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    box-sizing: border-box;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.lp-theme-safe-content img {
+    display: block !important;
+    max-width: 100% !important;
+    width: auto !important;
+    height: auto !important;
+}
+.lp-theme-safe-content h1,
+.lp-theme-safe-content h2,
+.lp-theme-safe-content h3,
+.lp-theme-safe-content h4,
+.lp-theme-safe-content p,
+.lp-theme-safe-content span,
+.lp-theme-safe-content div {
+    max-width: none !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+CSS;
     }
 }

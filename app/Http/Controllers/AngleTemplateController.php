@@ -321,23 +321,36 @@ class AngleTemplateController extends Controller
             return sendResponse(false, 'This landing page already uses the selected theme.', null, null, null, 422);
         }
 
+        $oldTemplate = Template::query()->where('id', (int) $angleTemplate->template_id)->first();
+        if (!$oldTemplate) {
+            return sendResponse(false, 'Current theme could not be loaded.', null, null, null, 422);
+        }
+
         DB::beginTransaction();
         try {
-            $merged = $this->angleTemplateMergeService->merge($angleTemplate->angle, $template);
-
-            $this->clearAngleTemplateCustomAssets($angleTemplate);
+            $result = $this->angleTemplateMergeService->changeThemePreservingContent(
+                $angleTemplate->angle,
+                (string) $angleTemplate->main_html,
+                $oldTemplate,
+                $template
+            );
 
             $angleTemplate->template_id = $template->id;
-            $angleTemplate->main_html = $merged['main_html'];
-            $angleTemplate->main_css = $merged['main_css'];
-            $angleTemplate->main_js = $merged['main_js'];
+            $angleTemplate->main_html = $result['main_html'];
+            $angleTemplate->main_css = $result['main_css'];
+            $angleTemplate->main_js = $result['main_js'];
             $angleTemplate->save();
 
             DB::commit();
 
-            return sendResponse(true, 'Landing page theme changed successfully.', [
+            $message = $result['content_preserved']
+                ? 'Landing page theme changed successfully. Your content and images were kept.'
+                : 'Landing page theme changed with safe content preservation mode. Current content/language was kept as-is.';
+
+            return sendResponse(true, $message, [
                 'angle_template_id' => $angleTemplate->id,
                 'template_id' => $angleTemplate->template_id,
+                'content_preserved' => $result['content_preserved'],
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
