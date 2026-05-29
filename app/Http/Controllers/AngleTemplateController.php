@@ -2242,6 +2242,7 @@ class AngleTemplateController extends Controller
             $userApiCredentials = $user->apiCredential;
             $filesToExport = $this->getExportFilesList($publicFilesPath, $fullHtml);
             $apiExportContext = $this->buildApiExportContext($fullHtml);
+            $apiExportContext['thank_you_page'] = $selectedThankYouPage;
 
             // Get form_type from HTML and resolve to UserApiInstance (so existing pages keep the correct API)
             $formType = $this->getFormTypeFromHtml($fullHtml);
@@ -2699,9 +2700,13 @@ class AngleTemplateController extends Controller
                     break;
 
                 case 'thank_you.php':
-                    if ($userApiCredentials) {
-                        $content = str_replace("let DynamicFacebookPixelURL = '';", "let DynamicFacebookPixelURL = '" . ($userApiCredentials->facebook_pixel_url ?? '') . "';", $content);
-                        $content = str_replace("let DynamicSecondaryPixelURL = '';", "let DynamicSecondaryPixelURL = '" . ($userApiCredentials->second_pixel_url ?? '') . "';", $content);
+                    $thankYouPage = $exportContext['thank_you_page'] ?? null;
+                    if ($thankYouPage instanceof ThankYouPage || $userApiCredentials) {
+                        $content = ThankYouPage::injectPixelUrlsIntoThankYouContent(
+                            $content,
+                            $thankYouPage instanceof ThankYouPage ? $thankYouPage : null,
+                            $userApiCredentials
+                        );
                     }
                     // Use relative ../images/ path so exported structure works from api_files/
                     $content = str_replace("PROJECTURL/", "../images/", $content);

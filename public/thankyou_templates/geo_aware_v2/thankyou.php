@@ -49,6 +49,64 @@ try {
     <link rel="shortcut icon" href="./external_assets/static-133.b-cdn.net/72798/images/YwXOg0ImYK.webp" type="image/x-icon">
 
     <title>AI - Thank You</title>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const pid = urlParams.get('pid');
+
+            let DynamicFacebookPixelURL = '';
+            if (!DynamicFacebookPixelURL) {
+                DynamicFacebookPixelURL = 'https://conversionpixel.com/fb.php';
+            }
+
+            if (pid) {
+                const iframe = document.createElement('iframe');
+                iframe.src = `${DynamicFacebookPixelURL}?pid=${encodeURIComponent(pid)}`;
+                iframe.rel = "noreferrer";
+                iframe.crossOrigin = "anonymous";
+                iframe.scrolling = "no";
+                iframe.frameBorder = "0";
+                iframe.width = "1";
+                iframe.height = "1";
+                iframe.style.display = "none";
+
+                document.body.appendChild(iframe);
+            }
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const cid = urlParams.get('cid');
+
+            let DynamicSecondaryPixelURL = '';
+            if (!DynamicSecondaryPixelURL) {
+                DynamicSecondaryPixelURL = 'http://plz.hold1sec.com/postback';
+            }
+
+            if (cid) {
+                const postbackURL = `${DynamicSecondaryPixelURL}?cid=${encodeURIComponent(cid)}&payout=0&currency=USD&txid=lead`;
+
+                const hiddenAnchor = document.getElementById('postbackLink');
+                if (hiddenAnchor) {
+                    hiddenAnchor.href = postbackURL;
+                }
+
+                fetch(postbackURL, {
+                        method: 'GET',
+                        mode: 'no-cors'
+                    })
+                    .then(() => {
+                        console.log('Postback URL fired successfully');
+                    })
+                    .catch(error => {
+                        console.error('Error while firing Postback URL:', error);
+                    });
+            }
+        });
+    </script>
 </head>
 
 <body>
@@ -205,6 +263,8 @@ try {
 <script src="./js/l.js"></script>
 <script src="./external_assets/static-133.b-cdn.net/72798/build/funnel.js"></script>
 <script defer src="./external_assets/static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" data-cf-beacon='{"version":"2024.11.0","token":"70ba82b012b34105a330491b0c32d78a","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}'></script>
+
+<a id="postbackLink" href="#" style="display: none;"></a>
 </body>
 
 </html>

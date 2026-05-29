@@ -172,6 +172,10 @@ class OrganizationContentUserAssignmentController extends Controller
                     'hero_background_color' => $source->hero_background_color,
                     'logo_path' => null,
                     'profile_image_path' => null,
+                    'template_type' => $source->template_type,
+                    'v2_content' => $source->v2_content,
+                    'facebook_pixel_url' => $source->facebook_pixel_url,
+                    'second_pixel_url' => $source->second_pixel_url,
                 ]);
 
                 $paths = $this->thankYouPageImageService->copyImagesFromPage($source, $newPage);

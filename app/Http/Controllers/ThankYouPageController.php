@@ -119,6 +119,7 @@ class ThankYouPageController extends Controller
         $isLegacy = false;
         $validated = $request->validate($this->thankYouValidationRules($isLegacy, false));
         $v2Content = $this->normalizeGeoAwareV2Content($this->extractV2Content($validated));
+        $pixelUrls = ThankYouPage::pixelUrlsFromUser($request->user());
 
         $page = ThankYouPage::create([
             'user_id' => $request->user()->id,
@@ -131,6 +132,8 @@ class ThankYouPageController extends Controller
             'profile_image_path' => null,
             'template_type' => $validated['template_type'] ?? ThankYouPage::TEMPLATE_TYPE_LEGACY,
             'v2_content' => $v2Content,
+            'facebook_pixel_url' => $pixelUrls['facebook_pixel_url'],
+            'second_pixel_url' => $pixelUrls['second_pixel_url'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -333,6 +336,8 @@ class ThankYouPageController extends Controller
             'hero_background_color' => $source->hero_background_color,
             'template_type' => ThankYouPage::TEMPLATE_TYPE_LEGACY,
             'v2_content' => null,
+            'facebook_pixel_url' => $source->facebook_pixel_url,
+            'second_pixel_url' => $source->second_pixel_url,
         ]);
     }
 
@@ -407,6 +412,8 @@ class ThankYouPageController extends Controller
             'hero_background_color' => $source->hero_background_color,
             'template_type' => ThankYouPage::TEMPLATE_TYPE_GEO_AWARE_V2,
             'v2_content' => $v2,
+            'facebook_pixel_url' => $source->facebook_pixel_url,
+            'second_pixel_url' => $source->second_pixel_url,
         ]);
     }
 

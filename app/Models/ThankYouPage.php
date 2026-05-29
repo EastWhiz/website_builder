@@ -24,6 +24,8 @@ class ThankYouPage extends Model
         'hero_background_color',
         'template_type',
         'v2_content',
+        'facebook_pixel_url',
+        'second_pixel_url',
     ];
 
     protected $casts = [
@@ -76,5 +78,59 @@ class ThankYouPage extends Model
             return null;
         }
         return asset(ltrim($this->profile_image_path, '/'));
+    }
+
+    /**
+     * Copy pixel URLs from the user's API credentials (Profile → Pixel Management).
+     *
+     * @return array{facebook_pixel_url: ?string, second_pixel_url: ?string}
+     */
+    public static function pixelUrlsFromUser(?User $user): array
+    {
+        if (!$user) {
+            return ['facebook_pixel_url' => null, 'second_pixel_url' => null];
+        }
+
+        $credentials = $user->apiCredential;
+        $facebook = trim((string) ($credentials?->facebook_pixel_url ?? ''));
+        $second = trim((string) ($credentials?->second_pixel_url ?? ''));
+
+        return [
+            'facebook_pixel_url' => $facebook !== '' ? $facebook : null,
+            'second_pixel_url' => $second !== '' ? $second : null,
+        ];
+    }
+
+    /**
+     * Inject Facebook/Voluum pixel URLs into exported thank_you.php content.
+     * Page-level URLs take precedence; falls back to export-time user credentials.
+     */
+    public static function injectPixelUrlsIntoThankYouContent(
+        string $content,
+        ?self $page,
+        ?UserApiCredential $credentials
+    ): string {
+        $facebook = trim((string) ($page?->facebook_pixel_url ?? ''));
+        if ($facebook === '') {
+            $facebook = trim((string) ($credentials?->facebook_pixel_url ?? ''));
+        }
+
+        $second = trim((string) ($page?->second_pixel_url ?? ''));
+        if ($second === '') {
+            $second = trim((string) ($credentials?->second_pixel_url ?? ''));
+        }
+
+        $content = str_replace(
+            "let DynamicFacebookPixelURL = '';",
+            "let DynamicFacebookPixelURL = '" . $facebook . "';",
+            $content
+        );
+        $content = str_replace(
+            "let DynamicSecondaryPixelURL = '';",
+            "let DynamicSecondaryPixelURL = '" . $second . "';",
+            $content
+        );
+
+        return $content;
     }
 }
