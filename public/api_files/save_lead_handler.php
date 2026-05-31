@@ -10,6 +10,43 @@ function getValInside($arr, $key)
     return isset($arr[$key]) ? $arr[$key] : '';
 }
 
+function normalizeTrackingValue($value): string
+{
+    $normalized = trim((string) $value);
+    if ($normalized === '') {
+        return '';
+    }
+
+    $upper = strtoupper($normalized);
+    if (in_array($upper, ['N/A', 'NULL', 'UNDEFINED'], true)) {
+        return '';
+    }
+
+    return $normalized;
+}
+
+function resolveCanonicalCid(array $postData, array $getData, array $apiPayload = []): string
+{
+    $candidates = [
+        $getData['cid'] ?? null,
+        $postData['cid'] ?? null,
+        $apiPayload['cid'] ?? null,
+        $postData['aff_sub'] ?? null,
+        $apiPayload['aff_sub'] ?? null,
+        $postData['click_id'] ?? null,
+        $apiPayload['click_id'] ?? null,
+    ];
+
+    foreach ($candidates as $candidate) {
+        $normalized = normalizeTrackingValue($candidate);
+        if ($normalized !== '') {
+            return $normalized;
+        }
+    }
+
+    return '';
+}
+
 function truthyValue($value): bool
 {
     if (is_bool($value)) {
@@ -267,6 +304,10 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
     }
 
     $apiPayload = is_array($data) ? $data : [];
+    $canonicalCid = resolveCanonicalCid($postData, $getData, $apiPayload);
+    if ($canonicalCid !== '') {
+        $apiPayload['cid'] = $canonicalCid;
+    }
     $apiPayload['aweber_form'] = [
         'use_aweber' => $postData['use_aweber'] ?? 'no',
         'aweber_user_api_instance_id' => $postData['aweber_user_api_instance_id'] ?? '',
@@ -289,7 +330,7 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'api_response_status' => $apiResponseStatus,
         'is_self_hosted' => (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false,
         'so' => getValInside($getData, 'so') ?? '',
-        'cid' => getValInside($getData, 'cid') ?? '',
+        'cid' => $canonicalCid,
         'ip_address' => $leadIp,
         'country' => $leadCountry,
         'is_fake_lead' => (bool) ($options['is_fake_lead'] ?? false),
