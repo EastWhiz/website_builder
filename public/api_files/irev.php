@@ -231,10 +231,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data['offer_id'] = $offerPost;
     }
 
-    // Provider: aff_sub is set only when aff_sub is present in lead input; value is click id (cid)
-    $affSubFlag = trim(getVal($postData, 'aff_sub'));
-    if ($affSubFlag !== '') {
-        $clickForSub = $dynamicCid !== '' ? $dynamicCid : trim(getVal($postData, 'cid'));
+    // Provider: always pass click id (cid) to iRev/Nauta when available.
+    $clickForSub = $dynamicCid !== '' ? $dynamicCid : trim(getVal($postData, 'cid'));
+    if ($clickForSub !== '') {
         $data['aff_sub'] = (string) $clickForSub;
     }
     // Pass SO to affsub_3 as requested by integration contract.

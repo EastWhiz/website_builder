@@ -32,6 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $dynamicCid = getVal($getData, 'cid') ?? '';
+    if ($dynamicCid === '' && trim(getVal($postData, 'cid')) !== '') {
+        $dynamicCid = trim(getVal($postData, 'cid'));
+    }
     $dynamicPid = getVal($getData, 'pid') ?? '';
     $dynamicSO = getVal($getData, 'so') ?? '';
 

@@ -1234,7 +1234,6 @@ class AngleTemplateController extends Controller
 
                 function syncTrackingParamsFromUrl(form) {
                     if (!form) return;
-                    if (!isGetLinkedPlatform(form)) return;
                     const q = new URLSearchParams(window.location.search);
                     ["cid", "pid", "so"].forEach((k) => {
                         const v = q.get(k);
@@ -1325,7 +1324,7 @@ class AngleTemplateController extends Controller
                                 input.form.appendChild(selfHosted);
                             }
 
-                            // Only GetLinked needs cid/pid/so copied from URL; other platforms no-op via isGetLinkedPlatform().
+                            // Always preserve tracking params in POST so CRM receives CID even when form action/query is changed.
                             syncTrackingParamsFromUrl(input.form);
                             ensureUseAweberFlag(input.form);
                             ensureHoneypotInputs(input.form);

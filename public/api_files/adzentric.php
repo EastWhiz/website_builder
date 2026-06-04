@@ -26,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
 
     $dynamicCid = $getData['cid'] ?? '';
+    if ($dynamicCid === '' && trim((string) ($postData['cid'] ?? '')) !== '') {
+        $dynamicCid = trim((string) $postData['cid']);
+    }
     $dynamicPid = $getData['pid'] ?? '';
     $dynamicSO = $getData['so'] ?? '';
 
