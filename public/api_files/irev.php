@@ -20,6 +20,33 @@ function getVal($arr, $key)
     return isset($arr[$key]) ? $arr[$key] : '';
 }
 
+function getTrackingVal(array $postData, array $getData, string $key): string
+{
+    $value = trim((string) getVal($getData, $key));
+    if ($value !== '') {
+        return $value;
+    }
+
+    $value = trim((string) getVal($postData, $key));
+    if ($value !== '') {
+        return $value;
+    }
+
+    $referer = $_SERVER['HTTP_REFERER'] ?? '';
+    if ($referer !== '') {
+        $query = parse_url($referer, PHP_URL_QUERY);
+        if (is_string($query) && $query !== '') {
+            parse_str($query, $refererParams);
+            $value = trim((string) ($refererParams[$key] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+    }
+
+    return '';
+}
+
 /**
  * Optional phone for iRev (IrevPlatformProvider): if empty, no phone fields are sent.
  * If present, must be valid E.164 (+â€¦digits) or US 10-digit national (no libphonenumber in export).
@@ -117,21 +144,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
     maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
-    $dynamicCid = getVal($getData, 'cid');
-    $dynamicPid = getVal($getData, 'pid');
-    $dynamicSO = getVal($getData, 'so');
-    // Robust cid/pid/so handling (GET first, then fall back to POST).
-    // This mirrors `trackbox.php` so thank-you page tracking works even if the form submit URL
-    // does not include cid/pid/so in the query string.
-    if ($dynamicCid === '' && trim(getVal($postData, 'cid')) !== '') {
-        $dynamicCid = trim(getVal($postData, 'cid'));
-    }
-    if ($dynamicPid === '' && trim(getVal($postData, 'pid')) !== '') {
-        $dynamicPid = trim(getVal($postData, 'pid'));
-    }
-    if ($dynamicSO === '' && trim(getVal($postData, 'so')) !== '') {
-        $dynamicSO = trim(getVal($postData, 'so'));
-    }
+    $dynamicCid = getTrackingVal($postData, $getData, 'cid');
+    $dynamicPid = getTrackingVal($postData, $getData, 'pid');
+    $dynamicSO = getTrackingVal($postData, $getData, 'so');
 
     $formType = trim(getVal($postData, 'form_type'));
     $saveLeadSlug = trim(getVal($postData, 'save_lead_slug'));

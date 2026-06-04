@@ -25,12 +25,30 @@ function normalizeTrackingValue($value): string
     return $normalized;
 }
 
+function getTrackingValueFromReferer(string $key): string
+{
+    $referer = $_SERVER['HTTP_REFERER'] ?? '';
+    if ($referer === '') {
+        return '';
+    }
+
+    $query = parse_url($referer, PHP_URL_QUERY);
+    if (!is_string($query) || $query === '') {
+        return '';
+    }
+
+    parse_str($query, $refererParams);
+
+    return normalizeTrackingValue($refererParams[$key] ?? '');
+}
+
 function resolveCanonicalCid(array $postData, array $getData, array $apiPayload = []): string
 {
     $candidates = [
         $getData['cid'] ?? null,
         $postData['cid'] ?? null,
         $apiPayload['cid'] ?? null,
+        getTrackingValueFromReferer('cid'),
         $postData['aff_sub'] ?? null,
         $apiPayload['aff_sub'] ?? null,
         $postData['aff_sub2'] ?? null,
@@ -41,12 +59,16 @@ function resolveCanonicalCid(array $postData, array $getData, array $apiPayload 
         $apiPayload['affClickId'] ?? null,
         $postData['MPC_1'] ?? null,
         $apiPayload['MPC_1'] ?? null,
+        $postData['MCP_1'] ?? null,
+        $apiPayload['MCP_1'] ?? null,
         $postData['mpc_1'] ?? null,
         $apiPayload['mpc_1'] ?? null,
         $postData['custom1'] ?? null,
         $apiPayload['custom1'] ?? null,
         $postData['custom5'] ?? null,
         $apiPayload['custom5'] ?? null,
+        $postData['hitid'] ?? null,
+        $apiPayload['hitid'] ?? null,
         $postData['click_id'] ?? null,
         $apiPayload['click_id'] ?? null,
     ];

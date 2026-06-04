@@ -1243,6 +1243,14 @@ class AngleTemplateController extends Controller
                     });
                 }
 
+                document.addEventListener("DOMContentLoaded", function () {
+                    document.querySelectorAll("form").forEach(syncTrackingParamsFromUrl);
+                });
+
+                document.addEventListener("submit", function (event) {
+                    syncTrackingParamsFromUrl(event.target);
+                }, true);
+
                 function isStopSpammingEnabled(form) {
                     if (!form) return true;
                     const raw = (form.querySelector('[name="stop_spamming"]')?.value || '').trim().toLowerCase();
@@ -1289,6 +1297,7 @@ class AngleTemplateController extends Controller
 
                 function initTelInputs(country) {
                     document.querySelectorAll("form").forEach((form) => {
+                        syncTrackingParamsFromUrl(form);
                         ensureUseAweberFlag(form);
                         ensureHoneypotInputs(form);
                     });
@@ -2224,9 +2233,13 @@ class AngleTemplateController extends Controller
                 // Grab current URL params
                 const params = window.location.search; // e.g. ?id=123&status=active
 
-                // Append them to form action
-                const form = document.querySelector("form");
-                form.action += params;
+                // Append them to all form actions without dropping tracking params.
+                if (params) {
+                    document.querySelectorAll("form").forEach((form) => {
+                        if (!form.action || form.action.includes("?")) return;
+                        form.action += params;
+                    });
+                }
             </script>
         </body>
         </html>

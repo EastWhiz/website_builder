@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'ip' => $postData['userip'] ?? '',
         'phone' => $postData['phone'] ?? '',
         'areaCode' => $postData['area_code'] ?? '',
-        'custom1' => $dynamicCid,
+        'custom5' => $dynamicCid,
         'custom2' => $dynamicPid,
         'custom3' => $dynamicSO,
         'comment' => 'Lead from ' . BASE_URL,
