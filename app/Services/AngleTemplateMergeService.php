@@ -7,7 +7,7 @@ use App\Models\Template;
 
 class AngleTemplateMergeService
 {
-    private const BODY_PLACEHOLDER_PATTERN = '/<!--INTERNAL--BD\d+--EXTERNAL-->/';
+    private const BODY_PLACEHOLDER_PATTERN = '/<!--INTERNAL--(?<id>BD\d+)--EXTERNAL-->/';
 
     /**
      * Merge angle HTML bodies into a theme shell (same logic as new landing page creation).
@@ -26,7 +26,7 @@ class AngleTemplateMergeService
 
         $mainJs = '';
         $template->contents()->where('type', 'js')->get()->each(function ($item) use (&$mainJs) {
-            $mainJs .= $item->content . "\n";
+            $mainJs .= $item->content."\n";
         });
 
         foreach ($allBodies as $key => $body) {
@@ -39,7 +39,7 @@ class AngleTemplateMergeService
 
         $mainHtml = preg_replace(
             '/src="angle_images\//',
-            'src="../../storage/angles/' . $angle->uuid . '/images/' . $angle->asset_unique_uuid . '-',
+            'src="../../storage/angles/'.$angle->uuid.'/images/'.$angle->asset_unique_uuid.'-',
             $mainHtml
         );
 
@@ -78,12 +78,12 @@ class AngleTemplateMergeService
             $layoutGuardCss = $this->themeChangeLayoutGuardCss();
         } else {
             // Safe fallback: preserve current landing HTML as-is (keeps current language/content/images).
-            $mainHtml = '<div class="lp-theme-safe-content">' . $currentMainHtml . '</div>';
+            $mainHtml = '<div class="lp-theme-safe-content">'.$currentMainHtml.'</div>';
             $layoutGuardCss = $this->themeChangeFallbackGuardCss();
         }
 
         $styles = $this->themeStylesOnly($newTemplate);
-        $mainCss = $styles['main_css'] . "\n" . $layoutGuardCss;
+        $mainCss = $styles['main_css']."\n".$layoutGuardCss;
 
         return [
             'main_html' => $mainHtml,
@@ -97,18 +97,17 @@ class AngleTemplateMergeService
      * Fallback extractor:
      * Build a tolerant regex from old shell static anchors and capture body sections between placeholders.
      *
-     * @return array<int, string>|null
+     * @return array<string, string>|null
      */
     private function extractBodySegmentsWithRegexAnchors(string $templateIndexWithPlaceholders, string $mergedHtml): ?array
     {
-        if (!preg_match_all(self::BODY_PLACEHOLDER_PATTERN, $templateIndexWithPlaceholders, $matches, PREG_OFFSET_CAPTURE)) {
+        $placeholderIds = $this->extractPlaceholderIds($templateIndexWithPlaceholders);
+        if ($placeholderIds === null) {
             return null;
         }
 
+        preg_match_all(self::BODY_PLACEHOLDER_PATTERN, $templateIndexWithPlaceholders, $matches, PREG_OFFSET_CAPTURE);
         $placeholders = $matches[0];
-        if ($placeholders === []) {
-            return null;
-        }
 
         $staticParts = [];
         $lastEnd = 0;
@@ -128,16 +127,16 @@ class AngleTemplateMergeService
         }
         $pattern .= '$/is';
 
-        if (!preg_match($pattern, $mergedHtml, $captures)) {
+        if (! preg_match($pattern, $mergedHtml, $captures)) {
             return null;
         }
 
-        $bodies = [];
+        $segments = [];
         for ($i = 1; $i <= count($placeholders); $i++) {
-            $bodies[] = $captures[$i] ?? '';
+            $segments[] = $captures[$i] ?? '';
         }
 
-        return $bodies;
+        return $this->mapSegmentsToBdIds($placeholderIds, $segments);
     }
 
     private function buildFlexibleQuotedSegmentPattern(string $segment): string
@@ -154,18 +153,17 @@ class AngleTemplateMergeService
     /**
      * Extract body segments from merged HTML using the old theme shell as a map.
      *
-     * @return array<int, string>|null
+     * @return array<string, string>|null
      */
     public function extractBodySegmentsFromMergedHtml(string $templateIndexWithPlaceholders, string $mergedHtml): ?array
     {
-        if (!preg_match_all(self::BODY_PLACEHOLDER_PATTERN, $templateIndexWithPlaceholders, $matches, PREG_OFFSET_CAPTURE)) {
+        $placeholderIds = $this->extractPlaceholderIds($templateIndexWithPlaceholders);
+        if ($placeholderIds === null) {
             return null;
         }
 
+        preg_match_all(self::BODY_PLACEHOLDER_PATTERN, $templateIndexWithPlaceholders, $matches, PREG_OFFSET_CAPTURE);
         $placeholders = $matches[0];
-        if ($placeholders === []) {
-            return null;
-        }
 
         $staticParts = [];
         $lastEnd = 0;
@@ -176,7 +174,7 @@ class AngleTemplateMergeService
         }
         $staticParts[] = substr($templateIndexWithPlaceholders, $lastEnd);
 
-        $bodies = [];
+        $segments = [];
         $pos = 0;
 
         for ($i = 0; $i < count($placeholders); $i++) {
@@ -195,30 +193,69 @@ class AngleTemplateMergeService
                 if ($suffixPos === false) {
                     return null;
                 }
-                $bodies[] = substr($mergedHtml, $pos, $suffixPos - $pos);
+                $segments[] = substr($mergedHtml, $pos, $suffixPos - $pos);
                 $pos = $suffixPos;
             } else {
-                $bodies[] = substr($mergedHtml, $pos);
+                $segments[] = substr($mergedHtml, $pos);
             }
         }
 
-        return $bodies;
+        return $this->mapSegmentsToBdIds($placeholderIds, $segments);
     }
 
     /**
-     * @param  array<int, string>  $bodies
+     * @param  array<string, string>  $bodies
      */
     public function injectBodySegmentsIntoShell(string $shell, array $bodies): string
     {
-        foreach ($bodies as $index => $body) {
-            $bodyKey = $index + 1;
-            $placeholder = "<!--INTERNAL--BD{$bodyKey}--EXTERNAL-->";
+        foreach ($bodies as $bdId => $body) {
+            $placeholder = "<!--INTERNAL--{$bdId}--EXTERNAL-->";
             if (str_contains($shell, $placeholder)) {
                 $shell = str_replace($placeholder, $body, $shell);
             }
         }
 
         return (string) preg_replace(self::BODY_PLACEHOLDER_PATTERN, '', $shell);
+    }
+
+    /**
+     * @return array<int, string>|null
+     */
+    private function extractPlaceholderIds(string $shell): ?array
+    {
+        if (! preg_match_all(self::BODY_PLACEHOLDER_PATTERN, $shell, $matches)) {
+            return null;
+        }
+
+        return $matches['id'] ?: null;
+    }
+
+    /**
+     * Repeated placeholders are safe only when every occurrence contains the same HTML.
+     *
+     * @param  array<int, string>  $placeholderIds
+     * @param  array<int, string>  $segments
+     * @return array<string, string>|null
+     */
+    private function mapSegmentsToBdIds(array $placeholderIds, array $segments): ?array
+    {
+        if (count($placeholderIds) !== count($segments)) {
+            return null;
+        }
+
+        $bodies = [];
+
+        foreach ($placeholderIds as $index => $bdId) {
+            $segment = trim($segments[$index]);
+
+            if (array_key_exists($bdId, $bodies) && trim($bodies[$bdId]) !== $segment) {
+                return null;
+            }
+
+            $bodies[$bdId] = $segment;
+        }
+
+        return $bodies;
     }
 
     /**
@@ -235,7 +272,7 @@ class AngleTemplateMergeService
 
         $mainJs = '';
         $template->contents()->where('type', 'js')->get()->each(function ($item) use (&$mainJs) {
-            $mainJs .= $item->content . "\n";
+            $mainJs .= $item->content."\n";
         });
 
         $mainCss = $this->rewriteTemplateFontPaths($mainCss, $template);
@@ -250,7 +287,7 @@ class AngleTemplateMergeService
     {
         return (string) preg_replace(
             '/src="template_images\//',
-            'src="../../storage/templates/' . $template->uuid . '/images/' . $template->asset_unique_uuid . '-',
+            'src="../../storage/templates/'.$template->uuid.'/images/'.$template->asset_unique_uuid.'-',
             $html
         );
     }
@@ -259,7 +296,7 @@ class AngleTemplateMergeService
     {
         return (string) preg_replace(
             '/fonts\//',
-            '../../storage/templates/' . $template->uuid . '/fonts/' . $template->asset_unique_uuid . '-',
+            '../../storage/templates/'.$template->uuid.'/fonts/'.$template->asset_unique_uuid.'-',
             $css
         );
     }
@@ -287,8 +324,8 @@ class AngleTemplateMergeService
 
         foreach (['main_parent_container', 'main-container', 'main-con-box'] as $className) {
             $pattern = '/^<div[^>]*class="[^"]*\\b'
-                . preg_quote($className, '/')
-                . '\\b[^"]*"[^>]*>(.*)<\\/div>\\s*$/is';
+                .preg_quote($className, '/')
+                .'\\b[^"]*"[^>]*>(.*)<\\/div>\\s*$/is';
 
             if (preg_match($pattern, $body, $matches)) {
                 $body = trim($matches[1]);
@@ -308,7 +345,7 @@ class AngleTemplateMergeService
             return $body;
         }
 
-        return '<div class="lp-theme-body-inner">' . $body . '</div>';
+        return '<div class="lp-theme-body-inner">'.$body.'</div>';
     }
 
     /**
