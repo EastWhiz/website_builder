@@ -334,6 +334,10 @@ class AngleTemplateController extends Controller
                 $oldTemplate,
                 $template
             );
+            $missingPreservedAssets = array_values(array_filter(
+                $result['preserved_asset_paths'],
+                fn (string $path) => !Storage::disk('public')->exists($path)
+            ));
 
             $angleTemplate->template_id = $template->id;
             $angleTemplate->main_html = $result['main_html'];
@@ -343,14 +347,39 @@ class AngleTemplateController extends Controller
 
             DB::commit();
 
+            if (!$result['content_preserved']) {
+                Log::warning('Landing page theme change used safe content preservation mode.', [
+                    'angle_template_id' => $angleTemplate->id,
+                    'source_template_id' => $oldTemplate->id,
+                    'target_template_id' => $template->id,
+                    'source_repeated_bds' => $result['source_repeated_bds'],
+                    'target_repeated_bds' => $result['target_repeated_bds'],
+                ]);
+            }
+            if ($missingPreservedAssets !== []) {
+                Log::warning('Landing page theme change preserved references to missing assets.', [
+                    'angle_template_id' => $angleTemplate->id,
+                    'source_template_id' => $oldTemplate->id,
+                    'target_template_id' => $template->id,
+                    'missing_preserved_assets' => $missingPreservedAssets,
+                ]);
+            }
+
             $message = $result['content_preserved']
                 ? 'Landing page theme changed successfully. Your content and images were kept.'
                 : 'Landing page theme changed with safe content preservation mode. Current content/language was kept as-is.';
+            if ($missingPreservedAssets !== []) {
+                $message .= ' Some images were already missing from the source landing page and need to be restored.';
+            }
 
             return sendResponse(true, $message, [
                 'angle_template_id' => $angleTemplate->id,
                 'template_id' => $angleTemplate->template_id,
                 'content_preserved' => $result['content_preserved'],
+                'mapping_status' => $result['mapping_status'],
+                'source_repeated_bds' => $result['source_repeated_bds'],
+                'target_repeated_bds' => $result['target_repeated_bds'],
+                'missing_preserved_assets' => $missingPreservedAssets,
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();

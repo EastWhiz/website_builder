@@ -53,7 +53,16 @@ class AngleTemplateMergeService
     /**
      * Change theme on an existing landing page: new theme shell + styles, keep current body content/images.
      *
-     * @return array{main_html: string, main_css: string, main_js: string, content_preserved: bool}
+     * @return array{
+     *     main_html: string,
+     *     main_css: string,
+     *     main_js: string,
+     *     content_preserved: bool,
+     *     mapping_status: string,
+     *     source_repeated_bds: array<string, int>,
+     *     target_repeated_bds: array<string, int>,
+     *     preserved_asset_paths: array<int, string>
+     * }
      */
     public function changeThemePreservingContent(
         Angle $angle,
@@ -62,7 +71,14 @@ class AngleTemplateMergeService
         Template $newTemplate
     ): array {
         $oldShellForMatching = $this->buildTemplateShellForMergedComparison($oldTemplate);
+        $sourceUsage = $this->placeholderUsage($oldShellForMatching);
+        $targetUsage = $this->placeholderUsage((string) $newTemplate->index);
         $bodies = $this->extractBodySegmentsFromMergedHtml($oldShellForMatching, $currentMainHtml);
+        if ($bodies === null || $bodies === []) {
+            // Browsers/editors may decode harmless entities such as &times; when saving HTML.
+            $decodedOldShell = html_entity_decode($oldShellForMatching, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $bodies = $this->extractBodySegmentsFromMergedHtml($decodedOldShell, $currentMainHtml);
+        }
         if ($bodies === null || $bodies === []) {
             $bodies = $this->extractBodySegmentsWithRegexAnchors($oldShellForMatching, $currentMainHtml);
         }
@@ -70,14 +86,18 @@ class AngleTemplateMergeService
 
         if ($contentPreserved) {
             $sanitizedBodies = array_map(
-                fn (string $body) => $this->wrapBodyForThemeLayout($this->sanitizeBodySegment($body)),
+                fn (string $body) => $this->wrapBodyForThemeLayout(
+                    $this->sanitizeBodySegment($this->removeTemplateAssetElements($body, $oldTemplate))
+                ),
                 $bodies
             );
+            $preservedHtml = implode('', $sanitizedBodies);
             $mainHtml = $this->injectBodySegmentsIntoShell((string) $newTemplate->index, $sanitizedBodies);
             $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $newTemplate);
             $layoutGuardCss = $this->themeChangeLayoutGuardCss();
         } else {
             // Safe fallback: preserve current landing HTML as-is (keeps current language/content/images).
+            $preservedHtml = $currentMainHtml;
             $mainHtml = '<div class="lp-theme-safe-content">'.$currentMainHtml.'</div>';
             $layoutGuardCss = $this->themeChangeFallbackGuardCss();
         }
@@ -90,6 +110,10 @@ class AngleTemplateMergeService
             'main_css' => $mainCss,
             'main_js' => $styles['main_js'],
             'content_preserved' => $contentPreserved,
+            'mapping_status' => $contentPreserved ? 'bd_mapped' : 'safe_fallback',
+            'source_repeated_bds' => $sourceUsage['repeated'],
+            'target_repeated_bds' => $targetUsage['repeated'],
+            'preserved_asset_paths' => $this->publicStorageAssetPaths($preservedHtml),
         ];
     }
 
@@ -127,7 +151,8 @@ class AngleTemplateMergeService
         }
         $pattern .= '$/is';
 
-        if (! preg_match($pattern, $mergedHtml, $captures)) {
+        $matched = @preg_match($pattern, $mergedHtml, $captures);
+        if ($matched !== 1) {
             return null;
         }
 
@@ -216,6 +241,57 @@ class AngleTemplateMergeService
         }
 
         return (string) preg_replace(self::BODY_PLACEHOLDER_PATTERN, '', $shell);
+    }
+
+    /**
+     * @return array{sequence: array<int, string>, counts: array<string, int>, repeated: array<string, int>}
+     */
+    public function placeholderUsage(string $shell): array
+    {
+        $sequence = $this->extractPlaceholderIds($shell) ?? [];
+        $counts = array_count_values($sequence);
+
+        return [
+            'sequence' => $sequence,
+            'counts' => $counts,
+            'repeated' => array_filter($counts, fn (int $count) => $count > 1),
+        ];
+    }
+
+    /**
+     * Return local public-disk asset paths referenced by preserved content.
+     *
+     * @return array<int, string>
+     */
+    public function publicStorageAssetPaths(string $html): array
+    {
+        preg_match_all(
+            '/\b(?:src|poster)=["\'](?<path>(?:\.\.\/)*\/?storage\/[^"\']+)["\']/i',
+            $html,
+            $matches
+        );
+
+        $paths = array_map(
+            fn (string $path) => preg_replace('#^(?:\.\./)*/?storage/#', '', $path),
+            $matches['path'] ?? []
+        );
+
+        return array_values(array_unique(array_filter($paths)));
+    }
+
+    /**
+     * Remove media owned by the old theme so its decoration is not carried into the new theme.
+     */
+    public function removeTemplateAssetElements(string $html, Template $template): string
+    {
+        $templatePath = preg_quote('storage/templates/'.$template->uuid.'/', '#');
+
+        return (string) preg_replace(
+            '#<(?:img|source|video)\b[^>]*\b(?:src|poster)=["\'](?:\.\./)*/?'.$templatePath.'[^"\']*["\'][^>]*>\s*</video\s*>|'
+            .'<(?:img|source)\b[^>]*\bsrc=["\'](?:\.\./)*/?'.$templatePath.'[^"\']*["\'][^>]*>#i',
+            '',
+            $html
+        );
     }
 
     /**
