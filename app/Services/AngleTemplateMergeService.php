@@ -7,7 +7,11 @@ use App\Models\Template;
 
 class AngleTemplateMergeService
 {
-    private const BODY_PLACEHOLDER_PATTERN = '/<!--INTERNAL--(?<id>BD\d+)--EXTERNAL-->/';
+    private const BODY_PLACEHOLDER_PATTERN = '/<!--INTERNAL--(?<id>BD\d+(?:_[A-Z][A-Z0-9_]*)?)--EXTERNAL-->/';
+
+    private const BODY_ID_PATTERN = '/^BD\d+$/';
+
+    private const SUB_SLOT_ID_PATTERN = '/^BD\d+_[A-Z][A-Z0-9_]*$/';
 
     /**
      * Merge angle HTML bodies into a theme shell (same logic as new landing page creation).
@@ -29,10 +33,11 @@ class AngleTemplateMergeService
             $mainJs .= $item->content."\n";
         });
 
-        foreach ($allBodies as $key => $body) {
-            $bodyKey = $key + 1;
-            $mainHtml = str_replace("<!--INTERNAL--BD$bodyKey--EXTERNAL-->", $body->content, $mainHtml);
-        }
+        $mainHtml = $this->injectBodySegmentsIntoShell(
+            $mainHtml,
+            $this->mapAngleBodiesByIdentifier($allBodies),
+            false
+        );
 
         $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
         $mainCss = $this->rewriteTemplateFontPaths($mainCss, $template);
@@ -61,6 +66,8 @@ class AngleTemplateMergeService
      *     mapping_status: string,
      *     source_repeated_bds: array<string, int>,
      *     target_repeated_bds: array<string, int>,
+     *     target_sub_slots: array<int, string>,
+     *     unresolved_sub_slots: array<int, string>,
      *     preserved_asset_paths: array<int, string>
      * }
      */
@@ -82,18 +89,31 @@ class AngleTemplateMergeService
         if ($bodies === null || $bodies === []) {
             $bodies = $this->extractBodySegmentsWithRegexAnchors($oldShellForMatching, $currentMainHtml);
         }
-        $contentPreserved = $bodies !== null && $bodies !== [];
+        $targetSubSlots = $this->subSlotIds((string) $newTemplate->index);
+
+        if ($bodies !== null && $bodies !== []) {
+            $bodies = array_replace($bodies, $this->angleSubSlotBodies($angle));
+        }
+
+        $unresolvedSubSlots = $bodies === null
+            ? $targetSubSlots
+            : array_values(array_diff($targetSubSlots, array_keys($bodies)));
+        $contentPreserved = $bodies !== null && $bodies !== [] && $unresolvedSubSlots === [];
 
         if ($contentPreserved) {
-            $sanitizedBodies = array_map(
-                fn (string $body) => $this->wrapBodyForThemeLayout(
-                    $this->sanitizeBodySegment($this->removeTemplateAssetElements($body, $oldTemplate))
-                ),
-                $bodies
-            );
+            $sanitizedBodies = [];
+            foreach ($bodies as $bodyId => $body) {
+                $sanitizedBody = $this->sanitizeBodySegment(
+                    $this->removeTemplateAssetElements($body, $oldTemplate)
+                );
+                $sanitizedBodies[$bodyId] = $this->isSubSlotId($bodyId)
+                    ? $sanitizedBody
+                    : $this->wrapBodyForThemeLayout($sanitizedBody);
+            }
             $preservedHtml = implode('', $sanitizedBodies);
             $mainHtml = $this->injectBodySegmentsIntoShell((string) $newTemplate->index, $sanitizedBodies);
             $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $newTemplate);
+            $mainHtml = $this->rewriteAngleImagePaths($mainHtml, $angle);
             $layoutGuardCss = $this->themeChangeLayoutGuardCss();
         } else {
             // Safe fallback: preserve current landing HTML as-is (keeps current language/content/images).
@@ -110,9 +130,13 @@ class AngleTemplateMergeService
             'main_css' => $mainCss,
             'main_js' => $styles['main_js'],
             'content_preserved' => $contentPreserved,
-            'mapping_status' => $contentPreserved ? 'bd_mapped' : 'safe_fallback',
+            'mapping_status' => $contentPreserved
+                ? ($targetSubSlots === [] ? 'bd_mapped' : 'slot_mapped')
+                : 'safe_fallback',
             'source_repeated_bds' => $sourceUsage['repeated'],
             'target_repeated_bds' => $targetUsage['repeated'],
+            'target_sub_slots' => $targetSubSlots,
+            'unresolved_sub_slots' => $unresolvedSubSlots,
             'preserved_asset_paths' => $this->publicStorageAssetPaths($preservedHtml),
         ];
     }
@@ -231,7 +255,7 @@ class AngleTemplateMergeService
     /**
      * @param  array<string, string>  $bodies
      */
-    public function injectBodySegmentsIntoShell(string $shell, array $bodies): string
+    public function injectBodySegmentsIntoShell(string $shell, array $bodies, bool $removeUnmatched = true): string
     {
         foreach ($bodies as $bdId => $body) {
             $placeholder = "<!--INTERNAL--{$bdId}--EXTERNAL-->";
@@ -240,7 +264,9 @@ class AngleTemplateMergeService
             }
         }
 
-        return (string) preg_replace(self::BODY_PLACEHOLDER_PATTERN, '', $shell);
+        return $removeUnmatched
+            ? (string) preg_replace(self::BODY_PLACEHOLDER_PATTERN, '', $shell)
+            : $shell;
     }
 
     /**
@@ -256,6 +282,17 @@ class AngleTemplateMergeService
             'counts' => $counts,
             'repeated' => array_filter($counts, fn (int $count) => $count > 1),
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function subSlotIds(string $shell): array
+    {
+        return array_values(array_unique(array_filter(
+            $this->extractPlaceholderIds($shell) ?? [],
+            fn (string $id) => $this->isSubSlotId($id)
+        )));
     }
 
     /**
@@ -304,6 +341,56 @@ class AngleTemplateMergeService
         }
 
         return $matches['id'] ?: null;
+    }
+
+    /**
+     * Prefer explicit AngleContent names while retaining positional BD1-BD5 compatibility.
+     *
+     * @param  iterable<int, object>  $allBodies
+     * @return array<string, string>
+     */
+    public function mapAngleBodiesByIdentifier(iterable $allBodies): array
+    {
+        $bodies = [];
+        $legacyBodies = [];
+
+        foreach ($allBodies as $index => $body) {
+            $content = (string) ($body->content ?? '');
+            $name = strtoupper(trim((string) ($body->name ?? '')));
+
+            if (preg_match(self::BODY_ID_PATTERN, $name) || $this->isSubSlotId($name)) {
+                $bodies[$name] = $content;
+
+                continue;
+            }
+
+            $legacyBodies[$index] = $content;
+        }
+
+        foreach ($legacyBodies as $index => $content) {
+            $bodies['BD'.($index + 1)] ??= $content;
+        }
+
+        return $bodies;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function angleSubSlotBodies(Angle $angle): array
+    {
+        $allBodies = $angle->contents()->where('type', 'html')->get();
+
+        return array_filter(
+            $this->mapAngleBodiesByIdentifier($allBodies),
+            fn (string $id) => $this->isSubSlotId($id),
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
+    private function isSubSlotId(string $id): bool
+    {
+        return (bool) preg_match(self::SUB_SLOT_ID_PATTERN, $id);
     }
 
     /**
@@ -364,6 +451,15 @@ class AngleTemplateMergeService
         return (string) preg_replace(
             '/src="template_images\//',
             'src="../../storage/templates/'.$template->uuid.'/images/'.$template->asset_unique_uuid.'-',
+            $html
+        );
+    }
+
+    private function rewriteAngleImagePaths(string $html, Angle $angle): string
+    {
+        return (string) preg_replace(
+            '/src="angle_images\//',
+            'src="../../storage/angles/'.$angle->uuid.'/images/'.$angle->asset_unique_uuid.'-',
             $html
         );
     }

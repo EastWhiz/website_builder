@@ -354,6 +354,7 @@ class AngleTemplateController extends Controller
                     'target_template_id' => $template->id,
                     'source_repeated_bds' => $result['source_repeated_bds'],
                     'target_repeated_bds' => $result['target_repeated_bds'],
+                    'unresolved_sub_slots' => $result['unresolved_sub_slots'],
                 ]);
             }
             if ($missingPreservedAssets !== []) {
@@ -379,6 +380,8 @@ class AngleTemplateController extends Controller
                 'mapping_status' => $result['mapping_status'],
                 'source_repeated_bds' => $result['source_repeated_bds'],
                 'target_repeated_bds' => $result['target_repeated_bds'],
+                'target_sub_slots' => $result['target_sub_slots'],
+                'unresolved_sub_slots' => $result['unresolved_sub_slots'],
                 'missing_preserved_assets' => $missingPreservedAssets,
             ]);
         } catch (\Throwable $e) {

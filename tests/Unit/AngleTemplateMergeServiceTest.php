@@ -103,6 +103,73 @@ it('injects bodies by bd identifier into reordered and repeated placeholders', f
     );
 });
 
+it('injects explicitly named sub slots without changing plain bd placeholders', function () {
+    $shell = '<!--INTERNAL--BD2_HEADER--EXTERNAL-->'
+        .'<aside>Publisher</aside>'
+        .'<!--INTERNAL--BD2_BANNER--EXTERNAL-->'
+        .'<!--INTERNAL--BD1--EXTERNAL-->';
+
+    $result = $this->service->injectBodySegmentsIntoShell($shell, [
+        'BD1' => '<article>Article</article>',
+        'BD2_HEADER' => '<h1>Heading</h1>',
+        'BD2_BANNER' => '<img src="banner.jpg">',
+    ]);
+
+    expect($result)->toBe(
+        '<h1>Heading</h1><aside>Publisher</aside><img src="banner.jpg"><article>Article</article>'
+    );
+});
+
+it('can preserve unmatched placeholders for backward-compatible page creation', function () {
+    $shell = '<!--INTERNAL--BD1--EXTERNAL--><!--INTERNAL--BD2_HEADER--EXTERNAL-->';
+
+    expect($this->service->injectBodySegmentsIntoShell(
+        $shell,
+        ['BD1' => '<article>Article</article>'],
+        false
+    ))->toBe('<article>Article</article><!--INTERNAL--BD2_HEADER--EXTERNAL-->');
+});
+
+it('maps explicitly named angle bodies and sub slots by identifier', function () {
+    $bodies = [
+        (object) ['name' => 'BD2', 'content' => '<h1>Heading</h1>'],
+        (object) ['name' => 'BD2_HEADER', 'content' => '<h1>Split heading</h1>'],
+        (object) ['name' => 'BD1', 'content' => '<article>Article</article>'],
+    ];
+
+    expect($this->service->mapAngleBodiesByIdentifier($bodies))->toBe([
+        'BD2' => '<h1>Heading</h1>',
+        'BD2_HEADER' => '<h1>Split heading</h1>',
+        'BD1' => '<article>Article</article>',
+    ]);
+});
+
+it('keeps positional compatibility for legacy unnamed angle bodies', function () {
+    $bodies = [
+        (object) ['name' => '<body>', 'content' => '<article>Article</article>'],
+        (object) ['name' => '<body2>', 'content' => '<h1>Heading</h1>'],
+    ];
+
+    expect($this->service->mapAngleBodiesByIdentifier($bodies))->toBe([
+        'BD1' => '<article>Article</article>',
+        'BD2' => '<h1>Heading</h1>',
+    ]);
+});
+
+it('preserves the original position of legacy bodies mixed with named bodies', function () {
+    $bodies = [
+        (object) ['name' => 'BD1', 'content' => '<article>Article</article>'],
+        (object) ['name' => '<body2>', 'content' => '<h1>Legacy heading</h1>'],
+        (object) ['name' => 'BD3', 'content' => '<p>Publisher</p>'],
+    ];
+
+    expect($this->service->mapAngleBodiesByIdentifier($bodies))->toBe([
+        'BD1' => '<article>Article</article>',
+        'BD3' => '<p>Publisher</p>',
+        'BD2' => '<h1>Legacy heading</h1>',
+    ]);
+});
+
 it('returns null when a theme shell has no bd placeholders', function () {
     expect($this->service->extractBodySegmentsFromMergedHtml(
         '<main>No placeholders</main>',
@@ -123,6 +190,18 @@ it('reports repeated bd placeholder usage', function () {
         'sequence' => ['BD2', 'BD3', 'BD2', 'BD3', 'BD3'],
         'counts' => ['BD2' => 2, 'BD3' => 3],
         'repeated' => ['BD2' => 2, 'BD3' => 3],
+    ]);
+});
+
+it('reports unique optional sub slots requested by a theme', function () {
+    expect($this->service->subSlotIds(
+        '<!--INTERNAL--BD2_HEADER--EXTERNAL-->'
+        .'<!--INTERNAL--BD1--EXTERNAL-->'
+        .'<!--INTERNAL--BD2_BANNER--EXTERNAL-->'
+        .'<!--INTERNAL--BD2_HEADER--EXTERNAL-->'
+    ))->toBe([
+        'BD2_HEADER',
+        'BD2_BANNER',
     ]);
 });
 

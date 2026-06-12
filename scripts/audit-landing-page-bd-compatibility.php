@@ -32,12 +32,15 @@ fputcsv($handle, [
     'theme_name',
     'mapping_status',
     'source_repeated_bds',
+    'target_sub_slots',
+    'unresolved_sub_slots',
     'error',
 ]);
 
 $service = app(AngleTemplateMergeService::class);
 $summary = [
     'bd_mapped' => 0,
+    'slot_mapped' => 0,
     'safe_fallback' => 0,
     'missing_relationships' => 0,
     'errors' => 0,
@@ -59,6 +62,8 @@ AngleTemplate::query()
                     'missing_relationships',
                     '',
                     '',
+                    '',
+                    '',
                 ]);
 
                 continue;
@@ -72,7 +77,7 @@ AngleTemplate::query()
                     $landingPage->template
                 );
 
-                $summary[$result['mapping_status']]++;
+                $summary[$result['mapping_status']] = ($summary[$result['mapping_status']] ?? 0) + 1;
 
                 fputcsv($handle, [
                     $landingPage->id,
@@ -81,6 +86,8 @@ AngleTemplate::query()
                     (string) $landingPage->template->name,
                     $result['mapping_status'],
                     json_encode($result['source_repeated_bds'], JSON_UNESCAPED_SLASHES),
+                    json_encode($result['target_sub_slots'], JSON_UNESCAPED_SLASHES),
+                    json_encode($result['unresolved_sub_slots'], JSON_UNESCAPED_SLASHES),
                     '',
                 ]);
             } catch (Throwable $e) {
@@ -92,6 +99,8 @@ AngleTemplate::query()
                     $landingPage->template->id,
                     (string) $landingPage->template->name,
                     'error',
+                    '',
+                    '',
                     '',
                     $e->getMessage(),
                 ]);
