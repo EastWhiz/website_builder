@@ -13,6 +13,7 @@ use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
 use App\Services\AngleTemplateMergeService;
 use App\Services\ApiExportService;
+use App\Services\LandingPageAssetService;
 use App\Support\OrganizationAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,8 @@ class AngleTemplateController extends Controller
 {
     public function __construct(
         private ApiExportService $apiExportService,
-        private AngleTemplateMergeService $angleTemplateMergeService
+        private AngleTemplateMergeService $angleTemplateMergeService,
+        private LandingPageAssetService $landingPageAssetService
     ) {
     }
 
@@ -545,6 +547,24 @@ class AngleTemplateController extends Controller
 
         $fontPaths = $template->contents()->where('type', 'font')->get()->pluck('name')->toArray();
         $imagePaths = array_merge($templateImages, $angleImages, $extraImages, $angleContentImages);
+        $exportAssets = $this->landingPageAssetService->prepareAssetsForExport(
+            [$angleTemplate->main_html, $angleTemplate->main_css, $angleTemplate->main_js],
+            array_merge($imagePaths, $fontPaths)
+        );
+
+        $missingThankYouAssets = [];
+        foreach (['logo_path', 'profile_image_path'] as $attribute) {
+            $relativePath = $selectedThankYouPage->{$attribute} ?? null;
+            if ($relativePath && !file_exists(public_path(ltrim($relativePath, '/')))) {
+                $missingThankYouAssets[] = $relativePath;
+            }
+        }
+
+        if ($missingThankYouAssets !== []) {
+            Log::warning('Landing page export preserved missing thank-you page asset references', [
+                'missing_assets' => $missingThankYouAssets,
+            ]);
+        }
 
         // Ensure storage/app directory exists and is writable
         $storageAppPath = storage_path('app');
@@ -634,6 +654,21 @@ class AngleTemplateController extends Controller
             ], 500);
         }
 
+        foreach ($exportAssets['paths'] as $relativePath) {
+            $fullPath = Storage::disk('public')->path($relativePath);
+            $zipEntryPath = 'assets/' . $relativePath;
+            if (!$zip->addFile($fullPath, $zipEntryPath)) {
+                $zip->close();
+                @unlink($zipPath);
+
+                return response()->json([
+                    'error' => 'Export stopped because a local page asset could not be added.',
+                    'asset' => $relativePath,
+                ], 500);
+            }
+            $this->applyFastCompressionForBinaryEntry($zip, $zipEntryPath);
+        }
+
         // Add image files under images/ folder
         foreach ($imagePaths as $path) {
             $relative = str_replace('/storage/', '', $path);
@@ -650,7 +685,7 @@ class AngleTemplateController extends Controller
             foreach (['logo_path', 'profile_image_path'] as $attr) {
                 $rel = $selectedThankYouPage->{$attr};
                 if ($rel) {
-                    $full = public_path($rel);
+                    $full = public_path(ltrim($rel, '/'));
                     if (file_exists($full)) {
                         $zipEntryPath = 'images/' . basename($full);
                         $zip->addFile($full, $zipEntryPath);
@@ -684,6 +719,19 @@ class AngleTemplateController extends Controller
         $updatingIndex = $angleTemplate->main_html;
         $updatingCss = $angleTemplate->main_css;
         $updatingJs = $angleTemplate->main_js;
+
+        $updatingIndex = $this->landingPageAssetService->rewriteStorageReferences(
+            $updatingIndex,
+            $exportAssets['replacements']
+        );
+        $updatingCss = $this->landingPageAssetService->rewriteStorageReferences(
+            (string) $updatingCss,
+            $exportAssets['replacements']
+        );
+        $updatingJs = $this->landingPageAssetService->rewriteStorageReferences(
+            (string) $updatingJs,
+            $exportAssets['replacements']
+        );
 
         // UPDATING INDEX WITH IMAGE CHANGES - ANGLES
         $updatingIndex = str_replace(
@@ -2907,33 +2955,41 @@ class AngleTemplateController extends Controller
                 'main_js' => $angleTemplate->main_js,
             ]);
 
-            $preSearch = "angleTemplates/{$angleTemplate->uuid}/images";
-            $preReplace = "angleTemplates/{$newUuid}/images";
-
-            $newAngleTemplate->main_html = str_replace($preSearch, $preReplace, $newAngleTemplate->main_html);
-            $newAngleTemplate->save();
-
-            // Get original folder path
-            $originalFolderPath = "angleTemplates/{$angleTemplate->uuid}";
-            $newFolderPath = "angleTemplates/{$newUuid}";
-
-            // Check if original folder exists
-            if (Storage::disk('public')->exists($originalFolderPath)) {
-                // Copy entire folder structure
-                $this->copyDirectory($originalFolderPath, $newFolderPath);
-            }
-
             // Duplicate ExtraContent records
             $originalContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
+            $cloneAssets = $this->landingPageAssetService->copyAssetsForClone(
+                $newUuid,
+                [$angleTemplate->main_html, $angleTemplate->main_css, $angleTemplate->main_js],
+                $originalContents->pluck('name')->all()
+            );
+            $replacements = $cloneAssets['replacements'];
+
+            $newAngleTemplate->main_html = $this->landingPageAssetService->rewriteStorageReferences(
+                $newAngleTemplate->main_html,
+                $replacements
+            );
+            $newAngleTemplate->main_css = $this->landingPageAssetService->rewriteStorageReferences(
+                (string) $newAngleTemplate->main_css,
+                $replacements
+            );
+            $newAngleTemplate->main_js = $this->landingPageAssetService->rewriteStorageReferences(
+                (string) $newAngleTemplate->main_js,
+                $replacements
+            );
+            $newAngleTemplate->save();
 
             foreach ($originalContents as $content) {
-                $newBlobUrl = $content->blob_url;
+                $relativeName = $this->landingPageAssetService->normalizeStoragePath($content->name);
+                $clonedName = $relativeName !== null && isset($replacements[$relativeName])
+                    ? str_replace('../../storage/', '/storage/', $replacements[$relativeName])
+                    : $content->name;
 
                 ExtraContent::create([
                     'angle_template_uuid' => $newUuid,
                     'angle_uuid' => $content->angle_uuid,
-                    'name' => $content->name,
-                    'blob_url' => $newBlobUrl,
+                    'asset_unique_uuid' => $content->asset_unique_uuid,
+                    'name' => $clonedName,
+                    'blob_url' => $content->blob_url,
                     'type' => $content->type,
                     'can_be_deleted' => $content->can_be_deleted,
                 ]);
@@ -2948,6 +3004,10 @@ class AngleTemplateController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollback();
+            if (isset($newUuid)) {
+                Storage::disk('public')->deleteDirectory("angleTemplates/{$newUuid}");
+            }
+
             return sendResponse(false, 'Error duplicating AngleTemplate: ' . $e->getMessage());
         }
     }
@@ -3327,32 +3387,6 @@ class AngleTemplateController extends Controller
     {
         $export = "<?php\nreturn " . var_export($config, true) . ";\n";
         return $export;
-    }
-
-    private function copyDirectory($source, $destination)
-    {
-        $disk = Storage::disk('public');
-
-        // Get all files in the source directory recursively
-        $files = $disk->allFiles($source);
-
-        foreach ($files as $file) {
-            // Create the destination path
-            $relativePath = str_replace($source, '', $file);
-            $destinationFile = $destination . $relativePath;
-
-            // Get file contents and copy to new location
-            $contents = $disk->get($file);
-            $disk->put($destinationFile, $contents);
-        }
-
-        // Also copy any subdirectories structure
-        $directories = $disk->allDirectories($source);
-        foreach ($directories as $directory) {
-            $relativePath = str_replace($source, '', $directory);
-            $destinationDir = $destination . $relativePath;
-            $disk->makeDirectory($destinationDir);
-        }
     }
 
     public function translateAngleTemplate(Request $request)
