@@ -47,10 +47,11 @@ class ThankYouPageController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get()
-            ->map(function (ThankYouPage $page) use ($showPageOwnerColumn) {
+            ->map(function (ThankYouPage $page) use ($request, $showPageOwnerColumn) {
                 $row = [
                     'id' => $page->id,
                     'user_id' => $page->user_id,
+                    'can_update' => $this->mayUpdateThankYouPage($request, $page),
                     'name' => $page->name,
                     'title_text' => $page->title_text,
                     'logo_path' => $page->logo_path,
@@ -156,7 +157,7 @@ class ThankYouPageController extends Controller
     public function edit(Request $request, int $id): Response|RedirectResponse
     {
         $page = ThankYouPage::findOrFail($id);
-        if ($page->user_id !== $request->user()->id) {
+        if (!$this->mayUpdateThankYouPage($request, $page)) {
             abort(403, 'Unauthorized.');
         }
 
@@ -183,7 +184,7 @@ class ThankYouPageController extends Controller
     public function update(Request $request, int $id): RedirectResponse
     {
         $page = ThankYouPage::findOrFail($id);
-        if ($page->user_id !== $request->user()->id) {
+        if (!$this->mayUpdateThankYouPage($request, $page)) {
             abort(403, 'Unauthorized.');
         }
 
@@ -313,6 +314,22 @@ class ThankYouPageController extends Controller
     private function userOwnsThankYouPage(Request $request, ThankYouPage $page): bool
     {
         return (int) $page->user_id === (int) $request->user()->id;
+    }
+
+    private function mayUpdateThankYouPage(Request $request, ThankYouPage $page): bool
+    {
+        if ($this->userOwnsThankYouPage($request, $page)) {
+            return true;
+        }
+
+        $user = $request->user();
+        $organization = $user?->currentOrganization();
+        if (!$organization || (int) ($page->organization_id ?? 0) !== (int) $organization->id) {
+            return false;
+        }
+
+        return OrganizationAccess::canUserFullyManageTeam($user, $organization)
+            || Gate::forUser($user)->allows('org.permission', 'content.update_org_all');
     }
 
     private function translateLegacyPage(
@@ -568,6 +585,7 @@ class ThankYouPageController extends Controller
         $baseConfigPath = public_path('thankyou_templates/geo_aware_v2/config.php');
         $baseConfig = is_file($baseConfigPath) ? (require $baseConfigPath) : [];
         $v2 = $this->normalizeGeoAwareV2Content(is_array($page->v2_content) ? $page->v2_content : []);
+        $v2['v2_page_title'] = $this->organizationThankYouTitle($page);
         $GEO_CONFIG = $this->buildGeoConfigArrayFromV2($baseConfig, $v2);
 
         ob_start();
@@ -664,7 +682,7 @@ class ThankYouPageController extends Controller
             $callSetupText = str_replace('{{call_phrase}}', '<?= htmlspecialchars($call_phrase, ENT_QUOTES, \'UTF-8\') ?>', $callSetupText);
         }
 
-        $html = preg_replace('/<title>.*?<\/title>/si', '<title>' . $escape($v2['v2_page_title'] ?? null, 'AI - Thank You') . '</title>', $html);
+        $html = preg_replace('/<title>.*?<\/title>/si', '<title>' . $escape($v2['v2_page_title'] ?? null, 'Thank You') . '</title>', $html);
         $html = preg_replace('/(<p class="top-strip-text">)(.*?)(<img)/si', '$1' . $escape($v2['v2_top_strip_text'] ?? null, 'Application Approved :: Access Unlocked') . '$3', $html);
         $html = preg_replace('/(<p class="banner-lmt-text">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_banner_limited_text'] ?? null, 'Limited Spots Available') . '$3', $html);
         $html = preg_replace('/(<p class="banner-heading">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_banner_heading'] ?? null, "You're On The List.") . '$3', $html);
@@ -727,10 +745,17 @@ class ThankYouPageController extends Controller
         return $html;
     }
 
+    private function organizationThankYouTitle(ThankYouPage $page): string
+    {
+        $organizationName = trim((string) ($page->organization?->name ?? ''));
+
+        return $organizationName !== '' ? $organizationName . ' - Thank You' : 'Thank You';
+    }
+
     private function geoAwareV2DefaultContent(): array
     {
         return [
-            'v2_page_title' => 'AI - Thank You',
+            'v2_page_title' => 'Thank You',
             'v2_top_strip_text' => 'Application Approved :: Access Unlocked',
             'v2_banner_limited_text' => 'Limited Spots Available',
             'v2_banner_heading' => "You're On The List.",

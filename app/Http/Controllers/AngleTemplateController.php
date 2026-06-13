@@ -3137,7 +3137,7 @@ class AngleTemplateController extends Controller
     private function geoAwareV2ExportDefaultContent(): array
     {
         return [
-            'v2_page_title' => 'AI - Thank You',
+            'v2_page_title' => 'Thank You',
             'v2_top_strip_text' => 'Application Approved :: Access Unlocked',
             'v2_banner_limited_text' => 'Limited Spots Available',
             'v2_banner_heading' => "You're On The List.",
@@ -3207,7 +3207,17 @@ class AngleTemplateController extends Controller
         $content = str_replace("__DIR__ . '/config.php'", "__DIR__ . '/geo_config.php'", $content);
         $content = str_replace('__DIR__ . "/config.php"', '__DIR__ . "/geo_config.php"', $content);
 
-        return $this->applyGeoAwareV2DynamicMappingsForExport($content, is_array($page->v2_content) ? $page->v2_content : []);
+        $v2 = is_array($page->v2_content) ? $page->v2_content : [];
+        $v2['v2_page_title'] = $this->organizationThankYouTitleForExport($page);
+
+        return $this->applyGeoAwareV2DynamicMappingsForExport($content, $v2);
+    }
+
+    private function organizationThankYouTitleForExport(ThankYouPage $page): string
+    {
+        $organizationName = trim((string) ($page->organization?->name ?? Auth::user()?->currentOrganization()?->name ?? ''));
+
+        return $organizationName !== '' ? $organizationName . ' - Thank You' : 'Thank You';
     }
 
     private function applyGeoAwareV2DynamicMappingsForExport(string $content, array $v2): string
@@ -3225,8 +3235,8 @@ class AngleTemplateController extends Controller
         $bannerText1 = str_replace('{{call_phrase}}', '<?= htmlspecialchars($call_phrase, ENT_QUOTES, \'UTF-8\') ?>', $bannerText1);
         $callSetupText = str_replace('{{call_phrase}}', '<?= htmlspecialchars($call_phrase, ENT_QUOTES, \'UTF-8\') ?>', $callSetupText);
 
-        $content = preg_replace('/<title>.*?<\/title>/si', '<title>' . $escape($v2['v2_page_title'] ?? null, 'AI - Thank You') . '</title>', $content);
-        $content = preg_replace('/(<meta\s+name="description"\s+content=")([^"]*)(")/i', '$1' . $escape($v2['v2_meta_description'] ?? null, 'AI - Thank You') . '$3', $content);
+        $content = preg_replace('/<title>.*?<\/title>/si', '<title>' . $escape($v2['v2_page_title'] ?? null, 'Thank You') . '</title>', $content);
+        $content = preg_replace('/(<meta\s+name="description"\s+content=")([^"]*)(")/i', '$1' . $escape($v2['v2_meta_description'] ?? null, 'Thank You') . '$3', $content);
         $content = preg_replace('/(<meta\s+name="city"\s+content=")([^"]*)(")/i', '$1' . $escape($v2['v2_meta_city'] ?? null, 'Springfield') . '$3', $content);
         $content = preg_replace('/(<p class="top-strip-text">)(.*?)(<img)/si', '$1' . $escape($v2['v2_top_strip_text'] ?? null, 'Application Approved :: Access Unlocked') . '$3', $content);
         $content = preg_replace('/(<p class="banner-lmt-text">)(.*?)(<\/p>)/si', '$1' . $escape($v2['v2_banner_limited_text'] ?? null, 'Limited Spots Available') . '$3', $content);

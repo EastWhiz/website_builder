@@ -229,7 +229,7 @@ export default function Index({ thankYouPages = [], status, showThankYouPageOwne
                         onClick={() => window.open(previewUrl(page.id), '_blank')}
                         accessibilityLabel="Preview"
                     />
-                    {isRowOwner && (
+                    {page.can_update && (
                         <>
                             <span style={{ margin: '5px' }} />
                             <Button
