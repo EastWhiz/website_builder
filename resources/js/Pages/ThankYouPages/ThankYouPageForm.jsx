@@ -3,6 +3,7 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { useForm } from '@inertiajs/react';
+import { useState } from 'react';
 
 const DEFAULT_HERO_COLOR = '#3B27A8';
 
@@ -72,6 +73,7 @@ export default function ThankYouPageForm({
     pageId = null,
     backUrl,
 }) {
+    const [saveError, setSaveError] = useState('');
     const {
         data,
         setData,
@@ -106,7 +108,11 @@ export default function ThankYouPageForm({
 
     const submit = (e) => {
         e.preventDefault();
-        const options = { forceFormData: true };
+        setSaveError('');
+        const options = {
+            forceFormData: true,
+            onError: () => setSaveError('The page could not be saved. Please review the highlighted fields and try again.'),
+        };
         if (isEdit && pageId) {
             post(route('thank-you-pages.update', pageId), options);
             return;
@@ -129,6 +135,11 @@ export default function ThankYouPageForm({
 
     return (
         <form onSubmit={submit} className="space-y-8 max-w-3xl">
+            {saveError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {saveError}
+                </div>
+            )}
             <SectionCard
                 title="Page identity"
                 description="Name and branding used in the thank you page."
@@ -214,7 +225,6 @@ export default function ThankYouPageForm({
                     description="These fields control the new thank-you page copy."
                 >
                     <div className="space-y-5">
-                        <div><InputLabel htmlFor="v2_page_title" value="Page title" /><TextInput id="v2_page_title" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_page_title} onChange={(e) => setData('v2_page_title', e.target.value)} /><InputError className="mt-1" message={errors.v2_page_title} /></div>
                         <div><InputLabel htmlFor="v2_top_strip_text" value="Top strip text" /><TextInput id="v2_top_strip_text" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_top_strip_text} onChange={(e) => setData('v2_top_strip_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_top_strip_text} /></div>
                         <div><InputLabel htmlFor="v2_banner_limited_text" value="Banner limited text" /><TextInput id="v2_banner_limited_text" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_banner_limited_text} onChange={(e) => setData('v2_banner_limited_text', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_limited_text} /></div>
                         <div><InputLabel htmlFor="v2_banner_heading" value="Banner heading" /><TextInput id="v2_banner_heading" type="text" className="mt-1.5 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" value={data.v2_banner_heading} onChange={(e) => setData('v2_banner_heading', e.target.value)} /><InputError className="mt-1" message={errors.v2_banner_heading} /></div>

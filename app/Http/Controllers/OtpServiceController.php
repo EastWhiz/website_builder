@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\OtpService;
+use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class OtpServiceController extends Controller
 {
@@ -94,6 +97,7 @@ class OtpServiceController extends Controller
             ]);
 
             $service = OtpService::create($validated);
+            $this->syncServiceToCrm($service);
 
             return response()->json([
                 'success' => true,
@@ -135,6 +139,7 @@ class OtpServiceController extends Controller
             ]);
 
             $service->update($validated);
+            $this->syncServiceToCrm($service->fresh());
 
             return response()->json([
                 'success' => true,
@@ -186,6 +191,69 @@ class OtpServiceController extends Controller
                 'message' => 'An error occurred while deleting OTP service.',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    private function syncServiceToCrm(OtpService $service): void
+    {
+        if (app()->environment('testing')) {
+            return;
+        }
+
+        try {
+            $baseUrl = Setting::getCrmBaseUrl();
+            $externalCategoryId = 'otp-service-' . (string) $service->id;
+            $categoryPayload = [
+                'externalId' => $externalCategoryId,
+                'name' => $service->name,
+                'integration_group' => 'services',
+                'is_active' => (bool) $service->is_active,
+                'sort_order' => 0,
+            ];
+
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/create-update-api-category', $categoryPayload);
+
+            if (!$response->successful()) {
+                Log::error('CRM OTP service category sync failed', [
+                    'service_id' => $service->id,
+                    'status' => $response->status(),
+                    'response_body' => $response->body(),
+                ]);
+                return;
+            }
+
+            foreach (($service->fields ?? []) as $index => $field) {
+                $fieldPayload = [
+                    'externalCategoryId' => $externalCategoryId,
+                    'externalId' => $externalCategoryId . '-field-' . (string) $index,
+                    'name' => (string) ($field['name'] ?? 'field_' . $index),
+                    'label' => (string) ($field['label'] ?? $field['name'] ?? 'Field'),
+                    'type' => 'text',
+                    'placeholder' => (string) ($field['placeholder'] ?? ''),
+                    'is_required' => (bool) ($field['required'] ?? false),
+                    'encrypt' => (bool) ($field['encrypt'] ?? false),
+                ];
+
+                $fieldResponse = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                    ->timeout(15)
+                    ->post($baseUrl . '/api/v1/create-update-api-category-field', $fieldPayload);
+
+                if (!$fieldResponse->successful()) {
+                    Log::error('CRM OTP service field sync failed', [
+                        'service_id' => $service->id,
+                        'field_index' => $index,
+                        'status' => $fieldResponse->status(),
+                        'response_body' => $fieldResponse->body(),
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('CRM OTP service category sync exception', [
+                'service_id' => $service->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

@@ -40,7 +40,7 @@ try {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="description" content="AI - Thank You">
+    <meta name="description" content="Thank You">
     <meta name="city" content="Springfield">
     <link rel="stylesheet" href="./css/forms.css">
     <link rel="stylesheet" href="./css/flow.css">
@@ -48,7 +48,7 @@ try {
     <link rel="stylesheet" href="./external_assets/static-133.b-cdn.net/72798/build/funnel.css">
     <link rel="shortcut icon" href="./external_assets/static-133.b-cdn.net/72798/images/YwXOg0ImYK.webp" type="image/x-icon">
 
-    <title>AI - Thank You</title>
+    <title>Thank You</title>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {

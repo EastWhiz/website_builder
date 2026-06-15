@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Models\OtpServiceCredential;
 use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
 use App\Services\ApiCompatibilityService;
@@ -420,6 +421,15 @@ class ApiCredentialsController extends Controller
             'endpointUrl' => ''
         ];
 
+        if (in_array($provider, ['facebook', 'second'], true)) {
+            $payload['integrationGroup'] = 'pixels';
+            $payload['apiCategoryName'] = $provider === 'facebook' ? 'Facebook Pixel' : 'Voluum Pixel';
+            $payload['apiCategoryExternalId'] = 'pixel-' . $provider;
+            $payload['builderApiInstanceId'] = 'pixel-' . $provider . '-' . (string) ($credentials->id ?? $userId);
+            $payload['apiName'] = $payload['apiCategoryName'];
+            $payload['name'] = $payload['apiCategoryName'];
+        }
+
         // Map provider-specific fields
         switch ($provider) {
             case 'aweber':
@@ -531,6 +541,120 @@ class ApiCredentialsController extends Controller
                 $payload['apiKey'] = $credentials->adzentric_api_key ?? '';
                 $payload['endpointUrl'] = 'https://ldlgapi.com/leads';
                 break;
+            case 'facebook':
+                $payload['endpointUrl'] = $credentials->facebook_pixel_url ?? '';
+                break;
+            case 'second':
+                $payload['endpointUrl'] = $credentials->second_pixel_url ?? '';
+                break;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Sync an OTP service credential to CRM as a Services integration.
+     */
+    public function syncToExternalApiFromOtpCredential(OtpServiceCredential $credential): void
+    {
+        if (app()->environment('testing')) {
+            return;
+        }
+
+        try {
+            $payload = $this->buildApiPayloadFromOtpCredential($credential);
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/create-update-api-data', $payload);
+
+            if (!$response->successful()) {
+                Log::error('CRM OTP service sync failed', [
+                    'credential_id' => $credential->id,
+                    'user_id' => $credential->user_id,
+                    'status' => $response->status(),
+                    'response_body' => $response->body(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('CRM OTP service sync exception', [
+                'credential_id' => $credential->id,
+                'user_id' => $credential->user_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Remove an OTP service credential from CRM.
+     */
+    public function deleteFromExternalApiFromOtpCredential(OtpServiceCredential $credential): void
+    {
+        if (app()->environment('testing')) {
+            return;
+        }
+
+        try {
+            $payload = $this->buildApiPayloadFromOtpCredential($credential);
+            $baseUrl = Setting::getCrmBaseUrl();
+            $response = Http::withOptions(['verify' => Setting::getCrmVerifySsl()])
+                ->timeout(15)
+                ->post($baseUrl . '/api/v1/delete-api-data', $payload);
+
+            if (!$response->successful()) {
+                Log::error('CRM OTP service delete failed', [
+                    'credential_id' => $credential->id,
+                    'user_id' => $credential->user_id,
+                    'status' => $response->status(),
+                    'response_body' => $response->body(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('CRM OTP service delete exception', [
+                'credential_id' => $credential->id,
+                'user_id' => $credential->user_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function buildApiPayloadFromOtpCredential(OtpServiceCredential $credential): array
+    {
+        $credential->loadMissing(['service', 'user']);
+        $serviceName = trim((string) ($credential->service?->name ?? 'OTP Service'));
+        $apiType = preg_replace('/[^a-z0-9]+/', '', strtolower($serviceName)) ?: 'otpservice';
+        $credentials = $credential->decrypted_credentials;
+
+        $payload = [
+            'apiType' => $apiType,
+            'apiCategoryId' => 'otp-service-' . (string) $credential->service_id,
+            'apiCategoryExternalId' => 'otp-service-' . (string) $credential->service_id,
+            'apiCategoryName' => $serviceName,
+            'apiCategoryIsActive' => (bool) ($credential->service?->is_active ?? true),
+            'integrationGroup' => 'services',
+            'builderApiInstanceId' => 'otp-credential-' . (string) $credential->id,
+            'apiName' => $serviceName,
+            'name' => $serviceName,
+            'clientId' => '',
+            'clientSecret' => '',
+            'accountId' => '',
+            'listId' => '',
+            'userName' => '',
+            'password' => '',
+            'apiKey' => '',
+            'aiParam' => '',
+            'ciParam' => '',
+            'giParam' => '',
+            'webBuilderUserId' => 'U' . (string) $credential->user_id,
+            'affiliateId' => '',
+            'endpointUrl' => '',
+        ];
+
+        foreach ($credentials as $fieldName => $value) {
+            $crmKey = $this->fieldNameToCrmKey((string) $fieldName);
+            if ($crmKey !== null && array_key_exists($crmKey, $payload)) {
+                $payload[$crmKey] = $value;
+            }
         }
 
         return $payload;
@@ -830,6 +954,8 @@ class ApiCredentialsController extends Controller
             'password' => 'password',
             'api_key' => 'apiKey',
             'api_token' => 'apiKey',
+            'access_key' => 'apiKey',
+            'endpoint' => 'endpointUrl',
             'ai' => 'aiParam',
             'ci' => 'ciParam',
             'gi' => 'giParam',

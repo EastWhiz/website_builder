@@ -25,16 +25,43 @@ export default function PixelFormFields({
         loadExistingPixels();
     }, []);
 
+    const getHeaders = () => {
+        const headers = {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        }
+
+        return headers;
+    };
+
+    const parseJsonResponse = async (response) => {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error(`Server returned an unexpected response (${response.status}). Please refresh and try again.`);
+        }
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Request failed.');
+        }
+
+        return result;
+    };
+
     const loadExistingPixels = async () => {
         try {
             const response = await fetch(route('api.credentials.show'), {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: getHeaders(),
+                credentials: 'same-origin',
             });
 
-            const result = await response.json();
+            const result = await parseJsonResponse(response);
 
             if (result.success && result.data) {
                 // Update form data with existing pixel URLs
@@ -57,15 +84,14 @@ export default function PixelFormFields({
         // Send data to Laravel backend
         fetch(route('api.credentials.store'), {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: getHeaders(),
+            credentials: 'same-origin',
             body: JSON.stringify({
                 ...data,
                 provider: activeTab
             }),
         })
-            .then(response => response.json())
+            .then(parseJsonResponse)
             .then(result => {
                 if (result.success) {
                     // console.log('API credentials saved successfully');
@@ -89,6 +115,11 @@ export default function PixelFormFields({
             })
             .catch(error => {
                 console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: error.message || 'Could not save pixel URL.',
+                    icon: 'error',
+                });
             });
     };
 
@@ -107,16 +138,16 @@ export default function PixelFormFields({
             // Submit the cleared data
             const response = await fetch(route('api.credentials.store'), {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: getHeaders(),
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     facebook_pixel_url: '',
                     second_pixel_url: '',
+                    provider: activeTab,
                 }),
             });
 
-            const result = await response.json();
+            const result = await parseJsonResponse(response);
 
             if (result.success) {
                 console.log('Pixel URLs cleared successfully');
@@ -125,6 +156,11 @@ export default function PixelFormFields({
             }
         } catch (error) {
             console.error('Error:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: error.message || 'Could not clear pixel URLs.',
+                icon: 'error',
+            });
         }
     };
 

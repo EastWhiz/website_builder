@@ -70,19 +70,22 @@ class OtpServiceCredentialController extends Controller
             // Validate credentials against service field definitions
             $validatedCredentials = $request->validate($credentialsRules);
 
-            // Update or create credentials
-            $credential = OtpServiceCredential::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                    'service_id' => $validated['service_id']
-                ],
-                [
-                    'credentials' => $request->input('credentials') // Will be encrypted by mutator
-                ]
-            );
+            // Reuse an archived credential because the database unique key
+            // permits only one row per user/service, including soft-deleted rows.
+            $credential = OtpServiceCredential::withTrashed()->firstOrNew([
+                'user_id' => $user->id,
+                'service_id' => $validated['service_id'],
+            ]);
+            $credential->setRelation('service', $service);
+            if ($credential->trashed()) {
+                $credential->restore();
+            }
+            $credential->credentials = $request->input('credentials');
+            $credential->save();
 
             // Load service relationship for response
             $credential->load('service');
+            app(ApiCredentialsController::class)->syncToExternalApiFromOtpCredential($credential);
 
             return response()->json([
                 'success' => true,
@@ -226,6 +229,8 @@ class OtpServiceCredentialController extends Controller
 
             $credential->credentials = $request->input('credentials'); // Will be encrypted by mutator
             $credential->save();
+            $credential->load('service');
+            app(ApiCredentialsController::class)->syncToExternalApiFromOtpCredential($credential);
 
             return response()->json([
                 'success' => true,
@@ -270,6 +275,7 @@ class OtpServiceCredentialController extends Controller
                 ], 404);
             }
 
+            app(ApiCredentialsController::class)->deleteFromExternalApiFromOtpCredential($credential);
             $credential->delete();
 
             return response()->json([
@@ -292,6 +298,12 @@ class OtpServiceCredentialController extends Controller
     {
         try {
             $user = Auth::user();
+            $credentials = OtpServiceCredential::where('user_id', $user->id)
+                ->with('service')
+                ->get();
+            foreach ($credentials as $credential) {
+                app(ApiCredentialsController::class)->deleteFromExternalApiFromOtpCredential($credential);
+            }
             $deleted = OtpServiceCredential::where('user_id', $user->id)->delete();
 
             return response()->json([

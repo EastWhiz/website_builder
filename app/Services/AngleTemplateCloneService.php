@@ -10,6 +10,10 @@ use Illuminate\Support\Str;
 
 class AngleTemplateCloneService
 {
+    public function __construct(
+        private readonly LandingPageAssetService $landingPageAssetService
+    ) {}
+
     /**
      * Duplicate a landing page (angle template) for another user in the same organization.
      */
@@ -18,67 +22,61 @@ class AngleTemplateCloneService
         int $targetUserId,
         int $organizationId
     ): AngleTemplate {
-        return DB::transaction(function () use ($source, $targetUserId, $organizationId) {
-            $newUuid = (string) Str::uuid();
+        $newUuid = (string) Str::uuid();
 
-            $new = AngleTemplate::create([
-                'uuid' => $newUuid,
-                'angle_id' => $source->angle_id,
-                'template_id' => $source->template_id,
-                'user_id' => $targetUserId,
-                'organization_id' => $organizationId,
-                'name' => $source->name,
-                'main_html' => $source->main_html,
-                'main_css' => $source->main_css,
-                'main_js' => $source->main_js,
-            ]);
-
-            $preSearch = 'angleTemplates/' . $source->uuid . '/images';
-            $preReplace = 'angleTemplates/' . $newUuid . '/images';
-            $new->main_html = str_replace($preSearch, $preReplace, $new->main_html);
-            $new->save();
-
-            $originalFolderPath = 'angleTemplates/' . $source->uuid;
-            $newFolderPath = 'angleTemplates/' . $newUuid;
-            if (Storage::disk('public')->exists($originalFolderPath)) {
-                $this->copyDirectory($originalFolderPath, $newFolderPath);
-            }
-
-            $originalContents = ExtraContent::query()
-                ->where('angle_template_uuid', $source->uuid)
-                ->get();
-
-            foreach ($originalContents as $content) {
-                ExtraContent::create([
-                    'angle_template_uuid' => $newUuid,
-                    'angle_uuid' => $content->angle_uuid,
-                    'name' => $content->name,
-                    'blob_url' => $content->blob_url,
-                    'type' => $content->type,
-                    'can_be_deleted' => $content->can_be_deleted,
+        try {
+            return DB::transaction(function () use ($source, $targetUserId, $organizationId, $newUuid) {
+                $new = AngleTemplate::create([
+                    'uuid' => $newUuid,
+                    'angle_id' => $source->angle_id,
+                    'template_id' => $source->template_id,
+                    'user_id' => $targetUserId,
+                    'organization_id' => $organizationId,
+                    'name' => $source->name,
+                    'main_html' => $source->main_html,
+                    'main_css' => $source->main_css,
+                    'main_js' => $source->main_js,
                 ]);
-            }
 
-            return $new->fresh();
-        });
-    }
+                $originalContents = ExtraContent::query()
+                    ->where('angle_template_uuid', $source->uuid)
+                    ->get();
 
-    private function copyDirectory(string $source, string $destination): void
-    {
-        $disk = Storage::disk('public');
-        $files = $disk->allFiles($source);
+                $cloneAssets = $this->landingPageAssetService->copyAssetsForClone(
+                    $newUuid,
+                    [$source->main_html, $source->main_css, $source->main_js],
+                    $originalContents->pluck('name')->all()
+                );
+                $replacements = $cloneAssets['replacements'];
 
-        foreach ($files as $file) {
-            $relativePath = str_replace($source, '', $file);
-            $destinationFile = $destination . $relativePath;
-            $disk->put($destinationFile, $disk->get($file));
-        }
+                $new->main_html = $this->landingPageAssetService->rewriteStorageReferences($new->main_html, $replacements);
+                $new->main_css = $this->landingPageAssetService->rewriteStorageReferences((string) $new->main_css, $replacements);
+                $new->main_js = $this->landingPageAssetService->rewriteStorageReferences((string) $new->main_js, $replacements);
+                $new->save();
 
-        $directories = $disk->allDirectories($source);
-        foreach ($directories as $directory) {
-            $relativePath = str_replace($source, '', $directory);
-            $destinationDir = $destination . $relativePath;
-            $disk->makeDirectory($destinationDir);
+                foreach ($originalContents as $content) {
+                    $relativeName = $this->landingPageAssetService->normalizeStoragePath($content->name);
+                    $clonedName = $relativeName !== null && isset($replacements[$relativeName])
+                        ? str_replace('../../storage/', '/storage/', $replacements[$relativeName])
+                        : $content->name;
+
+                    ExtraContent::create([
+                        'angle_template_uuid' => $newUuid,
+                        'angle_uuid' => $content->angle_uuid,
+                        'asset_unique_uuid' => $content->asset_unique_uuid,
+                        'name' => $clonedName,
+                        'blob_url' => $content->blob_url,
+                        'type' => $content->type,
+                        'can_be_deleted' => $content->can_be_deleted,
+                    ]);
+                }
+
+                return $new->fresh();
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->deleteDirectory('angleTemplates/'.$newUuid);
+
+            throw $exception;
         }
     }
 }
