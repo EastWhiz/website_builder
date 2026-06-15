@@ -150,44 +150,7 @@ class AngleTemplateController extends Controller
 
                     $currentAngle = Angle::with('contents')->where('id', $angleId)->first();
                     $currentTemplate = Template::where('id', $template->value)->first();
-                    $allBodies = $currentAngle->contents()->where('type', 'html')->get();
-                    $updatingIndex = $currentTemplate->index;
-
-                    $updatingCss = '';
-                    $currentTemplate->contents()->where('type', 'css')->get()->each(function ($item) use (&$updatingCss) {
-                        $updatingCss .= $item->content;
-                    });
-
-                    $updatingJs = '';
-                    $currentTemplate->contents()->where('type', 'js')->get()->each(function ($item) use (&$updatingJs) {
-                        $updatingJs .= $item->content . "\n";
-                    });
-
-                    foreach ($allBodies as $key => $body) {
-                        $bodyKey = $key + 1;
-                        $updatingIndex = str_replace("<!--INTERNAL--BD$bodyKey--EXTERNAL-->", $body->content, $updatingIndex);
-                    }
-
-                    // UPDATING INDEX WITH IMAGE CHANGES - ANGLES
-                    $updatingIndex = preg_replace(
-                        '/src="angle_images\//',
-                        'src="../../storage/angles/' . $currentAngle->uuid . '/images/' . $currentAngle->asset_unique_uuid . '-',
-                        $updatingIndex
-                    );
-
-                    // UPDATING INDEX WITH IMAGE CHANGES - TEMPLATES
-                    $updatingIndex = preg_replace(
-                        '/src="template_images\//',
-                        'src="../../storage/templates/' . $currentTemplate->uuid . '/images/' . $currentTemplate->asset_unique_uuid . '-',
-                        $updatingIndex
-                    );
-
-                    // UPDATING CSS WITH FONT CHANGES
-                    $updatingCss = preg_replace(
-                        '/fonts\//',
-                        '../../storage/templates/' . $currentTemplate->uuid . '/fonts/' . $currentTemplate->asset_unique_uuid . '-',
-                        $updatingCss
-                    );
+                    $merged = $this->angleTemplateMergeService->merge($currentAngle, $currentTemplate);
 
                     AngleTemplate::create([
                         'uuid' => Str::uuid(),
@@ -196,9 +159,9 @@ class AngleTemplateController extends Controller
                         'user_id' => Auth::user()->id,
                         'organization_id' => $request->user()?->currentOrganization()?->id,
                         'name' => "$currentTemplate->name ($currentAngle->name)",
-                        'main_html' =>  $updatingIndex,
-                        'main_css' =>  $updatingCss,
-                        'main_js' =>  $updatingJs,
+                        'main_html' => $merged['main_html'],
+                        'main_css' => $merged['main_css'],
+                        'main_js' => $merged['main_js'],
                     ]);
                 }
             }
@@ -206,6 +169,8 @@ class AngleTemplateController extends Controller
             return sendResponse(true, 'Angle Applied to Selected Themes.');
             //
         } catch (\Exception $e) {
+            DB::rollBack();
+
             return sendResponse(false, 'Angle applying facing issues: ' . $e->getMessage());
         }
     }

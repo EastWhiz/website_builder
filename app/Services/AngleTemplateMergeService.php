@@ -92,7 +92,8 @@ class AngleTemplateMergeService
         $targetSubSlots = $this->subSlotIds((string) $newTemplate->index);
 
         if ($bodies !== null && $bodies !== []) {
-            $bodies = array_replace($bodies, $this->angleSubSlotBodies($angle));
+            // Preserve edited slot content extracted from the landing page; angle slots only fill missing keys.
+            $bodies += $this->angleSubSlotBodies($angle);
         }
 
         $unresolvedSubSlots = $bodies === null

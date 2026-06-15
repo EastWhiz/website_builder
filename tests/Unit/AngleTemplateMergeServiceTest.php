@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Angle;
 use App\Models\Template;
 use App\Services\AngleTemplateMergeService;
 
@@ -203,6 +204,76 @@ it('reports unique optional sub slots requested by a theme', function () {
         'BD2_HEADER',
         'BD2_BANNER',
     ]);
+});
+
+it('preserves edited landing page slot content over the original angle slot', function () {
+    $angle = new class(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']) extends Angle
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect([
+                        (object) ['name' => 'BD2_HEADER', 'content' => '<h1>Original angle heading</h1>'],
+                    ]);
+                }
+            };
+        }
+    };
+    $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header>H</header><!--INTERNAL--BD2_HEADER--EXTERNAL--><footer>F</footer>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+    $newTemplate = new class(['uuid' => 'new-theme', 'index' => '<main><!--INTERNAL--BD2_HEADER--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->changeThemePreservingContent(
+        $angle,
+        '<header>H</header><h1>Edited landing page heading</h1><footer>F</footer>',
+        $oldTemplate,
+        $newTemplate
+    );
+
+    expect($result['mapping_status'])->toBe('slot_mapped')
+        ->and($result['main_html'])->toContain('Edited landing page heading')
+        ->and($result['main_html'])->not->toContain('Original angle heading');
 });
 
 it('extracts unique public storage asset paths from preserved content', function () {
