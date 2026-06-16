@@ -206,6 +206,164 @@ it('reports unique optional sub slots requested by a theme', function () {
     ]);
 });
 
+it('reports required sub slots missing from available body content', function () {
+    expect($this->service->missingSubSlotIds(
+        '<!--INTERNAL--BD2_HEADER--EXTERNAL-->'
+        .'<!--INTERNAL--BD2_BANNER--EXTERNAL-->',
+        ['BD2_HEADER' => '<h1>Heading</h1>']
+    ))->toBe(['BD2_BANNER']);
+});
+
+it('creates a page without warning when optional theme sub slots are missing', function () {
+    $angle = new class(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']) extends Angle
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect([
+                        (object) ['name' => 'BD1', 'content' => '<article>Article</article>'],
+                    ]);
+                }
+            };
+        }
+    };
+    $template = new class(['uuid' => 'theme-uuid', 'index' => '<!--INTERNAL--BD1--EXTERNAL--><!--INTERNAL--BD2_HEADER--EXTERNAL-->']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->merge($angle, $template);
+
+    expect($result['main_html'])
+        ->toBe('<article>Article</article>')
+        ->not->toContain('BD2_HEADER');
+});
+
+it('uses safe fallback instead of original angle content when switching into a missing sub slot', function () {
+    $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
+    $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header>H</header><!--INTERNAL--BD2--EXTERNAL--><footer>F</footer>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+    $newTemplate = new class(['uuid' => 'new-theme', 'index' => '<main><!--INTERNAL--BD2_HEADER--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->changeThemePreservingContent(
+        $angle,
+        '<header>H</header><h1>Current full BD2 content</h1><footer>F</footer>',
+        $oldTemplate,
+        $newTemplate
+    );
+
+    expect($result['mapping_status'])->toBe('safe_fallback')
+        ->and($result['unresolved_sub_slots'])->toBe(['BD2_HEADER'])
+        ->and($result['main_html'])->toContain('Current full BD2 content');
+});
+
+it('uses safe fallback when split source content cannot reconstruct a required plain bd', function () {
+    $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
+    $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header><!--INTERNAL--BD2_HEADER--EXTERNAL--></header><figure><!--INTERNAL--BD2_BANNER--EXTERNAL--></figure>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+    $newTemplate = new class(['uuid' => 'new-theme', 'index' => '<main><!--INTERNAL--BD2--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->changeThemePreservingContent(
+        $angle,
+        '<header><h1>Heading</h1></header><figure><img src="banner.jpg"></figure>',
+        $oldTemplate,
+        $newTemplate
+    );
+
+    expect($result['mapping_status'])->toBe('safe_fallback')
+        ->and($result['unresolved_body_ids'])->toBe(['BD2'])
+        ->and($result['main_html'])->toContain('Heading')
+        ->and($result['main_html'])->toContain('banner.jpg');
+});
+
 it('preserves edited landing page slot content over the original angle slot', function () {
     $angle = new class(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']) extends Angle
     {

@@ -34,6 +34,7 @@ fputcsv($handle, [
     'source_repeated_bds',
     'target_sub_slots',
     'unresolved_sub_slots',
+    'unresolved_body_ids',
     'error',
 ]);
 
@@ -64,6 +65,7 @@ AngleTemplate::query()
                     '',
                     '',
                     '',
+                    '',
                 ]);
 
                 continue;
@@ -88,6 +90,7 @@ AngleTemplate::query()
                     json_encode($result['source_repeated_bds'], JSON_UNESCAPED_SLASHES),
                     json_encode($result['target_sub_slots'], JSON_UNESCAPED_SLASHES),
                     json_encode($result['unresolved_sub_slots'], JSON_UNESCAPED_SLASHES),
+                    json_encode($result['unresolved_body_ids'], JSON_UNESCAPED_SLASHES),
                     '',
                 ]);
             } catch (Throwable $e) {
@@ -99,6 +102,7 @@ AngleTemplate::query()
                     $landingPage->template->id,
                     (string) $landingPage->template->name,
                     'error',
+                    '',
                     '',
                     '',
                     '',

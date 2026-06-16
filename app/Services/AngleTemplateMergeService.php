@@ -35,8 +35,7 @@ class AngleTemplateMergeService
 
         $mainHtml = $this->injectBodySegmentsIntoShell(
             $mainHtml,
-            $this->mapAngleBodiesByIdentifier($allBodies),
-            false
+            $this->mapAngleBodiesByIdentifier($allBodies)
         );
 
         $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
@@ -68,6 +67,7 @@ class AngleTemplateMergeService
      *     target_repeated_bds: array<string, int>,
      *     target_sub_slots: array<int, string>,
      *     unresolved_sub_slots: array<int, string>,
+     *     unresolved_body_ids: array<int, string>,
      *     preserved_asset_paths: array<int, string>
      * }
      */
@@ -91,15 +91,16 @@ class AngleTemplateMergeService
         }
         $targetSubSlots = $this->subSlotIds((string) $newTemplate->index);
 
-        if ($bodies !== null && $bodies !== []) {
-            // Preserve edited slot content extracted from the landing page; angle slots only fill missing keys.
-            $bodies += $this->angleSubSlotBodies($angle);
-        }
-
         $unresolvedSubSlots = $bodies === null
             ? $targetSubSlots
-            : array_values(array_diff($targetSubSlots, array_keys($bodies)));
-        $contentPreserved = $bodies !== null && $bodies !== [] && $unresolvedSubSlots === [];
+            : $this->missingSubSlotIds((string) $newTemplate->index, $bodies);
+        $unresolvedBodyIds = $bodies === null
+            ? []
+            : $this->missingPlainBodiesRequiredBySplitSource((string) $newTemplate->index, $bodies);
+        $contentPreserved = $bodies !== null
+            && $bodies !== []
+            && $unresolvedSubSlots === []
+            && $unresolvedBodyIds === [];
 
         if ($contentPreserved) {
             $sanitizedBodies = [];
@@ -138,6 +139,7 @@ class AngleTemplateMergeService
             'target_repeated_bds' => $targetUsage['repeated'],
             'target_sub_slots' => $targetSubSlots,
             'unresolved_sub_slots' => $unresolvedSubSlots,
+            'unresolved_body_ids' => $unresolvedBodyIds,
             'preserved_asset_paths' => $this->publicStorageAssetPaths($preservedHtml),
         ];
     }
@@ -297,6 +299,38 @@ class AngleTemplateMergeService
     }
 
     /**
+     * @param  array<string, string>  $bodies
+     * @return array<int, string>
+     */
+    public function missingSubSlotIds(string $shell, array $bodies): array
+    {
+        return array_values(array_diff($this->subSlotIds($shell), array_keys($bodies)));
+    }
+
+    /**
+     * A split source cannot safely reconstruct a full plain BD without explicit full-BD content.
+     *
+     * @param  array<string, string>  $bodies
+     * @return array<int, string>
+     */
+    public function missingPlainBodiesRequiredBySplitSource(string $targetShell, array $bodies): array
+    {
+        $targetPlainBodies = array_values(array_unique(array_filter(
+            $this->extractPlaceholderIds($targetShell) ?? [],
+            fn (string $id) => (bool) preg_match(self::BODY_ID_PATTERN, $id)
+        )));
+        $splitBaseBodies = array_values(array_unique(array_map(
+            fn (string $id) => explode('_', $id, 2)[0],
+            array_filter(array_keys($bodies), fn (string $id) => $this->isSubSlotId($id))
+        )));
+
+        return array_values(array_filter(
+            $targetPlainBodies,
+            fn (string $id) => in_array($id, $splitBaseBodies, true) && ! array_key_exists($id, $bodies)
+        ));
+    }
+
+    /**
      * Return local public-disk asset paths referenced by preserved content.
      *
      * @return array<int, string>
@@ -373,20 +407,6 @@ class AngleTemplateMergeService
         }
 
         return $bodies;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function angleSubSlotBodies(Angle $angle): array
-    {
-        $allBodies = $angle->contents()->where('type', 'html')->get();
-
-        return array_filter(
-            $this->mapAngleBodiesByIdentifier($allBodies),
-            fn (string $id) => $this->isSubSlotId($id),
-            ARRAY_FILTER_USE_KEY
-        );
     }
 
     private function isSubSlotId(string $id): bool

@@ -1,6 +1,6 @@
 # Phase 3: Optional Sub-Slot Foundation
 
-Date: 2026-06-11
+Date: 2026-06-15
 
 ## Objective
 
@@ -31,7 +31,11 @@ The matching angle HTML content must use the exact same `name`, such as `BD2_HEA
 - Existing legacy angle bodies without BD names retain positional mapping.
 - Sub-slot content is used only when an explicitly named angle HTML body exists.
 - The backend never guesses which HTML elements represent a header, banner, or publisher.
+- Theme creation does not require any fixed set of BDs or sub-slots.
+- New landing-page creation treats every missing BD or sub-slot as optional and removes its empty placeholder without warning.
 - If a target theme requests a sub-slot that is unavailable, theme switching uses safe content preservation mode.
+- Theme switching never fills missing slots from the original angle because that could restore stale content over landing-page edits.
+- Switching from split sub-slots back to a required full BD uses safe preservation unless explicit full-BD content is available.
 - Sub-slot content is rendered without the full-body layout wrapper.
 
 ## Mapping Status
@@ -49,17 +53,20 @@ The response also includes:
 ```text
 target_sub_slots
 unresolved_sub_slots
+unresolved_body_ids
 ```
 
 ## Frontend Rollout Steps
 
 1. Select one split-layout theme as a Phase 3 pilot.
 2. Replace repeated partial BD placeholders with explicit sub-slot placeholders.
-3. Ensure the source angle provides matching named HTML bodies.
-4. Duplicate a landing page before changing its theme.
-5. Confirm the response reports `slot_mapped`.
-6. Test preview, editor save, translation, export, desktop, and mobile.
-7. Roll out to additional themes only after the pilot passes.
+3. Add matching named HTML bodies for the sections that should display; missing sections will be omitted.
+4. Create the pilot landing page directly from that angle and theme.
+5. Duplicate the pilot page before switching between compatible sub-slot themes.
+6. Confirm the response reports `slot_mapped`.
+7. Confirm switching from a plain-BD page into the pilot theme uses safe fallback rather than stale angle content.
+8. Test preview, editor save, translation, export, desktop, and mobile.
+9. Roll out to additional themes only after the pilot passes.
 
 ## Current Audit Result
 
@@ -77,8 +84,9 @@ Therefore, the Phase 3 foundation does not alter the behavior of existing themes
 The Phase 3 foundation passed:
 
 ```text
-Unit tests:             14 passed
-Compatibility audit:   724 landing pages
-Audit errors:           0
+Isolated Phase 3 unit tests: 20 passed
+Syntax checks:               passed
+Database-modifying commands: none run
 ```
 
+The existing landing-page compatibility audit was not rerun during the final safety-rule update.
