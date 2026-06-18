@@ -119,6 +119,26 @@ function normalizeLeadEmail($email): string
     return strtolower(trim((string) $email));
 }
 
+function normalizeLeadPhone($phone): string
+{
+    return trim((string) $phone);
+}
+
+function resolveCrmBaseUrl(): string
+{
+    $configuredUrl = trim((string) (getenv('CRM_LOCAL_BASE_URL') ?: getenv('CRM_BASE_URL') ?: ''));
+    if ($configuredUrl !== '') {
+        return rtrim($configuredUrl, '/');
+    }
+
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
+    if (strpos($host, '127.0.0.1') !== false || strpos($host, 'localhost') !== false) {
+        return 'http://127.0.0.1:8000';
+    }
+
+    return 'https://crm.diy';
+}
+
 function resolveDuplicateApiIdentifier(array $postData, string $apiName): string
 {
     $instanceId = trim((string) ($postData['user_api_instance_id'] ?? ''));
@@ -142,7 +162,8 @@ function resolveDuplicateApiIdentifier(array $postData, string $apiName): string
 function checkDuplicateLeadInCrm(array $postData, string $apiName): array
 {
     $email = normalizeLeadEmail($postData['email'] ?? '');
-    if ($email === '') {
+    $phone = normalizeLeadPhone($postData['phone'] ?? '');
+    if ($email === '' && $phone === '') {
         return ['checked' => false, 'is_duplicate' => false];
     }
 
@@ -154,6 +175,8 @@ function checkDuplicateLeadInCrm(array $postData, string $apiName): array
 
     $payload = [
         'email' => $email,
+        'phone' => $phone,
+        'contact' => $phone,
         'api_identifier' => resolveDuplicateApiIdentifier($postData, $apiName),
         'api_type' => trim((string) $apiName),
         'user_api_instance_id' => trim((string) ($postData['user_api_instance_id'] ?? '')),
@@ -161,7 +184,7 @@ function checkDuplicateLeadInCrm(array $postData, string $apiName): array
         'web_builder_user_id' => isset($postData['web_builder_user_id']) ? ('U' . trim((string) $postData['web_builder_user_id'])) : null,
     ];
 
-    $crmBaseUrl = 'https://crm.diy';
+    $crmBaseUrl = resolveCrmBaseUrl();
     $ch = curl_init(rtrim($crmBaseUrl, '/') . '/api/v1/check-duplicate-lead');
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
@@ -200,13 +223,22 @@ function checkDuplicateLeadInCrm(array $postData, string $apiName): array
         $isDuplicate = truthyValue($decoded['data']['is_duplicate']);
     }
 
-    return ['checked' => true, 'is_duplicate' => $isDuplicate];
+    $matchedLeadId = $decoded['matched_lead_id'] ?? ($decoded['data']['matched_lead_id'] ?? null);
+    $duplicateField = $decoded['duplicate_field'] ?? ($decoded['data']['duplicate_field'] ?? null);
+
+    return [
+        'checked' => true,
+        'is_duplicate' => $isDuplicate,
+        'matched_lead_id' => $matchedLeadId,
+        'duplicate_field' => $duplicateField,
+    ];
 }
 
 function maybeBlockDuplicateLeadAndExit(array $postData, array $getData, string $apiName): void
 {
     $email = normalizeLeadEmail($postData['email'] ?? '');
-    if ($email === '') {
+    $phone = normalizeLeadPhone($postData['phone'] ?? '');
+    if ($email === '' && $phone === '') {
         return;
     }
 
@@ -217,20 +249,24 @@ function maybeBlockDuplicateLeadAndExit(array $postData, array $getData, string 
 
     $duplicatePayload = [
         'duplicate_check' => [
-            'reason' => 'Duplicate Email',
+            'reason' => 'This lead was already submitted on this API',
             'matched_lead_id' => $check['matched_lead_id'] ?? null,
+            'duplicate_field' => $check['duplicate_field'] ?? null,
         ],
     ];
 
     saveLead(
         $postData,
         $getData,
-        ['status' => false, 'message' => 'Duplicate Email'],
+        ['status' => false, 'message' => 'This lead was already submitted on this API'],
         $apiName,
         'failure',
         $duplicatePayload,
         [
-            'failure_reason' => 'Duplicate Email',
+            'is_duplicate_lead' => true,
+            'duplicate_field' => $check['duplicate_field'] ?? null,
+            'duplicate_matched_lead_id' => $check['matched_lead_id'] ?? null,
+            'failure_reason' => 'This lead was already submitted on this API',
         ]
     );
 
@@ -238,10 +274,11 @@ function maybeBlockDuplicateLeadAndExit(array $postData, array $getData, string 
     $pid = trim((string) ($getData['pid'] ?? $postData['pid'] ?? ''));
     $so = trim((string) ($getData['so'] ?? $postData['so'] ?? ''));
 
-    header('Location: ' . BASE_URL . '/api_files/thank_you.php?' . http_build_query([
+    header('Location: ' . BASE_URL . '?' . http_build_query([
         'cid' => $cid,
         'pid' => $pid,
         'so' => $so,
+        'api_error' => 'This lead was already submitted on this API',
     ]));
     exit();
 }
@@ -370,13 +407,17 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'ip_address' => $leadIp,
         'country' => $leadCountry,
         'is_fake_lead' => (bool) ($options['is_fake_lead'] ?? false),
+        'is_duplicate_lead' => (bool) ($options['is_duplicate_lead'] ?? false),
+        'duplicate_field' => $options['duplicate_field'] ?? null,
+        'duplicate_matched_lead_id' => $options['duplicate_matched_lead_id'] ?? null,
         'failure_reason' => $options['failure_reason'] ?? null,
         'honeypot_reason' => $options['honeypot_reason'] ?? null,
         'blocked_ip' => $options['blocked_ip'] ?? null,
     ];
 
     // Send to CRM save-lead API
-    $ch = curl_init('https://crm.diy/api/v1/save-lead');
+    $crmBaseUrl = resolveCrmBaseUrl();
+    $ch = curl_init(rtrim($crmBaseUrl, '/') . '/api/v1/save-lead');
 
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($leadData));
