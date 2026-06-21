@@ -391,9 +391,9 @@ class AngleTemplateMergeService
 
         foreach ($allBodies as $index => $body) {
             $content = (string) ($body->content ?? '');
-            $name = strtoupper(trim((string) ($body->name ?? '')));
+            $name = $this->canonicalBodyIdentifier((string) ($body->name ?? ''));
 
-            if (preg_match(self::BODY_ID_PATTERN, $name) || $this->isSubSlotId($name)) {
+            if ($name !== null) {
                 $bodies[$name] = $content;
 
                 continue;
@@ -407,6 +407,23 @@ class AngleTemplateMergeService
         }
 
         return $bodies;
+    }
+
+    private function canonicalBodyIdentifier(string $name): ?string
+    {
+        $normalized = strtoupper(html_entity_decode(trim($name), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $normalized = (string) preg_replace('/[^A-Z0-9]+/', '_', $normalized);
+        $normalized = trim($normalized, '_');
+
+        if (preg_match(self::BODY_ID_PATTERN, $normalized) || $this->isSubSlotId($normalized)) {
+            return $normalized;
+        }
+
+        if (preg_match('/(?:^|_)(?<id>BD\d+(?:_[A-Z][A-Z0-9_]*)?)(?=_|$)/', $normalized, $matches)) {
+            return $matches['id'];
+        }
+
+        return null;
     }
 
     private function isSubSlotId(string $id): bool

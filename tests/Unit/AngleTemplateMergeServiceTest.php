@@ -145,6 +145,43 @@ it('maps explicitly named angle bodies and sub slots by identifier', function ()
     ]);
 });
 
+it('normalizes decorated sub slot names before falling back to positional body mapping', function () {
+    $bodies = [
+        (object) ['name' => 'BD2_HEADER:', 'content' => '<h2>BODY TWO HEADER ACTIVE HERE</h2>'],
+        (object) ['name' => '<body name="BD2_BANNER">', 'content' => '<h2>BODY TWO BANNER ACTIVE HERE</h2>'],
+        (object) ['name' => 'BD3 Publisher', 'content' => '<h2>BODY THREE PUBLISHER ACTIVE HERE</h2>'],
+        (object) ['name' => 'BD1', 'content' => '<h2>BODY ONE CONTENT ACTIVE HERE</h2>'],
+    ];
+
+    expect($this->service->mapAngleBodiesByIdentifier($bodies))->toBe([
+        'BD2_HEADER' => '<h2>BODY TWO HEADER ACTIVE HERE</h2>',
+        'BD2_BANNER' => '<h2>BODY TWO BANNER ACTIVE HERE</h2>',
+        'BD3_PUBLISHER' => '<h2>BODY THREE PUBLISHER ACTIVE HERE</h2>',
+        'BD1' => '<h2>BODY ONE CONTENT ACTIVE HERE</h2>',
+    ]);
+});
+
+it('renders report sub slot bodies into their matching boxes instead of bd1', function () {
+    $shell = '<div class="box-1"><!--INTERNAL--BD2_HEADER--EXTERNAL--></div>'
+        .'<div class="box-2"><!--INTERNAL--BD3_PUBLISHER--EXTERNAL--></div>'
+        .'<div class="box-3"><!--INTERNAL--BD2_BANNER--EXTERNAL--></div>'
+        .'<div class="box-4"><!--INTERNAL--BD1--EXTERNAL--></div>';
+    $bodies = $this->service->mapAngleBodiesByIdentifier([
+        (object) ['name' => 'BD2_HEADER:', 'content' => '<h2>BODY TWO HEADER ACTIVE HERE</h2>'],
+        (object) ['name' => 'BD2_BANNER:', 'content' => '<h2>BODY TWO BANNER ACTIVE HERE</h2>'],
+        (object) ['name' => 'BD3_PUBLISHER:', 'content' => '<h2>BODY THREE PUBLISHER ACTIVE HERE</h2>'],
+        (object) ['name' => 'BD1:', 'content' => '<h2>BODY ONE CONTENT ACTIVE HERE</h2>'],
+    ]);
+
+    $result = $this->service->injectBodySegmentsIntoShell($shell, $bodies);
+
+    expect($result)
+        ->toContain('<div class="box-1"><h2>BODY TWO HEADER ACTIVE HERE</h2></div>')
+        ->toContain('<div class="box-2"><h2>BODY THREE PUBLISHER ACTIVE HERE</h2></div>')
+        ->toContain('<div class="box-3"><h2>BODY TWO BANNER ACTIVE HERE</h2></div>')
+        ->toContain('<div class="box-4"><h2>BODY ONE CONTENT ACTIVE HERE</h2></div>');
+});
+
 it('keeps positional compatibility for legacy unnamed angle bodies', function () {
     $bodies = [
         (object) ['name' => '<body>', 'content' => '<article>Article</article>'],
