@@ -108,15 +108,13 @@ class AngleTemplateMergeService
                 $sanitizedBody = $this->sanitizeBodySegment(
                     $this->removeTemplateAssetElements($body, $oldTemplate)
                 );
-                $sanitizedBodies[$bodyId] = $this->isSubSlotId($bodyId)
-                    ? $sanitizedBody
-                    : $this->wrapBodyForThemeLayout($sanitizedBody);
+                $sanitizedBodies[$bodyId] = $sanitizedBody;
             }
             $preservedHtml = implode('', $sanitizedBodies);
             $mainHtml = $this->injectBodySegmentsIntoShell((string) $newTemplate->index, $sanitizedBodies);
             $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $newTemplate);
             $mainHtml = $this->rewriteAngleImagePaths($mainHtml, $angle);
-            $layoutGuardCss = $this->themeChangeLayoutGuardCss();
+            $layoutGuardCss = '';
         } else {
             // Safe fallback: preserve current landing HTML as-is (keeps current language/content/images).
             $preservedHtml = $currentMainHtml;
@@ -543,48 +541,6 @@ class AngleTemplateMergeService
         }
 
         return $body;
-    }
-
-    /**
-     * Center article content when the new theme shell does not constrain body width.
-     */
-    public function wrapBodyForThemeLayout(string $body): string
-    {
-        $body = trim($body);
-        if ($body === '' || str_contains($body, 'lp-theme-body-inner')) {
-            return $body;
-        }
-
-        return '<div class="lp-theme-body-inner">'.$body.'</div>';
-    }
-
-    /**
-     * Layout guard appended after theme change so images/text are not forced to viewport width.
-     */
-    public function themeChangeLayoutGuardCss(): string
-    {
-        return <<<'CSS'
-.lp-theme-body-inner {
-    max-width: 1140px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
-    box-sizing: border-box;
-    padding-left: 16px;
-    padding-right: 16px;
-}
-.lp-theme-body-inner img {
-    max-width: 100% !important;
-    height: auto !important;
-    width: auto !important;
-}
-.lp-theme-body-inner h1,
-.lp-theme-body-inner h2,
-.lp-theme-body-inner h3,
-.lp-theme-body-inner p {
-    max-width: 100%;
-}
-CSS;
     }
 
     /**

@@ -471,6 +471,58 @@ it('preserves edited landing page slot content over the original angle slot', fu
         ->and($result['main_html'])->not->toContain('Original angle heading');
 });
 
+it('does not add layout wrapper css when bd mapping succeeds', function () {
+    $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
+    $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<section class="old-left"><!--INTERNAL--BD1--EXTERNAL--></section><aside class="old-right"><!--INTERNAL--BD4--EXTERNAL--></aside>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+    $newTemplate = new class(['uuid' => 'new-theme', 'index' => '<main class="main-content"><div class="main-con-left"><!--INTERNAL--BD1--EXTERNAL--></div><div class="main-con-right"><!--INTERNAL--BD4--EXTERNAL--></div></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->changeThemePreservingContent(
+        $angle,
+        '<section class="old-left"><article>Article body</article></section><aside class="old-right"><p>Sidebar body</p></aside>',
+        $oldTemplate,
+        $newTemplate
+    );
+
+    expect($result['mapping_status'])->toBe('bd_mapped')
+        ->and($result['main_html'])->toBe('<main class="main-content"><div class="main-con-left"><article>Article body</article></div><div class="main-con-right"><p>Sidebar body</p></div></main>')
+        ->and($result['main_html'])->not->toContain('lp-theme-body-inner')
+        ->and($result['main_css'])->not->toContain('lp-theme-body-inner');
+});
+
 it('extracts unique public storage asset paths from preserved content', function () {
     $paths = $this->service->publicStorageAssetPaths(
         '<img src="../../storage/angles/a/images/one.jpg">'
