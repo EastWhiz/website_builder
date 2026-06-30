@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateOrganizationTurnstileSettingsRequest;
 use App\Models\OrganizationTurnstileSetting;
+use App\Services\CloudflareTurnstileService;
 use App\Support\OrganizationAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Throwable;
 
 class OrganizationTurnstileSettingsController extends Controller
 {
+    public function __construct(private readonly CloudflareTurnstileService $turnstileService)
+    {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $organization = $this->authorizedOrganization($request);
@@ -87,24 +90,15 @@ class OrganizationTurnstileSettingsController extends Controller
             ], 422);
         }
 
-        try {
-            $response = Http::withToken($setting->cloudflare_api_token_encrypted)
-                ->acceptJson()
-                ->timeout(10)
-                ->get(sprintf(
-                    'https://api.cloudflare.com/client/v4/accounts/%s/challenges/widgets',
-                    rawurlencode($setting->cloudflare_account_id)
-                ));
-        } catch (Throwable $e) {
-            return response()->json([
-                'message' => 'Cloudflare Turnstile connection test failed: ' . $e->getMessage(),
-            ], 422);
-        }
+        $result = $this->turnstileService->testConnection(
+            $setting->cloudflare_account_id,
+            $setting->cloudflare_api_token_encrypted
+        );
 
-        if (!$response->successful() || $response->json('success') !== true) {
+        if (!$result['success']) {
             return response()->json([
-                'message' => $response->json('errors.0.message') ?: 'Cloudflare Turnstile connection test failed.',
-                'status' => $response->status(),
+                'message' => $result['message'],
+                'status' => $result['status'],
             ], 422);
         }
 

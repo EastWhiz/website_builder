@@ -582,6 +582,11 @@ Verification:
 
 ### Phase 4 - Cloudflare API Service
 
+Status:
+- Completed.
+- `CloudflareTurnstileService` was added and the settings connection test now uses it.
+- Focused unit tests passed with faked Cloudflare HTTP responses.
+
 Goal:
 - Build the internal service that talks to Cloudflare.
 
