@@ -510,6 +510,11 @@ Verification:
 
 ### Phase 2 - Settings Backend
 
+Status:
+- Completed.
+- Routes, request validation, and controller endpoints were added.
+- Functional DB testing was not run because migrations have not been run.
+
 Goal:
 - Allow admins/org admins to save Cloudflare Turnstile settings.
 

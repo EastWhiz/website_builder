@@ -10,6 +10,7 @@ use App\Http\Controllers\OtpServiceController;
 use App\Http\Controllers\OtpServiceCredentialController;
 use App\Http\Controllers\OtpVerificationController;
 use App\Http\Controllers\OrganizationMailSettingsController;
+use App\Http\Controllers\OrganizationTurnstileSettingsController;
 use App\Http\Controllers\OrganizationTeamController;
 use App\Http\Controllers\OrganizationContentUserAssignmentController;
 use App\Http\Controllers\OrganizationAuditLogController;
@@ -192,6 +193,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // CRM Settings (admin only - admin@gmail.com; controller enforces)
         Route::get('/api/crm-settings', [CrmSettingsController::class, 'index'])->name('crm.settings.index');
         Route::put('/api/crm-settings', [CrmSettingsController::class, 'update'])->name('crm.settings.update');
+        Route::get('/api/organization-turnstile-settings', [OrganizationTurnstileSettingsController::class, 'index'])->name('organization.turnstile-settings.index');
+        Route::put('/api/organization-turnstile-settings', [OrganizationTurnstileSettingsController::class, 'update'])->name('organization.turnstile-settings.update');
+        Route::post('/api/organization-turnstile-settings/test-connection', [OrganizationTurnstileSettingsController::class, 'testConnection'])->name('organization.turnstile-settings.test-connection');
 
         // ANGLES ROUTES
         Route::inertia('/angles/add', 'Angles/AddEditAngle')->name('addAngle');
