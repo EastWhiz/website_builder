@@ -616,6 +616,12 @@ Verification:
 
 ### Phase 5 - Widget Provisioning Logic
 
+Status:
+- Completed.
+- `resolveTurnstileWidget()` was added with shared-widget reuse and per-hostname fallback behavior.
+- Helper tests passed with faked Cloudflare HTTP responses.
+- DB-backed provisioning was not exercised against the real database because migrations have not been run.
+
 Goal:
 - Automatically create/reuse/update widgets for export hostnames.
 

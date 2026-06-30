@@ -39,6 +39,39 @@ it('builds a widget payload with unique normalized domains', function () {
     ]);
 });
 
+it('merges existing widget domains without creating duplicates for url paths', function () {
+    $domains = $this->service->mergeDomains(
+        [
+            'example.com',
+            'https://lp.example.com/old-path',
+        ],
+        'https://example.com/new-path?cid=abc'
+    );
+
+    expect($domains)->toBe(['example.com', 'lp.example.com']);
+});
+
+it('extracts widget credentials from Cloudflare result variants', function () {
+    expect($this->service->extractWidgetCredentials([
+        'id' => 'widget-id',
+        'sitekey' => 'site-key',
+        'secret' => 'secret-key',
+    ]))->toBe([
+        'site_key' => 'site-key',
+        'secret_key' => 'secret-key',
+        'cloudflare_widget_id' => 'widget-id',
+    ]);
+
+    expect($this->service->extractWidgetCredentials([
+        'site_key' => 'site-key-2',
+        'secret_key' => 'secret-key-2',
+    ]))->toBe([
+        'site_key' => 'site-key-2',
+        'secret_key' => 'secret-key-2',
+        'cloudflare_widget_id' => 'site-key-2',
+    ]);
+});
+
 it('uses managed mode when an invalid mode is provided', function () {
     $payload = $this->service->buildWidgetPayload('Widget', ['example.com'], 'bad-mode');
 
