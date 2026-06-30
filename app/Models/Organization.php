@@ -52,5 +52,14 @@ class Organization extends Model
     {
         return $this->hasOne(OrganizationMailSetting::class);
     }
-}
 
+    public function turnstileSetting(): HasOne
+    {
+        return $this->hasOne(OrganizationTurnstileSetting::class);
+    }
+
+    public function turnstileWidgets(): HasMany
+    {
+        return $this->hasMany(TurnstileWidget::class);
+    }
+}
