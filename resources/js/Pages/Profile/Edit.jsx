@@ -9,6 +9,7 @@ import OtpServicesFormFields from './Partials/OtpServicesFormFields';
 import CrmSettingsForm from './Partials/CrmSettingsForm';
 import DeepLApiKeyForm from './Partials/DeepLApiKeyForm';
 import OrganizationMailSettingsForm from './Partials/OrganizationMailSettingsForm';
+import TurnstileSettingsForm from './Partials/TurnstileSettingsForm';
 
 export default function Edit({
     mustVerifyEmail,
@@ -90,6 +91,12 @@ export default function Edit({
                                 organizationMailSettings={organizationMailSettings}
                                 className="max-w-xl"
                             />
+                        </div>
+                    )}
+
+                    {canManageOrganizationMail && (
+                        <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                            <TurnstileSettingsForm className="max-w-xl" />
                         </div>
                     )}
 

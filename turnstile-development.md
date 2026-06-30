@@ -548,6 +548,11 @@ Verification:
 
 ### Phase 3 - Settings UI
 
+Status:
+- Completed.
+- Turnstile settings panel was added to the Profile page for organization managers.
+- Frontend build passed.
+
 Goal:
 - Add a simple Turnstile configuration screen in Builder.
 
