@@ -295,28 +295,67 @@ class AngleTemplateController extends Controller
 
         DB::beginTransaction();
         try {
+            $newUuid = (string) Str::uuid();
             $result = $this->angleTemplateMergeService->changeThemePreservingContent(
                 $angleTemplate->angle,
                 (string) $angleTemplate->main_html,
                 $oldTemplate,
                 $template
             );
-            $missingPreservedAssets = array_values(array_filter(
-                $result['preserved_asset_paths'],
-                fn (string $path) => !Storage::disk('public')->exists($path)
-            ));
+            $originalContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
+            $cloneAssets = $this->landingPageAssetService->copyAssetsForClone(
+                $newUuid,
+                [$result['main_html'], $result['main_css'], $result['main_js']],
+                $originalContents->pluck('name')->all()
+            );
+            $replacements = $cloneAssets['replacements'];
 
-            $angleTemplate->template_id = $template->id;
-            $angleTemplate->main_html = $result['main_html'];
-            $angleTemplate->main_css = $result['main_css'];
-            $angleTemplate->main_js = $result['main_js'];
-            $angleTemplate->save();
+            $mainHtml = $this->landingPageAssetService->rewriteStorageReferences($result['main_html'], $replacements);
+            $mainCss = $this->landingPageAssetService->rewriteStorageReferences($result['main_css'], $replacements);
+            $mainJs = $this->landingPageAssetService->rewriteStorageReferences($result['main_js'], $replacements);
+            $missingPreservedAssets = array_values(array_unique(array_merge(
+                array_values(array_filter(
+                    $result['preserved_asset_paths'],
+                    fn (string $path) => !Storage::disk('public')->exists($path)
+                )),
+                $cloneAssets['missing']
+            )));
+
+            $newAngleTemplate = AngleTemplate::create([
+                'uuid' => $newUuid,
+                'angle_id' => $angleTemplate->angle_id,
+                'template_id' => $template->id,
+                'user_id' => (int) (Auth::id() ?: $angleTemplate->user_id),
+                'organization_id' => $request->user()?->currentOrganization()?->id ?? $angleTemplate->organization_id,
+                'name' => "{$template->name} ({$angleTemplate->angle->name})",
+                'main_html' => $mainHtml,
+                'main_css' => $mainCss,
+                'main_js' => $mainJs,
+            ]);
+
+            foreach ($originalContents as $content) {
+                $relativeName = $this->landingPageAssetService->normalizeStoragePath($content->name);
+                $clonedName = $relativeName !== null && isset($replacements[$relativeName])
+                    ? str_replace('../../storage/', '/storage/', $replacements[$relativeName])
+                    : $content->name;
+
+                ExtraContent::create([
+                    'angle_template_uuid' => $newUuid,
+                    'angle_uuid' => $content->angle_uuid,
+                    'asset_unique_uuid' => $content->asset_unique_uuid,
+                    'name' => $clonedName,
+                    'blob_url' => $content->blob_url,
+                    'type' => $content->type,
+                    'can_be_deleted' => $content->can_be_deleted,
+                ]);
+            }
 
             DB::commit();
 
             if (!$result['content_preserved']) {
                 Log::warning('Landing page theme change used safe content preservation mode.', [
-                    'angle_template_id' => $angleTemplate->id,
+                    'angle_template_id' => $newAngleTemplate->id,
+                    'source_angle_template_id' => $angleTemplate->id,
                     'source_template_id' => $oldTemplate->id,
                     'target_template_id' => $template->id,
                     'source_repeated_bds' => $result['source_repeated_bds'],
@@ -327,7 +366,8 @@ class AngleTemplateController extends Controller
             }
             if ($missingPreservedAssets !== []) {
                 Log::warning('Landing page theme change preserved references to missing assets.', [
-                    'angle_template_id' => $angleTemplate->id,
+                    'angle_template_id' => $newAngleTemplate->id,
+                    'source_angle_template_id' => $angleTemplate->id,
                     'source_template_id' => $oldTemplate->id,
                     'target_template_id' => $template->id,
                     'missing_preserved_assets' => $missingPreservedAssets,
@@ -335,15 +375,17 @@ class AngleTemplateController extends Controller
             }
 
             $message = $result['content_preserved']
-                ? 'Landing page theme changed successfully. Your content and images were kept.'
-                : 'Landing page theme changed with safe content preservation mode. Current content/language was kept as-is.';
+                ? 'Landing page duplicated and theme changed successfully. Your original page was kept unchanged.'
+                : 'Landing page duplicated and theme changed with safe content preservation mode. Your original page was kept unchanged.';
             if ($missingPreservedAssets !== []) {
                 $message .= ' Some images were already missing from the source landing page and need to be restored.';
             }
 
             return sendResponse(true, $message, [
-                'angle_template_id' => $angleTemplate->id,
-                'template_id' => $angleTemplate->template_id,
+                'angle_template_id' => $newAngleTemplate->id,
+                'original_angle_template_id' => $angleTemplate->id,
+                'template_id' => $newAngleTemplate->template_id,
+                'duplicated' => true,
                 'content_preserved' => $result['content_preserved'],
                 'mapping_status' => $result['mapping_status'],
                 'source_repeated_bds' => $result['source_repeated_bds'],
@@ -355,6 +397,9 @@ class AngleTemplateController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+            if (isset($newUuid)) {
+                Storage::disk('public')->deleteDirectory("angleTemplates/{$newUuid}");
+            }
             return sendResponse(false, 'Could not change landing page theme. Please try again.');
         }
     }
