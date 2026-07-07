@@ -300,7 +300,9 @@ class AngleTemplateController extends Controller
                 $angleTemplate->angle,
                 (string) $angleTemplate->main_html,
                 $oldTemplate,
-                $template
+                $template,
+                (string) $angleTemplate->main_css,
+                (string) $angleTemplate->main_js
             );
             $originalContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
             $cloneAssets = $this->landingPageAssetService->copyAssetsForClone(
@@ -420,6 +422,9 @@ class AngleTemplateController extends Controller
         if (!$org) {
             return false;
         }
+        if ($angleTemplate->organization_id !== null && (int) $angleTemplate->organization_id !== (int) $org->id) {
+            return false;
+        }
         if (!OrganizationAccess::isActiveOrganizationMember($ownerId, (int) $org->id)) {
             return false;
         }
@@ -427,7 +432,26 @@ class AngleTemplateController extends Controller
             return true;
         }
 
-        return OrganizationAccess::canUserFullyManageTeam($actor, $org);
+        return $this->currentOrganizationRoleKey($actor, (int) $org->id) === 'org_manager'
+            || Gate::forUser($actor)->allows('org.permission', 'content.update_org_all')
+            || OrganizationAccess::canUserFullyManageTeam($actor, $org);
+    }
+
+    private function currentOrganizationRoleKey($actor, int $organizationId): ?string
+    {
+        if (!$actor || $organizationId < 1) {
+            return null;
+        }
+
+        $roleKey = DB::table('organization_user as ou')
+            ->leftJoin('roles as r', 'r.id', '=', 'ou.role_id')
+            ->where('ou.organization_id', $organizationId)
+            ->where('ou.user_id', (int) $actor->id)
+            ->where('ou.status', 'active')
+            ->whereNull('ou.deleted_at')
+            ->value('r.key');
+
+        return $roleKey ? (string) $roleKey : null;
     }
 
     private function clearAngleTemplateCustomAssets(AngleTemplate $angleTemplate): void

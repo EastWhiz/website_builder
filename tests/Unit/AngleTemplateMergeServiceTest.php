@@ -349,6 +349,62 @@ it('uses safe fallback instead of original angle content when switching into a m
         ->and($result['main_html'])->toContain('Current full BD2 content');
 });
 
+it('keeps source css and js when safe fallback preserves the current page html', function () {
+    $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
+    $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header>H</header><!--INTERNAL--BD2--EXTERNAL--><footer>F</footer>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+    $newTemplate = new class(['uuid' => 'new-theme', 'index' => '<main><!--INTERNAL--BD2_HEADER--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect([
+                        (object) ['content' => '.target-theme-social-icon { font-size: 80px; }'],
+                    ]);
+                }
+            };
+        }
+    };
+
+    $result = $this->service->changeThemePreservingContent(
+        $angle,
+        '<header>H</header><h1>Current full BD2 content</h1><footer>F</footer>',
+        $oldTemplate,
+        $newTemplate,
+        '.source-theme-social-icon { font-size: 16px; }',
+        'window.sourceThemeReady = true;'
+    );
+
+    expect($result['mapping_status'])->toBe('safe_fallback')
+        ->and($result['main_css'])->toContain('.source-theme-social-icon')
+        ->and($result['main_css'])->not->toContain('.target-theme-social-icon')
+        ->and($result['main_js'])->toBe('window.sourceThemeReady = true;');
+});
+
 it('uses safe fallback when split source content cannot reconstruct a required plain bd', function () {
     $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
     $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header><!--INTERNAL--BD2_HEADER--EXTERNAL--></header><figure><!--INTERNAL--BD2_BANNER--EXTERNAL--></figure>']) extends Template
