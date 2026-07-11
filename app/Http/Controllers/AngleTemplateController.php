@@ -96,6 +96,62 @@ class AngleTemplateController extends Controller
         }
     }
 
+    private function getUseTurnstileFromHtml(?string $fullHtml): bool
+    {
+        if (!$fullHtml) {
+            return false;
+        }
+
+        try {
+            $crawler = new Crawler($fullHtml);
+            $nodes = $crawler->filter('input[name="use_turnstile"]');
+            if ($nodes->count() <= 0) {
+                return false;
+            }
+
+            foreach ($nodes as $node) {
+                $value = strtolower(trim($node->getAttribute('value') ?? ''));
+                if (in_array($value, ['true', '1', 'yes', 'on'], true)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function normalizeExportHostname(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        $candidate = preg_match('/^[a-z][a-z\d+\-.]*:\/\//i', $value)
+            ? $value
+            : 'https://' . $value;
+
+        $host = parse_url($candidate, PHP_URL_HOST);
+        if (!is_string($host) || trim($host) === '') {
+            return null;
+        }
+
+        $host = strtolower(rtrim(trim($host), '.'));
+        if (strlen($host) > 253 || !str_contains($host, '.')) {
+            return null;
+        }
+
+        foreach (explode('.', $host) as $label) {
+            if (!preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/', $label)) {
+                return null;
+            }
+        }
+
+        return $host;
+    }
+
     /**
      * Optional AWeber instance id (separate from primary form user_api_instance_id).
      */
@@ -605,6 +661,21 @@ class AngleTemplateController extends Controller
         $selectedThankYouTemplateType = $this->resolveThankYouTemplateType($selectedThankYouPage);
 
         $angleTemplate = AngleTemplate::where('id', $request->angle_template_id)->first();
+        $usesTurnstile = $this->getUseTurnstileFromHtml($angleTemplate?->main_html);
+        $targetHostname = $this->normalizeExportHostname($request->input('target_hostname'));
+
+        if ($usesTurnstile && !$targetHostname) {
+            return response()->json([
+                'error' => 'Target hostname is required when exporting a Turnstile-protected form. Enter the final domain, for example example.com; a directory/root path is not enough.',
+            ], 422);
+        }
+
+        if (!$usesTurnstile && $request->filled('target_hostname') && !$targetHostname) {
+            return response()->json([
+                'error' => 'Target hostname is invalid. Enter a hostname such as example.com, not only a directory/root path.',
+            ], 422);
+        }
+
         $template = $angleTemplate->template;
         $angle = $angleTemplate->angle;
 
@@ -2371,6 +2442,7 @@ class AngleTemplateController extends Controller
             $filesToExport = $this->getExportFilesList($publicFilesPath, $fullHtml);
             $apiExportContext = $this->buildApiExportContext($fullHtml);
             $apiExportContext['thank_you_page'] = $selectedThankYouPage;
+            $apiExportContext['target_hostname'] = $targetHostname;
 
             // Get form_type from HTML and resolve to UserApiInstance (so existing pages keep the correct API)
             $formType = $this->getFormTypeFromHtml($fullHtml);

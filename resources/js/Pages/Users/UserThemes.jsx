@@ -189,6 +189,8 @@ export default function Dashboard() {
     const [selectedExportAngleTemplateId, setSelectedExportAngleTemplateId] = useState(null);
     const [thankYouPages, setThankYouPages] = useState([]);
     const [selectedThankYouPageId, setSelectedThankYouPageId] = useState('');
+    const [exportTargetHostname, setExportTargetHostname] = useState('');
+    const [exportHostnameError, setExportHostnameError] = useState('');
 
     const [cloneLandingModalOpen, setCloneLandingModalOpen] = useState(false);
     const [cloneTemplateId, setCloneTemplateId] = useState(null);
@@ -709,8 +711,37 @@ export default function Dashboard() {
     };
 
     // Export modal functions
+    const normalizeExportHostname = (value) => {
+        const rawValue = String(value || '').trim();
+        if (!rawValue) {
+            return '';
+        }
+
+        try {
+            const withScheme = /^[a-z][a-z\d+\-.]*:\/\//i.test(rawValue)
+                ? rawValue
+                : `https://${rawValue}`;
+            const url = new URL(withScheme);
+            return url.hostname.replace(/\.$/, '').toLowerCase();
+        } catch {
+            return '';
+        }
+    };
+
+    const isValidExportHostname = (hostname) => {
+        if (!hostname || hostname.length > 253 || !hostname.includes('.')) {
+            return false;
+        }
+
+        return hostname
+            .split('.')
+            .every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+    };
+
     const openExportModal = (angleTemplateId) => {
         setSelectedExportAngleTemplateId(angleTemplateId);
+        setExportHostnameError('');
+        setExportTargetHostname(localStorage.getItem('turnstile_export_target_hostname') || '');
         setExportModalOpen(true);
 
         // Lazy-load thank you pages list for dropdown
@@ -729,13 +760,27 @@ export default function Dashboard() {
     };
 
     const handleExport = () => {
-        setExportModalOpen(false);
         if (selectedExportAngleTemplateId) {
+            const normalizedHostname = normalizeExportHostname(exportTargetHostname);
+            if (exportTargetHostname.trim() !== '' && !isValidExportHostname(normalizedHostname)) {
+                setExportHostnameError('Enter a valid hostname, for example example.com. A folder or root directory path is not enough.');
+                return;
+            }
+
+            setExportHostnameError('');
+            if (normalizedHostname) {
+                localStorage.setItem('turnstile_export_target_hostname', normalizedHostname);
+                setExportTargetHostname(normalizedHostname);
+            }
+            setExportModalOpen(false);
+
             const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1')) 
                 ? window.appURL 
                 : window.location.origin;
             const tyId = selectedThankYouPageId || '';
-            const url = `${baseUrl}/download?angle_template_id=${selectedExportAngleTemplateId}` + (tyId !== '' ? `&thank_you_page_id=${encodeURIComponent(tyId)}` : '');
+            let url = `${baseUrl}/download?angle_template_id=${selectedExportAngleTemplateId}`;
+            url += tyId !== '' ? `&thank_you_page_id=${encodeURIComponent(tyId)}` : '';
+            url += normalizedHostname ? `&target_hostname=${encodeURIComponent(normalizedHostname)}` : '';
             window.open(url, "_blank");
         }
     };
@@ -1204,6 +1249,35 @@ export default function Dashboard() {
             >
                 <Modal.Section>
                     <p className="mb-3">You are going to export this landing page.</p>
+                    <div className="mb-4 space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                            Target hostname
+                        </label>
+                        <input
+                            type="text"
+                            className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            value={exportTargetHostname}
+                            onChange={(e) => {
+                                setExportTargetHostname(e.target.value);
+                                setExportHostnameError('');
+                            }}
+                            onBlur={() => {
+                                const normalizedHostname = normalizeExportHostname(exportTargetHostname);
+                                if (normalizedHostname && isValidExportHostname(normalizedHostname)) {
+                                    setExportTargetHostname(normalizedHostname);
+                                }
+                            }}
+                            placeholder="example.com"
+                        />
+                        {exportHostnameError && (
+                            <p className="text-xs text-red-600">
+                                {exportHostnameError}
+                            </p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                            Required when exporting a Turnstile-protected form. Paste a full URL if needed; only the hostname will be used.
+                        </p>
+                    </div>
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">
                             Thank You Page

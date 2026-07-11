@@ -673,26 +673,26 @@ Verification:
 - Edit page and confirm checkbox remains ON.
 - Legacy forms remain OFF.
 
-### Phase 7 - Export Hostname Input
+### Phase 7 - Export Hostname Input - Completed
 
 Goal:
 - Ensure export knows the final hostname/domain before provisioning.
 
 Steps:
-1. Inspect the current export modal/flow.
-2. Add target hostname/domain input if no existing domain source exists.
-3. Normalize the entered value:
+1. [x] Inspect the current export modal/flow.
+2. [x] Add target hostname/domain input if no existing domain source exists.
+3. [x] Normalize the entered value:
    - remove protocol
    - remove path
    - remove query string
    - lowercase hostname
-4. Validate hostname is required when exporting a Turnstile-enabled form.
-5. Show message that directory/root path is not enough; hostname is required.
-6. Pass hostname to backend export request.
-7. Store last-used hostname if useful for repeat exports.
+4. [x] Validate hostname is required when exporting a Turnstile-enabled form.
+5. [x] Show message that directory/root path is not enough; hostname is required.
+6. [x] Pass hostname to backend export request.
+7. [x] Store last-used hostname if useful for repeat exports.
 
 Deliverable:
-- Export flow can provide a valid hostname to Cloudflare provisioning.
+- Completed. Export flow can provide a valid hostname to Cloudflare provisioning.
 
 Verification:
 - `https://example.com/folder/page` becomes `example.com`.
