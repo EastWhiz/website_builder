@@ -748,31 +748,31 @@ Verification:
 - Exported config contains secret only in PHP server file.
 - Exported HTML does not contain secret.
 
-### Phase 10 - Server-Side Verification
+### Phase 10 - Server-Side Verification - Completed
 
 Goal:
 - Block invalid Turnstile submissions before broker/API submission.
 
 Steps:
-1. Implement `turnstile_verify.php`.
-2. Read `cf-turnstile-response` from POST.
-3. Read Turnstile secret from config.
-4. Send server-side request to Cloudflare Siteverify.
-5. Include remote IP when available.
-6. Use short timeout.
-7. Return normalized result:
+1. [x] Implement `turnstile_verify.php`.
+2. [x] Read `cf-turnstile-response` from POST.
+3. [x] Read Turnstile secret from config.
+4. [x] Send server-side request to Cloudflare Siteverify.
+5. [x] Include remote IP when available.
+6. [x] Use short timeout.
+7. [x] Return normalized result:
    - success
    - error codes
    - message
-8. Call verification early in exported backend flow.
-9. If verification fails:
+8. [x] Call verification early in exported backend flow.
+9. [x] If verification fails:
    - do not send to broker/API.
    - optionally save failed lead to CRM.
    - follow selected thank-you/error UX.
-10. Ensure Turnstile OFF forms skip verification.
+10. [x] Ensure Turnstile OFF forms skip verification.
 
 Deliverable:
-- Missing/invalid Turnstile token prevents broker/API submission.
+- Completed. Missing/invalid Turnstile token prevents broker/API submission.
 
 Verification:
 - Missing token fails.

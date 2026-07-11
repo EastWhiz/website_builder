@@ -1,6 +1,7 @@
 <?php
 include_once 'config.php'; // Include config to get BASE_URL
 include_once 'otp_cleanup.php'; // Include OTP cleanup helper (Step 10)
+include_once 'turnstile_verify.php'; // Include Turnstile verification helper
 // Set headers for CORS and JSON content
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -21,6 +22,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dynamicCid = $getData['cid'] ?? '';
     $dynamicPid = $getData['pid'] ?? '';
     $dynamicSO = $getData['so'] ?? '';
+
+    $useTurnstile = strtolower(trim((string) ($postData['use_turnstile'] ?? '')));
+    $turnstileRequested = in_array($useTurnstile, ['true', '1', 'yes', 'on'], true);
+    if ($turnstileRequested) {
+        $turnstileResult = turnstileVerifySubmission($postData, $_SERVER['REMOTE_ADDR'] ?? null);
+        if (!($turnstileResult['success'] ?? false)) {
+            $message = $turnstileResult['message'] ?? 'Turnstile verification failed.';
+            $errorCodes = $turnstileResult['error_codes'] ?? [];
+            if (!empty($errorCodes)) {
+                $message .= ' (' . implode(', ', array_map('strval', $errorCodes)) . ')';
+            }
+
+            header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($message));
+            exit();
+        }
+    }
 
     // New routing: use api_platform_file for deterministic platform file selection.
     $apiPlatformFile = isset($postData['api_platform_file']) ? trim((string) $postData['api_platform_file']) : '';
