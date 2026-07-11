@@ -2742,6 +2742,7 @@ class AngleTemplateController extends Controller
         'config.php',
         'backend.php',
         'api_error_helper.php',
+        'turnstile_verify.php',
         'thank_you.php',
         'save_lead_handler.php',
         'aweber_send_helper.php',
@@ -2875,6 +2876,21 @@ class AngleTemplateController extends Controller
             if ($value) {
                 $content = str_replace('http://localhost/myAppFolder', $value, $content);
             }
+
+            $turnstile = is_array($exportContext['turnstile'] ?? null) ? $exportContext['turnstile'] : [];
+            $turnstileEnabled = (bool) ($turnstile['success'] ?? false) && trim((string) ($turnstile['secret_key'] ?? '')) !== '';
+            $turnstileSecret = $turnstileEnabled ? (string) $turnstile['secret_key'] : '';
+            $content = preg_replace(
+                "/define\\('TURNSTILE_ENABLED',\\s*(?:true|false)\\);/i",
+                "define('TURNSTILE_ENABLED', " . ($turnstileEnabled ? 'true' : 'false') . ");",
+                $content
+            ) ?? $content;
+            $content = preg_replace(
+                "/define\\('TURNSTILE_SECRET_KEY',\\s*'[^']*'\\);/i",
+                "define('TURNSTILE_SECRET_KEY', " . var_export($turnstileSecret, true) . ");",
+                $content
+            ) ?? $content;
+
             return $content;
         }
 

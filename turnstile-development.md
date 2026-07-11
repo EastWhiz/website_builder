@@ -725,23 +725,23 @@ Verification:
 - Page source does not contain secret key.
 - Turnstile OFF export has no Turnstile script/widget.
 
-### Phase 9 - Export Package Files
+### Phase 9 - Export Package Files - Completed
 
 Goal:
 - Include the PHP verification helper and config values in exported zip.
 
 Steps:
-1. Add `public/api_files/turnstile_verify.php`.
-2. Add it to export file list.
-3. Add Turnstile config replacement/injection in exported PHP:
+1. [x] Add `public/api_files/turnstile_verify.php`.
+2. [x] Add it to export file list.
+3. [x] Add Turnstile config replacement/injection in exported PHP:
    - `TURNSTILE_ENABLED`
    - `TURNSTILE_SECRET_KEY`
-4. If multiple widgets/forms are supported, add a secret map.
-5. Ensure exported package includes helper only when needed, or include always if simpler and harmless.
-6. Verify no placeholder secret remains in exported output.
+4. [x] Use one provisioned widget/secret per exported hostname for all protected forms on the page.
+5. [x] Include helper always; config disables Turnstile when not needed.
+6. [x] Verify no placeholder secret remains in exported output.
 
 Deliverable:
-- Export zip contains everything needed for server-side Turnstile verification.
+- Completed. Export zip contains everything needed for server-side Turnstile verification.
 
 Verification:
 - Export zip contains `api_files/turnstile_verify.php`.
