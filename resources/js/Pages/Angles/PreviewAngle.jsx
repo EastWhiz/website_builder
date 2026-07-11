@@ -649,6 +649,7 @@ export default function Dashboard({ id }) {
         otp_service_id: "",
         is_self_hosted: "false",
         stop_spamming: "true",
+        use_turnstile: "false",
         redirect_to_broker: "no",
         broker_redirect_delay: "",
         use_aweber: 'no',
@@ -923,7 +924,7 @@ export default function Dashboard({ id }) {
                     const name = input.getAttribute("name");
                     const id = input.getAttribute("id");
 
-                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "stop_spamming" || name == "redirect_to_broker" || name == "broker_redirect_delay" || name == "use_aweber" || name == "aweber_user_api_instance_id" || name == "aweber_list_ids" || name == "cid" || name == "pid" || name == "so" || name == "ref_code" || name == "form_loaded_at" || name == "submission_duration_ms" || name == "zipcode" || name == "currentAdvisor" || name == "ageRange" || name == "retirementPlan" || name == "businessOwner" || name == "totalInvestableAssets" || name == "investableAssetsDetail" || name == "annualIncome") return null;
+                    if (!name || name == "form_type" || name == "api_platform_file" || name == "api_category_id" || name == "user_api_instance_id" || name == "save_lead_slug" || name == "web_builder_user_id" || name == "project_directory" || name == "sales_page_id" || name == "otp_service_id" || name == "is_self_hosted" || name == "stop_spamming" || name == "use_turnstile" || name == "redirect_to_broker" || name == "broker_redirect_delay" || name == "use_aweber" || name == "aweber_user_api_instance_id" || name == "aweber_list_ids" || name == "cid" || name == "pid" || name == "so" || name == "ref_code" || name == "form_loaded_at" || name == "submission_duration_ms" || name == "zipcode" || name == "currentAdvisor" || name == "ageRange" || name == "retirementPlan" || name == "businessOwner" || name == "totalInvestableAssets" || name == "investableAssetsDetail" || name == "annualIncome") return null;
 
                     // Find the corresponding label using the `for` attribute
                     const label = id ? formEl.querySelector(`#${id}`)?.placeholder : null;
@@ -965,6 +966,10 @@ export default function Dashboard({ id }) {
                 stop_spamming: (() => {
                     const raw = formEl.querySelector('[name="stop_spamming"]')?.value?.trim()?.toLowerCase();
                     return ['false', '0', 'no', 'off'].includes(raw || '') ? 'false' : 'true';
+                })(),
+                use_turnstile: (() => {
+                    const raw = formEl.querySelector('[name="use_turnstile"]')?.value?.trim()?.toLowerCase();
+                    return ['true', '1', 'yes', 'on'].includes(raw || '') ? 'true' : 'false';
                 })(),
                 redirect_to_broker: (() => {
                     const raw = formEl.querySelector('[name="redirect_to_broker"]')?.value?.trim()?.toLowerCase();
@@ -1654,6 +1659,7 @@ export default function Dashboard({ id }) {
             formHTML += ` <input type="hidden" name="otp_service_id" value="${formManagement.otp_service_id || ''}" />`;
             formHTML += ` <input type="hidden" name="is_self_hosted" value="${formManagement.is_self_hosted || 'false'}" />`;
             formHTML += ` <input type="hidden" name="stop_spamming" value="${formManagement.stop_spamming || 'true'}" />`;
+            formHTML += ` <input type="hidden" name="use_turnstile" value="${formManagement.use_turnstile === 'true' ? 'true' : 'false'}" />`;
             formHTML += ` <input type="hidden" name="form_loaded_at" value="" />`;
             formHTML += ` <input type="hidden" name="submission_duration_ms" value="" />`;
             formHTML += ` <input type="text" name="ref_code" value="" autocomplete="off" tabindex="-1" aria-hidden="true" style="position:absolute !important; left:-10000px !important; top:auto !important; width:1px !important; height:1px !important; overflow:hidden !important;" />`;
@@ -1946,6 +1952,7 @@ export default function Dashboard({ id }) {
                         projectDirectory: form.querySelector('[name="project_directory"]')?.value ?? null,
                         otpServiceId: form.querySelector('[name="otp_service_id"]')?.value ?? null,
                         isSelfHosted: form.querySelector('[name="is_self_hosted"]')?.value ?? null,
+                        useTurnstile: form.querySelector('[name="use_turnstile"]')?.value ?? null,
                         fields: Array.from(inputs).map((el) => ({
                             name: el.getAttribute('name'),
                             type: el.getAttribute('type') || el.tagName.toLowerCase(),
@@ -3346,6 +3353,27 @@ export default function Dashboard({ id }) {
                                                                         }}
                                                                     />
                                                                     <Typography variant="body2">Want to stop Spamming?</Typography>
+                                                                </Box>
+                                                            </FormControl>
+                                                        </Box>
+                                                        <Box mt={2}>
+                                                            <FormControl fullWidth>
+                                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                                    <Checkbox
+                                                                        checked={formManagement.use_turnstile === 'true'}
+                                                                        onChange={(e) => {
+                                                                            setFormManagement({
+                                                                                ...formManagement,
+                                                                                use_turnstile: e.target.checked ? 'true' : 'false',
+                                                                            });
+                                                                        }}
+                                                                    />
+                                                                    <Box>
+                                                                        <Typography variant="body2">Protect with Turnstile</Typography>
+                                                                        <Typography variant="caption" color="text.secondary">
+                                                                            Requires organization Turnstile settings before export.
+                                                                        </Typography>
+                                                                    </Box>
                                                                 </Box>
                                                             </FormControl>
                                                         </Box>

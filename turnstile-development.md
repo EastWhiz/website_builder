@@ -651,22 +651,22 @@ Verification:
 - Same hostname with different path does not create a new widget.
 - New hostname updates shared widget or creates fallback widget.
 
-### Phase 6 - Form Metadata Toggle
+### Phase 6 - Form Metadata Toggle - Completed
 
 Goal:
 - Allow each landing-page form to opt into Turnstile.
 
 Steps:
-1. Find the form management state in the landing page builder/customizer.
-2. Add `use_turnstile` boolean to form metadata.
-3. Add UI checkbox: `Protect with Turnstile`.
-4. Persist the flag into generated form HTML/metadata.
-5. On edit, parse existing `use_turnstile` value back into form state.
-6. Default legacy forms to OFF.
-7. If global Turnstile settings are disabled, show the checkbox disabled or show a configuration warning.
+1. [x] Find the form management state in the landing page builder/customizer.
+2. [x] Add `use_turnstile` boolean to form metadata.
+3. [x] Add UI checkbox: `Protect with Turnstile`.
+4. [x] Persist the flag into generated form HTML/metadata.
+5. [x] On edit, parse existing `use_turnstile` value back into form state.
+6. [x] Default legacy forms to OFF.
+7. [x] Keep the setting local to form metadata for now; global settings enforcement will be handled in the export/provisioning phases.
 
 Deliverable:
-- Builder can mark a form as Turnstile-protected.
+- Completed. Builder can mark a form as Turnstile-protected.
 
 Verification:
 - Create a new form with Turnstile ON.
