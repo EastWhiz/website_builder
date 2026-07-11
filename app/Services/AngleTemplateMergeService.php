@@ -75,7 +75,9 @@ class AngleTemplateMergeService
         Angle $angle,
         string $currentMainHtml,
         Template $oldTemplate,
-        Template $newTemplate
+        Template $newTemplate,
+        string $currentMainCss = '',
+        string $currentMainJs = ''
     ): array {
         $oldShellForMatching = $this->buildTemplateShellForMergedComparison($oldTemplate);
         $sourceUsage = $this->placeholderUsage($oldShellForMatching);
@@ -115,14 +117,18 @@ class AngleTemplateMergeService
             $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $newTemplate);
             $mainHtml = $this->rewriteAngleImagePaths($mainHtml, $angle);
             $layoutGuardCss = '';
+            $styles = $this->themeStylesOnly($newTemplate);
         } else {
-            // Safe fallback: preserve current landing HTML as-is (keeps current language/content/images).
+            // Safe fallback: preserve current landing HTML/CSS/JS together so layout and icons stay intact.
             $preservedHtml = $currentMainHtml;
             $mainHtml = '<div class="lp-theme-safe-content">'.$currentMainHtml.'</div>';
             $layoutGuardCss = $this->themeChangeFallbackGuardCss();
+            $styles = [
+                'main_css' => $currentMainCss,
+                'main_js' => $currentMainJs,
+            ];
         }
 
-        $styles = $this->themeStylesOnly($newTemplate);
         $mainCss = $styles['main_css']."\n".$layoutGuardCss;
 
         return [
