@@ -699,26 +699,26 @@ Verification:
 - Missing hostname blocks Turnstile export with clear message.
 - Turnstile OFF export does not require hostname.
 
-### Phase 8 - Export HTML Injection
+### Phase 8 - Export HTML Injection - Completed
 
 Goal:
 - Add Turnstile script/widget to exported pages only when enabled.
 
 Steps:
-1. During export, detect protected form(s).
-2. Resolve/provision Turnstile widget using Phase 5 logic.
-3. Inject Cloudflare script once into page head/body.
-4. Inject widget markup inside protected form:
+1. [x] During export, detect protected form(s).
+2. [x] Resolve/provision Turnstile widget using Phase 5 logic.
+3. [x] Inject Cloudflare script once into page head/body.
+4. [x] Inject widget markup inside protected form:
    - `div.cf-turnstile`
    - `data-sitekey`
-5. Add hidden non-secret marker:
+5. [x] Add hidden non-secret marker:
    - `use_turnstile=yes`
-6. Do not inject `secret_key` into HTML.
-7. Preserve all existing hidden inputs and tracking fields.
-8. Ensure multiple form export does not duplicate script unnecessarily.
+6. [x] Do not inject `secret_key` into HTML.
+7. [x] Preserve all existing hidden inputs and tracking fields.
+8. [x] Ensure multiple form export does not duplicate script unnecessarily.
 
 Deliverable:
-- Exported HTML renders Turnstile widget for protected forms.
+- Completed. Exported HTML renders Turnstile widget for protected forms.
 
 Verification:
 - Page source contains site key.

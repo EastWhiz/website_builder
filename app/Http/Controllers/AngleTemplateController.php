@@ -13,6 +13,7 @@ use App\Models\UserApiCredential;
 use App\Models\UserApiInstance;
 use App\Services\AngleTemplateMergeService;
 use App\Services\ApiExportService;
+use App\Services\CloudflareTurnstileService;
 use App\Services\LandingPageAssetService;
 use App\Support\OrganizationAccess;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class AngleTemplateController extends Controller
     public function __construct(
         private ApiExportService $apiExportService,
         private AngleTemplateMergeService $angleTemplateMergeService,
+        private CloudflareTurnstileService $cloudflareTurnstileService,
         private LandingPageAssetService $landingPageAssetService
     ) {
     }
@@ -150,6 +152,94 @@ class AngleTemplateController extends Controller
         }
 
         return $host;
+    }
+
+    private function injectTurnstileIntoExportHtml(string $fullHtml, string $siteKey): string
+    {
+        $siteKey = trim($siteKey);
+        if ($siteKey === '' || !$this->getUseTurnstileFromHtml($fullHtml)) {
+            return $fullHtml;
+        }
+
+        $previousUseInternalErrors = libxml_use_internal_errors(true);
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+
+        try {
+            $loaded = $dom->loadHTML(
+                mb_convert_encoding($fullHtml, 'HTML-ENTITIES', 'UTF-8'),
+                LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+            );
+
+            if (!$loaded) {
+                return $fullHtml;
+            }
+
+            $xpath = new \DOMXPath($dom);
+            $scriptNodes = $xpath->query('//script[contains(@src, "challenges.cloudflare.com/turnstile/v0/api.js")]');
+            if (!$scriptNodes || $scriptNodes->length === 0) {
+                $script = $dom->createElement('script');
+                $script->setAttribute('src', 'https://challenges.cloudflare.com/turnstile/v0/api.js');
+                $script->setAttribute('async', 'async');
+                $script->setAttribute('defer', 'defer');
+
+                $head = $dom->getElementsByTagName('head')->item(0);
+                if ($head) {
+                    $head->appendChild($script);
+                } else {
+                    $dom->documentElement?->insertBefore($script, $dom->documentElement->firstChild);
+                }
+            }
+
+            $forms = $dom->getElementsByTagName('form');
+            foreach ($forms as $form) {
+                $protectedInputs = (new \DOMXPath($dom))->query('.//input[@name="use_turnstile"]', $form);
+                if (!$protectedInputs || $protectedInputs->length === 0) {
+                    continue;
+                }
+
+                $isProtected = false;
+                foreach ($protectedInputs as $input) {
+                    $value = strtolower(trim($input->getAttribute('value') ?? ''));
+                    if (in_array($value, ['true', '1', 'yes', 'on'], true)) {
+                        $input->setAttribute('value', 'yes');
+                        $isProtected = true;
+                    }
+                }
+
+                if (!$isProtected) {
+                    continue;
+                }
+
+                $existingWidget = (new \DOMXPath($dom))->query('.//*[contains(concat(" ", normalize-space(@class), " "), " cf-turnstile ")]', $form);
+                if ($existingWidget && $existingWidget->length > 0) {
+                    continue;
+                }
+
+                $widget = $dom->createElement('div');
+                $widget->setAttribute('class', 'cf-turnstile');
+                $widget->setAttribute('data-sitekey', $siteKey);
+
+                $submit = (new \DOMXPath($dom))->query('.//button[@type="submit"]|.//input[@type="submit"]', $form)->item(0);
+                if ($submit && $submit->parentNode === $form) {
+                    $form->insertBefore($widget, $submit);
+                } elseif ($submit && $submit->parentNode) {
+                    $submit->parentNode->insertBefore($widget, $submit);
+                } else {
+                    $form->appendChild($widget);
+                }
+            }
+
+            return $dom->saveHTML() ?: $fullHtml;
+        } catch (\Throwable $e) {
+            Log::warning('Unable to inject Turnstile widget into exported HTML', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return $fullHtml;
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousUseInternalErrors);
+        }
     }
 
     /**
@@ -2432,6 +2522,35 @@ class AngleTemplateController extends Controller
         </html>
         HTMLDOC;
 
+        $turnstileExport = null;
+        if ($usesTurnstile) {
+            $organization = $angleTemplate->organization ?: Auth::user()?->currentOrganization();
+            if (!$organization) {
+                $zip->close();
+                @unlink($zipPath);
+
+                return response()->json([
+                    'error' => 'Organization context is required before exporting a Turnstile-protected form.',
+                ], 422);
+            }
+
+            $turnstileExport = $this->cloudflareTurnstileService->resolveTurnstileWidget(
+                $organization,
+                (string) $targetHostname
+            );
+
+            if (!($turnstileExport['success'] ?? false) || empty($turnstileExport['site_key'])) {
+                $zip->close();
+                @unlink($zipPath);
+
+                return response()->json([
+                    'error' => $turnstileExport['message'] ?? 'Unable to provision Turnstile widget for export.',
+                ], 422);
+            }
+
+            $fullHtml = $this->injectTurnstileIntoExportHtml($fullHtml, (string) $turnstileExport['site_key']);
+        }
+
         $zip->addFromString('index.php', $fullHtml);
 
         // Add only fixed set + selected platform's integration file (platform-based export)
@@ -2443,6 +2562,7 @@ class AngleTemplateController extends Controller
             $apiExportContext = $this->buildApiExportContext($fullHtml);
             $apiExportContext['thank_you_page'] = $selectedThankYouPage;
             $apiExportContext['target_hostname'] = $targetHostname;
+            $apiExportContext['turnstile'] = $turnstileExport;
 
             // Get form_type from HTML and resolve to UserApiInstance (so existing pages keep the correct API)
             $formType = $this->getFormTypeFromHtml($fullHtml);
