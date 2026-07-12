@@ -2,6 +2,7 @@
 include_once 'config.php'; // Include config to get BASE_URL
 include_once 'otp_cleanup.php'; // Include OTP cleanup helper (Step 10)
 include_once 'turnstile_verify.php'; // Include Turnstile verification helper
+include_once 'save_lead_handler.php'; // Include CRM failed submission tracking
 // Set headers for CORS and JSON content
 header('Access-Control-Allow-Origin: ' . BASE_URL);
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -33,6 +34,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($errorCodes)) {
                 $message .= ' (' . implode(', ', array_map('strval', $errorCodes)) . ')';
             }
+
+            $turnstileApiName = trim((string) ($postData['save_lead_slug'] ?? ''));
+            if ($turnstileApiName === '') {
+                $turnstileApiName = trim((string) ($postData['form_type'] ?? ''));
+            }
+            if ($turnstileApiName === '') {
+                $turnstileApiName = pathinfo(trim((string) ($postData['api_platform_file'] ?? '')), PATHINFO_FILENAME);
+            }
+            if ($turnstileApiName === '') {
+                $turnstileApiName = 'turnstile';
+            }
+
+            $blockedIp = resolveRequestIp();
+            saveLead(
+                $postData,
+                $getData,
+                [
+                    'status' => false,
+                    'message' => 'Turnstile Failed',
+                    'turnstile_message' => $message,
+                    'turnstile_error_codes' => $errorCodes,
+                ],
+                $turnstileApiName,
+                'failure',
+                [
+                    'turnstile' => [
+                        'success' => false,
+                        'error_codes' => array_values((array) $errorCodes),
+                        'blocked_ip' => $blockedIp,
+                        'status' => $turnstileResult['status'] ?? null,
+                    ],
+                ],
+                [
+                    'failure_reason' => 'Turnstile Failed',
+                    'blocked_ip' => $blockedIp,
+                ]
+            );
 
             header('Location: ' . BASE_URL . '?cid=' . urlencode($dynamicCid) . '&pid=' . urlencode($dynamicPid) . '&so=' . urlencode($dynamicSO) . '&api_error=' . urlencode($message));
             exit();

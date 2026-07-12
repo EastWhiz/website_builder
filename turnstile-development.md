@@ -779,24 +779,24 @@ Verification:
 - Invalid token fails.
 - Turnstile OFF form still submits normally.
 
-### Phase 11 - CRM Failed Submission Tracking
+### Phase 11 - CRM Failed Submission Tracking - Completed
 
 Goal:
 - Track blocked Turnstile attempts if product decision requires it.
 
 Steps:
-1. Decide whether Builder should save failed Turnstile attempts to CRM.
-2. Add failure reason:
+1. [x] Decide whether Builder should save failed Turnstile attempts to CRM.
+2. [x] Add failure reason:
    - `Turnstile Failed`
-3. Add payload metadata:
+3. [x] Add payload metadata:
    - `turnstile.success`
    - `turnstile.error_codes`
    - `turnstile.blocked_ip`
-4. Reuse existing failed/fake lead save flow where possible.
-5. Ensure failed Turnstile attempts are not shown as successful leads.
+4. [x] Reuse existing failed/fake lead save flow where possible.
+5. [x] Ensure failed Turnstile attempts are not shown as successful leads.
 
 Deliverable:
-- CRM can show/debug Turnstile-blocked attempts.
+- Completed. CRM can show/debug Turnstile-blocked attempts.
 
 Verification:
 - Failed Turnstile attempt appears in failed submissions if enabled.
