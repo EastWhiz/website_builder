@@ -802,30 +802,34 @@ Verification:
 - Failed Turnstile attempt appears in failed submissions if enabled.
 - No successful lead row/provider submission is created for failed verification.
 
-### Phase 12 - Regression Testing
+### Phase 12 - Regression Testing - Completed
 
 Goal:
 - Confirm existing lead flow is not broken.
 
 Steps:
-1. Test Turnstile OFF form.
-2. Test Turnstile ON valid token.
-3. Test Turnstile ON missing token.
-4. Test Turnstile ON invalid token.
-5. Test Cloudflare timeout behavior.
-6. Test honeypot still blocks fake leads.
-7. Test duplicate check still works after Turnstile success.
-8. Test AWeber fields are preserved.
-9. Test OTP fields are preserved where used.
-10. Test CRM save-lead payload still includes expected fields.
-11. Test export zip file list.
-12. Test no secret appears in frontend source.
+1. [x] Test Turnstile OFF form path with automated/static regression coverage.
+2. [x] Test Turnstile ON valid-token path structurally; live token validation is deferred to Phase 13 staging.
+3. [x] Test Turnstile ON missing-token failure path.
+4. [x] Test Turnstile ON invalid-token failure path structurally through normalized failure handling.
+5. [x] Test Cloudflare timeout/request-failure behavior through helper assertions.
+6. [x] Confirm honeypot still blocks fake leads through existing exported helper flow.
+7. [x] Confirm duplicate check remains before provider submission after Turnstile success.
+8. [x] Confirm AWeber metadata is preserved in CRM save-lead payload.
+9. [x] Confirm OTP fields/helpers remain present where used.
+10. [x] Confirm CRM save-lead payload still includes expected fields.
+11. [x] Test export zip file list includes Turnstile helper.
+12. [x] Test no secret appears in frontend source/build output.
 
 Deliverable:
-- Feature is safe for staging.
+- Completed. Feature is safe for staging.
 
 Verification:
-- Focused manual QA plus automated tests where practical.
+- PHP lint passed for Turnstile-touched PHP files.
+- Focused unit tests passed: 17 tests, 60 assertions.
+- Frontend production build passed with existing warnings only.
+- Frontend/build secret scan found no Turnstile secret constants or sample secret values.
+- No destructive database commands were run.
 
 ### Phase 13 - Staging Rollout
 
