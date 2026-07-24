@@ -289,6 +289,10 @@ class AngleTemplateController extends Controller
             return sendResponse(false, 'This landing page already uses the selected theme.', null, null, null, 422);
         }
 
+        if ($angleTemplate->isStructuredBd()) {
+            return $this->changeStructuredBdTheme($request, $angleTemplate, $template);
+        }
+
         $oldTemplate = Template::query()->where('id', (int) $angleTemplate->template_id)->first();
         if (!$oldTemplate) {
             return sendResponse(false, 'Current theme could not be loaded.', null, null, null, 422);
@@ -404,6 +408,119 @@ class AngleTemplateController extends Controller
                 Storage::disk('public')->deleteDirectory("angleTemplates/{$newUuid}");
             }
             return sendResponse(false, 'Could not change landing page theme. Please try again.');
+        }
+    }
+
+    private function changeStructuredBdTheme(Request $request, AngleTemplate $angleTemplate, Template $template)
+    {
+        DB::beginTransaction();
+        try {
+            $newUuid = (string) Str::uuid();
+            $bdContents = $angleTemplate->bdContents()->get();
+            $bodies = $bdContents
+                ->pluck('content', 'slot_key')
+                ->map(fn ($content) => (string) $content)
+                ->all();
+            $rendered = $this->angleTemplateMergeService->renderStructuredBodies(
+                $template,
+                $bodies,
+                $angleTemplate->angle
+            );
+
+            $originalContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
+            $cloneAssets = $this->landingPageAssetService->copyAssetsForClone(
+                $newUuid,
+                array_merge(
+                    [$rendered['main_html'], $rendered['main_css'], $rendered['main_js']],
+                    $bdContents->pluck('content')->map(fn ($content) => (string) $content)->all()
+                ),
+                $originalContents->pluck('name')->all()
+            );
+            $replacements = $cloneAssets['replacements'];
+
+            $mainHtml = $this->landingPageAssetService->rewriteStorageReferences($rendered['main_html'], $replacements);
+            $mainCss = $this->landingPageAssetService->rewriteStorageReferences($rendered['main_css'], $replacements);
+            $mainJs = $this->landingPageAssetService->rewriteStorageReferences($rendered['main_js'], $replacements);
+
+            $newAngleTemplate = AngleTemplate::create([
+                'uuid' => $newUuid,
+                'angle_id' => $angleTemplate->angle_id,
+                'template_id' => $template->id,
+                'user_id' => (int) (Auth::id() ?: $angleTemplate->user_id),
+                'organization_id' => $request->user()?->currentOrganization()?->id ?? $angleTemplate->organization_id,
+                'name' => "{$template->name} ({$angleTemplate->angle->name})",
+                'main_html' => $mainHtml,
+                'main_css' => $mainCss,
+                'main_js' => $mainJs,
+                'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
+                'structured_version' => $angleTemplate->structured_version ?: 1,
+            ]);
+
+            foreach ($bdContents as $content) {
+                AngleTemplateBdContent::create([
+                    'angle_template_id' => $newAngleTemplate->id,
+                    'angle_template_uuid' => $newUuid,
+                    'parent_bd' => $content->parent_bd,
+                    'slot_key' => $content->slot_key,
+                    'slot_type' => $content->slot_type,
+                    'content' => $this->landingPageAssetService->rewriteStorageReferences((string) $content->content, $replacements),
+                    'sort' => $content->sort,
+                    'metadata' => $content->metadata,
+                ]);
+            }
+
+            foreach ($originalContents as $content) {
+                $relativeName = $this->landingPageAssetService->normalizeStoragePath($content->name);
+                $clonedName = $relativeName !== null && isset($replacements[$relativeName])
+                    ? str_replace('../../storage/', '/storage/', $replacements[$relativeName])
+                    : $content->name;
+
+                ExtraContent::create([
+                    'angle_template_uuid' => $newUuid,
+                    'angle_uuid' => $content->angle_uuid,
+                    'asset_unique_uuid' => $content->asset_unique_uuid,
+                    'name' => $clonedName,
+                    'blob_url' => $content->blob_url,
+                    'type' => $content->type,
+                    'can_be_deleted' => $content->can_be_deleted,
+                ]);
+            }
+
+            DB::commit();
+
+            $missingPreservedAssets = $cloneAssets['missing'];
+            if ($missingPreservedAssets !== []) {
+                Log::warning('Structured BD theme change preserved references to missing assets.', [
+                    'angle_template_id' => $newAngleTemplate->id,
+                    'source_angle_template_id' => $angleTemplate->id,
+                    'target_template_id' => $template->id,
+                    'missing_preserved_assets' => $missingPreservedAssets,
+                ]);
+            }
+
+            $message = 'Landing page duplicated and theme changed successfully using structured BD content. Your original page was kept unchanged.';
+            if ($missingPreservedAssets !== []) {
+                $message .= ' Some images were already missing from the source landing page and need to be restored.';
+            }
+
+            return sendResponse(true, $message, [
+                'angle_template_id' => $newAngleTemplate->id,
+                'original_angle_template_id' => $angleTemplate->id,
+                'template_id' => $newAngleTemplate->template_id,
+                'duplicated' => true,
+                'content_preserved' => true,
+                'mapping_status' => 'structured_bd_rendered',
+                'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
+                'structured_version' => $newAngleTemplate->structured_version,
+                'missing_preserved_assets' => $missingPreservedAssets,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if (isset($newUuid)) {
+                Storage::disk('public')->deleteDirectory("angleTemplates/{$newUuid}");
+            }
+
+            return sendResponse(false, 'Could not change structured landing page theme. Please try again.');
         }
     }
 

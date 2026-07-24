@@ -405,7 +405,10 @@ export default function Dashboard() {
             setChangeThemeModalOpen(false);
             setChangeThemeTarget(null);
             setReload(!reload);
-            Swal.fire('Success', result?.message || 'Theme changed successfully.', 'success');
+            await Swal.fire('Success', result?.message || 'Theme changed successfully.', 'success');
+            if (result?.data?.angle_template_id) {
+                router.get(route('previewAngleTemplate', { id: result.data.angle_template_id }));
+            }
         } catch (e) {
             Swal.fire('Error', e?.message || 'Could not change theme.', 'error');
         } finally {
