@@ -11,7 +11,7 @@ import Modal from '@mui/material/Modal';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import convert from 'color-convert';
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import Swal from "sweetalert2";
 import Select from 'react-select';
@@ -555,6 +555,12 @@ export default function Dashboard({ id }) {
 
     const [open, setOpen] = useState(false);
     const [data, setData] = useState(false);
+    const structuredModeRef = useRef(false);
+    const [structuredBdContents, setStructuredBdContents] = useState({});
+    const [structuredBdLoading, setStructuredBdLoading] = useState(false);
+    const [structuredBdSaving, setStructuredBdSaving] = useState(false);
+    const [structuredBdError, setStructuredBdError] = useState('');
+    const [newStructuredSlotKey, setNewStructuredSlotKey] = useState('');
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
     const [mainCSS, setMainCSS] = useState('');
     const [mainJS, setMainJS] = useState('');
@@ -726,6 +732,102 @@ export default function Dashboard({ id }) {
 
     const [anchorHelpProperties, setAnchorHelpProperties] = useState(null);
 
+    const loadStructuredBdContent = async (angleTemplateId) => {
+        setStructuredBdLoading(true);
+        setStructuredBdError('');
+
+        try {
+            const response = await fetch(route('angleTemplate.structuredBdContent'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ angle_template_id: angleTemplateId }),
+            });
+            const json = await response.json();
+
+            if (!json.success) {
+                setStructuredBdError(json.message || 'Could not load structured BD content.');
+                return;
+            }
+
+            const nextContents = {};
+            Object.entries(json.data?.bd_contents || {}).forEach(([slotKey, item]) => {
+                nextContents[slotKey] = item?.content || '';
+            });
+            setStructuredBdContents(nextContents);
+        } catch (error) {
+            setStructuredBdError(error.message || 'Could not load structured BD content.');
+        } finally {
+            setStructuredBdLoading(false);
+        }
+    };
+
+    const saveStructuredBdContent = async () => {
+        if (!data?.id) return;
+
+        setStructuredBdSaving(true);
+        setStructuredBdError('');
+
+        try {
+            const response = await fetch(route('angleTemplate.structuredBdContent.save'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    angle_template_id: data.id,
+                    bd_contents: structuredBdContents,
+                }),
+            });
+            const json = await response.json();
+
+            if (!json.success) {
+                setStructuredBdError(json.message || 'Could not save structured BD content.');
+                Swal.fire('Error!', json.message || 'Could not save structured BD content.', 'error');
+                return;
+            }
+
+            if (json.data?.rendered) {
+                setMainHTML([{ html: cleanSeparator(json.data.main_html || ''), status: true }]);
+                setMainCSS(json.data.main_css || '');
+                setMainJS(json.data.main_js || '');
+            }
+
+            Swal.fire({
+                title: 'Success',
+                text: 'Structured BD content saved successfully.',
+                icon: 'success',
+                timer: 1000,
+                showConfirmButton: false,
+            });
+        } catch (error) {
+            setStructuredBdError(error.message || 'Could not save structured BD content.');
+            Swal.fire('Error!', error.message || 'Could not save structured BD content.', 'error');
+        } finally {
+            setStructuredBdSaving(false);
+        }
+    };
+
+    const updateStructuredBdField = (slotKey, value) => {
+        setStructuredBdContents(prev => ({
+            ...prev,
+            [slotKey]: value,
+        }));
+    };
+
+    const addStructuredBdSlot = () => {
+        const slotKey = String(newStructuredSlotKey || '').trim().toUpperCase();
+        if (!/^BD[1-5](?:_[A-Z0-9]+)*$/.test(slotKey)) {
+            setStructuredBdError('Use a valid slot key like BD2, BD2_HEADER, or BD3_PUBLISHER.');
+            return;
+        }
+
+        setStructuredBdError('');
+        setStructuredBdContents(prev => ({
+            ...prev,
+            [slotKey]: prev[slotKey] || '',
+        }));
+        setNewStructuredSlotKey('');
+    };
+
+
     useEffect(() => {
 
         async function getData() {
@@ -745,6 +847,10 @@ export default function Dashboard({ id }) {
                 const json = await response.json();
                 console.log(json);
                 setData(json.data);
+                structuredModeRef.current = json.data?.content_mode === 'structured_bd';
+                if (structuredModeRef.current) {
+                    loadStructuredBdContent(json.data.id);
+                }
 
                 let updated = json.data.main_html;
                 
@@ -1304,6 +1410,10 @@ export default function Dashboard({ id }) {
     }
 
     const handleClick = (event) => {
+        if (structuredModeRef.current) {
+            return;
+        }
+
         // console.log(event.target.outerHTML);
         if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && (!event.target.outerHTML.includes("doNotAct") || event.target.localName == "form")) {
             let randString = generateRandomString();
@@ -2145,6 +2255,17 @@ export default function Dashboard({ id }) {
     }
 
     const mainHTMLActive = mainHTML.find(html => html.status == true)
+    const isStructuredBdPage = data?.content_mode === 'structured_bd';
+    const structuredSlotKeys = useMemo(() => {
+        const baseSlots = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
+        return Array.from(new Set([...baseSlots, ...Object.keys(structuredBdContents)]))
+            .sort((a, b) => {
+                const baseA = a.match(/^BD([1-5])/)?.[1] || '9';
+                const baseB = b.match(/^BD([1-5])/)?.[1] || '9';
+                if (baseA !== baseB) return Number(baseA) - Number(baseB);
+                return a.localeCompare(b);
+            });
+    }, [structuredBdContents]);
 
     console.log(textManagement)
 
@@ -4082,7 +4203,72 @@ export default function Dashboard({ id }) {
             </Modal>
 
             <Head title={`Preview: ${data && data.template.name} (${data && data.angle.name})`} />
-            <div className="sticky-left-div">
+            {isStructuredBdPage && (
+                <Box
+                    className="doNotAct"
+                    sx={{
+                        position: 'relative',
+                        zIndex: 2,
+                        m: 2,
+                        p: 2,
+                        border: '1px solid #d8dee4',
+                        borderRadius: '10px',
+                        backgroundColor: '#ffffff',
+                        boxShadow: '0 4px 18px rgba(0,0,0,0.08)',
+                    }}
+                >
+                    <Typography className="doNotAct" variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Structured BD Editor
+                    </Typography>
+                    <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#5f6b7a' }}>
+                        This page uses the new structured BD flow. Edit content by BD slot here; the legacy full-page click editor is disabled for this page.
+                    </Typography>
+
+                    {structuredBdError && (
+                        <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#b42318' }}>
+                            {structuredBdError}
+                        </Typography>
+                    )}
+
+                    <Box className="doNotAct" sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                        <TextField
+                            className="doNotAct"
+                            size="small"
+                            label="Add slot"
+                            placeholder="BD2_HEADER"
+                            value={newStructuredSlotKey}
+                            onChange={(event) => setNewStructuredSlotKey(event.target.value)}
+                        />
+                        <Button className="doNotAct" variant="outlined" onClick={addStructuredBdSlot}>
+                            Add Slot
+                        </Button>
+                        <Button
+                            className="doNotAct"
+                            variant="contained"
+                            onClick={saveStructuredBdContent}
+                            disabled={structuredBdLoading || structuredBdSaving}
+                        >
+                            {structuredBdSaving ? 'Saving...' : 'Save BD Content'}
+                        </Button>
+                    </Box>
+
+                    <Box className="doNotAct" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                        {structuredSlotKeys.map((slotKey) => (
+                            <TextField
+                                key={slotKey}
+                                className="doNotAct"
+                                label={slotKey}
+                                value={structuredBdContents[slotKey] || ''}
+                                onChange={(event) => updateStructuredBdField(slotKey, event.target.value)}
+                                multiline
+                                minRows={4}
+                                fullWidth
+                            />
+                        ))}
+                    </Box>
+                </Box>
+            )}
+            {!isStructuredBdPage && <div className="sticky-left-div">
                 <Box sx={{ flexDirection: "column", backgroundColor: "#c0c0c0", justifyContent: "space-between", display: "flex", padding: "8px", borderRadius: "5px", borderTopLeftRadius: "0px", borderBottomLeftRadius: "0px", boxShadow: "-2px 2px 10px 5px rgba(0,0,0,0.20)" }}>
                     <Box className="doNotAct" sx={{ ml: 0.3, fontWeight: "bold" }}>
                         <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('userThemes', { id: data.user_id }))}>
@@ -4108,7 +4294,7 @@ export default function Dashboard({ id }) {
                         </svg>
                     </Box>
                 </Box>
-            </div>
+            </div>}
             <div>
                 {data &&
                     <div>

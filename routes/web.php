@@ -285,6 +285,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return sendResponse(true, "Angle Template retrieved successfully", $angleTemplate);
         })->name('AngleTemplate.previewContent');
 
+        Route::post('/angle-template/structured-bd-content', [AngleTemplateController::class, 'structuredBdContent'])->name('angleTemplate.structuredBdContent');
+        Route::post('/angle-template/structured-bd-content/save', [AngleTemplateController::class, 'saveStructuredBdContent'])->name('angleTemplate.structuredBdContent.save');
+
         Route::post('/angle-template/save', [AngleTemplateController::class, 'saveEditedAngleTemplate'])->name('editedAngleTemplate.save');
 
         Route::get('/download', [AngleTemplateController::class, 'downloadTemplate'])->name('download');

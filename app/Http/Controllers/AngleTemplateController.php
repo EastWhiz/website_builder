@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Angle;
 use App\Models\AngleTemplate;
+use App\Models\AngleTemplateBdContent;
 use App\Models\ExtraContent;
 use App\Models\Template;
 use App\Models\TemplateContent;
@@ -452,6 +453,148 @@ class AngleTemplateController extends Controller
             ->value('r.key');
 
         return $roleKey ? (string) $roleKey : null;
+    }
+
+    public function structuredBdContent(Request $request)
+    {
+        $validated = $request->validate([
+            'angle_template_id' => ['required', 'integer'],
+        ]);
+
+        $angleTemplate = AngleTemplate::query()
+            ->where('id', (int) $validated['angle_template_id'])
+            ->first();
+
+        if (!$angleTemplate) {
+            return sendResponse(false, 'Landing page not found.', null, null, null, 404);
+        }
+
+        if (!$this->canManageAngleTemplate($request, $angleTemplate)) {
+            return sendResponse(false, 'You are not allowed to manage this landing page.', null, null, null, 403);
+        }
+
+        if (!$angleTemplate->isStructuredBd()) {
+            return sendResponse(false, 'This landing page is using the legacy editor flow.', [
+                'content_mode' => AngleTemplate::CONTENT_MODE_LEGACY,
+                'bd_contents' => [],
+            ], null, null, 422);
+        }
+
+        return sendResponse(true, 'Structured BD content retrieved successfully.', [
+            'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
+            'structured_version' => $angleTemplate->structured_version,
+            'bd_contents' => $this->formatStructuredBdContents($angleTemplate),
+        ]);
+    }
+
+    public function saveStructuredBdContent(Request $request)
+    {
+        $validated = $request->validate([
+            'angle_template_id' => ['required', 'integer'],
+            'bd_contents' => ['required', 'array'],
+            'bd_contents.*' => ['nullable', 'string'],
+        ]);
+
+        $angleTemplate = AngleTemplate::query()
+            ->where('id', (int) $validated['angle_template_id'])
+            ->first();
+
+        if (!$angleTemplate) {
+            return sendResponse(false, 'Landing page not found.', null, null, null, 404);
+        }
+
+        if (!$this->canManageAngleTemplate($request, $angleTemplate)) {
+            return sendResponse(false, 'You are not allowed to manage this landing page.', null, null, null, 403);
+        }
+
+        if (!$angleTemplate->isStructuredBd()) {
+            return sendResponse(false, 'This landing page is using the legacy editor flow.', null, null, null, 422);
+        }
+
+        $normalizedContents = $this->normalizeStructuredBdPayload($validated['bd_contents']);
+        if ($normalizedContents === []) {
+            return sendResponse(false, 'Please provide at least one valid BD field.', null, null, null, 422);
+        }
+
+        DB::transaction(function () use ($angleTemplate, $normalizedContents) {
+            foreach ($normalizedContents as $sort => $item) {
+                AngleTemplateBdContent::updateOrCreate(
+                    [
+                        'angle_template_id' => $angleTemplate->id,
+                        'slot_key' => $item['slot_key'],
+                    ],
+                    [
+                        'angle_template_uuid' => $angleTemplate->uuid,
+                        'parent_bd' => $item['parent_bd'],
+                        'slot_type' => 'html',
+                        'content' => $item['content'],
+                        'sort' => $sort + 1,
+                    ]
+                );
+            }
+
+            $rendered = $this->angleTemplateMergeService->renderStructuredBd(
+                $angleTemplate->fresh(['angle', 'template', 'bdContents'])
+            );
+
+            $angleTemplate->forceFill([
+                'main_html' => $rendered['main_html'],
+                'main_css' => $rendered['main_css'],
+                'main_js' => $rendered['main_js'],
+            ])->save();
+        });
+
+        $angleTemplate = $angleTemplate->fresh(['bdContents']);
+
+        return sendResponse(true, 'Structured BD content saved successfully.', [
+            'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
+            'structured_version' => $angleTemplate->structured_version,
+            'bd_contents' => $this->formatStructuredBdContents($angleTemplate),
+            'main_html' => $angleTemplate->main_html,
+            'main_css' => $angleTemplate->main_css,
+            'main_js' => $angleTemplate->main_js,
+            'rendered' => true,
+        ]);
+    }
+
+    private function formatStructuredBdContents(AngleTemplate $angleTemplate): array
+    {
+        return $angleTemplate->bdContents()
+            ->orderByRaw('COALESCE(sort, 999999)')
+            ->orderBy('slot_key')
+            ->get()
+            ->mapWithKeys(fn (AngleTemplateBdContent $content) => [
+                $content->slot_key => [
+                    'parent_bd' => $content->parent_bd,
+                    'slot_key' => $content->slot_key,
+                    'slot_type' => $content->slot_type,
+                    'content' => $content->content ?? '',
+                    'sort' => $content->sort,
+                    'metadata' => $content->metadata ?? [],
+                ],
+            ])
+            ->all();
+    }
+
+    private function normalizeStructuredBdPayload(array $contents): array
+    {
+        $normalized = [];
+
+        foreach ($contents as $slotKey => $content) {
+            $slotKey = strtoupper(trim((string) $slotKey));
+            if (! preg_match('/^BD([1-5])(?:_[A-Z0-9]+)*$/', $slotKey, $matches)) {
+                continue;
+            }
+
+            $parentBd = 'BD'.$matches[1];
+            $normalized[$slotKey] = [
+                'parent_bd' => $parentBd,
+                'slot_key' => $slotKey,
+                'content' => $content === null ? '' : (string) $content,
+            ];
+        }
+
+        return array_values($normalized);
     }
 
     private function clearAngleTemplateCustomAssets(AngleTemplate $angleTemplate): void

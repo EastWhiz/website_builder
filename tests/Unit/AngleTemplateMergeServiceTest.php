@@ -298,6 +298,59 @@ it('creates a page without warning when optional theme sub slots are missing', f
         ->not->toContain('BD2_HEADER');
 });
 
+it('renders structured bd content into target theme placeholders', function () {
+    $template = new class([
+        'uuid' => 'theme-uuid',
+        'asset_unique_uuid' => 'asset-uuid',
+        'index' => '<main>'
+            .'<!--INTERNAL--BD2_HEADER--EXTERNAL-->'
+            .'<!--INTERNAL--BD3--EXTERNAL-->'
+            .'<!--INTERNAL--BD2_BANNER--EXTERNAL-->'
+            .'<!--INTERNAL--BD2_HEADER--EXTERNAL-->'
+            .'<!--INTERNAL--BD5--EXTERNAL-->'
+            .'<img src="template_images/logo.png">'
+            .'</main>',
+    ]) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                private string $type = '';
+
+                public function where($column = null, $value = null)
+                {
+                    $this->type = (string) $value;
+
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return match ($this->type) {
+                        'css' => collect([(object) ['content' => '@font-face{src:url("fonts/news.woff2")} .theme{color:red;}']]),
+                        'js' => collect([(object) ['content' => 'console.log("theme");']]),
+                        default => collect(),
+                    };
+                }
+            };
+        }
+    };
+
+    $result = $this->service->renderStructuredBodies($template, [
+        'BD2_HEADER' => '<h1>Structured headline</h1>',
+        'BD2_BANNER' => '<figure>Banner</figure>',
+        'BD3' => '<p>Publisher</p>',
+    ]);
+
+    expect($result['main_html'])
+        ->toContain('<h1>Structured headline</h1><p>Publisher</p><figure>Banner</figure><h1>Structured headline</h1>')
+        ->toContain('src="../../storage/templates/theme-uuid/images/asset-uuid-logo.png"')
+        ->not->toContain('BD5')
+        ->and($result['main_css'])->toContain('../../storage/templates/theme-uuid/fonts/asset-uuid-news.woff2')
+        ->and($result['main_js'])->toContain('console.log("theme");');
+});
+
 it('uses safe fallback instead of original angle content when switching into a missing sub slot', function () {
     $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
     $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header>H</header><!--INTERNAL--BD2--EXTERNAL--><footer>F</footer>']) extends Template

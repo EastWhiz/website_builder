@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Angle;
+use App\Models\AngleTemplate;
 use App\Models\Template;
 
 class AngleTemplateMergeService
@@ -145,6 +146,48 @@ class AngleTemplateMergeService
             'unresolved_sub_slots' => $unresolvedSubSlots,
             'unresolved_body_ids' => $unresolvedBodyIds,
             'preserved_asset_paths' => $this->publicStorageAssetPaths($preservedHtml),
+        ];
+    }
+
+    /**
+     * Render saved structured BD rows into a landing page's current theme.
+     *
+     * @return array{main_html: string, main_css: string, main_js: string}
+     */
+    public function renderStructuredBd(AngleTemplate $angleTemplate): array
+    {
+        $template = $angleTemplate->template;
+        if (!$template) {
+            throw new \RuntimeException('Structured landing page cannot render without a theme.');
+        }
+
+        $bodies = $angleTemplate->bdContents()
+            ->pluck('content', 'slot_key')
+            ->map(fn ($content) => (string) $content)
+            ->all();
+
+        return $this->renderStructuredBodies($template, $bodies, $angleTemplate->angle);
+    }
+
+    /**
+     * @param  array<string, string>  $bodies
+     * @return array{main_html: string, main_css: string, main_js: string}
+     */
+    public function renderStructuredBodies(Template $template, array $bodies, ?Angle $angle = null): array
+    {
+        $mainHtml = $this->injectBodySegmentsIntoShell((string) $template->index, $bodies);
+        $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
+
+        if ($angle) {
+            $mainHtml = $this->rewriteAngleImagePaths($mainHtml, $angle);
+        }
+
+        $styles = $this->themeStylesOnly($template);
+
+        return [
+            'main_html' => $mainHtml,
+            'main_css' => $styles['main_css'],
+            'main_js' => $styles['main_js'],
         ];
     }
 
