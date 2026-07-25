@@ -714,6 +714,25 @@ class AngleTemplateController extends Controller
         return array_values($normalized);
     }
 
+    private function renderAndPersistStructuredBd(AngleTemplate $angleTemplate): AngleTemplate
+    {
+        if (!$angleTemplate->isStructuredBd()) {
+            return $angleTemplate;
+        }
+
+        $rendered = $this->angleTemplateMergeService->renderStructuredBd(
+            $angleTemplate->fresh(['angle', 'template', 'bdContents'])
+        );
+
+        $angleTemplate->forceFill([
+            'main_html' => $rendered['main_html'],
+            'main_css' => $rendered['main_css'],
+            'main_js' => $rendered['main_js'],
+        ])->save();
+
+        return $angleTemplate->fresh(['angle', 'template', 'bdContents']);
+    }
+
     private function clearAngleTemplateCustomAssets(AngleTemplate $angleTemplate): void
     {
         $extraContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
@@ -733,6 +752,10 @@ class AngleTemplateController extends Controller
     public function saveEditedAngleTemplate(Request $request)
     {
         // return $request;
+        $targetAngleTemplate = AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
+        if ($targetAngleTemplate?->isStructuredBd()) {
+            return sendResponse(false, 'This landing page uses the structured BD editor. Please save changes from the BD editor panel.', null, null, null, 422);
+        }
 
         for ($i = 0; $i < $request->chunk_count; $i++) {
             $imageFile = $request->file('image' . $i);
@@ -785,7 +808,7 @@ class AngleTemplateController extends Controller
 
             if ($request->last_iteration == "true") {
 
-                $editedAngleTemplate = AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
+                $editedAngleTemplate = $targetAngleTemplate ?: AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
                 $editedAngleTemplate->main_html = (string) $request->main_html;
                 $editedAngleTemplate->save();
 
@@ -865,6 +888,9 @@ class AngleTemplateController extends Controller
         $selectedThankYouTemplateType = $this->resolveThankYouTemplateType($selectedThankYouPage);
 
         $angleTemplate = AngleTemplate::where('id', $request->angle_template_id)->first();
+        if ($angleTemplate?->isStructuredBd()) {
+            $angleTemplate = $this->renderAndPersistStructuredBd($angleTemplate);
+        }
         $template = $angleTemplate->template;
         $angle = $angleTemplate->angle;
 
@@ -3281,6 +3307,8 @@ class AngleTemplateController extends Controller
                 'main_html' => $angleTemplate->main_html,
                 'main_css' => $angleTemplate->main_css,
                 'main_js' => $angleTemplate->main_js,
+                'content_mode' => $angleTemplate->content_mode ?: AngleTemplate::CONTENT_MODE_LEGACY,
+                'structured_version' => $angleTemplate->structured_version,
             ]);
 
             // Duplicate ExtraContent records
@@ -3305,6 +3333,19 @@ class AngleTemplateController extends Controller
                 $replacements
             );
             $newAngleTemplate->save();
+
+            foreach ($angleTemplate->bdContents()->get() as $content) {
+                AngleTemplateBdContent::create([
+                    'angle_template_id' => $newAngleTemplate->id,
+                    'angle_template_uuid' => $newUuid,
+                    'parent_bd' => $content->parent_bd,
+                    'slot_key' => $content->slot_key,
+                    'slot_type' => $content->slot_type,
+                    'content' => $this->landingPageAssetService->rewriteStorageReferences((string) $content->content, $replacements),
+                    'sort' => $content->sort,
+                    'metadata' => $content->metadata,
+                ]);
+            }
 
             foreach ($originalContents as $content) {
                 $relativeName = $this->landingPageAssetService->normalizeStoragePath($content->name);
@@ -3754,6 +3795,17 @@ class AngleTemplateController extends Controller
             $deepLService = new \App\Services\DeepLService($apiKey);
 
             $start = microtime(true);
+
+            if ($angleTemplate->isStructuredBd()) {
+                return $this->translateStructuredBdAngleTemplate(
+                    $angleTemplate,
+                    $targetLanguage,
+                    $deepLService,
+                    $splitSentences,
+                    $preserveFormatting,
+                    $start
+                );
+            }
     
             $translatedHtml = $this->translateHtmlUsingDOM(
                 $angleTemplate->main_html,
@@ -3787,6 +3839,68 @@ class AngleTemplateController extends Controller
     
             return sendResponse(false, 'Translation failed: ' . $e->getMessage());
         }
+    }
+
+    private function translateStructuredBdAngleTemplate(
+        AngleTemplate $angleTemplate,
+        string $targetLanguage,
+        \App\Services\DeepLService $deepLService,
+        $splitSentences = null,
+        $preserveFormatting = null,
+        ?float $start = null
+    ) {
+        $bdContents = $angleTemplate->bdContents()->orderByRaw('COALESCE(sort, 999999)')->orderBy('slot_key')->get();
+        if ($bdContents->isEmpty()) {
+            return sendResponse(false, 'No structured BD content to translate');
+        }
+
+        $translatedRows = [];
+        foreach ($bdContents as $content) {
+            $originalContent = (string) $content->content;
+            $translatedRows[$content->id] = trim($originalContent) === ''
+                ? $originalContent
+                : $this->translateHtmlUsingDOM(
+                    $originalContent,
+                    $targetLanguage,
+                    $deepLService,
+                    $splitSentences,
+                    $preserveFormatting
+                );
+        }
+
+        DB::transaction(function () use ($bdContents, $translatedRows, $angleTemplate, $targetLanguage) {
+            foreach ($bdContents as $content) {
+                $content->update([
+                    'content' => $translatedRows[$content->id] ?? $content->content,
+                ]);
+            }
+
+            $rendered = $this->angleTemplateMergeService->renderStructuredBd(
+                $angleTemplate->fresh(['angle', 'template', 'bdContents'])
+            );
+
+            $mainHtml = $rendered['main_html'];
+            if ($this->isRtlLanguage($targetLanguage)) {
+                $mainHtml = $this->applyRtlSupport($mainHtml);
+            }
+
+            $angleTemplate->forceFill([
+                'main_html' => $mainHtml,
+                'main_css' => $rendered['main_css'],
+                'main_js' => $rendered['main_js'],
+                'name' => $angleTemplate->name . " ({$targetLanguage})",
+            ])->save();
+        });
+
+        $angleTemplate = $angleTemplate->fresh(['bdContents']);
+
+        Log::info('Structured BD translation completed', [
+            'time_sec' => round(microtime(true) - ($start ?? microtime(true)), 2),
+            'angle_template_id' => $angleTemplate->id,
+            'slots' => $bdContents->count(),
+        ]);
+
+        return sendResponse(true, 'Translated successfully', $angleTemplate);
     }
     
 
