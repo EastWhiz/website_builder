@@ -561,6 +561,7 @@ export default function Dashboard({ id }) {
     const [structuredBdSaving, setStructuredBdSaving] = useState(false);
     const [structuredBdError, setStructuredBdError] = useState('');
     const [newStructuredSlotKey, setNewStructuredSlotKey] = useState('');
+    const [structuredBdEditorOpen, setStructuredBdEditorOpen] = useState(false);
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
     const [mainCSS, setMainCSS] = useState('');
     const [mainJS, setMainJS] = useState('');
@@ -4204,69 +4205,118 @@ export default function Dashboard({ id }) {
 
             <Head title={`Preview: ${data && data.template.name} (${data && data.angle.name})`} />
             {isStructuredBdPage && (
-                <Box
-                    className="doNotAct"
-                    sx={{
-                        position: 'relative',
-                        zIndex: 2,
-                        m: 2,
-                        p: 2,
-                        border: '1px solid #d8dee4',
-                        borderRadius: '10px',
-                        backgroundColor: '#ffffff',
-                        boxShadow: '0 4px 18px rgba(0,0,0,0.08)',
-                    }}
-                >
-                    <Typography className="doNotAct" variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Structured BD Editor
-                    </Typography>
-                    <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#5f6b7a' }}>
-                        This page uses the new structured BD flow. Edit content by BD slot here; the legacy full-page click editor is disabled for this page.
-                    </Typography>
-
-                    {structuredBdError && (
-                        <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#b42318' }}>
-                            {structuredBdError}
-                        </Typography>
-                    )}
-
-                    <Box className="doNotAct" sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                        <TextField
-                            className="doNotAct"
-                            size="small"
-                            label="Add slot"
-                            placeholder="BD2_HEADER"
-                            value={newStructuredSlotKey}
-                            onChange={(event) => setNewStructuredSlotKey(event.target.value)}
-                        />
-                        <Button className="doNotAct" variant="outlined" onClick={addStructuredBdSlot}>
-                            Add Slot
-                        </Button>
+                <>
+                    <Box
+                        className="doNotAct"
+                        sx={{
+                            position: 'fixed',
+                            left: 16,
+                            bottom: 16,
+                            zIndex: 9999,
+                        }}
+                    >
                         <Button
                             className="doNotAct"
                             variant="contained"
-                            onClick={saveStructuredBdContent}
-                            disabled={structuredBdLoading || structuredBdSaving}
+                            onClick={() => setStructuredBdEditorOpen(true)}
                         >
-                            {structuredBdSaving ? 'Saving...' : 'Save BD Content'}
+                            Edit BD Content
                         </Button>
                     </Box>
 
-                    <Box className="doNotAct" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                        {structuredSlotKeys.map((slotKey) => (
-                            <TextField
-                                key={slotKey}
+                    <Modal
+                        className="doNotAct"
+                        open={structuredBdEditorOpen}
+                        onClose={() => setStructuredBdEditorOpen(false)}
+                        closeAfterTransition
+                        sx={{ zIndex: 2147483000 }}
+                        slots={{ backdrop: Backdrop }}
+                        slotProps={{
+                            backdrop: {
+                                timeout: 100,
+                                sx: {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                                    zIndex: 2147482999,
+                                },
+                            },
+                        }}
+                    >
+                        <Fade in={structuredBdEditorOpen}>
+                            <Box
                                 className="doNotAct"
-                                label={slotKey}
-                                value={structuredBdContents[slotKey] || ''}
-                                onChange={(event) => updateStructuredBdField(slotKey, event.target.value)}
-                                multiline
-                                minRows={4}
-                                fullWidth
-                            />
-                        ))}
-                    </Box>
-                </Box>
+                                sx={{
+                                    position: 'fixed',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    width: { xs: '92vw', md: '78vw' },
+                                    maxHeight: '78vh',
+                                    overflow: 'auto',
+                                    p: 3,
+                                    borderRadius: '10px',
+                                    backgroundColor: '#ffffff',
+                                    boxShadow: 24,
+                                    zIndex: 2147483001,
+                                }}
+                            >
+                                <Box className="doNotAct" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                    <Typography className="doNotAct" variant="h6" sx={{ fontWeight: 'bold' }}>
+                                        Structured BD Editor
+                                    </Typography>
+                                    <Button className="doNotAct" variant="outlined" onClick={() => setStructuredBdEditorOpen(false)}>
+                                        Close
+                                    </Button>
+                                </Box>
+                                <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#5f6b7a' }}>
+                                    Edit content by BD slot here. The review page behind this modal remains the rendered landing page only.
+                                </Typography>
+
+                                {structuredBdError && (
+                                    <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#b42318' }}>
+                                        {structuredBdError}
+                                    </Typography>
+                                )}
+
+                                <Box className="doNotAct" sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                                    <TextField
+                                        className="doNotAct"
+                                        size="small"
+                                        label="Add slot"
+                                        placeholder="BD2_HEADER"
+                                        value={newStructuredSlotKey}
+                                        onChange={(event) => setNewStructuredSlotKey(event.target.value)}
+                                    />
+                                    <Button className="doNotAct" variant="outlined" onClick={addStructuredBdSlot}>
+                                        Add Slot
+                                    </Button>
+                                    <Button
+                                        className="doNotAct"
+                                        variant="contained"
+                                        onClick={saveStructuredBdContent}
+                                        disabled={structuredBdLoading || structuredBdSaving}
+                                    >
+                                        {structuredBdSaving ? 'Saving...' : 'Save BD Content'}
+                                    </Button>
+                                </Box>
+
+                                <Box className="doNotAct" sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                                    {structuredSlotKeys.map((slotKey) => (
+                                        <TextField
+                                            key={slotKey}
+                                            className="doNotAct"
+                                            label={slotKey}
+                                            value={structuredBdContents[slotKey] || ''}
+                                            onChange={(event) => updateStructuredBdField(slotKey, event.target.value)}
+                                            multiline
+                                            minRows={4}
+                                            fullWidth
+                                        />
+                                    ))}
+                                </Box>
+                            </Box>
+                        </Fade>
+                    </Modal>
+                </>
             )}
             {!isStructuredBdPage && <div className="sticky-left-div">
                 <Box sx={{ flexDirection: "column", backgroundColor: "#c0c0c0", justifyContent: "space-between", display: "flex", padding: "8px", borderRadius: "5px", borderTopLeftRadius: "0px", borderBottomLeftRadius: "0px", boxShadow: "-2px 2px 10px 5px rgba(0,0,0,0.20)" }}>

@@ -92,10 +92,10 @@ class AngleController extends Controller
         if ($validator->fails())
             return simpleValidate($validator);
 
-        $html = json_decode($request->html, true);
+        $html = $this->normalizeAngleHtmlContent(json_decode($request->html, true) ?: []);
         $html_validator = Validator::make($html, [
             '*.name' => 'required',
-            '*.content' => 'required'
+            '*.content' => 'nullable'
         ], []);
 
         if ($html_validator->fails())
@@ -221,13 +221,14 @@ class AngleController extends Controller
 
             if ($request->last_iteration == "true") {
 
-                $html = collect($html)->transform(function ($item) use ($angleId) {
+                $html = collect($html)->transform(function ($item, $index) use ($angleId) {
                     return [
                         "uuid" => Str::uuid(),
                         "angle_uuid" => $angleId,
                         "type" => "html",
                         'name' => $item['name'],
                         'content' => $item['content'],
+                        'sort' => $index + 1,
                         'can_be_deleted' => false
                         // 'old_contents' => $newHtmlExtraContents
                     ];
@@ -331,6 +332,96 @@ class AngleController extends Controller
                 'message' => 'Error uploading files: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * New angle content should always expose BD1-BD5 as the stable content source.
+     * Legacy unnamed chunks are mapped positionally for backward-compatible edits.
+     *
+     * @param  array<int, array{name?: mixed, content?: mixed}>  $html
+     * @return array<int, array{name: string, content: string}>
+     */
+    private function normalizeAngleHtmlContent(array $html): array
+    {
+        $baseSlots = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
+        $slots = [];
+        $legacyChunks = [];
+        $extraChunks = [];
+
+        foreach ($html as $item) {
+            $name = trim((string) ($item['name'] ?? ''));
+            $content = (string) ($item['content'] ?? '');
+            $slotKey = $this->canonicalBodyIdentifier($name);
+
+            if ($slotKey !== null) {
+                $slots[$slotKey] = [
+                    'name' => $slotKey,
+                    'content' => $content,
+                ];
+
+                continue;
+            }
+
+            if ($name === '') {
+                continue;
+            }
+
+            $legacyChunks[] = [
+                'name' => $name,
+                'content' => $content,
+            ];
+        }
+
+        foreach ($legacyChunks as $chunk) {
+            $assigned = false;
+            foreach ($baseSlots as $slot) {
+                if (! array_key_exists($slot, $slots)) {
+                    $slots[$slot] = [
+                        'name' => $slot,
+                        'content' => $chunk['content'],
+                    ];
+                    $assigned = true;
+                    break;
+                }
+            }
+
+            if (! $assigned) {
+                $extraChunks[] = $chunk;
+            }
+        }
+
+        $normalized = [];
+        foreach ($baseSlots as $slot) {
+            $normalized[] = $slots[$slot] ?? [
+                'name' => $slot,
+                'content' => '',
+            ];
+        }
+
+        foreach ($slots as $slotKey => $slot) {
+            if (! in_array($slotKey, $baseSlots, true)) {
+                $normalized[] = $slot;
+            }
+        }
+
+        return array_merge($normalized, $extraChunks);
+    }
+
+    private function canonicalBodyIdentifier(string $name): ?string
+    {
+        $normalized = strtoupper(html_entity_decode(trim($name), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $normalized = (string) preg_replace('/[^A-Z0-9]+/', '_', $normalized);
+        $normalized = trim($normalized, '_');
+
+        if (preg_match('/^BD[1-5](?:_[A-Z][A-Z0-9_]*)?$/', $normalized)) {
+            return $normalized;
+        }
+
+        if (preg_match('/(?:^|_)(?<id>BD[1-5](?:_[A-Z][A-Z0-9_]*)?)(?=_|$)/', $normalized, $matches)) {
+            return $matches['id'];
+        }
+
+        return null;
     }
 
     /**

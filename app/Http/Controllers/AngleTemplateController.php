@@ -207,6 +207,9 @@ class AngleTemplateController extends Controller
         $validated = $request->validate([
             'angle_id' => ['required', 'integer'],
             'template_id' => ['required', 'integer'],
+            'content_mode' => ['nullable', 'string', 'in:legacy,structured_bd'],
+            'bd_contents' => ['nullable', 'array'],
+            'bd_contents.*' => ['nullable', 'string'],
         ]);
 
         $user = $request->user();
@@ -235,29 +238,115 @@ class AngleTemplateController extends Controller
 
         DB::beginTransaction();
         try {
-            $merged = $this->angleTemplateMergeService->merge($angle, $template);
-
-            $newTemplate = AngleTemplate::create([
-                'uuid' => Str::uuid(),
-                'angle_id' => $angle->id,
-                'template_id' => $template->id,
-                'user_id' => (int) ($user?->id ?? 0),
-                'organization_id' => $organization?->id,
-                'name' => "{$template->name} ({$angle->name})",
-                'main_html' => $merged['main_html'],
-                'main_css' => $merged['main_css'],
-                'main_js' => $merged['main_js'],
-            ]);
+            $newTemplate = ($validated['content_mode'] ?? AngleTemplate::CONTENT_MODE_LEGACY) === AngleTemplate::CONTENT_MODE_STRUCTURED_BD
+                ? $this->createStructuredBdLandingPage($angle, $template, (int) ($user?->id ?? 0), $organization?->id, $validated['bd_contents'] ?? null)
+                : $this->createLegacyLandingPage($angle, $template, (int) ($user?->id ?? 0), $organization?->id);
 
             DB::commit();
 
-            return sendResponse(true, 'Landing page created successfully.', [
+            return sendResponse(true, $newTemplate->isStructuredBd()
+                ? 'Structured BD landing page created successfully.'
+                : 'Landing page created successfully.', [
                 'angle_template_id' => $newTemplate->id,
+                'content_mode' => $newTemplate->content_mode ?: AngleTemplate::CONTENT_MODE_LEGACY,
+                'structured_version' => $newTemplate->structured_version,
             ]);
+        } catch (\InvalidArgumentException $e) {
+            DB::rollBack();
+            return sendResponse(false, $e->getMessage(), null, null, null, 422);
         } catch (\Throwable $e) {
             DB::rollBack();
             return sendResponse(false, 'Could not create landing page. Please try again.');
         }
+    }
+
+    private function createLegacyLandingPage(Angle $angle, Template $template, int $userId, ?int $organizationId): AngleTemplate
+    {
+        $merged = $this->angleTemplateMergeService->merge($angle, $template);
+
+        return AngleTemplate::create([
+            'uuid' => Str::uuid(),
+            'angle_id' => $angle->id,
+            'template_id' => $template->id,
+            'user_id' => $userId,
+            'organization_id' => $organizationId,
+            'name' => "{$template->name} ({$angle->name})",
+            'main_html' => $merged['main_html'],
+            'main_css' => $merged['main_css'],
+            'main_js' => $merged['main_js'],
+            'content_mode' => AngleTemplate::CONTENT_MODE_LEGACY,
+        ]);
+    }
+
+    private function createStructuredBdLandingPage(
+        Angle $angle,
+        Template $template,
+        int $userId,
+        ?int $organizationId,
+        ?array $requestedBodies = null
+    ): AngleTemplate
+    {
+        $angleBodies = $this->angleTemplateMergeService->mapAngleBodiesByIdentifier($angle->contents);
+        if ($requestedBodies !== null) {
+            $normalizedRequestedBodies = $this->normalizeStructuredBdPayload($requestedBodies);
+            $requestedBodyMap = collect($normalizedRequestedBodies)
+                ->mapWithKeys(fn (array $item) => [$item['slot_key'] => $item['content']])
+                ->all();
+            $hasRequestedBaseBdContent = collect(['BD1', 'BD2', 'BD3', 'BD4', 'BD5'])
+                ->contains(fn (string $slotKey) => trim((string) ($requestedBodyMap[$slotKey] ?? '')) !== '');
+
+            if (! $hasRequestedBaseBdContent) {
+                throw new \InvalidArgumentException('Please provide content for at least one BD field.');
+            }
+
+            $angleBodies = array_merge($angleBodies, $requestedBodyMap);
+        }
+
+        $hasBaseBdContent = collect(['BD1', 'BD2', 'BD3', 'BD4', 'BD5'])
+            ->contains(fn (string $slotKey) => trim((string) ($angleBodies[$slotKey] ?? '')) !== '');
+
+        if (! $hasBaseBdContent) {
+            throw new \InvalidArgumentException('Please provide content for at least one BD field.');
+        }
+
+        $uuid = (string) Str::uuid();
+
+        $angleTemplate = AngleTemplate::create([
+            'uuid' => $uuid,
+            'angle_id' => $angle->id,
+            'template_id' => $template->id,
+            'user_id' => $userId,
+            'organization_id' => $organizationId,
+            'name' => "{$template->name} ({$angle->name})",
+            'main_html' => '',
+            'main_css' => '',
+            'main_js' => '',
+            'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
+            'structured_version' => 1,
+        ]);
+
+        $slotKeys = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
+        foreach (array_keys($angleBodies) as $slotKey) {
+            if (preg_match('/^BD[1-5]_[A-Z][A-Z0-9_]*$/', $slotKey)) {
+                $slotKeys[] = $slotKey;
+            }
+        }
+
+        foreach (array_values(array_unique($slotKeys)) as $sort => $slotKey) {
+            preg_match('/^(BD[1-5])/', $slotKey, $matches);
+
+            AngleTemplateBdContent::create([
+                'angle_template_id' => $angleTemplate->id,
+                'angle_template_uuid' => $uuid,
+                'parent_bd' => $matches[1] ?? $slotKey,
+                'slot_key' => $slotKey,
+                'slot_type' => 'html',
+                'content' => $angleBodies[$slotKey] ?? '',
+                'sort' => $sort + 1,
+            ]);
+        }
+
+        return $this->renderAndPersistStructuredBd($angleTemplate);
     }
 
     public function changeTheme(Request $request)

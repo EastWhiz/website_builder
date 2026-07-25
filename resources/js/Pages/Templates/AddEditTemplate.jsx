@@ -22,6 +22,15 @@ import Swal from "sweetalert2";
 export default function Dashboard() {
 
     const page = usePage().props;
+    const defaultThemeBody = [
+        '<main>',
+        '  <!--INTERNAL--BD1--EXTERNAL-->',
+        '  <!--INTERNAL--BD2--EXTERNAL-->',
+        '  <!--INTERNAL--BD3--EXTERNAL-->',
+        '  <!--INTERNAL--BD4--EXTERNAL-->',
+        '  <!--INTERNAL--BD5--EXTERNAL-->',
+        '</main>',
+    ].join('\n');
 
     function generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -65,7 +74,7 @@ export default function Dashboard() {
     const [template, setTemplate] = useState({
         name: '',
         head: '',
-        body: '',
+        body: defaultThemeBody,
         html: [],
         css: [],
         js: [],
@@ -427,6 +436,9 @@ export default function Dashboard() {
                                                         <Typography variant="h5" component="div" mt={2} sx={{ fontSize: { xs: '18px', sm: '18px', md: '20px', lg: '24px', xl: '24px' }, textAlign: "center" }}>
                                                             Insert the Head and Index code below
                                                         </Typography>
+                                                        <Typography variant="body" component="div" mt={1} sx={{ color: "#666", textAlign: "center" }}>
+                                                            Theme layout should use BD placeholders such as BD1-BD5. Optional sub-slots like BD2_HEADER can be used only when the layout needs split content.
+                                                        </Typography>
                                                         <Box sx={{
                                                             marginTop: "40px",
                                                             paddingLeft: { xs: '10px', sm: '50px', md: '100px', lg: '150px', xl: '150px' },
@@ -484,7 +496,7 @@ export default function Dashboard() {
                                                                 }}
                                                                 multiline
                                                                 rows={6}
-                                                                placeholder="Enter <body> content..."
+                                                                placeholder="Enter <body> content with BD placeholders..."
                                                                 onChange={(e) => {
                                                                     let temp = { ...template };
                                                                     temp = { ...temp, body: e.target.value }

@@ -1,11 +1,12 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Box, Tooltip } from '@mui/material';
 
 import {
     AppProvider,
     Button,
     Card,
+    Checkbox,
     IndexFilters,
     IndexTable,
     Modal,
@@ -204,6 +205,15 @@ export default function Dashboard() {
     const [createThemeOptions, setCreateThemeOptions] = useState([]);
     const [selectedCreateAngle, setSelectedCreateAngle] = useState(null);
     const [selectedCreateTheme, setSelectedCreateTheme] = useState(null);
+    const [createStructuredBd, setCreateStructuredBd] = useState(true);
+    const emptyCreateBdContents = () => ({
+        BD1: '',
+        BD2: '',
+        BD3: '',
+        BD4: '',
+        BD5: '',
+    });
+    const [createBdContents, setCreateBdContents] = useState(emptyCreateBdContents());
 
     const [changeThemeModalOpen, setChangeThemeModalOpen] = useState(false);
     const [changeThemeSubmitting, setChangeThemeSubmitting] = useState(false);
@@ -332,6 +342,8 @@ export default function Dashboard() {
             })));
             setSelectedCreateAngle(null);
             setSelectedCreateTheme(null);
+            setCreateStructuredBd(true);
+            setCreateBdContents(emptyCreateBdContents());
             setCreateModalOpen(true);
         } catch (e) {
             Swal.fire('Error', e?.message || 'Could not load options.', 'error');
@@ -428,6 +440,10 @@ export default function Dashboard() {
             Swal.fire('Selection required', 'Please select an angle and a theme.', 'warning');
             return;
         }
+        if (createStructuredBd && !Object.values(createBdContents).some((value) => String(value || '').trim() !== '')) {
+            Swal.fire('BD content required', 'Please enter content in at least one BD field before creating a structured landing page.', 'warning');
+            return;
+        }
 
         try {
             setCreateSubmitting(true);
@@ -441,6 +457,8 @@ export default function Dashboard() {
                 body: JSON.stringify({
                     angle_id: Number(selectedCreateAngle.value),
                     template_id: Number(selectedCreateTheme.value),
+                    content_mode: createStructuredBd ? 'structured_bd' : 'legacy',
+                    bd_contents: createStructuredBd ? createBdContents : undefined,
                 }),
             });
             const result = await response.json();
@@ -450,6 +468,9 @@ export default function Dashboard() {
             setCreateModalOpen(false);
             setReload(!reload);
             Swal.fire('Success', result?.message || 'Landing page created successfully.', 'success');
+            if (result?.data?.angle_template_id) {
+                router.get(route('previewAngleTemplate', { id: result.data.angle_template_id }));
+            }
         } catch (e) {
             Swal.fire('Error', e?.message || 'Could not create landing page.', 'error');
         } finally {
@@ -1104,6 +1125,45 @@ export default function Dashboard() {
                             onChange={setSelectedCreateTheme}
                         />
                     </div>
+                    <div style={{ marginTop: '14px' }}>
+                        <Checkbox
+                            label="Create with structured BD content (BD1-BD5)"
+                            checked={createStructuredBd}
+                            onChange={setCreateStructuredBd}
+                            helpText="Recommended for all new landing pages. Uncheck only if you intentionally need the old legacy rendered-HTML flow."
+                        />
+                    </div>
+                    {createStructuredBd && (
+                        <div style={{ marginTop: '16px' }}>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                                Enter content for one or more BD sections. Empty BDs will still be created as blank structured fields.
+                            </Text>
+                            {['BD1', 'BD2', 'BD3', 'BD4', 'BD5'].map((slotKey) => (
+                                <div key={slotKey} style={{ marginTop: '12px' }}>
+                                    <Text as="p" variant="bodySm" fontWeight="semibold">{slotKey}</Text>
+                                    <textarea
+                                        value={createBdContents[slotKey] || ''}
+                                        onChange={(event) => {
+                                            setCreateBdContents((prev) => ({
+                                                ...prev,
+                                                [slotKey]: event.target.value,
+                                            }));
+                                        }}
+                                        placeholder={`Enter ${slotKey} content...`}
+                                        rows={3}
+                                        style={{
+                                            width: '100%',
+                                            border: '1px solid #c9cccf',
+                                            borderRadius: '6px',
+                                            padding: '10px',
+                                            marginTop: '6px',
+                                            resize: 'vertical',
+                                        }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </Modal.Section>
             </Modal>
 
