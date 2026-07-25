@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Phase 8 Pilot Theme A - Standard BD</title>
+    <style>
+        :root {
+            --ink: #172026;
+            --muted: #64717c;
+            --paper: #fbf7ef;
+            --line: #d9cbb5;
+            --accent: #b54a2a;
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(135deg, #fbf7ef 0%, #efe2cf 100%);
+            color: var(--ink);
+            font-family: Georgia, "Times New Roman", serif;
+        }
+
+        .pilot-shell {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 32px 18px 56px;
+        }
+
+        .pilot-header,
+        .pilot-footer {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.72);
+            padding: 18px;
+            text-align: center;
+        }
+
+        .pilot-kicker {
+            color: var(--accent);
+            font-family: "Trebuchet MS", sans-serif;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .pilot-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.8fr);
+            gap: 22px;
+            margin-top: 22px;
+        }
+
+        .pilot-card {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.84);
+            padding: 22px;
+            box-shadow: 0 18px 45px rgba(75, 49, 25, 0.08);
+        }
+
+        .pilot-card h2 {
+            margin-top: 0;
+        }
+
+        @media (max-width: 760px) {
+            .pilot-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="pilot-shell">
+        <header class="pilot-header">
+            <div class="pilot-kicker">Phase 8 Pilot Theme A</div>
+            <!--INTERNAL--BD1--EXTERNAL-->
+        </header>
+
+        <section class="pilot-grid">
+            <article class="pilot-card">
+                <!--INTERNAL--BD2--EXTERNAL-->
+            </article>
+
+            <aside class="pilot-card">
+                <!--INTERNAL--BD3--EXTERNAL-->
+            </aside>
+        </section>
+
+        <section class="pilot-card" style="margin-top: 22px;">
+            <!--INTERNAL--BD4--EXTERNAL-->
+        </section>
+
+        <footer class="pilot-footer" style="margin-top: 22px;">
+            <!--INTERNAL--BD5--EXTERNAL-->
+        </footer>
+    </main>
+</body>
+</html>

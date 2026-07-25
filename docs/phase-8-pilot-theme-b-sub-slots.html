@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Phase 8 Pilot Theme B - Sub Slots</title>
+    <style>
+        :root {
+            --ink: #101820;
+            --mist: #e8f1f2;
+            --blue: #0f4c5c;
+            --gold: #f2b134;
+            --paper: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            background:
+                radial-gradient(circle at top left, rgba(242, 177, 52, 0.22), transparent 36%),
+                linear-gradient(160deg, #e8f1f2, #ffffff);
+            color: var(--ink);
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+        }
+
+        .pilot-shell {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 30px 18px 60px;
+        }
+
+        .pilot-topbar {
+            background: var(--blue);
+            color: white;
+            padding: 14px 18px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .pilot-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+            gap: 22px;
+            align-items: stretch;
+            margin-top: 22px;
+        }
+
+        .pilot-panel {
+            background: var(--paper);
+            border: 1px solid rgba(15, 76, 92, 0.18);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 24px 70px rgba(15, 76, 92, 0.1);
+        }
+
+        .pilot-banner {
+            background: linear-gradient(135deg, var(--blue), #16748d);
+            color: white;
+            border-radius: 18px;
+            padding: 24px;
+        }
+
+        .pilot-quote {
+            border-left: 6px solid var(--gold);
+        }
+
+        @media (max-width: 760px) {
+            .pilot-hero {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="pilot-shell">
+        <div class="pilot-topbar">Phase 8 Pilot Theme B</div>
+
+        <section class="pilot-hero">
+            <article class="pilot-panel">
+                <!--INTERNAL--BD2_HEADER--EXTERNAL-->
+                <!--INTERNAL--BD3_PUBLISHER--EXTERNAL-->
+            </article>
+
+            <aside class="pilot-banner">
+                <!--INTERNAL--BD2_BANNER--EXTERNAL-->
+            </aside>
+        </section>
+
+        <section class="pilot-panel" style="margin-top: 22px;">
+            <!--INTERNAL--BD1--EXTERNAL-->
+        </section>
+
+        <section class="pilot-panel pilot-quote" style="margin-top: 22px;">
+            <!--INTERNAL--BD2--EXTERNAL-->
+        </section>
+
+        <section class="pilot-panel" style="margin-top: 22px;">
+            <!--INTERNAL--BD4_CTA--EXTERNAL-->
+        </section>
+
+        <footer class="pilot-panel" style="margin-top: 22px;">
+            <!--INTERNAL--BD5--EXTERNAL-->
+        </footer>
+    </main>
+</body>
+</html>
