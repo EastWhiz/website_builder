@@ -359,6 +359,17 @@ class AngleTemplateController extends Controller
 
             DB::commit();
 
+            Log::info('Landing page theme change completed.', [
+                'angle_template_id' => $newAngleTemplate->id,
+                'source_angle_template_id' => $angleTemplate->id,
+                'source_template_id' => $oldTemplate->id,
+                'target_template_id' => $template->id,
+                'content_mode' => AngleTemplate::CONTENT_MODE_LEGACY,
+                'mapping_status' => $result['mapping_status'],
+                'content_preserved' => $result['content_preserved'],
+                'duplicated' => true,
+            ]);
+
             if (!$result['content_preserved']) {
                 Log::warning('Landing page theme change used safe content preservation mode.', [
                     'angle_template_id' => $newAngleTemplate->id,
@@ -493,6 +504,17 @@ class AngleTemplateController extends Controller
             }
 
             DB::commit();
+
+            Log::info('Landing page theme change completed.', [
+                'angle_template_id' => $newAngleTemplate->id,
+                'source_angle_template_id' => $angleTemplate->id,
+                'source_template_id' => $angleTemplate->template_id,
+                'target_template_id' => $template->id,
+                'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
+                'mapping_status' => 'structured_bd_rendered',
+                'content_preserved' => true,
+                'duplicated' => true,
+            ]);
 
             $missingPreservedAssets = $cloneAssets['missing'];
             if ($missingPreservedAssets !== []) {
