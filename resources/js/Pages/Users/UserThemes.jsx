@@ -405,7 +405,14 @@ export default function Dashboard() {
             setChangeThemeModalOpen(false);
             setChangeThemeTarget(null);
             setReload(!reload);
-            await Swal.fire('Success', result?.message || 'Theme changed successfully.', 'success');
+            const requiresReview = result?.data?.user_action_required;
+            await Swal.fire({
+                title: requiresReview ? 'Review duplicated page' : 'Success',
+                html: requiresReview
+                    ? `${result?.message || 'Theme changed with safe content preservation.'}<br><br><strong>Next step:</strong> ${result?.data?.user_action_message || 'Please review the duplicated page.'}`
+                    : (result?.message || 'Theme changed successfully.'),
+                icon: requiresReview ? 'warning' : 'success',
+            });
             if (result?.data?.angle_template_id) {
                 router.get(route('previewAngleTemplate', { id: result.data.angle_template_id }));
             }

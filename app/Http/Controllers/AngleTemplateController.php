@@ -383,7 +383,7 @@ class AngleTemplateController extends Controller
 
             $message = $result['content_preserved']
                 ? 'Landing page duplicated and theme changed successfully. Your original page was kept unchanged.'
-                : 'Landing page duplicated and theme changed with safe content preservation mode. Your original page was kept unchanged.';
+                : 'Landing page duplicated and safely preserved. This legacy page could not be reliably rebuilt into the selected theme, so its current content/layout was kept intact on the duplicated page.';
             if ($missingPreservedAssets !== []) {
                 $message .= ' Some images were already missing from the source landing page and need to be restored.';
             }
@@ -393,8 +393,14 @@ class AngleTemplateController extends Controller
                 'original_angle_template_id' => $angleTemplate->id,
                 'template_id' => $newAngleTemplate->template_id,
                 'duplicated' => true,
+                'content_mode' => AngleTemplate::CONTENT_MODE_LEGACY,
                 'content_preserved' => $result['content_preserved'],
                 'mapping_status' => $result['mapping_status'],
+                'legacy_strategy' => $result['content_preserved'] ? 'bd_extraction_mapped' : 'safe_content_preservation',
+                'user_action_required' => !$result['content_preserved'],
+                'user_action_message' => $result['content_preserved']
+                    ? null
+                    : 'The source page is a legacy rendered-HTML page. Please review the duplicated page. If the client requires full theme layout switching, recreate this page as a structured BD page.',
                 'source_repeated_bds' => $result['source_repeated_bds'],
                 'target_repeated_bds' => $result['target_repeated_bds'],
                 'target_sub_slots' => $result['target_sub_slots'],
