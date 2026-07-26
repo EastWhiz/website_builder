@@ -480,6 +480,24 @@ it('removes accidental wrapping quotes around structured bd html', function () {
         ->not->toContain('"<h1>Body 3</h1>"');
 });
 
+it('refreshes structured bd content without removing page level additions', function () {
+    $html = '<main>'
+        .'<img class="custom-added" src="../../storage/angleTemplates/page/images/custom.jpg">'
+        .'<div class="lp-structured-bd-slot lp-structured-bd-slot-BD1" data-bd-slot="BD1"><h1>Old BD1</h1></div>'
+        .'<section class="extra-after">Extra after BD</section>'
+        .'</main>';
+
+    $result = $this->service->refreshStructuredBodySlotsInRenderedHtml($html, [
+        'BD1' => '<h1>New BD1</h1>',
+    ]);
+
+    expect($result)
+        ->toContain('<img class="custom-added" src="../../storage/angleTemplates/page/images/custom.jpg">')
+        ->toContain('<h1>New BD1</h1>')
+        ->toContain('<section class="extra-after">Extra after BD</section>')
+        ->not->toContain('<h1>Old BD1</h1>');
+});
+
 it('uses safe fallback instead of original angle content when switching into a missing sub slot', function () {
     $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
     $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header>H</header><!--INTERNAL--BD2--EXTERNAL--><footer>F</footer>']) extends Template

@@ -778,9 +778,18 @@ class AngleTemplateController extends Controller
                 );
             }
 
-            $rendered = $this->angleTemplateMergeService->renderStructuredBd(
-                $angleTemplate->fresh(['angle', 'template', 'bdContents'])
-            );
+            $freshAngleTemplate = $angleTemplate->fresh(['angle', 'template', 'bdContents']);
+            $rendered = $this->angleTemplateMergeService->renderStructuredBd($freshAngleTemplate);
+            if (str_contains((string) $angleTemplate->main_html, 'lp-structured-bd-slot')) {
+                $rendered['main_html'] = $this->angleTemplateMergeService->refreshStructuredBodySlotsInRenderedHtml(
+                    (string) $angleTemplate->main_html,
+                    $freshAngleTemplate->bdContents
+                        ->pluck('content', 'slot_key')
+                        ->map(fn ($content) => (string) $content)
+                        ->all(),
+                    $freshAngleTemplate->angle
+                );
+            }
 
             $angleTemplate->forceFill([
                 'main_html' => $rendered['main_html'],
@@ -890,13 +899,11 @@ class AngleTemplateController extends Controller
     {
         // return $request;
         $targetAngleTemplate = AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
-        if ($targetAngleTemplate?->isStructuredBd()) {
-            return sendResponse(false, 'This landing page uses the structured BD editor. Please save changes from the BD editor panel.', null, null, null, 422);
-        }
 
-        for ($i = 0; $i < $request->chunk_count; $i++) {
+        $chunkCount = (int) $request->chunk_count;
+        for ($i = 0; $i < $chunkCount; $i++) {
             $imageFile = $request->file('image' . $i);
-            if (!$imageFile) {
+            if (!$imageFile || !$imageFile->isValid()) {
                 $existing_templates = ExtraContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_template_uuid', $request->angle_template_uuid)->where('can_be_deleted', true)->get();
                 foreach ($existing_templates as $key => $exContent) {
                     if ($exContent->type == "image") {
@@ -904,7 +911,7 @@ class AngleTemplateController extends Controller
                     }
                 }
                 ExtraContent::where('name', 'like', "%" . $request->asset_unique_uuid . "%")->where('angle_template_uuid', $request->angle_template_uuid)->where('can_be_deleted', true)->delete();
-                return sendResponse(false, 'File not uploaded correctly!');
+                return sendResponse(false, $this->uploadedImageFailureMessage($imageFile));
             }
         }
 
@@ -916,13 +923,23 @@ class AngleTemplateController extends Controller
 
             // Store images
             $images = [];
-            foreach ($request->allFiles() as $key => $file) {
-                if (Str::startsWith($key, 'image')) {
-                    $extension = $file->getClientOriginalExtension();
-                    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            Storage::disk('public')->makeDirectory("{$basePath}/images");
+            for ($i = 0; $i < $chunkCount; $i++) {
+                $key = 'image' . $i;
+                $file = $request->file($key);
+
+                if ($file) {
+                    $realPath = $file->getRealPath();
+                    if (!$file->isValid() || !$realPath || !is_file($realPath) || !is_readable($realPath)) {
+                        return sendResponse(false, $this->uploadedImageFailureMessage($file));
+                    }
+
+                    $extension = $file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'png';
+                    $originalName = pathinfo($file->getClientOriginalName() ?: 'image', PATHINFO_FILENAME) ?: 'image';
+                    $originalName = Str::slug($originalName) ?: 'image';
                     $fileName = $assetUUID . '-' . $originalName . '.' . $extension;
                     $path = "{$basePath}/images/{$fileName}";
-                    Storage::disk('public')->putFileAs("{$basePath}/images", $file, $fileName);
+                    Storage::disk('public')->put($path, fopen($realPath, 'rb'));
                     $images[] = [
                         'name' => Storage::url($path),
                         'blob_url' => $request->{$key . "blob_url"}
@@ -946,6 +963,8 @@ class AngleTemplateController extends Controller
             if ($request->last_iteration == "true") {
 
                 $editedAngleTemplate = $targetAngleTemplate ?: AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
+                // Structured BD pages may still have page-level additions around BD slots.
+                // Save rendered HTML here, while BD source rows remain managed by the BD editor endpoint.
                 $editedAngleTemplate->main_html = (string) $request->main_html;
                 $editedAngleTemplate->save();
 
@@ -998,6 +1017,56 @@ class AngleTemplateController extends Controller
                 'message' => 'Error uploading files: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function uploadedImageFailureMessage($file = null): string
+    {
+        $limit = $this->readableBytes($this->phpSizeToBytes((string) ini_get('upload_max_filesize')));
+        $postLimit = $this->readableBytes($this->phpSizeToBytes((string) ini_get('post_max_size')));
+
+        if ($file && method_exists($file, 'getError')) {
+            return match ((int) $file->getError()) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => "The uploaded image is larger than the server upload limit ({$limit}). Please use a smaller image or increase upload_max_filesize/post_max_size on the server.",
+                UPLOAD_ERR_PARTIAL => 'The uploaded image was only partially received. Please try again.',
+                UPLOAD_ERR_NO_TMP_DIR => 'The server upload temp folder is missing. Please configure upload_tmp_dir on the server.',
+                UPLOAD_ERR_CANT_WRITE => 'The server could not write the uploaded image. Please check storage and temp folder permissions.',
+                UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the image upload.',
+                default => "The uploaded image could not be read. Server limits: upload_max_filesize {$limit}, post_max_size {$postLimit}.",
+            };
+        }
+
+        return "The uploaded image could not be read. It may exceed the server limit ({$limit}) or the upload was interrupted.";
+    }
+
+    private function phpSizeToBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+
+        $unit = strtolower(substr($value, -1));
+        $bytes = (float) $value;
+
+        return match ($unit) {
+            'g' => (int) ($bytes * 1024 * 1024 * 1024),
+            'm' => (int) ($bytes * 1024 * 1024),
+            'k' => (int) ($bytes * 1024),
+            default => (int) $bytes,
+        };
+    }
+
+    private function readableBytes(int $bytes): string
+    {
+        if ($bytes >= 1024 * 1024) {
+            return round($bytes / 1024 / 1024, 2).'MB';
+        }
+
+        if ($bytes >= 1024) {
+            return round($bytes / 1024, 2).'KB';
+        }
+
+        return $bytes.'B';
     }
 
     public function downloadTemplate(Request $request)

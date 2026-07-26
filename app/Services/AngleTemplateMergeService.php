@@ -194,6 +194,72 @@ class AngleTemplateMergeService
     }
 
     /**
+     * Refresh BD wrapper content in an already-rendered structured page.
+     * This preserves page-level additions that users inserted around BD slots.
+     *
+     * @param  array<string, string>  $bodies
+     */
+    public function refreshStructuredBodySlotsInRenderedHtml(string $html, array $bodies, ?Angle $angle = null): string
+    {
+        if (! str_contains($html, 'lp-structured-bd-slot')) {
+            return $html;
+        }
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML(
+            '<?xml encoding="UTF-8"><!DOCTYPE html><html><body><div id="lp-root">'.$html.'</div></body></html>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded) {
+            return $html;
+        }
+
+        $xpath = new \DOMXPath($dom);
+        $nodes = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-bd-slot ")]');
+        if (! $nodes) {
+            return $html;
+        }
+
+        foreach ($nodes as $node) {
+            if (! $node instanceof \DOMElement) {
+                continue;
+            }
+
+            $slotKey = $node->getAttribute('data-bd-slot');
+            if ($slotKey === '' && preg_match('/(?:^|\s)lp-structured-bd-slot-([A-Z0-9_-]+)(?:\s|$)/i', $node->getAttribute('class'), $matches)) {
+                $slotKey = strtoupper($matches[1]);
+            }
+
+            if ($slotKey === '' || ! array_key_exists($slotKey, $bodies)) {
+                continue;
+            }
+
+            $body = $this->normalizeStructuredBodyHtml((string) $bodies[$slotKey]);
+            if ($angle) {
+                $body = $this->rewriteAngleImagePaths($body, $angle);
+            }
+
+            $this->replaceElementInnerHtml($dom, $node, $body);
+        }
+
+        $root = $dom->getElementById('lp-root');
+        if (! $root) {
+            return $html;
+        }
+
+        $result = '';
+        foreach ($root->childNodes as $child) {
+            $result .= $dom->saveHTML($child);
+        }
+
+        return $result;
+    }
+
+    /**
      * @param  array<string, string>  $bodies
      * @return array<string, string>
      */
@@ -204,10 +270,40 @@ class AngleTemplateMergeService
                 $safeSlotKey = preg_replace('/[^A-Z0-9_-]/i', '', $slotKey) ?: 'BD';
 
                 return [
-                    $slotKey => '<div class="lp-structured-bd-slot lp-structured-bd-slot-'.$safeSlotKey.'">'.$body.'</div>',
+                    $slotKey => '<div class="lp-structured-bd-slot lp-structured-bd-slot-'.$safeSlotKey.'" data-bd-slot="'.$safeSlotKey.'">'.$body.'</div>',
                 ];
             })
             ->all();
+    }
+
+    private function replaceElementInnerHtml(\DOMDocument $dom, \DOMElement $element, string $html): void
+    {
+        while ($element->firstChild) {
+            $element->removeChild($element->firstChild);
+        }
+
+        $fragmentDom = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $fragmentDom->loadHTML(
+            '<?xml encoding="UTF-8"><!DOCTYPE html><html><body><div id="fragment-root">'.$html.'</div></body></html>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded) {
+            $element->appendChild($dom->createTextNode($html));
+            return;
+        }
+
+        $fragmentRoot = $fragmentDom->getElementById('fragment-root');
+        if (! $fragmentRoot) {
+            return;
+        }
+
+        foreach (iterator_to_array($fragmentRoot->childNodes) as $child) {
+            $element->appendChild($dom->importNode($child, true));
+        }
     }
 
     private function structuredBdDefaultContentCss(): string

@@ -555,6 +555,7 @@ export default function Dashboard({ id }) {
 
     const [open, setOpen] = useState(false);
     const [data, setData] = useState(false);
+    const dataRef = useRef(false);
     const structuredModeRef = useRef(false);
     const [structuredBdContents, setStructuredBdContents] = useState({});
     const [structuredBdLoading, setStructuredBdLoading] = useState(false);
@@ -859,6 +860,7 @@ export default function Dashboard({ id }) {
                 const json = await response.json();
                 console.log(json);
                 setData(json.data);
+                dataRef.current = json.data;
                 structuredModeRef.current = json.data?.content_mode === 'structured_bd';
                 if (structuredModeRef.current) {
                     loadStructuredBdContent(json.data.id);
@@ -1421,8 +1423,56 @@ export default function Dashboard({ id }) {
         return false;
     }
 
+    const closestParentWithClass = (element, className) => {
+        while (element && element !== document) {
+            if (element.classList?.contains(className)) {
+                return element;
+            }
+            element = element.parentElement;
+        }
+        return null;
+    }
+
+    const isStructuredPageAsset = (element) => {
+        const src = element?.getAttribute?.('src') || element?.getAttribute?.('poster') || '';
+        const currentData = dataRef.current;
+        return Boolean(currentData?.uuid && src.includes(`/angleTemplates/${currentData.uuid}/images/`));
+    }
+
+    const markStructuredPageAddition = (element) => {
+        if (element?.classList) {
+            element.classList.add('lp-structured-page-addition');
+        }
+    }
+
     const handleClick = (event) => {
         if (structuredModeRef.current) {
+            if (event.target.outerHTML.includes("MuiModal-backdrop") || hasParentWithClass(event.target, 'popoverPlate') || hasParentWithClass(event.target, 'swal2-container') || event.target.outerHTML.includes("doNotAct")) {
+                return;
+            }
+
+            const bdSlotElement = closestParentWithClass(event.target, 'lp-structured-bd-slot');
+            const structuredAdditionElement = closestParentWithClass(event.target, 'lp-structured-page-addition')
+                || closestParentWithClass(event.target, 'editableDiv')
+                || (isStructuredPageAsset(event.target) ? event.target : null);
+            const selectedElement = bdSlotElement || structuredAdditionElement;
+            if (!selectedElement) return;
+
+            let randString = generateRandomString();
+            setAnchorHelpProperties(bdSlotElement ? null : getClickedWordFromElement());
+            selectedElement.classList.add(randString);
+            setOpen(true);
+            resetModalHandler();
+            setEditing({
+                editID: randString,
+                currentElement: selectedElement,
+                elementName: selectedElement.localName,
+                innerHTML: selectedElement.innerHTML,
+                imageSrc: selectedElement.src,
+                actionType: false,
+                addElementPosition: false,
+                structuredBdAddOnly: Boolean(bdSlotElement),
+            })
             return;
         }
 
@@ -1448,6 +1498,9 @@ export default function Dashboard({ id }) {
     };
 
     const addNewContentHandler = async (position, existingElement, newElement) => {
+        if (structuredModeRef.current && editing?.structuredBdAddOnly) {
+            markStructuredPageAddition(newElement);
+        }
 
         if (position == "bottom") {
             // existingElement.style.marginBottom = "5px";
@@ -1998,13 +2051,69 @@ export default function Dashboard({ id }) {
         return result;
     };
 
+    const compressImageForUpload = (file, maxBytes = 1500000) => {
+        if (!(file instanceof File) || !file.type.startsWith('image/') || file.size <= maxBytes) {
+            return Promise.resolve(file);
+        }
+
+        return new Promise((resolve) => {
+            const image = new Image();
+            const objectUrl = URL.createObjectURL(file);
+
+            image.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+
+                const maxDimension = 1600;
+                const ratio = Math.min(1, maxDimension / Math.max(image.width, image.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(image.width * ratio));
+                canvas.height = Math.max(1, Math.round(image.height * ratio));
+
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+                const makeBlob = (quality) => {
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            resolve(file);
+                            return;
+                        }
+
+                        if (blob.size <= maxBytes || quality <= 0.55) {
+                            const originalName = file.name.replace(/\.[^.]+$/, '');
+                            resolve(new File([blob], `${originalName || 'image'}.jpg`, { type: 'image/jpeg' }));
+                            return;
+                        }
+
+                        makeBlob(quality - 0.1);
+                    }, 'image/jpeg', quality);
+                };
+
+                makeBlob(0.85);
+            };
+
+            image.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve(file);
+            };
+
+            image.src = objectUrl;
+        });
+    };
+
     let abortController = null;
 
     const updatedThemeSaveHandler = async () => {
         try {
 
             const mainHTMLActiveInside = mainHTML.find(html => html.status == true);
-            const finalNewImages = newImageUploads.filter(value => mainHTMLActiveInside.html.includes(value.blobUrl))
+            const finalNewImages = newImageUploads.filter(value =>
+                value?.file instanceof File
+                && value?.blobUrl
+                && mainHTMLActiveInside.html.includes(value.blobUrl)
+            )
 
             const CHUNK_SIZE = 10; // Adjust chunk size as needed
             const imageChunks = chunkArray(finalNewImages, CHUNK_SIZE);
@@ -2348,10 +2457,14 @@ export default function Dashboard({ id }) {
                                     {editing && !editing.actionType &&
                                         <Box mt={2} sx={{ display: "flex", gap: 1 }}>
                                             <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
-                                            <Box component="div" sx={{ marginTop: "15px" }} />
-                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
-                                            <Box component="div" sx={{ marginTop: "15px" }} />
-                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="error" variant='outlined' onClick={() => handleChange("actionType", "delete")}>Delete Element</Button>
+                                            {!editing.structuredBdAddOnly && (
+                                                <>
+                                                    <Box component="div" sx={{ marginTop: "15px" }} />
+                                                    <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
+                                                    <Box component="div" sx={{ marginTop: "15px" }} />
+                                                    <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="error" variant='outlined' onClick={() => handleChange("actionType", "delete")}>Delete Element</Button>
+                                                </>
+                                            )}
                                         </Box>
                                     }
                                     {editing && editing.actionType == "add" && !editing.addElementPosition &&
@@ -2560,15 +2673,19 @@ export default function Dashboard({ id }) {
                                                                                     </Typography>
                                                                                     &nbsp; to upload your file.
                                                                                 </Typography>
-                                                                                <input type="file" multiple style={{ display: "none" }} id={`hiddenFileUpload`} onChange={(e) => {
-                                                                                    const insideFile = e.target.files[0];
+                                                                                <input type="file" multiple style={{ display: "none" }} id={`hiddenFileUpload`} onChange={async (e) => {
+                                                                                    const selectedFile = e.target.files[0];
+                                                                                    if (!selectedFile) {
+                                                                                        return;
+                                                                                    }
+
+                                                                                    const insideFile = await compressImageForUpload(selectedFile);
                                                                                     let temp = { ...imageManagement };
                                                                                     temp.imageFile.alreadyUploaded = "";
                                                                                     temp.imageFile.file = insideFile;
                                                                                     temp.imageFile.name = insideFile.name;
                                                                                     temp.imageFile.size = insideFile.size / 1000000;
-                                                                                    const blob = new Blob([insideFile], { type: 'image/png' });
-                                                                                    const blobUrl = URL.createObjectURL(blob);
+                                                                                    const blobUrl = URL.createObjectURL(insideFile);
                                                                                     temp.imageFile.blobUrl = blobUrl;
 
                                                                                     let tempNewImages = [...newImageUploads];
@@ -4339,7 +4456,7 @@ export default function Dashboard({ id }) {
                     </Modal>
                 </>
             )}
-            {!isStructuredBdPage && <div className="sticky-left-div">
+            <div className="sticky-left-div">
                 <Box sx={{ flexDirection: "column", backgroundColor: "#c0c0c0", justifyContent: "space-between", display: "flex", padding: "8px", borderRadius: "5px", borderTopLeftRadius: "0px", borderBottomLeftRadius: "0px", boxShadow: "-2px 2px 10px 5px rgba(0,0,0,0.20)" }}>
                     <Box className="doNotAct" sx={{ ml: 0.3, fontWeight: "bold" }}>
                         <svg style={{ cursor: "pointer", rotate: "180deg" }} className='doNotAct' xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 0 24 24" fill="none" onClick={() => router.get(route('userThemes', { id: data.user_id }))}>
@@ -4365,7 +4482,7 @@ export default function Dashboard({ id }) {
                         </svg>
                     </Box>
                 </Box>
-            </div>}
+            </div>
             <div>
                 {data &&
                     <div>
