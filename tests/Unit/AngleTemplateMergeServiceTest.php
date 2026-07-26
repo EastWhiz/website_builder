@@ -145,6 +145,72 @@ it('maps explicitly named angle bodies and sub slots by identifier', function ()
     ]);
 });
 
+it('maps encoded angle body html as real html for legacy landing page creation', function () {
+    $bodies = [
+        (object) ['name' => 'BD1', 'content' => '&lt;h1&gt;Body 1&lt;/h1&gt;'],
+        (object) ['name' => 'BD2', 'content' => '"&lt;h1&gt;Body 2&lt;/h1&gt;"'],
+    ];
+
+    expect($this->service->mapAngleBodiesByIdentifier($bodies))->toBe([
+        'BD1' => '<h1>Body 1</h1>',
+        'BD2' => '<h1>Body 2</h1>',
+    ]);
+});
+
+it('protects legacy generated bd headings from theme css resets', function () {
+    $angle = new class(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']) extends Angle
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect([
+                        (object) ['name' => 'BD1', 'content' => '<h1>Body 1</h1>'],
+                    ]);
+                }
+            };
+        }
+    };
+    $template = new class(['uuid' => 'theme-uuid', 'index' => '<main><!--INTERNAL--BD1--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                private string $type = '';
+
+                public function where($column = null, $value = null)
+                {
+                    $this->type = (string) $value;
+
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return $this->type === 'css'
+                        ? collect([(object) ['content' => 'h1{font-size:inherit;font-weight:400;margin:0;}']])
+                        : collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->merge($angle, $template);
+
+    expect($result['main_html'])->toContain('<h1 class="lp-legacy-bd-heading">Body 1</h1>');
+    expect($result['main_css'])
+        ->toContain('h1{font-size:inherit;font-weight:400;margin:0;}')
+        ->toContain('h1.lp-legacy-bd-heading');
+});
+
 it('normalizes decorated sub slot names before falling back to positional body mapping', function () {
     $bodies = [
         (object) ['name' => 'BD2_HEADER:', 'content' => '<h2>BODY TWO HEADER ACTIVE HERE</h2>'],
@@ -344,11 +410,74 @@ it('renders structured bd content into target theme placeholders', function () {
     ]);
 
     expect($result['main_html'])
-        ->toContain('<h1>Structured headline</h1><p>Publisher</p><figure>Banner</figure><h1>Structured headline</h1>')
+        ->toContain('<h1>Structured headline</h1>')
+        ->toContain('<p>Publisher</p>')
+        ->toContain('<figure>Banner</figure>')
+        ->toContain('lp-structured-bd-slot-BD2_HEADER')
         ->toContain('src="../../storage/templates/theme-uuid/images/asset-uuid-logo.png"')
         ->not->toContain('BD5')
         ->and($result['main_css'])->toContain('../../storage/templates/theme-uuid/fonts/asset-uuid-news.woff2')
+        ->and($result['main_css'])->toContain('.lp-structured-bd-slot h1')
         ->and($result['main_js'])->toContain('console.log("theme");');
+});
+
+it('renders encoded structured bd html as html instead of plain text', function () {
+    $template = new class(['uuid' => 'theme-uuid', 'asset_unique_uuid' => 'asset-uuid', 'index' => '<main><!--INTERNAL--BD3--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->renderStructuredBodies($template, [
+        'BD3' => '&lt;h1&gt;Body 3&lt;/h1&gt;',
+    ]);
+
+    expect($result['main_html'])
+        ->toContain('<h1>Body 3</h1>')
+        ->not->toContain('&lt;h1&gt;Body 3&lt;/h1&gt;');
+    expect($result['main_css'])->toContain('.lp-structured-bd-slot h1');
+});
+
+it('removes accidental wrapping quotes around structured bd html', function () {
+    $template = new class(['uuid' => 'theme-uuid', 'asset_unique_uuid' => 'asset-uuid', 'index' => '<main><!--INTERNAL--BD3--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->renderStructuredBodies($template, [
+        'BD3' => '"<h1>Body 3</h1>"',
+    ]);
+
+    expect($result['main_html'])
+        ->toContain('<h1>Body 3</h1>')
+        ->not->toContain('"<h1>Body 3</h1>"');
 });
 
 it('uses safe fallback instead of original angle content when switching into a missing sub slot', function () {

@@ -36,11 +36,11 @@ class AngleTemplateMergeService
 
         $mainHtml = $this->injectBodySegmentsIntoShell(
             $mainHtml,
-            $this->mapAngleBodiesByIdentifier($allBodies)
+            $this->mapAngleBodiesByIdentifier($allBodies, true)
         );
 
         $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
-        $mainCss = $this->rewriteTemplateFontPaths($mainCss, $template);
+        $mainCss = $this->rewriteTemplateFontPaths($mainCss, $template)."\n".$this->legacyBdDefaultContentCss();
 
         $mainHtml = preg_replace(
             '/src="angle_images\//',
@@ -175,6 +175,8 @@ class AngleTemplateMergeService
      */
     public function renderStructuredBodies(Template $template, array $bodies, ?Angle $angle = null): array
     {
+        $bodies = array_map(fn ($body) => $this->normalizeStructuredBodyHtml((string) $body), $bodies);
+        $bodies = $this->wrapStructuredBodiesForScopedStyling($bodies);
         $mainHtml = $this->injectBodySegmentsIntoShell((string) $template->index, $bodies);
         $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
 
@@ -186,9 +188,111 @@ class AngleTemplateMergeService
 
         return [
             'main_html' => $mainHtml,
-            'main_css' => $styles['main_css'],
+            'main_css' => $styles['main_css']."\n".$this->structuredBdDefaultContentCss(),
             'main_js' => $styles['main_js'],
         ];
+    }
+
+    /**
+     * @param  array<string, string>  $bodies
+     * @return array<string, string>
+     */
+    private function wrapStructuredBodiesForScopedStyling(array $bodies): array
+    {
+        return collect($bodies)
+            ->mapWithKeys(function (string $body, string $slotKey) {
+                $safeSlotKey = preg_replace('/[^A-Z0-9_-]/i', '', $slotKey) ?: 'BD';
+
+                return [
+                    $slotKey => '<div class="lp-structured-bd-slot lp-structured-bd-slot-'.$safeSlotKey.'">'.$body.'</div>',
+                ];
+            })
+            ->all();
+    }
+
+    private function structuredBdDefaultContentCss(): string
+    {
+        return <<<'CSS'
+.lp-structured-bd-slot {
+    display: contents;
+}
+.lp-structured-bd-slot h1 {
+    display: block;
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0.67em 0;
+}
+.lp-structured-bd-slot h2 {
+    display: block;
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0.83em 0;
+}
+.lp-structured-bd-slot h3 {
+    display: block;
+    font-size: 1.17em;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 1em 0;
+}
+.lp-structured-bd-slot p {
+    display: block;
+    margin: 1em 0;
+}
+CSS;
+    }
+
+    private function legacyBdDefaultContentCss(): string
+    {
+        return <<<'CSS'
+h1.lp-legacy-bd-heading {
+    display: block;
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0.67em 0;
+}
+h2.lp-legacy-bd-heading {
+    display: block;
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0.83em 0;
+}
+h3.lp-legacy-bd-heading {
+    display: block;
+    font-size: 1.17em;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 1em 0;
+}
+CSS;
+    }
+
+    private function normalizeStructuredBodyHtml(string $body): string
+    {
+        return $this->normalizeBodyHtml($body);
+    }
+
+    private function normalizeBodyHtml(string $body): string
+    {
+        $body = trim($body);
+
+        if (strlen($body) >= 2) {
+            $first = $body[0];
+            $last = substr($body, -1);
+            if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+                $body = substr($body, 1, -1);
+            }
+        }
+
+        if (str_contains($body, '&lt;') || str_contains($body, '&gt;')) {
+            $body = html_entity_decode($body, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+
+        return $body;
     }
 
     /**
@@ -431,13 +535,16 @@ class AngleTemplateMergeService
      * @param  iterable<int, object>  $allBodies
      * @return array<string, string>
      */
-    public function mapAngleBodiesByIdentifier(iterable $allBodies): array
+    public function mapAngleBodiesByIdentifier(iterable $allBodies, bool $decorateLegacyHeadings = false): array
     {
         $bodies = [];
         $legacyBodies = [];
 
         foreach ($allBodies as $index => $body) {
-            $content = (string) ($body->content ?? '');
+            $content = $this->normalizeBodyHtml((string) ($body->content ?? ''));
+            if ($decorateLegacyHeadings) {
+                $content = $this->decorateLegacyBdHeadings($content);
+            }
             $name = $this->canonicalBodyIdentifier((string) ($body->name ?? ''));
 
             if ($name !== null) {
@@ -471,6 +578,31 @@ class AngleTemplateMergeService
         }
 
         return null;
+    }
+
+    private function decorateLegacyBdHeadings(string $html): string
+    {
+        return (string) preg_replace_callback(
+            '/<h([1-3])\b([^>]*)>/i',
+            function (array $matches) {
+                $level = $matches[1];
+                $attributes = $matches[2] ?? '';
+
+                if (preg_match('/\bclass=(["\'])(.*?)\1/i', $attributes, $classMatch)) {
+                    if (preg_match('/\blp-legacy-bd-heading\b/', $classMatch[2])) {
+                        return '<h'.$level.$attributes.'>';
+                    }
+
+                    $updatedClass = 'class='.$classMatch[1].trim($classMatch[2].' lp-legacy-bd-heading').$classMatch[1];
+                    $attributes = preg_replace('/\bclass=(["\']).*?\1/i', $updatedClass, $attributes, 1);
+
+                    return '<h'.$level.$attributes.'>';
+                }
+
+                return '<h'.$level.$attributes.' class="lp-legacy-bd-heading">';
+            },
+            $html
+        );
     }
 
     private function isSubSlotId(string $id): bool

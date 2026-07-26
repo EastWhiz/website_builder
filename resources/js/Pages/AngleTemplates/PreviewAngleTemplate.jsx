@@ -562,6 +562,7 @@ export default function Dashboard({ id }) {
     const [structuredBdError, setStructuredBdError] = useState('');
     const [newStructuredSlotKey, setNewStructuredSlotKey] = useState('');
     const [structuredBdEditorOpen, setStructuredBdEditorOpen] = useState(false);
+    const [structuredThemeSlots, setStructuredThemeSlots] = useState(null);
     const [mainHTML, setMainHTML] = useState([{ html: '', status: true }]);
     const [mainCSS, setMainCSS] = useState('');
     const [mainJS, setMainJS] = useState('');
@@ -755,6 +756,7 @@ export default function Dashboard({ id }) {
                 nextContents[slotKey] = item?.content || '';
             });
             setStructuredBdContents(nextContents);
+            setStructuredThemeSlots(Array.isArray(json.data?.theme_slots) ? json.data.theme_slots : []);
         } catch (error) {
             setStructuredBdError(error.message || 'Could not load structured BD content.');
         } finally {
@@ -769,12 +771,17 @@ export default function Dashboard({ id }) {
         setStructuredBdError('');
 
         try {
+            const visibleBdContents = structuredSlotKeys.reduce((carry, slotKey) => ({
+                ...carry,
+                [slotKey]: structuredBdContents[slotKey] || '',
+            }), {});
+
             const response = await fetch(route('angleTemplate.structuredBdContent.save'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     angle_template_id: data.id,
-                    bd_contents: structuredBdContents,
+                    bd_contents: visibleBdContents,
                 }),
             });
             const json = await response.json();
@@ -817,6 +824,10 @@ export default function Dashboard({ id }) {
         const slotKey = String(newStructuredSlotKey || '').trim().toUpperCase();
         if (!/^BD[1-5](?:_[A-Z0-9]+)*$/.test(slotKey)) {
             setStructuredBdError('Use a valid slot key like BD2, BD2_HEADER, or BD3_PUBLISHER.');
+            return;
+        }
+        if (Array.isArray(structuredThemeSlots) && !structuredThemeSlots.includes(slotKey)) {
+            setStructuredBdError(`${slotKey} is not available in this theme. Add <!--INTERNAL--${slotKey}--EXTERNAL--> to the theme first.`);
             return;
         }
 
@@ -2259,14 +2270,18 @@ export default function Dashboard({ id }) {
     const isStructuredBdPage = data?.content_mode === 'structured_bd';
     const structuredSlotKeys = useMemo(() => {
         const baseSlots = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
-        return Array.from(new Set([...baseSlots, ...Object.keys(structuredBdContents)]))
+        const themeSlots = Array.isArray(structuredThemeSlots)
+            ? structuredThemeSlots
+            : baseSlots;
+
+        return Array.from(new Set(themeSlots))
             .sort((a, b) => {
                 const baseA = a.match(/^BD([1-5])/)?.[1] || '9';
                 const baseB = b.match(/^BD([1-5])/)?.[1] || '9';
                 if (baseA !== baseB) return Number(baseA) - Number(baseB);
                 return a.localeCompare(b);
             });
-    }, [structuredBdContents]);
+    }, [structuredThemeSlots]);
 
     console.log(textManagement)
 
@@ -4270,6 +4285,12 @@ export default function Dashboard({ id }) {
                                 <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#5f6b7a' }}>
                                     Edit content by BD slot here. The review page behind this modal remains the rendered landing page only.
                                 </Typography>
+
+                                {Array.isArray(structuredThemeSlots) && structuredThemeSlots.length === 0 && (
+                                    <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#b42318' }}>
+                                        This theme does not contain BD placeholders, so there are no BD fields to edit for this preview.
+                                    </Typography>
+                                )}
 
                                 {structuredBdError && (
                                     <Typography className="doNotAct" variant="body2" sx={{ mb: 2, color: '#b42318' }}>

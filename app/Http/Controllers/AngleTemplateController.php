@@ -194,7 +194,12 @@ class AngleTemplateController extends Controller
 
         $templates = Template::query()
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'index'])
+            ->map(fn (Template $template) => [
+                'id' => $template->id,
+                'name' => $template->name,
+                'body_slots' => $this->bodySlotsFromThemeIndex((string) $template->index),
+            ]);
 
         return sendResponse(true, 'Landing page create options fetched successfully.', [
             'angles' => $angles,
@@ -325,10 +330,15 @@ class AngleTemplateController extends Controller
             'structured_version' => 1,
         ]);
 
-        $slotKeys = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
-        foreach (array_keys($angleBodies) as $slotKey) {
-            if (preg_match('/^BD[1-5]_[A-Z][A-Z0-9_]*$/', $slotKey)) {
-                $slotKeys[] = $slotKey;
+        $slotKeys = $requestedBodies !== null
+            ? array_keys($requestedBodyMap ?? [])
+            : ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
+
+        if ($requestedBodies === null) {
+            foreach (array_keys($angleBodies) as $slotKey) {
+                if (preg_match('/^BD[1-5]_[A-Z][A-Z0-9_]*$/', $slotKey)) {
+                    $slotKeys[] = $slotKey;
+                }
             }
         }
 
@@ -718,6 +728,7 @@ class AngleTemplateController extends Controller
             'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
             'structured_version' => $angleTemplate->structured_version,
             'bd_contents' => $this->formatStructuredBdContents($angleTemplate),
+            'theme_slots' => $this->bodySlotsFromThemeIndex((string) ($angleTemplate->template?->index ?? '')),
         ]);
     }
 
@@ -829,6 +840,15 @@ class AngleTemplateController extends Controller
         }
 
         return array_values($normalized);
+    }
+
+    private function bodySlotsFromThemeIndex(string $index): array
+    {
+        if (! preg_match_all('/<!--INTERNAL--(?<id>BD[1-5](?:_[A-Z][A-Z0-9_]*)?)--EXTERNAL-->/', $index, $matches)) {
+            return [];
+        }
+
+        return array_values(array_unique($matches['id'] ?? []));
     }
 
     private function renderAndPersistStructuredBd(AngleTemplate $angleTemplate): AngleTemplate

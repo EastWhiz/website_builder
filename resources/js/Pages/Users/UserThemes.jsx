@@ -19,7 +19,7 @@ import Select from 'react-select';
 import { DeleteIcon, DuplicateIcon, EditIcon, LanguageIcon, PageDownIcon, ThemeEditIcon, ViewIcon, WrenchIcon } from '@shopify/polaris-icons';
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 
 export default function Dashboard() {
@@ -214,6 +214,9 @@ export default function Dashboard() {
         BD5: '',
     });
     const [createBdContents, setCreateBdContents] = useState(emptyCreateBdContents());
+    const selectedCreateThemeSlots = useMemo(() => (
+        Array.isArray(selectedCreateTheme?.bodySlots) ? selectedCreateTheme.bodySlots : []
+    ), [selectedCreateTheme]);
 
     const [changeThemeModalOpen, setChangeThemeModalOpen] = useState(false);
     const [changeThemeSubmitting, setChangeThemeSubmitting] = useState(false);
@@ -339,6 +342,7 @@ export default function Dashboard() {
             setCreateThemeOptions((result?.data?.templates || []).map((tpl) => ({
                 value: String(tpl.id),
                 label: tpl.name || `Theme #${tpl.id}`,
+                bodySlots: tpl.body_slots || [],
             })));
             setSelectedCreateAngle(null);
             setSelectedCreateTheme(null);
@@ -366,6 +370,7 @@ export default function Dashboard() {
                     .map((tpl) => ({
                         value: String(tpl.id),
                         label: tpl.name || `Theme #${tpl.id}`,
+                        bodySlots: tpl.body_slots || [],
                     }))
             );
             setSelectedChangeTheme(null);
@@ -440,7 +445,17 @@ export default function Dashboard() {
             Swal.fire('Selection required', 'Please select an angle and a theme.', 'warning');
             return;
         }
-        if (createStructuredBd && !Object.values(createBdContents).some((value) => String(value || '').trim() !== '')) {
+        const visibleCreateBdContents = selectedCreateThemeSlots.reduce((carry, slotKey) => ({
+            ...carry,
+            [slotKey]: createBdContents[slotKey] || '',
+        }), {});
+
+        if (createStructuredBd && selectedCreateThemeSlots.length === 0) {
+            Swal.fire('Theme slots missing', 'The selected theme does not contain any BD placeholders. Please select a BD-compatible theme or use legacy mode.', 'warning');
+            return;
+        }
+
+        if (createStructuredBd && !Object.values(visibleCreateBdContents).some((value) => String(value || '').trim() !== '')) {
             Swal.fire('BD content required', 'Please enter content in at least one BD field before creating a structured landing page.', 'warning');
             return;
         }
@@ -458,7 +473,7 @@ export default function Dashboard() {
                     angle_id: Number(selectedCreateAngle.value),
                     template_id: Number(selectedCreateTheme.value),
                     content_mode: createStructuredBd ? 'structured_bd' : 'legacy',
-                    bd_contents: createStructuredBd ? createBdContents : undefined,
+                    bd_contents: createStructuredBd ? visibleCreateBdContents : undefined,
                 }),
             });
             const result = await response.json();
@@ -1122,23 +1137,33 @@ export default function Dashboard() {
                             placeholder="Select Theme..."
                             options={createThemeOptions}
                             value={selectedCreateTheme}
-                            onChange={setSelectedCreateTheme}
+                            onChange={(option) => {
+                                setSelectedCreateTheme(option);
+                                setCreateBdContents({});
+                            }}
                         />
                     </div>
                     <div style={{ marginTop: '14px' }}>
                         <Checkbox
-                            label="Create with structured BD content (BD1-BD5)"
+                            label="Create with structured BD content"
                             checked={createStructuredBd}
                             onChange={setCreateStructuredBd}
-                            helpText="Recommended for all new landing pages. Uncheck only if you intentionally need the old legacy rendered-HTML flow."
+                            helpText="Recommended for all new landing pages. Fields are based on the selected theme's BD placeholders."
                         />
                     </div>
                     {createStructuredBd && (
                         <div style={{ marginTop: '16px' }}>
                             <Text as="p" variant="bodySm" tone="subdued">
-                                Enter content for one or more BD sections. Empty BDs will still be created as blank structured fields.
+                                Enter content only for the BD slots available in the selected theme.
                             </Text>
-                            {['BD1', 'BD2', 'BD3', 'BD4', 'BD5'].map((slotKey) => (
+                            {selectedCreateTheme && selectedCreateThemeSlots.length === 0 && (
+                                <div style={{ marginTop: '12px' }}>
+                                    <Text as="p" variant="bodySm" tone="critical">
+                                        This theme does not contain BD placeholders. Structured BD content cannot be rendered by this theme.
+                                    </Text>
+                                </div>
+                            )}
+                            {selectedCreateThemeSlots.map((slotKey) => (
                                 <div key={slotKey} style={{ marginTop: '12px' }}>
                                     <Text as="p" variant="bodySm" fontWeight="semibold">{slotKey}</Text>
                                     <textarea
