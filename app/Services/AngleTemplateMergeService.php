@@ -761,18 +761,18 @@ CSS;
 
     private function rewriteTemplateImagePaths(string $html, Template $template): string
     {
-        return (string) preg_replace(
-            '/src="template_images\//',
-            'src="../../storage/templates/'.$template->uuid.'/images/'.$template->asset_unique_uuid.'-',
+        return (string) preg_replace_callback(
+            '/\bsrc=(["\'])template_images\//i',
+            fn (array $matches) => 'src='.$matches[1].'../../storage/templates/'.$template->uuid.'/images/'.$template->asset_unique_uuid.'-',
             $html
         );
     }
 
     private function rewriteAngleImagePaths(string $html, Angle $angle): string
     {
-        return (string) preg_replace(
-            '/src="angle_images\//',
-            'src="../../storage/angles/'.$angle->uuid.'/images/'.$angle->asset_unique_uuid.'-',
+        return (string) preg_replace_callback(
+            '/\bsrc=(["\'])angle_images\//i',
+            fn (array $matches) => 'src='.$matches[1].'../../storage/angles/'.$angle->uuid.'/images/'.$angle->asset_unique_uuid.'-',
             $html
         );
     }

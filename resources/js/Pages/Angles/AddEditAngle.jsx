@@ -22,79 +22,6 @@ import Swal from "sweetalert2";
 export default function Dashboard() {
 
     const page = usePage().props;
-    const baseBdSlots = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
-
-    const defaultBdHtml = () => baseBdSlots.map((slot) => ({
-        name: slot,
-        content: '',
-        lockedBdSlot: true,
-    }));
-
-    const canonicalBodyIdentifier = (name = '') => {
-        const normalized = String(name)
-            .trim()
-            .toUpperCase()
-            .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
-
-        const directMatch = normalized.match(/^BD[1-5](_[A-Z][A-Z0-9_]*)?$/);
-        if (directMatch) return normalized;
-
-        const embeddedMatch = normalized.match(/(?:^|_)(BD[1-5](?:_[A-Z][A-Z0-9_]*)?)(?=_|$)/);
-        return embeddedMatch ? embeddedMatch[1] : null;
-    };
-
-    const normalizeAngleHtmlForEditor = (htmlItems = []) => {
-        const slots = {};
-        const legacyItems = [];
-        const extraItems = [];
-
-        htmlItems.forEach((item) => {
-            const slotKey = canonicalBodyIdentifier(item.name);
-            if (slotKey) {
-                slots[slotKey] = {
-                    name: slotKey,
-                    content: item.content || '',
-                    lockedBdSlot: baseBdSlots.includes(slotKey),
-                };
-                return;
-            }
-
-            if (item.name) {
-                legacyItems.push({
-                    name: item.name,
-                    content: item.content || '',
-                    lockedBdSlot: false,
-                });
-            }
-        });
-
-        legacyItems.forEach((item) => {
-            const availableBaseSlot = baseBdSlots.find((slot) => !slots[slot]);
-            if (availableBaseSlot) {
-                slots[availableBaseSlot] = {
-                    name: availableBaseSlot,
-                    content: item.content || '',
-                    lockedBdSlot: true,
-                };
-            } else {
-                extraItems.push(item);
-            }
-        });
-
-        return [
-            ...baseBdSlots.map((slot) => slots[slot] || {
-                name: slot,
-                content: '',
-                lockedBdSlot: true,
-            }),
-            ...Object.keys(slots)
-                .filter((slot) => !baseBdSlots.includes(slot))
-                .sort()
-                .map((slot) => slots[slot]),
-            ...extraItems,
-        ];
-    };
 
     function generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -135,7 +62,7 @@ export default function Dashboard() {
 
     const [angle, setAngle] = useState({
         name: '',
-        html: defaultBdHtml(),
+        html: [{ name: '', content: '' }],
         css: [],
         js: [],
         fonts: [],
@@ -171,7 +98,9 @@ export default function Dashboard() {
             setAngleUUID(page.angle.uuid);
             setAngle({
                 name: page.angle.name,
-                html: normalizeAngleHtmlForEditor(htmls.map((html) => ({ name: html.name, content: html.content }))),
+                html: htmls.length
+                    ? htmls.map((html) => ({ name: html.name, content: html.content }))
+                    : [{ name: '', content: '' }],
                 css: csss.map((css, index) => {
                     return ({ name: css.name, content: css.content })
                 }),
@@ -559,7 +488,7 @@ export default function Dashboard() {
                                                                 <Box>
                                                                     <AddIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#3278ff", color: 'white' }} onClick={() => {
                                                                         let temp = { ...angle };
-                                                                        temp.html.push({ name: 'BD2_HEADER', content: '', lockedBdSlot: false });
+                                                                        temp.html.push({ name: '', content: '' });
                                                                         setAngle(temp);
                                                                     }} />
                                                                     <SortIcon sx={{ width: "30px", height: "30px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "#8f32ff", color: 'white' }} onClick={() => {
@@ -589,15 +518,13 @@ export default function Dashboard() {
                                                                                     placeholder="Enter <body> Name..."
                                                                                     size="small"
                                                                                     value={value.name}
-                                                                                    disabled={value.lockedBdSlot}
                                                                                     onChange={(e) => {
                                                                                         let temp = { ...angle };
                                                                                         temp.html[index].name = e.target.value;
                                                                                         setAngle(temp);
                                                                                     }}
                                                                                 />
-                                                                                <ClearIcon sx={{ width: "38px", height: "38px", borderRadius: "3px", ml: 3, cursor: value.lockedBdSlot ? "not-allowed" : "pointer", background: value.lockedBdSlot ? "#c4c4c4" : "dimgray", color: 'white' }} onClick={() => {
-                                                                                    if (value.lockedBdSlot) return;
+                                                                                <ClearIcon sx={{ width: "38px", height: "38px", borderRadius: "3px", ml: 3, cursor: "pointer", background: "dimgray", color: 'white' }} onClick={() => {
                                                                                     // if (angle.html.length > 1) {
                                                                                     let temp = { ...angle };
                                                                                     temp.html.splice(index, 1);

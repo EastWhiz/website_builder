@@ -1439,6 +1439,11 @@ export default function Dashboard({ id }) {
         return Boolean(currentData?.uuid && src.includes(`/angleTemplates/${currentData.uuid}/images/`));
     }
 
+    const isEditablePreviewElement = (element) => (
+        Boolean(element)
+        && (editableElements.includes(element.localName) || element.classList?.contains('editableDiv'))
+    );
+
     const markStructuredPageAddition = (element) => {
         if (element?.classList) {
             element.classList.add('lp-structured-page-addition');
@@ -1452,14 +1457,24 @@ export default function Dashboard({ id }) {
             }
 
             const bdSlotElement = closestParentWithClass(event.target, 'lp-structured-bd-slot');
+            const angleSourceElement = closestParentWithClass(event.target, 'lp-source-angle-content');
+            const bdSourceElement = closestParentWithClass(event.target, 'lp-source-bd-content');
             const structuredAdditionElement = closestParentWithClass(event.target, 'lp-structured-page-addition')
                 || closestParentWithClass(event.target, 'editableDiv')
                 || (isStructuredPageAsset(event.target) ? event.target : null);
-            const selectedElement = bdSlotElement || structuredAdditionElement;
+            const themeElement = !bdSlotElement && isEditablePreviewElement(event.target)
+                ? event.target
+                : null;
+            const selectedElement = structuredAdditionElement
+                || angleSourceElement
+                || bdSourceElement
+                || bdSlotElement
+                || themeElement;
             if (!selectedElement) return;
+            const bdAddOnly = Boolean(bdSourceElement || (bdSlotElement && !angleSourceElement && !structuredAdditionElement));
 
             let randString = generateRandomString();
-            setAnchorHelpProperties(bdSlotElement ? null : getClickedWordFromElement());
+            setAnchorHelpProperties(bdAddOnly ? null : getClickedWordFromElement());
             selectedElement.classList.add(randString);
             setOpen(true);
             resetModalHandler();
@@ -1471,7 +1486,7 @@ export default function Dashboard({ id }) {
                 imageSrc: selectedElement.src,
                 actionType: false,
                 addElementPosition: false,
-                structuredBdAddOnly: Boolean(bdSlotElement),
+                structuredBdAddOnly: bdAddOnly,
             })
             return;
         }
@@ -1479,7 +1494,7 @@ export default function Dashboard({ id }) {
         // console.log(event.target.outerHTML);
         if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && (!event.target.outerHTML.includes("doNotAct") || event.target.localName == "form")) {
             let randString = generateRandomString();
-            if (editableElements.includes(event.target.localName) || event.target.classList.contains('editableDiv')) {
+            if (isEditablePreviewElement(event.target)) {
                 setAnchorHelpProperties(getClickedWordFromElement());
                 event.target.classList.add(randString);
                 setOpen(true);

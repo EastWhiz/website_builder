@@ -2,6 +2,7 @@
 
 use App\Models\Angle;
 use App\Models\Template;
+use App\Http\Controllers\AngleTemplateController;
 use App\Services\AngleTemplateMergeService;
 
 beforeEach(function () {
@@ -274,6 +275,59 @@ it('preserves the original position of legacy bodies mixed with named bodies', f
     ]);
 });
 
+it('appends landing page bd content to angle content instead of replacing it', function () {
+    $controller = app(AngleTemplateController::class);
+    $method = new ReflectionMethod($controller, 'appendRequestedBodiesToAngleBodies');
+    $method->setAccessible(true);
+
+    $result = $method->invoke($controller, [
+        'BD1' => '<h1>Angle headline</h1><img src="angle_images/news.jpg">',
+        'BD2' => '<p>Angle publisher</p>',
+    ], [
+        'BD1' => '<p>Landing page extra content</p>',
+        'BD2' => '',
+        'BD3' => '<p>Landing page only content</p>',
+    ]);
+
+    expect($result)->toBe([
+        'BD1' => '<div class="lp-source-angle-content" data-lp-source="angle"><h1>Angle headline</h1><img src="angle_images/news.jpg"></div>'
+            ."\n".'<div class="lp-source-bd-content" data-lp-source="bd"><p>Landing page extra content</p></div>',
+        'BD2' => '<div class="lp-source-angle-content" data-lp-source="angle"><p>Angle publisher</p></div>',
+        'BD3' => '<div class="lp-source-bd-content" data-lp-source="bd"><p>Landing page only content</p></div>',
+    ]);
+});
+
+it('keeps uploaded angle images visible when angle html does not reference them', function () {
+    $controller = app(AngleTemplateController::class);
+    $method = new ReflectionMethod($controller, 'appendUnreferencedAngleImagesToBodies');
+    $method->setAccessible(true);
+
+    $result = $method->invoke($controller, [
+        'BD1' => '<h1>Angle headline</h1>',
+    ], [
+        (object) ['name' => '/storage/angles/angle-uuid/images/asset-news.jpg'],
+    ]);
+
+    expect($result['BD1'])
+        ->toContain('<h1>Angle headline</h1>')
+        ->toContain('<img class="lp-source-angle-uploaded-image" src="/storage/angles/angle-uuid/images/asset-news.jpg"')
+        ->toContain('alt="asset-news"');
+});
+
+it('does not duplicate uploaded angle images already referenced by angle html', function () {
+    $controller = app(AngleTemplateController::class);
+    $method = new ReflectionMethod($controller, 'appendUnreferencedAngleImagesToBodies');
+    $method->setAccessible(true);
+
+    $result = $method->invoke($controller, [
+        'BD1' => '<h1>Angle headline</h1><img src="angle_images/news.jpg">',
+    ], [
+        (object) ['name' => '/storage/angles/angle-uuid/images/123e4567-e89b-12d3-a456-426614174000-news.jpg'],
+    ]);
+
+    expect(substr_count($result['BD1'], '<img'))->toBe(1);
+});
+
 it('returns null when a theme shell has no bd placeholders', function () {
     expect($this->service->extractBodySegmentsFromMergedHtml(
         '<main>No placeholders</main>',
@@ -449,6 +503,38 @@ it('renders encoded structured bd html as html instead of plain text', function 
         ->toContain('<h1>Body 3</h1>')
         ->not->toContain('&lt;h1&gt;Body 3&lt;/h1&gt;');
     expect($result['main_css'])->toContain('.lp-structured-bd-slot h1');
+});
+
+it('rewrites angle image paths in structured content with single or double quotes', function () {
+    $template = new class(['uuid' => 'theme-uuid', 'asset_unique_uuid' => 'asset-uuid', 'index' => '<main><!--INTERNAL--BD1--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where($column = null, $value = null)
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+    $angle = new class(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'angle-asset']) extends Angle
+    {
+    };
+
+    $result = $this->service->renderStructuredBodies($template, [
+        'BD1' => '<img src="angle_images/photo.jpg"><img src=\'angle_images/second.jpg\'>',
+    ], $angle);
+
+    expect($result['main_html'])
+        ->toContain('src="../../storage/angles/angle-uuid/images/angle-asset-photo.jpg"')
+        ->toContain("src='../../storage/angles/angle-uuid/images/angle-asset-second.jpg'");
 });
 
 it('removes accidental wrapping quotes around structured bd html', function () {

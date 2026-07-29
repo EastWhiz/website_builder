@@ -291,20 +291,26 @@ class AngleTemplateController extends Controller
         ?array $requestedBodies = null
     ): AngleTemplate
     {
-        $angleBodies = $this->angleTemplateMergeService->mapAngleBodiesByIdentifier($angle->contents);
+        $angleHtmlContents = $angle->contents
+            ->where('type', 'html')
+            ->values();
+        $angleImageContents = $angle->contents
+            ->where('type', 'image')
+            ->values();
+        $angleBodies = $this->angleTemplateMergeService->mapAngleBodiesByIdentifier($angleHtmlContents);
+        $angleBodies = $this->appendUnreferencedAngleImagesToBodies($angleBodies, $angleImageContents);
+        $requestedSlotKeys = null;
+
         if ($requestedBodies !== null) {
             $normalizedRequestedBodies = $this->normalizeStructuredBdPayload($requestedBodies);
+            $requestedSlotKeys = collect($normalizedRequestedBodies)
+                ->pluck('slot_key')
+                ->all();
             $requestedBodyMap = collect($normalizedRequestedBodies)
                 ->mapWithKeys(fn (array $item) => [$item['slot_key'] => $item['content']])
                 ->all();
-            $hasRequestedBaseBdContent = collect(['BD1', 'BD2', 'BD3', 'BD4', 'BD5'])
-                ->contains(fn (string $slotKey) => trim((string) ($requestedBodyMap[$slotKey] ?? '')) !== '');
 
-            if (! $hasRequestedBaseBdContent) {
-                throw new \InvalidArgumentException('Please provide content for at least one BD field.');
-            }
-
-            $angleBodies = array_merge($angleBodies, $requestedBodyMap);
+            $angleBodies = $this->appendRequestedBodiesToAngleBodies($angleBodies, $requestedBodyMap);
         }
 
         $hasBaseBdContent = collect(['BD1', 'BD2', 'BD3', 'BD4', 'BD5'])
@@ -331,7 +337,7 @@ class AngleTemplateController extends Controller
         ]);
 
         $slotKeys = $requestedBodies !== null
-            ? array_keys($requestedBodyMap ?? [])
+            ? ($requestedSlotKeys ?? [])
             : ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
 
         if ($requestedBodies === null) {
@@ -357,6 +363,96 @@ class AngleTemplateController extends Controller
         }
 
         return $this->renderAndPersistStructuredBd($angleTemplate);
+    }
+
+    /**
+     * Landing-page BD content is additive: the Angle remains the base content,
+     * and modal-provided content is appended for the matching slot.
+     *
+     * @param  array<string, string>  $angleBodies
+     * @param  array<string, string>  $requestedBodyMap
+     * @return array<string, string>
+     */
+    private function appendRequestedBodiesToAngleBodies(array $angleBodies, array $requestedBodyMap): array
+    {
+        foreach ($requestedBodyMap as $slotKey => $requestedContent) {
+            $angleContent = trim((string) ($angleBodies[$slotKey] ?? ''));
+            $requestedContent = trim((string) $requestedContent);
+
+            if ($angleContent === '' && $requestedContent === '') {
+                continue;
+            }
+
+            $segments = [];
+            if ($angleContent !== '') {
+                $segments[] = $this->wrapStructuredSourceContent($angleContent, 'angle');
+            }
+            if ($requestedContent !== '') {
+                $segments[] = $this->wrapStructuredSourceContent($requestedContent, 'bd');
+            }
+
+            $angleBodies[$slotKey] = implode("\n", $segments);
+        }
+
+        return $angleBodies;
+    }
+
+    /**
+     * Angle image uploads are asset records. If the Angle HTML did not include
+     * an <img> tag for them, keep the user's upload visible in structured pages.
+     *
+     * @param  array<string, string>  $angleBodies
+     * @param  iterable<int, object>  $angleImages
+     * @return array<string, string>
+     */
+    private function appendUnreferencedAngleImagesToBodies(array $angleBodies, iterable $angleImages): array
+    {
+        $combinedHtml = implode("\n", $angleBodies);
+        $imageTags = [];
+
+        foreach ($angleImages as $image) {
+            $src = trim((string) ($image->name ?? ''));
+            if ($src === '') {
+                continue;
+            }
+
+            $basename = basename(parse_url($src, PHP_URL_PATH) ?: $src);
+            $originalBasename = (string) preg_replace('/^[a-f0-9-]{36}-/i', '', $basename);
+            if ($basename !== '' && (str_contains($combinedHtml, $basename) || str_contains($combinedHtml, $originalBasename))) {
+                continue;
+            }
+
+            $safeSrc = e($src);
+            $safeAlt = e(pathinfo($basename, PATHINFO_FILENAME) ?: 'Angle image');
+            $imageTags[] = '<img class="lp-source-angle-uploaded-image" src="'.$safeSrc.'" alt="'.$safeAlt.'" style="max-width:100%;height:auto;">';
+        }
+
+        if ($imageTags === []) {
+            return $angleBodies;
+        }
+
+        $targetSlot = collect(['BD1', 'BD2', 'BD3', 'BD4', 'BD5'])
+            ->first(fn (string $slotKey) => trim((string) ($angleBodies[$slotKey] ?? '')) !== '')
+            ?? 'BD1';
+
+        $existingContent = trim((string) ($angleBodies[$targetSlot] ?? ''));
+        $imageHtml = implode("\n", $imageTags);
+        $angleBodies[$targetSlot] = $existingContent === ''
+            ? $imageHtml
+            : $existingContent."\n".$imageHtml;
+
+        return $angleBodies;
+    }
+
+    private function wrapStructuredSourceContent(string $content, string $source): string
+    {
+        if (str_contains($content, 'lp-source-angle-content') || str_contains($content, 'lp-source-bd-content')) {
+            return $content;
+        }
+
+        $safeSource = $source === 'angle' ? 'angle' : 'bd';
+
+        return '<div class="lp-source-'.$safeSource.'-content" data-lp-source="'.$safeSource.'">'.$content.'</div>';
     }
 
     public function changeTheme(Request $request)

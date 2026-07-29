@@ -455,11 +455,6 @@ export default function Dashboard() {
             return;
         }
 
-        if (createStructuredBd && !Object.values(visibleCreateBdContents).some((value) => String(value || '').trim() !== '')) {
-            Swal.fire('BD content required', 'Please enter content in at least one BD field before creating a structured landing page.', 'warning');
-            return;
-        }
-
         try {
             setCreateSubmitting(true);
             const response = await fetch(route('landing-pages.create-from-angle-template'), {
@@ -1154,7 +1149,7 @@ export default function Dashboard() {
                     {createStructuredBd && (
                         <div style={{ marginTop: '16px' }}>
                             <Text as="p" variant="bodySm" tone="subdued">
-                                Enter content only for the BD slots available in the selected theme.
+                                Optional: content entered here will be added after the selected Angle's saved content for the matching slot.
                             </Text>
                             {selectedCreateTheme && selectedCreateThemeSlots.length === 0 && (
                                 <div style={{ marginTop: '12px' }}>
