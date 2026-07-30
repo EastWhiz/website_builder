@@ -294,11 +294,7 @@ class AngleTemplateController extends Controller
         $angleHtmlContents = $angle->contents
             ->where('type', 'html')
             ->values();
-        $angleImageContents = $angle->contents
-            ->where('type', 'image')
-            ->values();
         $angleBodies = $this->angleTemplateMergeService->mapAngleBodiesByIdentifier($angleHtmlContents);
-        $angleBodies = $this->appendUnreferencedAngleImagesToBodies($angleBodies, $angleImageContents);
         $requestedSlotKeys = null;
 
         if ($requestedBodies !== null) {
@@ -393,53 +389,6 @@ class AngleTemplateController extends Controller
 
             $angleBodies[$slotKey] = implode("\n", $segments);
         }
-
-        return $angleBodies;
-    }
-
-    /**
-     * Angle image uploads are asset records. If the Angle HTML did not include
-     * an <img> tag for them, keep the user's upload visible in structured pages.
-     *
-     * @param  array<string, string>  $angleBodies
-     * @param  iterable<int, object>  $angleImages
-     * @return array<string, string>
-     */
-    private function appendUnreferencedAngleImagesToBodies(array $angleBodies, iterable $angleImages): array
-    {
-        $combinedHtml = implode("\n", $angleBodies);
-        $imageTags = [];
-
-        foreach ($angleImages as $image) {
-            $src = trim((string) ($image->name ?? ''));
-            if ($src === '') {
-                continue;
-            }
-
-            $basename = basename(parse_url($src, PHP_URL_PATH) ?: $src);
-            $originalBasename = (string) preg_replace('/^[a-f0-9-]{36}-/i', '', $basename);
-            if ($basename !== '' && (str_contains($combinedHtml, $basename) || str_contains($combinedHtml, $originalBasename))) {
-                continue;
-            }
-
-            $safeSrc = e($src);
-            $safeAlt = e(pathinfo($basename, PATHINFO_FILENAME) ?: 'Angle image');
-            $imageTags[] = '<img class="lp-source-angle-uploaded-image" src="'.$safeSrc.'" alt="'.$safeAlt.'" style="max-width:100%;height:auto;">';
-        }
-
-        if ($imageTags === []) {
-            return $angleBodies;
-        }
-
-        $targetSlot = collect(['BD1', 'BD2', 'BD3', 'BD4', 'BD5'])
-            ->first(fn (string $slotKey) => trim((string) ($angleBodies[$slotKey] ?? '')) !== '')
-            ?? 'BD1';
-
-        $existingContent = trim((string) ($angleBodies[$targetSlot] ?? ''));
-        $imageHtml = implode("\n", $imageTags);
-        $angleBodies[$targetSlot] = $existingContent === ''
-            ? $imageHtml
-            : $existingContent."\n".$imageHtml;
 
         return $angleBodies;
     }

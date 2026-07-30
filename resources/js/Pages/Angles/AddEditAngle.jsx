@@ -31,6 +31,31 @@ export default function Dashboard() {
         });
     }
 
+    const imageReferenceName = (image) => {
+        const rawName = image?.name || image?.alreadyUploaded || '';
+        const fileName = String(rawName).split(/[\\/]/).pop() || '';
+
+        return fileName.replace(/^[a-f0-9-]{36}-/i, '');
+    }
+
+    const imageHtmlReference = (image) => {
+        const fileName = imageReferenceName(image);
+
+        return fileName ? `<img src="angle_images/${fileName}" />` : '';
+    }
+
+    const copyImageReference = async (image) => {
+        const reference = imageHtmlReference(image);
+        if (!reference) return;
+
+        try {
+            await navigator.clipboard.writeText(reference);
+            Swal.fire("Copied!", "Image HTML reference copied.", "success");
+        } catch (error) {
+            Swal.fire("Copy manually", reference, "info");
+        }
+    }
+
     const style = {
         position: 'absolute',
         top: '50%',
@@ -810,6 +835,24 @@ export default function Dashboard() {
                                                                                             }} />
                                                                                         </Box>
                                                                                     }
+                                                                                    {imageHtmlReference(value) ? (
+                                                                                        <Box sx={{ mt: 1, p: 1, background: "#f4f6f8", border: "1px solid #d8dde6", borderRadius: "4px" }}>
+                                                                                            <Typography variant="caption" component="div" sx={{ color: "#5f6b7a", fontWeight: 600 }}>
+                                                                                                Use in HTML:
+                                                                                            </Typography>
+                                                                                            <Typography variant="caption" component="code" sx={{ display: "block", wordBreak: "break-all", color: "#202223", fontFamily: "monospace" }}>
+                                                                                                {imageHtmlReference(value)}
+                                                                                            </Typography>
+                                                                                            <Button
+                                                                                                size="small"
+                                                                                                variant="outlined"
+                                                                                                sx={{ mt: 0.8, textTransform: "capitalize" }}
+                                                                                                onClick={() => copyImageReference(value)}
+                                                                                            >
+                                                                                                Copy
+                                                                                            </Button>
+                                                                                        </Box>
+                                                                                    ) : null}
                                                                                 </Box>
                                                                             </Box>
                                                                             <Box sx={{ marginTop: "-5px", cursor: "pointer" }}>

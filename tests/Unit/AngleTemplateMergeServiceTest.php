@@ -297,37 +297,6 @@ it('appends landing page bd content to angle content instead of replacing it', f
     ]);
 });
 
-it('keeps uploaded angle images visible when angle html does not reference them', function () {
-    $controller = app(AngleTemplateController::class);
-    $method = new ReflectionMethod($controller, 'appendUnreferencedAngleImagesToBodies');
-    $method->setAccessible(true);
-
-    $result = $method->invoke($controller, [
-        'BD1' => '<h1>Angle headline</h1>',
-    ], [
-        (object) ['name' => '/storage/angles/angle-uuid/images/asset-news.jpg'],
-    ]);
-
-    expect($result['BD1'])
-        ->toContain('<h1>Angle headline</h1>')
-        ->toContain('<img class="lp-source-angle-uploaded-image" src="/storage/angles/angle-uuid/images/asset-news.jpg"')
-        ->toContain('alt="asset-news"');
-});
-
-it('does not duplicate uploaded angle images already referenced by angle html', function () {
-    $controller = app(AngleTemplateController::class);
-    $method = new ReflectionMethod($controller, 'appendUnreferencedAngleImagesToBodies');
-    $method->setAccessible(true);
-
-    $result = $method->invoke($controller, [
-        'BD1' => '<h1>Angle headline</h1><img src="angle_images/news.jpg">',
-    ], [
-        (object) ['name' => '/storage/angles/angle-uuid/images/123e4567-e89b-12d3-a456-426614174000-news.jpg'],
-    ]);
-
-    expect(substr_count($result['BD1'], '<img'))->toBe(1);
-});
-
 it('returns null when a theme shell has no bd placeholders', function () {
     expect($this->service->extractBodySegmentsFromMergedHtml(
         '<main>No placeholders</main>',
@@ -471,7 +440,9 @@ it('renders structured bd content into target theme placeholders', function () {
         ->toContain('src="../../storage/templates/theme-uuid/images/asset-uuid-logo.png"')
         ->not->toContain('BD5')
         ->and($result['main_css'])->toContain('../../storage/templates/theme-uuid/fonts/asset-uuid-news.woff2')
-        ->and($result['main_css'])->toContain('.lp-structured-bd-slot h1')
+        ->and($result['main_css'])->toContain('.lp-structured-bd-slot')
+        ->and($result['main_css'])->not->toContain('.lp-structured-bd-slot h1')
+        ->and($result['main_css'])->not->toContain('.lp-structured-bd-slot p')
         ->and($result['main_js'])->toContain('console.log("theme");');
 });
 
@@ -502,7 +473,10 @@ it('renders encoded structured bd html as html instead of plain text', function 
     expect($result['main_html'])
         ->toContain('<h1>Body 3</h1>')
         ->not->toContain('&lt;h1&gt;Body 3&lt;/h1&gt;');
-    expect($result['main_css'])->toContain('.lp-structured-bd-slot h1');
+    expect($result['main_css'])
+        ->toContain('.lp-structured-bd-slot')
+        ->not->toContain('.lp-structured-bd-slot h1')
+        ->not->toContain('.lp-structured-bd-slot p');
 });
 
 it('rewrites angle image paths in structured content with single or double quotes', function () {
