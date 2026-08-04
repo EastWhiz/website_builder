@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { Box, Tooltip } from '@mui/material';
 
 import {
@@ -41,6 +41,40 @@ export default function Dashboard() {
 
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
+
+    const previewUrlForLandingPage = (angleTemplateId) => route('previewAngleTemplate', { id: angleTemplateId });
+
+    const reservePreviewTab = () => {
+        const previewTab = window.open('about:blank', '_blank');
+        if (previewTab) {
+            previewTab.document.write('<!doctype html><html><head><title>Opening landing page...</title></head><body style="font-family: sans-serif; padding: 24px;">Opening landing page preview...</body></html>');
+            previewTab.document.close();
+        }
+        return previewTab;
+    };
+
+    const closeReservedPreviewTab = (previewTab) => {
+        if (previewTab && !previewTab.closed) {
+            previewTab.close();
+        }
+    };
+
+    const openLandingPagePreview = (angleTemplateId, previewTab = null) => {
+        const previewUrl = previewUrlForLandingPage(angleTemplateId);
+        if (previewTab && !previewTab.closed) {
+            previewTab.location.href = previewUrl;
+            return true;
+        }
+
+        return Boolean(window.open(previewUrl, '_blank'));
+    };
+
+    const previewFallbackLink = (angleTemplateId) => {
+        if (!angleTemplateId) {
+            return '';
+        }
+        return `<br><br>If the new tab was blocked, <a href="${previewUrlForLandingPage(angleTemplateId)}" target="_blank" rel="noopener noreferrer">click here to open the landing page</a>.`;
+    };
 
     const [selected, setSelected] = useState(0);
 
@@ -401,6 +435,8 @@ export default function Dashboard() {
             return;
         }
 
+        const previewTab = reservePreviewTab();
+
         try {
             setChangeThemeSubmitting(true);
             const response = await fetch(route('landing-pages.change-theme'), {
@@ -422,18 +458,22 @@ export default function Dashboard() {
             setChangeThemeModalOpen(false);
             setChangeThemeTarget(null);
             setReload(!reload);
+            const previewOpened = result?.data?.angle_template_id
+                ? openLandingPagePreview(result.data.angle_template_id, previewTab)
+                : false;
+            if (!result?.data?.angle_template_id) {
+                closeReservedPreviewTab(previewTab);
+            }
             const requiresReview = result?.data?.user_action_required;
             await Swal.fire({
                 title: requiresReview ? 'Review duplicated page' : 'Success',
                 html: requiresReview
-                    ? `${result?.message || 'Theme changed with safe content preservation.'}<br><br><strong>Next step:</strong> ${result?.data?.user_action_message || 'Please review the duplicated page.'}`
-                    : (result?.message || 'Theme changed successfully.'),
+                    ? `${result?.message || 'Theme changed with safe content preservation.'}<br><br><strong>Next step:</strong> ${result?.data?.user_action_message || 'Please review the duplicated page.'}${previewOpened ? '<br><br>The duplicated landing page has been opened in a new tab.' : previewFallbackLink(result?.data?.angle_template_id)}`
+                    : `${result?.message || 'Theme changed successfully.'}${previewOpened ? '<br><br>The updated landing page has been opened in a new tab.' : previewFallbackLink(result?.data?.angle_template_id)}`,
                 icon: requiresReview ? 'warning' : 'success',
             });
-            if (result?.data?.angle_template_id) {
-                router.get(route('previewAngleTemplate', { id: result.data.angle_template_id }));
-            }
         } catch (e) {
+            closeReservedPreviewTab(previewTab);
             Swal.fire('Error', e?.message || 'Could not change theme.', 'error');
         } finally {
             setChangeThemeSubmitting(false);
@@ -454,6 +494,8 @@ export default function Dashboard() {
             Swal.fire('Theme slots missing', 'The selected theme does not contain any BD placeholders. Please select a BD-compatible theme or use legacy mode.', 'warning');
             return;
         }
+
+        const previewTab = reservePreviewTab();
 
         try {
             setCreateSubmitting(true);
@@ -477,11 +519,19 @@ export default function Dashboard() {
             }
             setCreateModalOpen(false);
             setReload(!reload);
-            Swal.fire('Success', result?.message || 'Landing page created successfully.', 'success');
-            if (result?.data?.angle_template_id) {
-                router.get(route('previewAngleTemplate', { id: result.data.angle_template_id }));
+            const previewOpened = result?.data?.angle_template_id
+                ? openLandingPagePreview(result.data.angle_template_id, previewTab)
+                : false;
+            if (!result?.data?.angle_template_id) {
+                closeReservedPreviewTab(previewTab);
             }
+            Swal.fire({
+                title: 'Success',
+                html: `${result?.message || 'Landing page created successfully.'}${previewOpened ? '<br><br>It has been opened in a new tab.' : previewFallbackLink(result?.data?.angle_template_id)}`,
+                icon: 'success',
+            });
         } catch (e) {
+            closeReservedPreviewTab(previewTab);
             Swal.fire('Error', e?.message || 'Could not create landing page.', 'error');
         } finally {
             setCreateSubmitting(false);
