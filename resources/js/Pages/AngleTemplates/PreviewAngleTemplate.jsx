@@ -568,6 +568,16 @@ export default function Dashboard({ id }) {
     const [mainCSS, setMainCSS] = useState('');
     const [mainJS, setMainJS] = useState('');
     const [isRtl, setIsRtl] = useState(false);
+    const structuredCustomHtmlDefaultCss = `
+.lp-custom-html-block h1:not([style]),
+.lp-structured-page-addition h1:not([style]) {
+    display: block;
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0.67em 0;
+}
+`;
     const [editing, setEditing] = useState({
         editID: false,
         currentElement: false,
@@ -1553,6 +1563,37 @@ export default function Dashboard({ id }) {
         return true;
     }
 
+    const applyDefaultSemanticStylesToCustomHtml = (container) => {
+        if (!container?.querySelectorAll) {
+            return;
+        }
+
+        const headingDefaults = {
+            h1: { fontSize: '2em', fontWeight: '700', lineHeight: '1.2', margin: '0.67em 0' },
+            h2: { fontSize: '1.5em', fontWeight: '700', lineHeight: '1.25', margin: '0.83em 0' },
+            h3: { fontSize: '1.17em', fontWeight: '700', lineHeight: '1.3', margin: '1em 0' },
+            h4: { fontSize: '1em', fontWeight: '700', lineHeight: '1.35', margin: '1.33em 0' },
+            h5: { fontSize: '0.83em', fontWeight: '700', lineHeight: '1.4', margin: '1.67em 0' },
+            h6: { fontSize: '0.67em', fontWeight: '700', lineHeight: '1.45', margin: '2.33em 0' },
+        };
+
+        Object.entries(headingDefaults).forEach(([tagName, defaults]) => {
+            container.querySelectorAll(tagName).forEach((heading) => {
+                const hasCustomClass = Boolean(heading.getAttribute('class')?.trim());
+                const hasInlineStyle = Boolean(heading.getAttribute('style')?.trim());
+
+                if (hasCustomClass || hasInlineStyle) {
+                    return;
+                }
+
+                Object.assign(heading.style, {
+                    display: 'block',
+                    ...defaults,
+                });
+            });
+        });
+    }
+
     const handleClick = (event) => {
         if (structuredModeRef.current) {
             if (event.target.outerHTML.includes("MuiModal-backdrop") || hasParentWithClass(event.target, 'popoverPlate') || hasParentWithClass(event.target, 'swal2-container') || event.target.outerHTML.includes("doNotAct")) {
@@ -1759,8 +1800,9 @@ export default function Dashboard({ id }) {
                 document.querySelector(`.${editing.editID}`).innerHTML = customHTMLManagement.input;
             } else {
                 let newElement = document.createElement('div');
-                newElement.classList.add('editableDiv');
+                newElement.classList.add('editableDiv', 'lp-custom-html-block');
                 newElement.innerHTML = customHTMLManagement.input;
+                applyDefaultSemanticStylesToCustomHtml(newElement);
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if ((editing.actionType == "edit" && ['img'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "img")) {
@@ -4634,7 +4676,7 @@ export default function Dashboard({ id }) {
                     <div>
                         <div dangerouslySetInnerHTML={{ __html: data.template.head }} />
                         <style>
-                            {mainCSS}
+                            {`${mainCSS}\n${structuredCustomHtmlDefaultCss}`}
                         </style>
                         {/* <pre>{mainHTML}</pre> */}
                         <div className='mainHTML' dir={isRtl ? 'rtl' : 'ltr'} dangerouslySetInnerHTML={{ __html: mainHTMLActive.html }} />

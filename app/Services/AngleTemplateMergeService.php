@@ -399,6 +399,15 @@ class AngleTemplateMergeService
 .lp-structured-bd-slot {
     display: contents;
 }
+
+.lp-custom-html-block h1:not([style]),
+.lp-structured-page-addition h1:not([style]) {
+    display: block;
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0.67em 0;
+}
 CSS;
     }
 
