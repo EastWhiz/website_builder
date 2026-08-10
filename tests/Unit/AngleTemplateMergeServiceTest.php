@@ -383,8 +383,74 @@ it('creates a page without warning when optional theme sub slots are missing', f
     $result = $this->service->merge($angle, $template);
 
     expect($result['main_html'])
-        ->toBe('<article>Article</article>')
+        ->toContain('<article>Article</article>')
         ->not->toContain('BD2_HEADER');
+});
+
+it('extracts legacy bd content from boundary markers after page edits', function () {
+    $html = '<header><nav>Edited nav</nav></header>'
+        .'<!--LP-BD-START:BD1--><article>Edited article</article><!--LP-BD-END:BD1-->'
+        .'<section class="custom-added">User added block</section>'
+        .'<!--LP-BD-START:BD2--><aside>Edited sidebar</aside><!--LP-BD-END:BD2-->'
+        .'<footer>Edited footer</footer>';
+
+    expect($this->service->extractBodySegmentsFromBoundaryMarkers($html))->toBe([
+        'BD1' => '<article>Edited article</article>',
+        'BD2' => '<aside>Edited sidebar</aside>',
+    ]);
+});
+
+it('uses boundary markers so legacy edited pages can still swap to the new theme shell', function () {
+    $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
+    $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header>Original</header><!--INTERNAL--BD1--EXTERNAL--><footer>F</footer>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+    $newTemplate = new class(['uuid' => 'new-theme', 'index' => '<main class="new-theme"><!--INTERNAL--BD1--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $result = $this->service->changeThemePreservingContent(
+        $angle,
+        '<header>Changed by editor</header><!--LP-BD-START:BD1--><h1>Edited BD1</h1><!--LP-BD-END:BD1--><footer>Changed footer</footer>',
+        $oldTemplate,
+        $newTemplate
+    );
+
+    expect($result['mapping_status'])->toBe('bd_mapped')
+        ->and($result['main_html'])->toContain('<main class="new-theme">')
+        ->and($result['main_html'])->toContain('<h1>Edited BD1</h1>')
+        ->and($result['main_html'])->not->toContain('Changed by editor')
+        ->and($result['main_html'])->not->toContain('lp-theme-safe-content');
 });
 
 it('renders structured bd content into target theme placeholders', function () {
@@ -558,6 +624,179 @@ it('refreshes structured bd content without removing page level additions', func
         ->not->toContain('<h1>Old BD1</h1>');
 });
 
+it('preserves exact content order when refreshing a structured bd slot', function () {
+    $html = '<main>'
+        .'<div class="lp-structured-bd-slot lp-structured-bd-slot-BD1" data-bd-slot="BD1">'
+        .'<p>A</p><p>B</p><p>C</p>'
+        .'</div>'
+        .'</main>';
+
+    $orderedContent = '<p>A</p><div class="lp-structured-page-addition" data-lp-edit-context="bd" data-bd-slot="BD1">New Content</div><p>B</p><p>C</p>';
+
+    $result = $this->service->refreshStructuredBodySlotsInRenderedHtml($html, [
+        'BD1' => $orderedContent,
+    ]);
+
+    expect($result)->toContain($orderedContent);
+    expect(strpos($result, '<p>A</p>'))->toBeLessThan(strpos($result, 'New Content'));
+    expect(strpos($result, 'New Content'))->toBeLessThan(strpos($result, '<p>B</p>'));
+    expect(strpos($result, '<p>B</p>'))->toBeLessThan(strpos($result, '<p>C</p>'));
+});
+
+it('preserves saved bd content order when rendering into another theme', function () {
+    $template = new class([
+        'uuid' => 'theme-uuid',
+        'asset_unique_uuid' => 'asset-uuid',
+        'index' => '<section class="new-theme"><!--INTERNAL--BD1--EXTERNAL--></section>',
+    ]) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $orderedContent = '<p>A</p><div class="lp-structured-page-addition" data-lp-edit-context="bd" data-bd-slot="BD1">New Content</div><p>B</p><p>C</p>';
+    $result = $this->service->renderStructuredBodies($template, [
+        'BD1' => $orderedContent,
+    ]);
+
+    expect($result['main_html'])->toContain($orderedContent);
+    expect(strpos($result['main_html'], '<p>A</p>'))->toBeLessThan(strpos($result['main_html'], 'New Content'));
+    expect(strpos($result['main_html'], 'New Content'))->toBeLessThan(strpos($result['main_html'], '<p>B</p>'));
+    expect(strpos($result['main_html'], '<p>B</p>'))->toBeLessThan(strpos($result['main_html'], '<p>C</p>'));
+});
+
+it('extracts only outside-bd structured page additions', function () {
+    $html = '<main>'
+        .'<div class="lp-structured-bd-slot lp-structured-bd-slot-BD1" data-bd-slot="BD1">'
+        .'<p>A</p><div class="lp-structured-page-addition" data-lp-edit-context="bd" data-bd-slot="BD1">Inside BD</div>'
+        .'</div>'
+        .'<aside class="lp-structured-page-addition" data-lp-edit-context="page_addition">Outside BD</aside>'
+        .'</main>';
+
+    $additions = $this->service->extractStructuredPageLevelAdditions($html);
+
+    expect($additions)->toHaveCount(1)
+        ->and($additions[0])->toContain('Outside BD')
+        ->and($additions[0])->not->toContain('Inside BD');
+});
+
+it('appends outside-bd page additions after a target theme layout', function () {
+    $result = $this->service->appendStructuredPageLevelAdditions(
+        '<main class="new-theme"><article>BD layout</article></main>',
+        ['<aside class="lp-structured-page-addition" data-lp-edit-context="page_addition">Outside BD</aside>']
+    );
+
+    expect($result)
+        ->toContain('<main class="new-theme"><article>BD layout</article></main>')
+        ->toContain('lp-structured-page-additions')
+        ->toContain('Outside BD');
+    expect(strpos($result, 'BD layout'))->toBeLessThan(strpos($result, 'Outside BD'));
+});
+
+it('extracts bd content from rendered structured wrappers for legacy conversion', function () {
+    $html = '<main>'
+        .'<section class="lp-structured-bd-slot lp-structured-bd-slot-BD1" data-bd-slot="BD1"><h1>Wrapper BD1</h1></section>'
+        .'<section class="lp-structured-bd-slot lp-structured-bd-slot-BD3"><p>Wrapper BD3</p></section>'
+        .'</main>';
+
+    expect($this->service->extractBodySegmentsFromStructuredWrappers($html))->toBe([
+        'BD1' => '<h1>Wrapper BD1</h1>',
+        'BD3' => '<p>Wrapper BD3</p>',
+    ]);
+});
+
+it('extracts bd content for legacy conversion from the safest available source', function () {
+    $template = new class(['uuid' => 'theme-uuid', 'index' => '<header>Theme header</header><!--INTERNAL--BD1--EXTERNAL--><footer>Theme footer</footer>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $withMarkers = '<header>Edited header</header><!--LP-BD-START:BD1--><article>Marker BD1</article><!--LP-BD-END:BD1--><footer>Edited footer</footer>';
+    $withoutMarkers = '<header>Theme header</header><article>Theme matched BD1</article><footer>Theme footer</footer>';
+
+    expect($this->service->extractBodySegmentsForLegacyConversion($template, $withMarkers))->toBe([
+        'BD1' => '<article>Marker BD1</article>',
+    ]);
+    expect($this->service->extractBodySegmentsForLegacyConversion($template, $withoutMarkers))->toBe([
+        'BD1' => '<article>Theme matched BD1</article>',
+    ]);
+});
+
+it('renders structured theme switch output from latest bd rows plus separate page additions', function () {
+    $targetTheme = new class([
+        'uuid' => 'target-theme',
+        'asset_unique_uuid' => 'target-asset',
+        'index' => '<main class="target-theme">'
+            .'<section class="hero"><!--INTERNAL--BD1--EXTERNAL--></section>'
+            .'<aside><!--INTERNAL--BD2_HEADER--EXTERNAL--></aside>'
+            .'<section class="repeat"><!--INTERNAL--BD1--EXTERNAL--></section>'
+            .'<!--INTERNAL--BD5--EXTERNAL-->'
+            .'</main>',
+    ]) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $rendered = $this->service->renderStructuredBodies($targetTheme, [
+        'BD1' => '<article>Latest edited BD1</article>',
+        'BD2_HEADER' => '<h1>Latest sub-slot heading</h1>',
+        'BD3' => '<p>Unused in target theme</p>',
+    ]);
+
+    $result = $this->service->appendStructuredPageLevelAdditions($rendered['main_html'], [
+        '<aside class="lp-structured-page-addition" data-lp-edit-context="page_addition">Outside custom content</aside>',
+    ]);
+
+    expect(substr_count($result, 'Latest edited BD1'))->toBe(2)
+        ->and($result)->toContain('<h1>Latest sub-slot heading</h1>')
+        ->and($result)->not->toContain('BD5')
+        ->and($result)->not->toContain('Unused in target theme')
+        ->and($result)->toContain('lp-structured-page-additions')
+        ->and($result)->toContain('Outside custom content');
+    expect(strpos($result, 'Latest edited BD1'))->toBeLessThan(strpos($result, 'Outside custom content'));
+});
+
 it('uses safe fallback instead of original angle content when switching into a missing sub slot', function () {
     $angle = new Angle(['uuid' => 'angle-uuid', 'asset_unique_uuid' => 'asset-uuid']);
     $oldTemplate = new class(['uuid' => 'old-theme', 'index' => '<header>H</header><!--INTERNAL--BD2--EXTERNAL--><footer>F</footer>']) extends Template
@@ -606,7 +845,9 @@ it('uses safe fallback instead of original angle content when switching into a m
 
     expect($result['mapping_status'])->toBe('safe_fallback')
         ->and($result['unresolved_sub_slots'])->toBe(['BD2_HEADER'])
-        ->and($result['main_html'])->toContain('Current full BD2 content');
+        ->and($result['main_html'])->toContain('Current full BD2 content')
+        ->and($result['main_html'])->not->toContain('lp-theme-safe-content')
+        ->and($result['main_css'])->not->toContain('lp-theme-safe-content');
 });
 
 it('keeps source css and js when safe fallback preserves the current page html', function () {
@@ -661,6 +902,7 @@ it('keeps source css and js when safe fallback preserves the current page html',
 
     expect($result['mapping_status'])->toBe('safe_fallback')
         ->and($result['main_css'])->toContain('.source-theme-social-icon')
+        ->and($result['main_css'])->not->toContain('lp-theme-safe-content')
         ->and($result['main_css'])->not->toContain('.target-theme-social-icon')
         ->and($result['main_js'])->toBe('window.sourceThemeReady = true;');
 });
@@ -834,7 +1076,9 @@ it('does not add layout wrapper css when bd mapping succeeds', function () {
     );
 
     expect($result['mapping_status'])->toBe('bd_mapped')
-        ->and($result['main_html'])->toBe('<main class="main-content"><div class="main-con-left"><article>Article body</article></div><div class="main-con-right"><p>Sidebar body</p></div></main>')
+        ->and($result['main_html'])->toContain('<main class="main-content"><div class="main-con-left">')
+        ->and($result['main_html'])->toContain('<article>Article body</article>')
+        ->and($result['main_html'])->toContain('<p>Sidebar body</p>')
         ->and($result['main_html'])->not->toContain('lp-theme-body-inner')
         ->and($result['main_css'])->not->toContain('lp-theme-body-inner');
 });

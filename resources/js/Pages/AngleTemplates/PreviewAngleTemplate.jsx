@@ -577,6 +577,9 @@ export default function Dashboard({ id }) {
         actionType: false,
         addElementPosition: false,
         addElementType: false,
+        structuredEditContext: false,
+        bdSlotKey: false,
+        bdSlotElement: false,
     });
 
     const [newImageUploads, setNewImageUploads] = useState([]);
@@ -819,6 +822,30 @@ export default function Dashboard({ id }) {
             ...prev,
             [slotKey]: value,
         }));
+    };
+
+    const syncStructuredBdStateFromResponse = (responseData) => {
+        if (!responseData || responseData.content_mode !== 'structured_bd') {
+            return;
+        }
+
+        const nextContents = {};
+        Object.entries(responseData.bd_contents || {}).forEach(([slotKey, item]) => {
+            nextContents[slotKey] = item?.content || '';
+        });
+
+        structuredModeRef.current = true;
+        setStructuredBdContents(nextContents);
+        setData(prev => ({
+            ...prev,
+            content_mode: 'structured_bd',
+            structured_version: responseData.structured_version ?? prev?.structured_version,
+        }));
+        dataRef.current = {
+            ...(dataRef.current || {}),
+            content_mode: 'structured_bd',
+            structured_version: responseData.structured_version ?? dataRef.current?.structured_version,
+        };
     };
 
     const addStructuredBdSlot = () => {
@@ -1433,6 +1460,33 @@ export default function Dashboard({ id }) {
         return null;
     }
 
+    const structuredBdSlotKeyFromElement = (element) => {
+        if (!element) return false;
+
+        const directSlotKey = element.getAttribute?.('data-bd-slot');
+        if (directSlotKey) {
+            return directSlotKey.trim().toUpperCase();
+        }
+
+        const className = element.getAttribute?.('class') || '';
+        const classMatch = className.match(/(?:^|\s)lp-structured-bd-slot-([A-Z0-9_-]+)(?:\s|$)/i);
+        return classMatch ? classMatch[1].trim().toUpperCase() : false;
+    }
+
+    const structuredEditContextForClick = ({
+        bdSlotElement,
+        angleSourceElement,
+        bdSourceElement,
+        structuredAdditionElement,
+        themeElement,
+    }) => {
+        if (bdSourceElement || bdSlotElement) return 'bd';
+        if (angleSourceElement) return 'angle';
+        if (structuredAdditionElement) return 'page_addition';
+        if (themeElement) return 'theme';
+        return false;
+    }
+
     const isStructuredPageAsset = (element) => {
         const src = element?.getAttribute?.('src') || element?.getAttribute?.('poster') || '';
         const currentData = dataRef.current;
@@ -1444,10 +1498,59 @@ export default function Dashboard({ id }) {
         && (editableElements.includes(element.localName) || element.classList?.contains('editableDiv'))
     );
 
-    const markStructuredPageAddition = (element) => {
+    const markStructuredPageAddition = (element, bdSlotKey = false) => {
         if (element?.classList) {
             element.classList.add('lp-structured-page-addition');
         }
+        if (element?.setAttribute) {
+            element.setAttribute('data-lp-edit-context', bdSlotKey ? 'bd' : 'page_addition');
+            if (bdSlotKey) {
+                element.setAttribute('data-bd-slot', bdSlotKey);
+            }
+        }
+    }
+
+    const extractStructuredBdContentsFromHtml = (html) => {
+        if (!structuredModeRef.current || !html || !html.includes('lp-structured-bd-slot')) {
+            return {};
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const contents = {};
+        wrapper.querySelectorAll('.lp-structured-bd-slot').forEach((slotElement) => {
+            const slotKey = structuredBdSlotKeyFromElement(slotElement);
+            if (slotKey) {
+                contents[slotKey] = slotElement.innerHTML;
+            }
+        });
+        return contents;
+    }
+
+    const insertStructuredBdAddition = (position, existingElement, newElement) => {
+        const bdSlotElement = editing?.bdSlotElement || closestParentWithClass(existingElement, 'lp-structured-bd-slot');
+        if (!bdSlotElement) {
+            return false;
+        }
+
+        markStructuredPageAddition(newElement, editing?.bdSlotKey || structuredBdSlotKeyFromElement(bdSlotElement));
+
+        if (bdSlotElement === existingElement) {
+            if (position == "top" || position == "left") {
+                bdSlotElement.insertAdjacentElement('afterbegin', newElement);
+            } else {
+                bdSlotElement.insertAdjacentElement('beforeend', newElement);
+            }
+            return true;
+        }
+
+        if (position == "bottom" || position == "right") {
+            existingElement.insertAdjacentElement('afterend', newElement);
+        } else {
+            existingElement.insertAdjacentElement('beforebegin', newElement);
+        }
+
+        return true;
     }
 
     const handleClick = (event) => {
@@ -1471,6 +1574,14 @@ export default function Dashboard({ id }) {
                 || bdSlotElement
                 || themeElement;
             if (!selectedElement) return;
+            const bdSlotKey = structuredBdSlotKeyFromElement(bdSlotElement);
+            const structuredEditContext = structuredEditContextForClick({
+                bdSlotElement,
+                angleSourceElement,
+                bdSourceElement,
+                structuredAdditionElement,
+                themeElement,
+            });
             const bdAddOnly = Boolean(bdSourceElement || (bdSlotElement && !angleSourceElement && !structuredAdditionElement));
 
             let randString = generateRandomString();
@@ -1487,6 +1598,9 @@ export default function Dashboard({ id }) {
                 actionType: false,
                 addElementPosition: false,
                 structuredBdAddOnly: bdAddOnly,
+                structuredEditContext,
+                bdSlotKey,
+                bdSlotElement,
             })
             return;
         }
@@ -1507,13 +1621,20 @@ export default function Dashboard({ id }) {
                     imageSrc: event.target.src,
                     actionType: false,
                     addElementPosition: false,
+                    structuredEditContext: false,
+                    bdSlotKey: false,
+                    bdSlotElement: false,
                 })
             }
         }
     };
 
     const addNewContentHandler = async (position, existingElement, newElement) => {
-        if (structuredModeRef.current && editing?.structuredBdAddOnly) {
+        if (structuredModeRef.current && editing?.structuredEditContext === 'bd') {
+            if (insertStructuredBdAddition(position, existingElement, newElement)) {
+                return;
+            }
+        } else if (structuredModeRef.current && editing?.actionType === 'add') {
             markStructuredPageAddition(newElement);
         }
 
@@ -2156,6 +2277,7 @@ export default function Dashboard({ id }) {
             const chunks = [...imageChunks];
             if (chunks.length == 0)
                 chunks.push(1);
+            let finalSaveResult = null;
 
             for (const [chunkIndex, chunk] of chunks.entries()) {
 
@@ -2178,6 +2300,7 @@ export default function Dashboard({ id }) {
 
                 // Get the updated HTML string
                 mainHTMLDynamic = tempDivInside.innerHTML;
+                const structuredBdContentsForSave = extractStructuredBdContentsFromHtml(mainHTMLDynamic);
 
                 // Log form elements/data saved with the template
                 const forms = tempDivInside.querySelectorAll('form');
@@ -2206,6 +2329,9 @@ export default function Dashboard({ id }) {
                 formData.append("chunk_count", chunk == 1 ? 0 : chunk.length);
                 formData.append("angle_template_uuid", data.uuid);
                 formData.append("main_html", mainHTMLDynamic);
+                if (structuredModeRef.current && Object.keys(structuredBdContentsForSave).length > 0) {
+                    formData.append("structured_bd_contents", JSON.stringify(structuredBdContentsForSave));
+                }
 
                 if (chunk != 1) {
                     chunk.forEach((item, index) => {
@@ -2229,6 +2355,9 @@ export default function Dashboard({ id }) {
                         Swal.fire("Error!", result.message, "error");
                         return;
                     }
+                    if (isLastIteration) {
+                        finalSaveResult = result;
+                    }
 
                     uploadedFiles += chunk.length;
                     const progress = Math.round((uploadedFiles / totalFiles) * 100);
@@ -2250,6 +2379,8 @@ export default function Dashboard({ id }) {
                     }
                 }
             }
+
+            syncStructuredBdStateFromResponse(finalSaveResult?.data);
 
             Swal.fire({
                 title: 'Success',

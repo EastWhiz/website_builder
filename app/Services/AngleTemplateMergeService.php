@@ -14,6 +14,8 @@ class AngleTemplateMergeService
 
     private const SUB_SLOT_ID_PATTERN = '/^BD\d+_[A-Z][A-Z0-9_]*$/';
 
+    private const BODY_BOUNDARY_PATTERN = '/<!--LP-BD-START:(?<id>BD\d+(?:_[A-Z][A-Z0-9_]*)?)-->(?<body>.*?)<!--LP-BD-END:\k<id>-->/is';
+
     /**
      * Merge angle HTML bodies into a theme shell (same logic as new landing page creation).
      *
@@ -36,7 +38,9 @@ class AngleTemplateMergeService
 
         $mainHtml = $this->injectBodySegmentsIntoShell(
             $mainHtml,
-            $this->mapAngleBodiesByIdentifier($allBodies, true)
+            $this->mapAngleBodiesByIdentifier($allBodies, true),
+            true,
+            true
         );
 
         $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
@@ -83,7 +87,10 @@ class AngleTemplateMergeService
         $oldShellForMatching = $this->buildTemplateShellForMergedComparison($oldTemplate);
         $sourceUsage = $this->placeholderUsage($oldShellForMatching);
         $targetUsage = $this->placeholderUsage((string) $newTemplate->index);
-        $bodies = $this->extractBodySegmentsFromMergedHtml($oldShellForMatching, $currentMainHtml);
+        $bodies = $this->extractBodySegmentsFromBoundaryMarkers($currentMainHtml);
+        if ($bodies === null || $bodies === []) {
+            $bodies = $this->extractBodySegmentsFromMergedHtml($oldShellForMatching, $currentMainHtml);
+        }
         if ($bodies === null || $bodies === []) {
             // Browsers/editors may decode harmless entities such as &times; when saving HTML.
             $decodedOldShell = html_entity_decode($oldShellForMatching, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -114,7 +121,7 @@ class AngleTemplateMergeService
                 $sanitizedBodies[$bodyId] = $sanitizedBody;
             }
             $preservedHtml = implode('', $sanitizedBodies);
-            $mainHtml = $this->injectBodySegmentsIntoShell((string) $newTemplate->index, $sanitizedBodies);
+            $mainHtml = $this->injectBodySegmentsIntoShell((string) $newTemplate->index, $sanitizedBodies, true, true);
             $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $newTemplate);
             $mainHtml = $this->rewriteAngleImagePaths($mainHtml, $angle);
             $layoutGuardCss = '';
@@ -122,8 +129,8 @@ class AngleTemplateMergeService
         } else {
             // Safe fallback: preserve current landing HTML/CSS/JS together so layout and icons stay intact.
             $preservedHtml = $currentMainHtml;
-            $mainHtml = '<div class="lp-theme-safe-content">'.$currentMainHtml.'</div>';
-            $layoutGuardCss = $this->themeChangeFallbackGuardCss();
+            $mainHtml = $currentMainHtml;
+            $layoutGuardCss = '';
             $styles = [
                 'main_css' => $currentMainCss,
                 'main_js' => $currentMainJs,
@@ -229,10 +236,7 @@ class AngleTemplateMergeService
                 continue;
             }
 
-            $slotKey = $node->getAttribute('data-bd-slot');
-            if ($slotKey === '' && preg_match('/(?:^|\s)lp-structured-bd-slot-([A-Z0-9_-]+)(?:\s|$)/i', $node->getAttribute('class'), $matches)) {
-                $slotKey = strtoupper($matches[1]);
-            }
+            $slotKey = $this->slotKeyFromStructuredElement($node);
 
             if ($slotKey === '' || ! array_key_exists($slotKey, $bodies)) {
                 continue;
@@ -257,6 +261,69 @@ class AngleTemplateMergeService
         }
 
         return $result;
+    }
+
+    /**
+     * Return user-added page-level content that lives outside BD wrappers.
+     *
+     * @return array<int, string>
+     */
+    public function extractStructuredPageLevelAdditions(string $html): array
+    {
+        if (! str_contains($html, 'lp-structured-page-addition')) {
+            return [];
+        }
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML(
+            '<?xml encoding="UTF-8"><!DOCTYPE html><html><body><div id="lp-root">'.$html.'</div></body></html>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded) {
+            return [];
+        }
+
+        $xpath = new \DOMXPath($dom);
+        $nodes = $xpath->query(
+            '//*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-page-addition ")'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-bd-slot ")])]'
+        );
+        if (! $nodes) {
+            return [];
+        }
+
+        $additions = [];
+        foreach ($nodes as $node) {
+            $additions[] = $dom->saveHTML($node);
+        }
+
+        return array_values(array_filter($additions));
+    }
+
+    /**
+     * Append preserved outside-BD content after the target theme layout.
+     *
+     * @param  array<int, string>  $additions
+     */
+    public function appendStructuredPageLevelAdditions(string $html, array $additions): string
+    {
+        $additions = array_values(array_filter(array_map(
+            fn ($addition) => trim((string) $addition),
+            $additions
+        )));
+
+        if ($additions === []) {
+            return $html;
+        }
+
+        return $html
+            .'<div class="lp-structured-page-additions" data-lp-edit-context="page_additions">'
+            .implode('', $additions)
+            .'</div>';
     }
 
     /**
@@ -304,6 +371,26 @@ class AngleTemplateMergeService
         foreach (iterator_to_array($fragmentRoot->childNodes) as $child) {
             $element->appendChild($dom->importNode($child, true));
         }
+    }
+
+    private function slotKeyFromStructuredElement(\DOMElement $element): string
+    {
+        $slotKey = strtoupper(trim($element->getAttribute('data-bd-slot')));
+        if ($slotKey === '' && preg_match('/(?:^|\s)lp-structured-bd-slot-([A-Z0-9_-]+)(?:\s|$)/i', $element->getAttribute('class'), $matches)) {
+            $slotKey = strtoupper($matches[1]);
+        }
+
+        return $slotKey;
+    }
+
+    private function elementInnerHtml(\DOMDocument $dom, \DOMElement $element): string
+    {
+        $html = '';
+        foreach ($element->childNodes as $child) {
+            $html .= $dom->saveHTML($child);
+        }
+
+        return $html;
     }
 
     private function structuredBdDefaultContentCss(): string
@@ -478,20 +565,145 @@ CSS;
     }
 
     /**
+     * Extract BD content from invisible boundary comments added during rendering.
+     *
+     * These markers make legacy theme switching resilient after users edit/add
+     * page elements, because extraction no longer depends on the old theme's
+     * static HTML matching exactly.
+     *
+     * @return array<string, string>|null
+     */
+    public function extractBodySegmentsFromBoundaryMarkers(string $mergedHtml): ?array
+    {
+        if (! preg_match_all(self::BODY_BOUNDARY_PATTERN, $mergedHtml, $matches, PREG_SET_ORDER)) {
+            return null;
+        }
+
+        $placeholderIds = [];
+        $segments = [];
+        foreach ($matches as $match) {
+            $placeholderIds[] = strtoupper($match['id']);
+            $segments[] = $match['body'] ?? '';
+        }
+
+        return $this->mapSegmentsToBdIds($placeholderIds, $segments);
+    }
+
+    /**
+     * Extract saved BD content from rendered structured wrappers.
+     *
+     * @return array<string, string>|null
+     */
+    public function extractBodySegmentsFromStructuredWrappers(string $html): ?array
+    {
+        if (! str_contains($html, 'lp-structured-bd-slot')) {
+            return null;
+        }
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML(
+            '<?xml encoding="UTF-8"><!DOCTYPE html><html><body><div id="lp-root">'.$html.'</div></body></html>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded) {
+            return null;
+        }
+
+        $xpath = new \DOMXPath($dom);
+        $nodes = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-bd-slot ")]');
+        if (! $nodes) {
+            return null;
+        }
+
+        $placeholderIds = [];
+        $segments = [];
+        foreach ($nodes as $node) {
+            if (! $node instanceof \DOMElement) {
+                continue;
+            }
+
+            $slotKey = $this->slotKeyFromStructuredElement($node);
+            if ($slotKey === '') {
+                continue;
+            }
+
+            $placeholderIds[] = $slotKey;
+            $segments[] = $this->elementInnerHtml($dom, $node);
+        }
+
+        if ($placeholderIds === []) {
+            return null;
+        }
+
+        return $this->mapSegmentsToBdIds($placeholderIds, $segments);
+    }
+
+    /**
+     * Extract BD content for safely converting a legacy rendered page.
+     *
+     * @return array<string, string>|null
+     */
+    public function extractBodySegmentsForLegacyConversion(Template $template, string $html): ?array
+    {
+        $bodies = $this->extractBodySegmentsFromBoundaryMarkers($html);
+        if ($bodies !== null && $bodies !== []) {
+            return $bodies;
+        }
+
+        $bodies = $this->extractBodySegmentsFromStructuredWrappers($html);
+        if ($bodies !== null && $bodies !== []) {
+            return $bodies;
+        }
+
+        $oldShellForMatching = $this->buildTemplateShellForMergedComparison($template);
+        $bodies = $this->extractBodySegmentsFromMergedHtml($oldShellForMatching, $html);
+        if ($bodies !== null && $bodies !== []) {
+            return $bodies;
+        }
+
+        $decodedOldShell = html_entity_decode($oldShellForMatching, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $bodies = $this->extractBodySegmentsFromMergedHtml($decodedOldShell, $html);
+        if ($bodies !== null && $bodies !== []) {
+            return $bodies;
+        }
+
+        return $this->extractBodySegmentsWithRegexAnchors($oldShellForMatching, $html);
+    }
+
+    /**
      * @param  array<string, string>  $bodies
      */
-    public function injectBodySegmentsIntoShell(string $shell, array $bodies, bool $removeUnmatched = true): string
+    public function injectBodySegmentsIntoShell(string $shell, array $bodies, bool $removeUnmatched = true, bool $withBoundaryMarkers = false): string
     {
         foreach ($bodies as $bdId => $body) {
             $placeholder = "<!--INTERNAL--{$bdId}--EXTERNAL-->";
             if (str_contains($shell, $placeholder)) {
-                $shell = str_replace($placeholder, $body, $shell);
+                $replacement = $withBoundaryMarkers
+                    ? $this->wrapBodyWithBoundaryMarkers((string) $bdId, (string) $body)
+                    : $body;
+                $shell = str_replace($placeholder, $replacement, $shell);
             }
         }
 
         return $removeUnmatched
             ? (string) preg_replace(self::BODY_PLACEHOLDER_PATTERN, '', $shell)
             : $shell;
+    }
+
+    private function wrapBodyWithBoundaryMarkers(string $bdId, string $body): string
+    {
+        $bdId = strtoupper($bdId);
+
+        return "<!--LP-BD-START:{$bdId}-->".$this->stripBodyBoundaryMarkers($body)."<!--LP-BD-END:{$bdId}-->";
+    }
+
+    private function stripBodyBoundaryMarkers(string $body): string
+    {
+        return (string) preg_replace('/<!--LP-BD-(?:START|END):BD\d+(?:_[A-Z][A-Z0-9_]*)?-->/i', '', $body);
     }
 
     /**
@@ -775,7 +987,7 @@ CSS;
      */
     public function sanitizeBodySegment(string $body): string
     {
-        $body = trim($body);
+        $body = trim($this->stripBodyBoundaryMarkers($body));
         if ($body === '') {
             return $body;
         }
@@ -796,39 +1008,13 @@ CSS;
     }
 
     /**
-     * Stronger guard used only when body remapping fails and we preserve current HTML wholesale.
-     * Prevents unreadable one-word-per-line titles and hidden/oversized images from incompatible theme styles.
+     * Safe fallback intentionally adds no wrapper CSS.
+     *
+     * When body remapping fails, the current page HTML/CSS/JS is preserved as-is
+     * so the system does not introduce extra layout classes that can affect the page.
      */
     public function themeChangeFallbackGuardCss(): string
     {
-        return <<<'CSS'
-.lp-theme-safe-content {
-    max-width: 1140px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
-    box-sizing: border-box;
-    padding-left: 16px;
-    padding-right: 16px;
-}
-.lp-theme-safe-content img {
-    display: block !important;
-    max-width: 100% !important;
-    width: auto !important;
-    height: auto !important;
-}
-.lp-theme-safe-content h1,
-.lp-theme-safe-content h2,
-.lp-theme-safe-content h3,
-.lp-theme-safe-content h4,
-.lp-theme-safe-content p,
-.lp-theme-safe-content span,
-.lp-theme-safe-content div {
-    max-width: none !important;
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    white-space: normal !important;
-}
-CSS;
+        return '';
     }
 }

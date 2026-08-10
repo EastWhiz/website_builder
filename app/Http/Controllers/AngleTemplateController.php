@@ -582,10 +582,17 @@ class AngleTemplateController extends Controller
                 ->pluck('content', 'slot_key')
                 ->map(fn ($content) => (string) $content)
                 ->all();
+            $pageLevelAdditions = $this->angleTemplateMergeService->extractStructuredPageLevelAdditions(
+                (string) $angleTemplate->main_html
+            );
             $rendered = $this->angleTemplateMergeService->renderStructuredBodies(
                 $template,
                 $bodies,
                 $angleTemplate->angle
+            );
+            $rendered['main_html'] = $this->angleTemplateMergeService->appendStructuredPageLevelAdditions(
+                $rendered['main_html'],
+                $pageLevelAdditions
             );
 
             $originalContents = ExtraContent::where('angle_template_uuid', $angleTemplate->uuid)->get();
@@ -1005,11 +1012,11 @@ class AngleTemplateController extends Controller
 
             // NOW SAVING DATA TO DATABASE
 
+            $responseData = [];
             if ($request->last_iteration == "true") {
 
                 $editedAngleTemplate = $targetAngleTemplate ?: AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
-                // Structured BD pages may still have page-level additions around BD slots.
-                // Save rendered HTML here, while BD source rows remain managed by the BD editor endpoint.
+                $structuredBdContents = $this->structuredBdContentsFromRenderedSaveRequest($request);
                 $editedAngleTemplate->main_html = (string) $request->main_html;
                 $editedAngleTemplate->save();
 
@@ -1042,6 +1049,9 @@ class AngleTemplateController extends Controller
                     $finalImageName = "../.." . $dbName;
 
                     $editedAngleTemplate->main_html = str_replace($content->blob_url, $finalImageName, $editedAngleTemplate->main_html);
+                    $structuredBdContents = collect($structuredBdContents)
+                        ->map(fn (string $html) => str_replace((string) $content->blob_url, $finalImageName, $html))
+                        ->all();
                     $editedAngleTemplate->save();
 
                     $content->update([
@@ -1050,11 +1060,20 @@ class AngleTemplateController extends Controller
                         'blob_url' => NULL,
                     ]);
                 }
+
+                if ($editedAngleTemplate->isStructuredBd() && $structuredBdContents !== []) {
+                    $this->syncStructuredBdContentsFromRenderedSave($editedAngleTemplate, $structuredBdContents);
+                } elseif ($editedAngleTemplate->isLegacyContent()) {
+                    $this->convertLegacyLandingPageToStructuredBdIfPossible($editedAngleTemplate);
+                }
+
+                $responseData = $this->renderedSaveResponseData($editedAngleTemplate->fresh(['bdContents']));
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Files uploaded successfully!'
+                'message' => 'Files uploaded successfully!',
+                'data' => $responseData,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -1062,6 +1081,142 @@ class AngleTemplateController extends Controller
                 'message' => 'Error uploading files: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function structuredBdContentsFromRenderedSaveRequest(Request $request): array
+    {
+        $contents = $request->input('structured_bd_contents');
+        if (is_string($contents)) {
+            $decoded = json_decode($contents, true);
+            $contents = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($contents)) {
+            return [];
+        }
+
+        return collect($this->normalizeStructuredBdPayload($contents))
+            ->mapWithKeys(fn (array $item) => [$item['slot_key'] => $item['content']])
+            ->all();
+    }
+
+    /**
+     * @param  array<string, string>  $contents
+     */
+    private function syncStructuredBdContentsFromRenderedSave(AngleTemplate $angleTemplate, array $contents): void
+    {
+        $normalizedContents = $this->normalizeStructuredBdPayload($contents);
+        foreach ($normalizedContents as $sort => $item) {
+            AngleTemplateBdContent::updateOrCreate(
+                [
+                    'angle_template_id' => $angleTemplate->id,
+                    'slot_key' => $item['slot_key'],
+                ],
+                [
+                    'angle_template_uuid' => $angleTemplate->uuid,
+                    'parent_bd' => $item['parent_bd'],
+                    'slot_type' => 'html',
+                    'content' => $item['content'],
+                    'sort' => $sort + 1,
+                ]
+            );
+        }
+    }
+
+    private function renderedSaveResponseData(?AngleTemplate $angleTemplate): array
+    {
+        if (! $angleTemplate) {
+            return [];
+        }
+
+        $data = [
+            'angle_template_id' => $angleTemplate->id,
+            'content_mode' => $angleTemplate->content_mode ?: AngleTemplate::CONTENT_MODE_LEGACY,
+            'structured_version' => $angleTemplate->structured_version,
+        ];
+
+        if ($angleTemplate->isStructuredBd()) {
+            $data['bd_contents'] = $this->formatStructuredBdContents($angleTemplate);
+        }
+
+        return $data;
+    }
+
+    private function convertLegacyLandingPageToStructuredBdIfPossible(AngleTemplate $angleTemplate): bool
+    {
+        $angleTemplate = $angleTemplate->fresh(['angle', 'template']);
+        if (! $angleTemplate || ! $angleTemplate->isLegacyContent() || ! $angleTemplate->template) {
+            return false;
+        }
+
+        $themeSlots = $this->bodySlotsFromThemeIndex((string) $angleTemplate->template->index);
+        if ($themeSlots === []) {
+            return false;
+        }
+
+        $extractedBodies = $this->angleTemplateMergeService->extractBodySegmentsForLegacyConversion(
+            $angleTemplate->template,
+            (string) $angleTemplate->main_html
+        );
+        if ($extractedBodies === null || $extractedBodies === []) {
+            Log::info('Legacy landing page was not converted to structured BD because BD extraction was not reliable.', [
+                'angle_template_id' => $angleTemplate->id,
+                'template_id' => $angleTemplate->template_id,
+            ]);
+
+            return false;
+        }
+
+        $normalizedExtracted = collect($this->normalizeStructuredBdPayload($extractedBodies))
+            ->mapWithKeys(fn (array $item) => [$item['slot_key'] => $item])
+            ->all();
+        if ($normalizedExtracted === []) {
+            return false;
+        }
+
+        DB::transaction(function () use ($angleTemplate, $themeSlots, $normalizedExtracted) {
+            foreach (array_values(array_unique($themeSlots)) as $sort => $slotKey) {
+                $slotKey = strtoupper((string) $slotKey);
+                preg_match('/^(BD[1-5])/', $slotKey, $matches);
+                $item = $normalizedExtracted[$slotKey] ?? [
+                    'parent_bd' => $matches[1] ?? $slotKey,
+                    'slot_key' => $slotKey,
+                    'content' => '',
+                ];
+
+                AngleTemplateBdContent::updateOrCreate(
+                    [
+                        'angle_template_id' => $angleTemplate->id,
+                        'slot_key' => $slotKey,
+                    ],
+                    [
+                        'angle_template_uuid' => $angleTemplate->uuid,
+                        'parent_bd' => $item['parent_bd'],
+                        'slot_type' => 'html',
+                        'content' => $item['content'],
+                        'sort' => $sort + 1,
+                    ]
+                );
+            }
+
+            $angleTemplate->forceFill([
+                'content_mode' => AngleTemplate::CONTENT_MODE_STRUCTURED_BD,
+                'structured_version' => $angleTemplate->structured_version ?: 1,
+            ])->save();
+        });
+
+        $this->renderAndPersistStructuredBd($angleTemplate->fresh(['angle', 'template', 'bdContents']));
+
+        Log::info('Legacy landing page converted to structured BD on save.', [
+            'angle_template_id' => $angleTemplate->id,
+            'template_id' => $angleTemplate->template_id,
+            'theme_slots' => $themeSlots,
+        ]);
+
+        return true;
     }
 
     private function uploadedImageFailureMessage($file = null): string
