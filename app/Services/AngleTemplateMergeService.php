@@ -400,13 +400,59 @@ class AngleTemplateMergeService
     display: contents;
 }
 
-.lp-custom-html-block h1:not([style]),
-.lp-structured-page-addition h1:not([style]) {
+.lp-semantic-heading:is(h1):not([style]),
+.lp-structured-page-addition:is(h1):not([style]),
+.lp-custom-html-block h1:not([style]) {
     display: block;
     font-size: 2em;
     font-weight: 700;
     line-height: 1.2;
     margin: 0.67em 0;
+}
+.lp-semantic-heading:is(h2):not([style]),
+.lp-structured-page-addition:is(h2):not([style]),
+.lp-custom-html-block h2:not([style]) {
+    display: block;
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0.83em 0;
+}
+.lp-semantic-heading:is(h3):not([style]),
+.lp-structured-page-addition:is(h3):not([style]),
+.lp-custom-html-block h3:not([style]) {
+    display: block;
+    font-size: 1.17em;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 1em 0;
+}
+.lp-semantic-heading:is(h4):not([style]),
+.lp-structured-page-addition:is(h4):not([style]),
+.lp-custom-html-block h4:not([style]) {
+    display: block;
+    font-size: 1em;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 1.33em 0;
+}
+.lp-semantic-heading:is(h5):not([style]),
+.lp-structured-page-addition:is(h5):not([style]),
+.lp-custom-html-block h5:not([style]) {
+    display: block;
+    font-size: 0.83em;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 1.67em 0;
+}
+.lp-semantic-heading:is(h6):not([style]),
+.lp-structured-page-addition:is(h6):not([style]),
+.lp-custom-html-block h6:not([style]) {
+    display: block;
+    font-size: 0.67em;
+    font-weight: 700;
+    line-height: 1.45;
+    margin: 2.33em 0;
 }
 CSS;
     }

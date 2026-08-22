@@ -48,6 +48,107 @@ The main purpose is to stop using unreliable Left/Right element insertion for la
 - No code behavior changed in this phase.
 - No database changes required.
 
+### Phase 0 Audit Notes
+
+Status: completed.
+
+#### Files Reviewed
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+- `app/Http/Controllers/AngleTemplateController.php`
+- `app/Services/AngleTemplateMergeService.php`
+- `app/Services/AngleTemplateCloneService.php`
+- `app/Services/LandingPageAssetService.php`
+- `app/Http/Controllers/Admin/OrganizationContentCloneController.php`
+- `docs/Add-Flex-Box.pdf`
+
+#### Current Add/Edit Modal Findings
+
+- The main Action Center modal is implemented in `PreviewAngleTemplate.jsx`.
+- The first Action Center currently shows:
+  - `Add Element`
+  - `Edit Element`
+  - `Delete Element`
+- `Edit Element` and `Delete Element` are hidden in structured BD add-only context.
+- Normal Add Element position selection currently shows:
+  - `Top Side`
+  - `Left Side`
+  - `Right Side`
+  - `Bottom Side`
+- This confirms Phase 1 can safely start by removing only the visible `Left Side` and `Right Side` buttons while keeping existing Top/Bottom behavior.
+
+#### Current Element Insertion Findings
+
+- New elements are inserted through `addNewContentHandler(position, existingElement, newElement)`.
+- Current supported positions are `top`, `bottom`, `left`, and `right`.
+- In structured BD mode, insertions inside a BD go through `insertStructuredBdAddition(...)`.
+- `insertStructuredBdAddition(...)` already keeps added content inside the correct `.lp-structured-bd-slot`.
+- For Phase 1, the UI can remove Left/Right first while leaving the helper fallback code untouched to reduce risk.
+
+#### Current Element Type Findings
+
+- Existing add types are handled in `updateHTMLHandler`.
+- Current add element types include:
+  - Image
+  - Text
+  - Spacer
+  - Custom HTML
+  - Form
+  - Button
+- Button currently creates a plain `button` element and does not have a dedicated URL field.
+- Image state already has `width`, but the UI/behavior needs to be checked and standardized during Phase 3.
+- Text currently creates a `p` element for new text. Heading selection does not exist yet.
+- Custom HTML is already supported and can preserve HTML-based structures.
+
+#### Current Save And BD Compatibility Findings
+
+- The editor saves rendered content through `updatedThemeSaveHandler`.
+- For structured BD pages, the frontend extracts BD content from `.lp-structured-bd-slot` using `extractStructuredBdContentsFromHtml(...)`.
+- Extracted BD content is sent to the backend as `structured_bd_contents`.
+- Backend save logic in `AngleTemplateController.php` can sync structured BD content records.
+- `AngleTemplateMergeService.php` already renders structured BD content back into matching theme placeholders.
+- This means Flex Box HTML can be preserved inside BD content if inserted inside the correct BD wrapper.
+
+#### Current Duplicate And Export Findings
+
+- Normal landing page duplicate through `AngleTemplateController::duplicateAngleTemplate(...)` copies:
+  - `main_html`
+  - `main_css`
+  - `main_js`
+  - `content_mode`
+  - `structured_version`
+  - structured BD content rows from `bdContents()`
+  - referenced local assets through `LandingPageAssetService`
+- This means Flex Box structure should duplicate correctly through the normal landing page duplicate flow if Flex Box HTML/CSS is saved in `main_html`, `main_css`, or structured BD rows.
+- Export/download uses the landing page `main_html`, `main_css`, and `main_js` when building the exported HTML package.
+- Export asset preparation also scans page HTML/CSS/JS for storage references, so Flex Box images/assets should export if they use supported storage paths.
+- Organization member clone through `AngleTemplateCloneService::cloneIntoOrgForUser(...)` currently copies `main_html`, `main_css`, and `main_js`, but does not currently copy `content_mode`, `structured_version`, or structured BD rows.
+- Super Admin cross-organization clone currently copies the main row and extra contents, but its child clone path does not currently copy structured BD rows.
+- For Flex Box specifically, HTML/CSS stored directly in `main_html/main_css` should still travel through these clone paths.
+- For structured BD editing after organization clone/cross-org clone, we should add/verify BD row cloning in a later phase if the source page is structured.
+
+#### Flex Box Feasibility Finding
+
+- Basic Flex Box can be implemented as normal HTML inside the editor first.
+- Each Flex Box should use stable identifiers/classes, for example:
+  - `lp-flex-box`
+  - `data-lp-flex-id`
+  - `lp-flex-column`
+  - `data-lp-flex-column`
+- Internal CSS must be scoped to the specific Flex Box instance to avoid affecting theme CSS globally.
+- Editor-only controls should use `doNotAct` and/or dedicated editor-only classes so they do not interfere with save, public preview, or exported HTML.
+- To make duplication/export reliable, Flex Box runtime structure should be stored in page HTML and Flex Box runtime CSS should be stored in `main_css` or as scoped CSS included with the saved page.
+- Flex Box editor-only controls should not be required for public rendering. Only stable `data-*` metadata needed for future editing should remain.
+
+#### Phase 0 Result
+
+- No application behavior was changed.
+- No database command was run.
+- Flex Box implementation is feasible without a database structural change at the first stage.
+- Main implementation work will be in `PreviewAngleTemplate.jsx`.
+- Backend changes may be needed later for organization clone/cross-org clone if structured BD rows must remain editable after clone.
+- Backend changes may also be needed later if we decide to store Flex Box CSS separately instead of embedding/scoping it inside page HTML or `main_css`.
+
 ---
 
 ## Phase 1: Simplify Add Element Position Options
@@ -73,6 +174,34 @@ The main purpose is to stop using unreliable Left/Right element insertion for la
 - Add button on Top/Bottom.
 - Test inside a structured BD container.
 - Test outside a BD container.
+
+### Phase 1 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Removed the visible `Left Side` button from the Add Element position step.
+- Removed the visible `Right Side` button from the Add Element position step.
+- Kept `Top Side` and `Bottom Side` unchanged.
+- Kept the lower-level `left` and `right` insertion branches inside `addNewContentHandler(...)` untouched for backward compatibility and lower-risk rollout.
+
+#### Files Updated
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+
+#### Expected Behavior
+
+- When user clicks `Add Element`, the position step now only shows:
+  - `Top Side`
+  - `Bottom Side`
+- Existing Top/Bottom insertion behavior remains the same.
+- Side-by-side layout will be handled later through the new `Add Flex Box` flow instead of direct Left/Right insertion.
+
+#### Validation
+
+- Frontend build should pass after this change.
+- Manual UI check should confirm `Left Side` and `Right Side` no longer appear.
 
 ---
 
@@ -102,6 +231,29 @@ The main purpose is to stop using unreliable Left/Right element insertion for la
 - Remove URL from existing linked button.
 - Confirm save and preview preserve the link.
 
+### Phase 2 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added `buttonLink` to button editor state.
+- Added `Button URL` input to the Button add/edit modal.
+- When adding a button with a URL, the generated button is wrapped in an anchor tag.
+- When editing a button, the editor detects an existing parent anchor URL.
+- Editing can update the button URL.
+- Clearing the URL removes the parent anchor and keeps the button element.
+
+#### Files Updated
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+
+#### Expected Behavior
+
+- Button without URL remains a normal button.
+- Button with URL becomes clickable through an anchor wrapper.
+- Existing linked buttons can be edited without losing the link.
+
 ---
 
 ## Phase 3: Image Width Option
@@ -128,6 +280,29 @@ The main purpose is to stop using unreliable Left/Right element insertion for la
 - Edit existing image width.
 - Test image inside BD content.
 - Test image after theme switching.
+
+### Phase 3 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added visible `Width` input to the Image add/edit modal.
+- Image width supports free-form CSS values such as `100%`, `300px`, `50vw`, etc.
+- New images apply width only when the user provides a value.
+- Editing an existing image detects current inline/computed width.
+- Clearing width removes the inline width from the edited image.
+- Image preview uses the configured width when available.
+
+#### Files Updated
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+
+#### Expected Behavior
+
+- Image width can be controlled directly from the modal.
+- Images without a width value are not forced to a default inline width.
+- Width is preserved when saved as part of page/BD HTML.
 
 ---
 
@@ -167,6 +342,56 @@ The main purpose is to stop using unreliable Left/Right element insertion for la
 - Save and reopen preview.
 - Test inside structured BD content.
 - Test after theme switching.
+
+### Phase 4 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added `textType` to text editor state.
+- Added `headingLevel` to text editor state.
+- Added `Text Type` dropdown in Add Text mode.
+- Text Type options:
+  - `Paragraph`
+  - `Heading`
+- Added `Heading Level` dropdown when `Heading` is selected.
+- Heading Level options:
+  - `H1`
+  - `H2`
+  - `H3`
+  - `H4`
+  - `H5`
+  - `H6`
+- Paragraph creates a real `p` tag.
+- Heading creates the selected real heading tag, such as `h1`, `h2`, etc.
+- Paragraphs can inherit safe classes from the clicked element.
+- Headings do not blindly inherit paragraph classes.
+- Headings only inherit source classes when the clicked/source element is also a heading.
+- If a link is provided, the paragraph/heading element is wrapped in an anchor instead of replacing the semantic tag with only an `a` tag.
+
+#### Files Updated
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+
+#### Expected Behavior
+
+- Users can add semantic paragraphs and headings.
+- Headings should rely on active theme heading styles unless added after another heading.
+- Newly added heading content should not accidentally look like paragraph text because of copied paragraph classes.
+- Linked headings/paragraphs should preserve their semantic tag inside the anchor wrapper.
+
+#### Phase 4 Styling Refinement
+
+- Added an intentional `Style Source` choice to the Add Element flow.
+- Default option remains `Use Theme/Class Style` when the clicked element does not have inline style.
+- If the clicked element has inline style, the Add Element flow defaults to `Convert Selected Inline Style To Class`.
+- Added optional `Convert Selected Inline Style To Class`.
+- If selected, the system reads the clicked element's inline style, generates a reusable internal CSS class, and applies that class to the new element.
+- Generated inline-style CSS is scoped and stored with the page/BD content so save, duplicate, export, and theme switching can preserve it.
+- This avoids copying raw inline styles into each new element, while still preserving the visual style by using a reusable internal class when inline-only styling is the selected source.
+- Style/class reuse is type-aware: text styles only apply to text, heading styles only apply to headings, image styles only apply to images, and button styles only apply to buttons.
+- This prevents cases like adding an image from a clicked paragraph and accidentally applying paragraph color/font styles to the image.
 
 ---
 
@@ -344,6 +569,11 @@ The main purpose is to stop using unreliable Left/Right element insertion for la
 - Confirm scoped internal CSS is preserved.
 - Confirm theme switching moves Flex Box content with the correct BD.
 - Confirm page-level Flex Box outside BD is preserved separately when applicable.
+- Confirm duplicated landing pages carry the full Flex Box structure.
+- Confirm exported landing pages carry the full Flex Box structure.
+- Confirm duplicated/exported pages include required scoped Flex Box CSS and responsive CSS.
+- Confirm Flex Box editor metadata needed for future edits is preserved through duplication.
+- Confirm editor-only controls/icons are hidden or removed from duplicated/exported public output as required.
 - Ensure editor-only controls are not visible in final/exported landing page if required.
 
 ### Output
@@ -358,6 +588,19 @@ The main purpose is to stop using unreliable Left/Right element insertion for la
 - Switch theme.
 - Confirm Flex Box remains inside BD1 content.
 - Confirm mobile CSS still works after theme switch.
+- Duplicate a landing page that contains Flex Box and confirm the duplicated page keeps:
+  - Flex Box container structure
+  - Flex Box columns
+  - Column content
+  - Scoped desktop CSS
+  - Scoped mobile CSS
+- Export a landing page that contains Flex Box and confirm the exported page keeps:
+  - Flex Box container structure
+  - Flex Box columns
+  - Column content
+  - Scoped desktop CSS
+  - Scoped mobile CSS
+- Confirm editor-only Add icons/buttons do not appear in the public/exported landing page.
 
 ---
 

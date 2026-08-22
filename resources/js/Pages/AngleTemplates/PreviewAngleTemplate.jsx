@@ -568,15 +568,71 @@ export default function Dashboard({ id }) {
     const [mainCSS, setMainCSS] = useState('');
     const [mainJS, setMainJS] = useState('');
     const [isRtl, setIsRtl] = useState(false);
-    const structuredCustomHtmlDefaultCss = `
-.lp-custom-html-block h1:not([style]),
-.lp-structured-page-addition h1:not([style]) {
+    const semanticContentStyleSelector = 'style[data-lp-semantic-content-style="true"]';
+    const semanticContentDefaultCss = `
+/* lp semantic content defaults */
+.lp-semantic-heading:is(h1):not([style]),
+.lp-structured-page-addition:is(h1):not([style]),
+.lp-custom-html-block h1:not([style]) {
     display: block;
     font-size: 2em;
     font-weight: 700;
     line-height: 1.2;
     margin: 0.67em 0;
 }
+
+.lp-semantic-heading:is(h2):not([style]),
+.lp-structured-page-addition:is(h2):not([style]),
+.lp-custom-html-block h2:not([style]) {
+    display: block;
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0.83em 0;
+}
+
+.lp-semantic-heading:is(h3):not([style]),
+.lp-structured-page-addition:is(h3):not([style]),
+.lp-custom-html-block h3:not([style]) {
+    display: block;
+    font-size: 1.17em;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 1em 0;
+}
+
+.lp-semantic-heading:is(h4):not([style]),
+.lp-structured-page-addition:is(h4):not([style]),
+.lp-custom-html-block h4:not([style]) {
+    display: block;
+    font-size: 1em;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 1.33em 0;
+}
+
+.lp-semantic-heading:is(h5):not([style]),
+.lp-structured-page-addition:is(h5):not([style]),
+.lp-custom-html-block h5:not([style]) {
+    display: block;
+    font-size: 0.83em;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 1.67em 0;
+}
+
+.lp-semantic-heading:is(h6):not([style]),
+.lp-structured-page-addition:is(h6):not([style]),
+.lp-custom-html-block h6:not([style]) {
+    display: block;
+    font-size: 0.67em;
+    font-weight: 700;
+    line-height: 1.45;
+    margin: 2.33em 0;
+}
+`;
+    const structuredCustomHtmlDefaultCss = `
+${semanticContentDefaultCss}
 `;
     const [editing, setEditing] = useState({
         editID: false,
@@ -587,6 +643,7 @@ export default function Dashboard({ id }) {
         actionType: false,
         addElementPosition: false,
         addElementType: false,
+        addStyleSource: "theme_class",
         structuredEditContext: false,
         bdSlotKey: false,
         bdSlotElement: false,
@@ -604,7 +661,7 @@ export default function Dashboard({ id }) {
         imageLink: "",          // <-- Add link property
         margin: "0px 0px 0px 0px",
         padding: "0px 0px 0px 0px",
-        width: "100%",
+        width: "",
     };
 
     const INITIAL_TRANSLATOR = {
@@ -623,6 +680,8 @@ export default function Dashboard({ id }) {
 
     const INITIAL_TEXT_MANAGEMENT = {
         textInput: "",
+        textType: "paragraph",
+        headingLevel: "h1",
         color: "",
         backgroundColor: "",
         fontSize: "12",
@@ -708,6 +767,7 @@ export default function Dashboard({ id }) {
 
     const INITIAL_BUTTON_MANAGEMENT = {
         buttonText: "",
+        buttonLink: "",
         color: "",
         backgroundColor: "",
         fontSize: "",
@@ -1042,12 +1102,16 @@ export default function Dashboard({ id }) {
                 imageLink: editing.currentElement.parentElement.getAttribute("href"),
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
+                width: editing.currentElement.style.width || computedStyles.width,
             }));
         } else if (editing && editing.actionType == "edit" && ['button'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
             setButtonManagement(prev => ({
                 ...prev, // keep all previous values
                 buttonText: editing.innerHTML, // only update the value you want
+                buttonLink: editing.currentElement.parentElement?.tagName === 'A'
+                    ? editing.currentElement.parentElement.getAttribute("href") || ""
+                    : "",
                 color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                 backgroundColor: computedStyles.backgroundColor == "rgba(0, 0, 0, 0)" ? "#ffffff" : `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}`,
                 fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
@@ -1520,6 +1584,174 @@ export default function Dashboard({ id }) {
         }
     }
 
+    const styleCategoryForElement = (element, fallbackCategory = null) => {
+        if (fallbackCategory) {
+            return fallbackCategory;
+        }
+
+        const tagName = element?.localName?.toLowerCase();
+        if (!tagName) {
+            return null;
+        }
+
+        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+            return 'heading';
+        }
+
+        if (['p', 'span', 'a', 'li', 'strong', 'b', 'em', 'i'].includes(tagName)) {
+            return 'text';
+        }
+
+        if (tagName === 'img') {
+            return 'image';
+        }
+
+        if (tagName === 'button') {
+            return 'button';
+        }
+
+        if (['input', 'select', 'textarea', 'form'].includes(tagName)) {
+            return 'form';
+        }
+
+        return null;
+    }
+
+    const canReuseStyleFromSource = (newElement, sourceElement, newElementCategory = null) => {
+        const sourceCategory = styleCategoryForElement(sourceElement);
+        const targetCategory = styleCategoryForElement(newElement, newElementCategory);
+
+        return Boolean(sourceCategory && targetCategory && sourceCategory === targetCategory);
+    }
+
+    const inheritedClassNamesForNewElement = (sourceElement) => {
+        const ignoredClasses = new Set([
+            editing?.editID,
+            'editableDiv',
+            'doNotAct',
+            'lp-source-angle-content',
+            'lp-source-bd-content',
+            'lp-structured-page-addition',
+            'lp-custom-html-block',
+            'mainHTML',
+        ]);
+
+        return Array.from(sourceElement?.classList || [])
+            .filter((className) => {
+                if (!className || ignoredClasses.has(className)) {
+                    return false;
+                }
+
+                return !className.startsWith('lp-structured-bd-slot')
+                    && !className.startsWith('Mui');
+            });
+    }
+
+    const applyInheritedClassesToNewElement = (newElement, sourceElement, extraClasses = [], newElementCategory = null) => {
+        const classNames = [
+            ...(canReuseStyleFromSource(newElement, sourceElement, newElementCategory) ? inheritedClassNamesForNewElement(sourceElement) : []),
+            ...extraClasses,
+        ].filter(Boolean);
+
+        if (classNames.length) {
+            newElement.classList.add(...new Set(classNames));
+        }
+    }
+
+    const applyTextClassesToNewElement = (newElement, sourceElement, textType, extraClasses = []) => {
+        const headingTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+        const sourceIsHeading = headingTags.includes(sourceElement?.localName);
+
+        if (textType === 'heading' && !sourceIsHeading) {
+            if (extraClasses.length) {
+                newElement.classList.add(...new Set(extraClasses.filter(Boolean)));
+            }
+            return;
+        }
+
+        applyInheritedClassesToNewElement(newElement, sourceElement, extraClasses);
+    }
+
+    const inlineStyleHash = (value) => {
+        let hash = 0;
+        for (let i = 0; i < value.length; i++) {
+            hash = ((hash << 5) - hash) + value.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash).toString(36);
+    }
+
+    const inlineStyleClassFromSource = (sourceElement) => {
+        const rawStyle = sourceElement?.getAttribute?.('style')?.trim();
+        if (!rawStyle) {
+            return null;
+        }
+
+        const cssText = rawStyle.endsWith(';') ? rawStyle : `${rawStyle};`;
+        return {
+            className: `lp-generated-style-${inlineStyleHash(cssText)}`,
+            cssText,
+        };
+    }
+
+    const defaultAddStyleSourceForElement = (sourceElement) => {
+        return sourceElement?.getAttribute?.('style')?.trim()
+            ? 'inline_to_class'
+            : 'theme_class';
+    }
+
+    const ensureGeneratedInlineStyleRule = (rootElement, className, cssText) => {
+        if (!rootElement || !className || !cssText) {
+            return;
+        }
+
+        let styleElement = rootElement.querySelector?.('style[data-lp-generated-inline-styles="true"]');
+        if (!styleElement) {
+            styleElement = document.createElement('style');
+            styleElement.setAttribute('data-lp-generated-inline-styles', 'true');
+            rootElement.insertAdjacentElement('afterbegin', styleElement);
+        }
+
+        if (!styleElement.textContent.includes(`.${className}`)) {
+            styleElement.textContent = `${styleElement.textContent || ''}\n.${className} { ${cssText} }\n`;
+        }
+    }
+
+    const applyGeneratedInlineStyleClass = (newElement, sourceElement, newElementCategory = null) => {
+        if (editing?.addStyleSource !== 'inline_to_class') {
+            return;
+        }
+
+        if (!canReuseStyleFromSource(newElement, sourceElement, newElementCategory)) {
+            return;
+        }
+
+        const generatedStyle = inlineStyleClassFromSource(sourceElement);
+        if (!generatedStyle) {
+            return;
+        }
+
+        newElement.classList.add(generatedStyle.className);
+        const styleRoot = structuredModeRef.current
+            && editing?.structuredEditContext === 'bd'
+            && editing?.bdSlotElement
+            ? editing.bdSlotElement
+            : document.querySelector(".mainHTML");
+
+        ensureGeneratedInlineStyleRule(styleRoot, generatedStyle.className, generatedStyle.cssText);
+    }
+
+    const ensureSemanticContentStyleElement = (rootElement) => {
+        if (!rootElement?.querySelector || rootElement.querySelector(semanticContentStyleSelector)) {
+            return;
+        }
+
+        const styleElement = document.createElement('style');
+        styleElement.setAttribute('data-lp-semantic-content-style', 'true');
+        styleElement.textContent = semanticContentDefaultCss;
+        rootElement.insertAdjacentElement('afterbegin', styleElement);
+    }
+
     const extractStructuredBdContentsFromHtml = (html) => {
         if (!structuredModeRef.current || !html || !html.includes('lp-structured-bd-slot')) {
             return {};
@@ -1638,6 +1870,7 @@ export default function Dashboard({ id }) {
                 imageSrc: selectedElement.src,
                 actionType: false,
                 addElementPosition: false,
+                addStyleSource: defaultAddStyleSourceForElement(selectedElement),
                 structuredBdAddOnly: bdAddOnly,
                 structuredEditContext,
                 bdSlotKey,
@@ -1662,6 +1895,7 @@ export default function Dashboard({ id }) {
                     imageSrc: event.target.src,
                     actionType: false,
                     addElementPosition: false,
+                    addStyleSource: defaultAddStyleSourceForElement(event.target),
                     structuredEditContext: false,
                     bdSlotKey: false,
                     bdSlotElement: false,
@@ -1781,18 +2015,27 @@ export default function Dashboard({ id }) {
                     element.href = "#";
                 }
             } else {
-                let newElement = '';
-                if (textManagement.link && textManagement.link != "#") {
-                    newElement = document.createElement('a');
-                    Object.assign(newElement.style, styles);
-                    newElement.innerHTML = textManagement.textInput;
-                    newElement.setAttribute('href', textManagement.link);
-                } else {
-                    newElement = document.createElement('p');
-                    newElement.classList.add('editableDiv');
-                    Object.assign(newElement.style, styles);
-                    newElement.innerHTML = textManagement.textInput;
+                const textType = textManagement.textType === 'heading' ? 'heading' : 'paragraph';
+                const selectedHeadingLevel = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(textManagement.headingLevel)
+                    ? textManagement.headingLevel
+                    : 'h1';
+                const tagName = textType === 'heading' ? selectedHeadingLevel : 'p';
+                let newElement = document.createElement(tagName);
+                applyTextClassesToNewElement(newElement, element, textType, ['editableDiv']);
+                applyGeneratedInlineStyleClass(newElement, element);
+                if (textType === 'heading') {
+                    newElement.classList.add('lp-semantic-heading');
                 }
+                newElement.innerHTML = textManagement.textInput;
+
+                if (textManagement.link && textManagement.link != "#") {
+                    const anchor = document.createElement('a');
+                    anchor.classList.add('app-anchor');
+                    anchor.setAttribute('href', textManagement.link);
+                    anchor.appendChild(newElement);
+                    newElement = anchor;
+                }
+
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if ((editing.actionType == "edit" && ['li', 'ul', 'select', 'option'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "html")) {
@@ -1800,7 +2043,8 @@ export default function Dashboard({ id }) {
                 document.querySelector(`.${editing.editID}`).innerHTML = customHTMLManagement.input;
             } else {
                 let newElement = document.createElement('div');
-                newElement.classList.add('editableDiv', 'lp-custom-html-block');
+                applyInheritedClassesToNewElement(newElement, element, ['editableDiv', 'lp-custom-html-block'], 'custom_html');
+                applyGeneratedInlineStyleClass(newElement, element, 'custom_html');
                 newElement.innerHTML = customHTMLManagement.input;
                 applyDefaultSemanticStylesToCustomHtml(newElement);
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
@@ -1816,6 +2060,11 @@ export default function Dashboard({ id }) {
             };
             if (editing.actionType == "edit") {
                 Object.assign(element.style, styles);
+                if (imageManagement.width?.trim()) {
+                    element.style.width = imageManagement.width.trim();
+                } else {
+                    element.style.removeProperty('width');
+                }
                 if (imageManagement.via == "src") {
                     element.src = imageManagement.imageSrc;
                 } else {
@@ -1841,7 +2090,11 @@ export default function Dashboard({ id }) {
                 }
             } else {
                 let newElement = document.createElement('img');
-                Object.assign(newElement.style, styles);
+                applyInheritedClassesToNewElement(newElement, element);
+                applyGeneratedInlineStyleClass(newElement, element);
+                if (imageManagement.width?.trim()) {
+                    newElement.style.width = imageManagement.width.trim();
+                }
                 if (imageManagement.via == "src") {
                     newElement.src = imageManagement.imageSrc;
                 } else {
@@ -1875,11 +2128,34 @@ export default function Dashboard({ id }) {
             if (editing.actionType == "edit") {
                 Object.assign(element.style, styles);
                 element.innerHTML = buttonManagement.buttonText;
+                const buttonLink = buttonManagement.buttonLink?.trim();
+                const parentAnchor = element.parentElement?.tagName === 'A' ? element.parentElement : null;
+
+                if (buttonLink) {
+                    if (parentAnchor) {
+                        parentAnchor.href = buttonLink;
+                    } else {
+                        const anchor = document.createElement('a');
+                        anchor.href = buttonLink;
+                        element.parentNode.insertBefore(anchor, element);
+                        anchor.appendChild(element);
+                    }
+                } else if (parentAnchor) {
+                    parentAnchor.replaceWith(element);
+                }
             } else {
                 let newElement = document.createElement('button');
-                Object.assign(newElement.style, styles);
+                applyInheritedClassesToNewElement(newElement, element);
+                applyGeneratedInlineStyleClass(newElement, element);
                 newElement.innerHTML = buttonManagement.buttonText;
-                await addNewContentHandler(editing.addElementPosition, element, newElement);
+                if (buttonManagement.buttonLink?.trim()) {
+                    const anchor = document.createElement('a');
+                    anchor.href = buttonManagement.buttonLink.trim();
+                    anchor.appendChild(newElement);
+                    await addNewContentHandler(editing.addElementPosition, element, anchor);
+                } else {
+                    await addNewContentHandler(editing.addElementPosition, element, newElement);
+                }
             }
         } else if ((editing.actionType == "edit" && ['form'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "form")) {
 
@@ -2111,9 +2387,13 @@ export default function Dashboard({ id }) {
 
         let elementInside = document.querySelector(`.${editing.editID}`)
         elementInside.classList.remove(editing.editID);
+        const mainHtmlElement = document.querySelector(".mainHTML");
+        if (mainHtmlElement?.querySelector('.lp-semantic-heading')) {
+            ensureSemanticContentStyleElement(mainHtmlElement);
+        }
         setMainHTML(prev => [
             ...prev.map(item => ({ ...item, status: false })), // Set previous statuses to false
-            { html: document.querySelector(".mainHTML").innerHTML, status: true } // Add new entry
+            { html: mainHtmlElement.innerHTML, status: true } // Add new entry
         ]);
         setOpen(false);
         setAnchorHelpProperties(null);
@@ -2564,6 +2844,7 @@ export default function Dashboard({ id }) {
     }
 
     const mainHTMLActive = mainHTML.find(html => html.status == true)
+    const selectedElementHasInlineStyle = Boolean(editing?.currentElement?.getAttribute?.('style')?.trim());
     const isStructuredBdPage = data?.content_mode === 'structured_bd';
     const structuredSlotKeys = useMemo(() => {
         const baseSlots = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
@@ -2656,21 +2937,36 @@ export default function Dashboard({ id }) {
                                         </Box>
                                     }
                                     {editing && editing.actionType == "add" && !editing.addElementPosition &&
-                                        <Box mt={2} sx={{ display: "flex", gap: 2, height: "100px" }}>
-                                            <Box sx={{ width: "50%", height: "100px" }}>
+                                        <Box mt={2} sx={{ display: "flex", gap: 2 }}>
+                                            <Box sx={{ width: "50%" }}>
                                                 <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("addElementPosition", "top")}>Top Side</Button>
-                                                <Box component="div" sx={{ marginTop: "15px" }} />
-                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="warning" variant='outlined' onClick={() => handleChange("addElementPosition", "left")}>Left Side</Button>
                                             </Box>
                                             <Box sx={{ width: "50%" }}>
-                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="secondary" variant='outlined' onClick={() => handleChange("addElementPosition", "right")}>Right Side</Button>
-                                                <Box component="div" sx={{ marginTop: "15px" }} />
                                                 <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("addElementPosition", "bottom")}>Bottom Side</Button>
                                             </Box>
                                         </Box>
                                     }
                                     {((editing?.actionType === "add" && editing?.addElementPosition)) && !editing.addElementType && (
                                         <Box mt={2} sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
+                                            <Box sx={{ width: "100%" }}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="add-style-source-label">Style Source</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="add-style-source-label"
+                                                        value={editing.addStyleSource || "theme_class"}
+                                                        label="Style Source"
+                                                        onChange={(e) => handleChange("addStyleSource", e.target.value)}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="theme_class">Use Theme/Class Style</MenuItem>
+                                                        <MenuItem className="doNotAct" value="inline_to_class" disabled={!selectedElementHasInlineStyle}>Convert Selected Inline Style To Class</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                {!selectedElementHasInlineStyle && (
+                                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                                                        Selected element has no inline style to convert.
+                                                    </Typography>
+                                                )}
+                                            </Box>
                                             <Button className="doNotAct cptlz megaButton" variant='outlined' color="warning" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "img")}>Image</Button>
                                             <Box component="span" sx={{ marginTop: "10px" }} />
                                             {/* <Button className="doNotAct cptlz megaButton" variant='outlined' color="secondary" sx={{ textTransform: "capitalize" }} onClick={() => handleChange("addElementType", "image")}>DeepL</Button> */}
@@ -2949,6 +3245,21 @@ export default function Dashboard({ id }) {
                                                         }}
                                                     />
                                                     <TextField
+                                                        sx={{ mt: 2 }}
+                                                        type='text'
+                                                        fullWidth
+                                                        size='small'
+                                                        label="Width"
+                                                        slotProps={{
+                                                            inputLabel: { shrink: true }
+                                                        }}
+                                                        placeholder='e.g. 100%, 300px'
+                                                        value={imageManagement.width}
+                                                        onChange={(e) => {
+                                                            setImageManagement({ ...imageManagement, width: e.target.value })
+                                                        }}
+                                                    />
+                                                    <TextField
                                                         sx={{ mt: 2.1 }}
                                                         type="text"
                                                         fullWidth
@@ -2985,7 +3296,7 @@ export default function Dashboard({ id }) {
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                 View
                                                             </Typography>
-                                                            <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", border: `${imageManagement.borderWidth}px ${imageManagement.border} ${imageManagement.borderColor}` }} />
+                                                            <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", border: `${imageManagement.borderWidth}px ${imageManagement.border} ${imageManagement.borderColor}`, width: imageManagement.width || '100%' }} />
                                                         </Box>
                                                     </Box>
                                                 </Box>
@@ -3003,6 +3314,43 @@ export default function Dashboard({ id }) {
                                                     </Box>
                                                     <Box sx={{ display: 'flex', gap: "15px" }}>
                                                         <Box sx={{ width: "50%" }}>
+                                                            {editing?.actionType === "add" && (
+                                                                <Box sx={{ display: 'flex', gap: "15px", mb: 2 }}>
+                                                                    <FormControl fullWidth>
+                                                                        <InputLabel id="text-type-select-label">Text Type</InputLabel>
+                                                                        <MuiSelect
+                                                                            labelId="text-type-select-label"
+                                                                            value={textManagement.textType}
+                                                                            label="Text Type"
+                                                                            size='small'
+                                                                            onChange={(e) => {
+                                                                                setTextManagement({ ...textManagement, textType: e.target.value })
+                                                                            }}
+                                                                        >
+                                                                            <MenuItem className="doNotAct" value="paragraph">Paragraph</MenuItem>
+                                                                            <MenuItem className="doNotAct" value="heading">Heading</MenuItem>
+                                                                        </MuiSelect>
+                                                                    </FormControl>
+                                                                    {textManagement.textType === "heading" && (
+                                                                        <FormControl fullWidth>
+                                                                            <InputLabel id="heading-level-select-label">Heading Level</InputLabel>
+                                                                            <MuiSelect
+                                                                                labelId="heading-level-select-label"
+                                                                                value={textManagement.headingLevel}
+                                                                                label="Heading Level"
+                                                                                size='small'
+                                                                                onChange={(e) => {
+                                                                                    setTextManagement({ ...textManagement, headingLevel: e.target.value })
+                                                                                }}
+                                                                            >
+                                                                                {['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map((heading) => (
+                                                                                    <MenuItem className="doNotAct" value={heading}>{heading.toUpperCase()}</MenuItem>
+                                                                                ))}
+                                                                            </MuiSelect>
+                                                                        </FormControl>
+                                                                    )}
+                                                                </Box>
+                                                            )}
                                                             <TextField
                                                                 className="multilineCss"
                                                                 fullWidth
@@ -3263,11 +3611,25 @@ export default function Dashboard({ id }) {
                                                                 }}
                                                                 placeholder='Enter Button Text'
                                                                 value={buttonManagement.buttonText}
-                                                                onChange={(e) => {
-                                                                    setButtonManagement({ ...buttonManagement, buttonText: e.target.value })
-                                                                }}
-                                                            />
-                                                        </Box>
+                                                            onChange={(e) => {
+                                                                setButtonManagement({ ...buttonManagement, buttonText: e.target.value })
+                                                            }}
+                                                        />
+                                                        <TextField
+                                                            sx={{ mt: 2 }}
+                                                            fullWidth
+                                                            size='small'
+                                                            label="Button URL"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true }
+                                                            }}
+                                                            placeholder='https://example.com'
+                                                            value={buttonManagement.buttonLink}
+                                                            onChange={(e) => {
+                                                                setButtonManagement({ ...buttonManagement, buttonLink: e.target.value })
+                                                            }}
+                                                        />
+                                                    </Box>
                                                         <Box mt={-1.6} sx={{ width: "50%" }}>
                                                             <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
                                                                 <Box sx={{ width: "50%" }}>
