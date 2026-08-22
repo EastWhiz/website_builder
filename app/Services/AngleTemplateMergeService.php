@@ -335,9 +335,10 @@ class AngleTemplateMergeService
         return collect($bodies)
             ->mapWithKeys(function (string $body, string $slotKey) {
                 $safeSlotKey = preg_replace('/[^A-Z0-9_-]/i', '', $slotKey) ?: 'BD';
+                $flexBoxClass = str_contains($body, 'lp-flex-box') ? ' lp-structured-bd-slot-has-flexbox' : '';
 
                 return [
-                    $slotKey => '<div class="lp-structured-bd-slot lp-structured-bd-slot-'.$safeSlotKey.'" data-bd-slot="'.$safeSlotKey.'">'.$body.'</div>',
+                    $slotKey => '<div class="lp-structured-bd-slot lp-structured-bd-slot-'.$safeSlotKey.$flexBoxClass.'" data-bd-slot="'.$safeSlotKey.'">'.$body.'</div>',
                 ];
             })
             ->all();
@@ -398,6 +399,10 @@ class AngleTemplateMergeService
         return <<<'CSS'
 .lp-structured-bd-slot {
     display: contents;
+}
+
+.lp-structured-bd-slot.lp-structured-bd-slot-has-flexbox {
+    display: block;
 }
 
 .lp-semantic-heading:is(h1):not([style]),

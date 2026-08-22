@@ -569,8 +569,12 @@ export default function Dashboard({ id }) {
     const [mainJS, setMainJS] = useState('');
     const [isRtl, setIsRtl] = useState(false);
     const semanticContentStyleSelector = 'style[data-lp-semantic-content-style="true"]';
-    const semanticContentDefaultCss = `
+const semanticContentDefaultCss = `
 /* lp semantic content defaults */
+.lp-structured-bd-slot.lp-structured-bd-slot-has-flexbox {
+    display: block;
+}
+
 .lp-semantic-heading:is(h1):not([style]),
 .lp-structured-page-addition:is(h1):not([style]),
 .lp-custom-html-block h1:not([style]) {
@@ -778,6 +782,30 @@ ${semanticContentDefaultCss}
         borderColor: "",
     };
 
+    const INITIAL_FLEX_BOX_MANAGEMENT = {
+        position: "bottom",
+        columns: 2,
+        width: "100",
+        widthUnit: "%",
+        maxWidth: "",
+        minHeight: "80",
+        minHeightUnit: "px",
+        flexDirection: "row",
+        justifyContent: "flex-start",
+        alignItems: "stretch",
+        flexWrap: "nowrap",
+        gap: "16",
+        gapUnit: "px",
+        margin: "16px 0px 16px 0px",
+        padding: "0px 0px 0px 0px",
+        backgroundColor: "",
+        border: "",
+        borderWidth: "",
+        borderColor: "#b8c2cc",
+        borderRadius: "",
+        boxShadow: "",
+    };
+
     const [imageManagement, setImageManagement] = useState(INITIAL_IMAGE_MANAGEMENT);
     const [translator, setTranslator] = useState(INITIAL_TRANSLATOR);
     const [chatGPT, setChatGPT] = useState(INITIAL_CHATGPT);
@@ -789,6 +817,7 @@ ${semanticContentDefaultCss}
     const [formManagement, setFormManagement] = useState(INITIAL_FORM_MANAGEMENT);
     const [selectedFormLanguage, setSelectedFormLanguage] = useState(false);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
+    const [flexBoxManagement, setFlexBoxManagement] = useState(INITIAL_FLEX_BOX_MANAGEMENT);
     const [userOtpServices, setUserOtpServices] = useState([]);
     // API platforms from api_categories (active categories)
     const [apiPlatforms, setApiPlatforms] = useState([]);
@@ -1014,13 +1043,16 @@ ${semanticContentDefaultCss}
 
         getData()
 
-        document.addEventListener("click", function (event) {
+        document.addEventListener("click", async function (event) {
             // Allow file inputs to work (both existing and new OTP modal image upload)
             const isFileInput = event.target.type === 'file' || 
                                event.target.id === "hiddenFileUpload" || 
                                event.target.id === "otpModalImageUpload";
             if (!isFileInput) {
                 event.preventDefault();
+            }
+            if (await handleFlexBoxDeleteControlClick(event)) {
+                return;
             }
             handleClick(event);
         });
@@ -1034,8 +1066,55 @@ ${semanticContentDefaultCss}
             elementInside.remove();
             setMainHTML(prev => [
                 ...prev.map(item => ({ ...item, status: false })), // Set previous statuses to false
-                { html: document.querySelector(".mainHTML").innerHTML, status: true } // Add new entry
+                { html: serializablePreviewHtml(), status: true } // Add new entry
             ]);
+            setOpen(false);
+            setAnchorHelpProperties(null);
+        } else if (editing && editing.actionType == "delete_flex_box") {
+            let elementInside = document.querySelector(`.${editing.editID}`);
+            let flexBoxElement = closestParentWithClass(elementInside, 'lp-flex-box') || elementInside;
+            if (flexBoxElement?.classList?.contains('lp-flex-box')) {
+                flexBoxElement.remove();
+                setMainHTML(prev => [
+                    ...prev.map(item => ({ ...item, status: false })),
+                    { html: serializablePreviewHtml(), status: true }
+                ]);
+            }
+            setOpen(false);
+            setAnchorHelpProperties(null);
+        } else if (editing && editing.actionType == "delete_flex_column") {
+            let elementInside = document.querySelector(`.${editing.editID}`);
+            let flexColumnElement = closestParentWithClass(elementInside, 'lp-flex-column') || elementInside;
+            let flexBoxElement = closestParentWithClass(flexColumnElement, 'lp-flex-box');
+
+            if (flexColumnElement?.classList?.contains('lp-flex-column') && flexBoxElement) {
+                const columns = Array.from(flexBoxElement.children).filter((child) => child.classList?.contains('lp-flex-column'));
+                if (columns.length <= 1) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Cannot delete column',
+                        text: 'A Flex Box must contain at least one column. Delete the full Flex Box instead.',
+                    });
+                    setEditing(prev => ({ ...prev, actionType: false }));
+                    return;
+                }
+
+                flexColumnElement.remove();
+                const remainingColumns = Array.from(flexBoxElement.children).filter((child) => child.classList?.contains('lp-flex-column'));
+                flexBoxElement.setAttribute('data-lp-flex-columns', String(remainingColumns.length));
+                remainingColumns.forEach((column, index) => {
+                    const columnNumber = String(index + 1);
+                    column.setAttribute('data-lp-flex-column', columnNumber);
+                    column.querySelectorAll('[data-lp-flex-column]').forEach((child) => {
+                        child.setAttribute('data-lp-flex-column', columnNumber);
+                    });
+                });
+
+                setMainHTML(prev => [
+                    ...prev.map(item => ({ ...item, status: false })),
+                    { html: serializablePreviewHtml(), status: true }
+                ]);
+            }
             setOpen(false);
             setAnchorHelpProperties(null);
         } else if ((editing && editing.actionType == "edit" || editing && editing.actionType == "add") && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) {
@@ -1436,6 +1515,7 @@ ${semanticContentDefaultCss}
     }, [mainHTML]);
 
     useEffect(() => {
+        ensureFlexBoxEditorControls();
         setTimeout(() => {
             eval(mainJS);
         }, 1000);
@@ -1776,6 +1856,9 @@ ${semanticContentDefaultCss}
         }
 
         markStructuredPageAddition(newElement, editing?.bdSlotKey || structuredBdSlotKeyFromElement(bdSlotElement));
+        if (newElement?.classList?.contains('lp-flex-box') || newElement?.querySelector?.('.lp-flex-box')) {
+            bdSlotElement.classList.add('lp-structured-bd-slot-has-flexbox');
+        }
 
         if (bdSlotElement === existingElement) {
             if (position == "top" || position == "left") {
@@ -1975,7 +2058,10 @@ ${semanticContentDefaultCss}
         let element = document.querySelector(`.${editing.editID}`);
 
         //FURTHER EDITING REMAINING
-        if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
+        if (editing.actionType === "flex_box") {
+            const newElement = createFlexBoxElement();
+            await addNewContentHandler(normalizeFlexBoxPosition(flexBoxManagement.position), element, newElement);
+        } else if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
             //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
             const styles = {
                 color: textManagement.color,
@@ -2393,7 +2479,7 @@ ${semanticContentDefaultCss}
         }
         setMainHTML(prev => [
             ...prev.map(item => ({ ...item, status: false })), // Set previous statuses to false
-            { html: mainHtmlElement.innerHTML, status: true } // Add new entry
+            { html: serializablePreviewHtml(mainHtmlElement), status: true } // Add new entry
         ]);
         setOpen(false);
         setAnchorHelpProperties(null);
@@ -2434,6 +2520,7 @@ ${semanticContentDefaultCss}
         setCustomHTMLManagement(INITIAL_CUSTOM_HTML_MANAGEMENT);
         setFormManagement(INITIAL_FORM_MANAGEMENT);
         setButtonManagement(INITIAL_BUTTON_MANAGEMENT);
+        setFlexBoxManagement(INITIAL_FLEX_BOX_MANAGEMENT);
     }
 
     // Replace functionality handlers
@@ -2493,12 +2580,308 @@ ${semanticContentDefaultCss}
         setEditing(temp);
     }
 
+    const pushCurrentPreviewToHistory = () => {
+        const mainHtmlElement = document.querySelector(".mainHTML");
+        if (!mainHtmlElement) {
+            return;
+        }
+
+        setMainHTML(prev => [
+            ...prev.map(item => ({ ...item, status: false })),
+            { html: serializablePreviewHtml(mainHtmlElement), status: true }
+        ]);
+    }
+
+    const serializablePreviewHtml = (mainHtmlElement = document.querySelector(".mainHTML")) => {
+        if (!mainHtmlElement) {
+            return '';
+        }
+
+        const clone = mainHtmlElement.cloneNode(true);
+        clone.querySelectorAll('.lp-flex-delete-control').forEach((control) => control.remove());
+        return clone.innerHTML;
+    }
+
     function generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             const r = Math.random() * 16 | 0;
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    }
+
+    const normalizeFlexColumnCount = (value) => {
+        const parsed = parseInt(value, 10);
+        if (Number.isNaN(parsed)) {
+            return 1;
+        }
+
+        return Math.min(6, Math.max(1, parsed));
+    }
+
+    const normalizeFlexBoxPosition = (value) => {
+        return value === 'top' ? 'top' : 'bottom';
+    }
+
+    const cssValueWithUnit = (value, unit) => {
+        const normalizedValue = `${value ?? ''}`.trim();
+        if (!normalizedValue) {
+            return '';
+        }
+
+        return `${normalizedValue}${unit || ''}`;
+    }
+
+    const applyOptionalStyle = (element, property, value) => {
+        const normalizedValue = `${value ?? ''}`.trim();
+        if (normalizedValue) {
+            element.style[property] = normalizedValue;
+        } else {
+            element.style.removeProperty(property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`));
+        }
+    }
+
+    const applyFlexBoxDesktopStyles = (flexBox) => {
+        const width = cssValueWithUnit(flexBoxManagement.width, flexBoxManagement.widthUnit);
+        const maxWidth = cssValueWithUnit(flexBoxManagement.maxWidth, 'px');
+        const minHeight = cssValueWithUnit(flexBoxManagement.minHeight, flexBoxManagement.minHeightUnit);
+        const gap = cssValueWithUnit(flexBoxManagement.gap, flexBoxManagement.gapUnit);
+        const border = flexBoxManagement.border
+            ? `${flexBoxManagement.borderWidth || 1}px ${flexBoxManagement.border} ${flexBoxManagement.borderColor || '#b8c2cc'}`
+            : '';
+        const borderRadius = cssValueWithUnit(flexBoxManagement.borderRadius, 'px');
+
+        flexBox.style.display = 'flex';
+        flexBox.style.flexDirection = flexBoxManagement.flexDirection || 'row';
+        flexBox.style.justifyContent = flexBoxManagement.justifyContent || 'flex-start';
+        flexBox.style.alignItems = flexBoxManagement.alignItems || 'stretch';
+        flexBox.style.flexWrap = flexBoxManagement.flexWrap || 'nowrap';
+        applyOptionalStyle(flexBox, 'gap', gap || '16px');
+        applyOptionalStyle(flexBox, 'width', width || '100%');
+        applyOptionalStyle(flexBox, 'maxWidth', maxWidth);
+        applyOptionalStyle(flexBox, 'minHeight', minHeight);
+        applyOptionalStyle(flexBox, 'margin', flexBoxManagement.margin);
+        applyOptionalStyle(flexBox, 'padding', flexBoxManagement.padding);
+        applyOptionalStyle(flexBox, 'backgroundColor', flexBoxManagement.backgroundColor);
+        applyOptionalStyle(flexBox, 'border', border);
+        applyOptionalStyle(flexBox, 'borderRadius', borderRadius);
+        applyOptionalStyle(flexBox, 'boxShadow', flexBoxManagement.boxShadow);
+    }
+
+    const createFlexDeleteButton = (action) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.classList.add('doNotAct', 'lp-flex-delete-control', `lp-flex-delete-${action}`);
+        button.setAttribute('data-lp-editor-only', 'true');
+        button.setAttribute('data-lp-flex-delete', action);
+        button.setAttribute('aria-label', action === 'box' ? 'Delete Flex Box' : 'Delete Column');
+        button.innerHTML = '&times;';
+        const isBoxDelete = action === 'box';
+        Object.assign(button.style, {
+            position: 'absolute',
+            top: isBoxDelete ? '-10px' : '-7px',
+            right: isBoxDelete ? '-10px' : '-7px',
+            width: isBoxDelete ? '28px' : '22px',
+            height: isBoxDelete ? '28px' : '22px',
+            lineHeight: isBoxDelete ? '22px' : '18px',
+            padding: '0',
+            border: isBoxDelete ? '2px solid #dc2626' : '2px solid #ff0000',
+            borderRadius: isBoxDelete ? '50%' : '3px',
+            background: isBoxDelete ? '#dc2626' : '#ffffff',
+            color: isBoxDelete ? '#ffffff' : '#ff0000',
+            fontSize: isBoxDelete ? '20px' : '18px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            zIndex: isBoxDelete ? '40' : '20',
+            boxShadow: isBoxDelete ? '0 2px 8px rgba(0, 0, 0, 0.25)' : 'none',
+        });
+
+        return button;
+    }
+
+    const createFlexBoxWrapper = (flexId = '') => {
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('editableDiv', 'lp-flex-box-wrapper');
+        if (flexId) {
+            wrapper.setAttribute('data-lp-flex-id', flexId);
+        }
+        wrapper.style.position = 'relative';
+        wrapper.style.width = '100%';
+        wrapper.style.margin = '18px 0 14px';
+        wrapper.style.padding = '6px';
+        wrapper.style.border = '1px dashed #f59e0b';
+        wrapper.style.overflow = 'visible';
+
+        return wrapper;
+    }
+
+    const renumberFlexColumns = (flexBoxElement) => {
+        const remainingColumns = Array.from(flexBoxElement.children).filter((child) => child.classList?.contains('lp-flex-column'));
+        flexBoxElement.setAttribute('data-lp-flex-columns', String(remainingColumns.length));
+        remainingColumns.forEach((column, index) => {
+            const columnNumber = String(index + 1);
+            column.setAttribute('data-lp-flex-column', columnNumber);
+            column.querySelectorAll('[data-lp-flex-column]').forEach((child) => {
+                child.setAttribute('data-lp-flex-column', columnNumber);
+            });
+        });
+    }
+
+    const ensureFlexBoxEditorControls = (rootElement = document.querySelector(".mainHTML")) => {
+        if (!rootElement?.querySelectorAll) {
+            return;
+        }
+
+        rootElement.querySelectorAll('.lp-flex-box').forEach((flexBox) => {
+            let wrapper = flexBox.parentElement?.classList?.contains('lp-flex-box-wrapper')
+                ? flexBox.parentElement
+                : null;
+            if (!wrapper) {
+                wrapper = createFlexBoxWrapper(flexBox.getAttribute('data-lp-flex-id') || '');
+                flexBox.insertAdjacentElement('beforebegin', wrapper);
+                wrapper.appendChild(flexBox);
+            } else {
+                Object.assign(wrapper.style, {
+                    position: 'relative',
+                    width: '100%',
+                    margin: '18px 0 14px',
+                    padding: '6px',
+                    border: '1px dashed #f59e0b',
+                    overflow: 'visible',
+                });
+            }
+
+            const hasDirectDeleteButton = Array.from(wrapper.children).some((child) => child.classList?.contains('lp-flex-delete-box'));
+            if (!hasDirectDeleteButton) {
+                wrapper.appendChild(createFlexDeleteButton('box'));
+            }
+        });
+
+        rootElement.querySelectorAll('.lp-flex-column').forEach((column) => {
+            const columnDeleteHost = column.querySelector('.lp-flex-column-add-button') || column;
+            const hasDirectDeleteButton = Array.from(columnDeleteHost.children).some((child) => child.classList?.contains('lp-flex-delete-column'));
+            if (!hasDirectDeleteButton) {
+                columnDeleteHost.appendChild(createFlexDeleteButton('column'));
+            }
+            if (!columnDeleteHost.style.position) {
+                columnDeleteHost.style.position = 'relative';
+            }
+        });
+    }
+
+    const handleFlexBoxDeleteControlClick = async (event) => {
+        const control = event.target?.closest?.('[data-lp-flex-delete]');
+        if (!control) {
+            return false;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const deleteAction = control.getAttribute('data-lp-flex-delete');
+        const flexBoxWrapperElement = closestParentWithClass(control, 'lp-flex-box-wrapper');
+        const flexBoxElement = closestParentWithClass(control, 'lp-flex-box')
+            || Array.from(flexBoxWrapperElement?.children || []).find((child) => child.classList?.contains('lp-flex-box'));
+        const deleteTargetElement = flexBoxWrapperElement || flexBoxElement;
+        if (!flexBoxElement) {
+            return true;
+        }
+
+        if (deleteAction === 'box') {
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: 'Delete Flex Box?',
+                text: 'This will remove the complete Flex Box and all columns inside it.',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, delete it',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#d33',
+            });
+
+            if (result.isConfirmed) {
+                deleteTargetElement.remove();
+                pushCurrentPreviewToHistory();
+            }
+            return true;
+        }
+
+        if (deleteAction === 'column') {
+            const flexColumnElement = closestParentWithClass(control, 'lp-flex-column');
+            const columns = Array.from(flexBoxElement.children).filter((child) => child.classList?.contains('lp-flex-column'));
+
+            if (!flexColumnElement || columns.length <= 1) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Cannot delete column',
+                    text: 'A Flex Box must contain at least one column. Delete the full Flex Box instead.',
+                });
+                return true;
+            }
+
+            const result = await Swal.fire({
+                icon: 'warning',
+                title: 'Delete Column?',
+                text: 'This will remove this column and its content. Remaining columns will align automatically.',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, delete it',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#d33',
+            });
+
+            if (result.isConfirmed) {
+                flexColumnElement.remove();
+                renumberFlexColumns(flexBoxElement);
+                pushCurrentPreviewToHistory();
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    const createFlexBoxElement = () => {
+        const columnCount = normalizeFlexColumnCount(flexBoxManagement.columns);
+        const flexId = `lp-flex-${generateUUID()}`;
+        const wrapper = createFlexBoxWrapper(flexId);
+        const flexBox = document.createElement('div');
+        flexBox.classList.add('editableDiv', 'lp-flex-box');
+        flexBox.setAttribute('data-lp-flex-id', flexId);
+        flexBox.setAttribute('data-lp-flex-columns', String(columnCount));
+        applyFlexBoxDesktopStyles(flexBox);
+
+        for (let index = 1; index <= columnCount; index++) {
+            const column = document.createElement('div');
+            column.classList.add('editableDiv', 'lp-flex-column');
+            column.setAttribute('data-lp-flex-id', flexId);
+            column.setAttribute('data-lp-flex-column', String(index));
+            column.style.flex = '1 1 0';
+            column.style.minHeight = '80px';
+            column.style.padding = '12px';
+            column.style.border = '1px dashed #b8c2cc';
+            column.style.position = 'relative';
+
+            const placeholder = document.createElement('button');
+            placeholder.type = 'button';
+            placeholder.classList.add('doNotAct', 'lp-flex-column-add-button');
+            placeholder.setAttribute('data-lp-editor-only', 'true');
+            placeholder.setAttribute('data-lp-flex-id', flexId);
+            placeholder.setAttribute('data-lp-flex-column', String(index));
+            placeholder.innerHTML = '+ Add content';
+            placeholder.style.width = '100%';
+            placeholder.style.border = '1px dashed #8cb4ff';
+            placeholder.style.background = 'rgba(140, 180, 255, 0.08)';
+            placeholder.style.color = '#1f6feb';
+            placeholder.style.padding = '10px';
+            placeholder.style.cursor = 'pointer';
+            placeholder.style.position = 'relative';
+
+            column.appendChild(placeholder);
+            flexBox.appendChild(column);
+        }
+
+        wrapper.appendChild(flexBox);
+        ensureFlexBoxEditorControls(wrapper);
+        return wrapper;
     }
 
     const chunkArray = (array, size) => {
@@ -2924,16 +3307,265 @@ ${semanticContentDefaultCss}
                             <Box mt={1.5} sx={{ height: "265px", overflow: "auto" }}>
                                 <Box>
                                     {editing && !editing.actionType &&
-                                        <Box mt={2} sx={{ display: "flex", gap: 1 }}>
-                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
+                                        <Box mt={2} sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
                                             {!editing.structuredBdAddOnly && (
                                                 <>
-                                                    <Box component="div" sx={{ marginTop: "15px" }} />
                                                     <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
-                                                    <Box component="div" sx={{ marginTop: "15px" }} />
                                                     <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="error" variant='outlined' onClick={() => handleChange("actionType", "delete")}>Delete Element</Button>
                                                 </>
                                             )}
+                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
+                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "flex_box")}>Add Flex Box</Button>
+                                        </Box>
+                                    }
+                                    {editing && editing.actionType == "flex_box" &&
+                                        <Box mt={2} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Create a Flex Box layout and configure desktop properties. Mobile settings will be handled in the next phase.
+                                            </Typography>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Basic</Typography>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-position-label">Position</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-position-label"
+                                                        value={normalizeFlexBoxPosition(flexBoxManagement.position)}
+                                                        label="Position"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, position: normalizeFlexBoxPosition(e.target.value) }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="top">Top</MenuItem>
+                                                        <MenuItem className="doNotAct" value="bottom">Bottom</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-columns-label">Columns</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-columns-label"
+                                                        value={normalizeFlexColumnCount(flexBoxManagement.columns)}
+                                                        label="Columns"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, columns: normalizeFlexColumnCount(e.target.value) }))}
+                                                    >
+                                                        {[1, 2, 3, 4, 5, 6].map((columnCount) => (
+                                                            <MenuItem className="doNotAct" key={columnCount} value={columnCount}>{columnCount} Column{columnCount > 1 ? 's' : ''}</MenuItem>
+                                                        ))}
+                                                    </MuiSelect>
+                                                </FormControl>
+                                            </Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Desktop Size</Typography>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Width"
+                                                    value={flexBoxManagement.width}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, width: e.target.value }))}
+                                                />
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-width-unit-label">Width Unit</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-width-unit-label"
+                                                        value={flexBoxManagement.widthUnit}
+                                                        label="Width Unit"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, widthUnit: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="%">%</MenuItem>
+                                                        <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Max Width (px)"
+                                                    value={flexBoxManagement.maxWidth}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, maxWidth: e.target.value }))}
+                                                />
+                                                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 1 }}>
+                                                    <TextField
+                                                        className="doNotAct"
+                                                        fullWidth
+                                                        size="small"
+                                                        label="Min Height"
+                                                        value={flexBoxManagement.minHeight}
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, minHeight: e.target.value }))}
+                                                    />
+                                                    <FormControl fullWidth size="small">
+                                                        <InputLabel id="flex-box-min-height-unit-label">Unit</InputLabel>
+                                                        <MuiSelect
+                                                            labelId="flex-box-min-height-unit-label"
+                                                            value={flexBoxManagement.minHeightUnit}
+                                                            label="Unit"
+                                                            onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, minHeightUnit: e.target.value }))}
+                                                        >
+                                                            <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                            <MenuItem className="doNotAct" value="vh">vh</MenuItem>
+                                                        </MuiSelect>
+                                                    </FormControl>
+                                                </Box>
+                                            </Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Desktop Layout</Typography>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-direction-label">Flex Direction</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-direction-label"
+                                                        value={flexBoxManagement.flexDirection}
+                                                        label="Flex Direction"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, flexDirection: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="row">Row</MenuItem>
+                                                        <MenuItem className="doNotAct" value="row-reverse">Row Reverse</MenuItem>
+                                                        <MenuItem className="doNotAct" value="column">Column</MenuItem>
+                                                        <MenuItem className="doNotAct" value="column-reverse">Column Reverse</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-wrap-label">Wrap</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-wrap-label"
+                                                        value={flexBoxManagement.flexWrap}
+                                                        label="Wrap"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, flexWrap: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="nowrap">No Wrap</MenuItem>
+                                                        <MenuItem className="doNotAct" value="wrap">Wrap</MenuItem>
+                                                        <MenuItem className="doNotAct" value="wrap-reverse">Wrap Reverse</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-justify-label">Justify Content</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-justify-label"
+                                                        value={flexBoxManagement.justifyContent}
+                                                        label="Justify Content"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, justifyContent: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="flex-start">Start</MenuItem>
+                                                        <MenuItem className="doNotAct" value="center">Center</MenuItem>
+                                                        <MenuItem className="doNotAct" value="flex-end">End</MenuItem>
+                                                        <MenuItem className="doNotAct" value="space-between">Space Between</MenuItem>
+                                                        <MenuItem className="doNotAct" value="space-around">Space Around</MenuItem>
+                                                        <MenuItem className="doNotAct" value="space-evenly">Space Evenly</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-align-label">Align Items</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-align-label"
+                                                        value={flexBoxManagement.alignItems}
+                                                        label="Align Items"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, alignItems: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="flex-start">Start</MenuItem>
+                                                        <MenuItem className="doNotAct" value="center">Center</MenuItem>
+                                                        <MenuItem className="doNotAct" value="flex-end">End</MenuItem>
+                                                        <MenuItem className="doNotAct" value="stretch">Stretch</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Gap"
+                                                    value={flexBoxManagement.gap}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, gap: e.target.value }))}
+                                                />
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-gap-unit-label">Gap Unit</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-gap-unit-label"
+                                                        value={flexBoxManagement.gapUnit}
+                                                        label="Gap Unit"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, gapUnit: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                        <MenuItem className="doNotAct" value="%">%</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                            </Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Desktop Style</Typography>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Margin"
+                                                    placeholder="16px 0px 16px 0px"
+                                                    value={flexBoxManagement.margin}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, margin: e.target.value }))}
+                                                />
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Padding"
+                                                    placeholder="0px 0px 0px 0px"
+                                                    value={flexBoxManagement.padding}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, padding: e.target.value }))}
+                                                />
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-border-label">Border</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-border-label"
+                                                        value={flexBoxManagement.border}
+                                                        label="Border"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, border: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="">None</MenuItem>
+                                                        <MenuItem className="doNotAct" value="solid">Solid</MenuItem>
+                                                        <MenuItem className="doNotAct" value="dashed">Dashed</MenuItem>
+                                                        <MenuItem className="doNotAct" value="dotted">Dotted</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Border Width (px)"
+                                                    value={flexBoxManagement.borderWidth}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, borderWidth: e.target.value }))}
+                                                />
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Border Radius (px)"
+                                                    value={flexBoxManagement.borderRadius}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, borderRadius: e.target.value }))}
+                                                />
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Box Shadow"
+                                                    placeholder="0 8px 20px rgba(0,0,0,0.12)"
+                                                    value={flexBoxManagement.boxShadow}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, boxShadow: e.target.value }))}
+                                                />
+                                            </Box>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2, mt: 2 }}>
+                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
+                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                        Background
+                                                    </Typography>
+                                                    <HexColorPicker
+                                                        color={flexBoxManagement.backgroundColor || '#ffffff'}
+                                                        style={{ marginTop: "7px", width: "100%" }}
+                                                        onChange={(color) => setFlexBoxManagement(prev => ({ ...prev, backgroundColor: color }))}
+                                                    />
+                                                </Box>
+                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
+                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                        Border Color
+                                                    </Typography>
+                                                    <HexColorPicker
+                                                        color={flexBoxManagement.borderColor || '#b8c2cc'}
+                                                        style={{ marginTop: "7px", width: "100%" }}
+                                                        onChange={(color) => setFlexBoxManagement(prev => ({ ...prev, borderColor: color }))}
+                                                    />
+                                                </Box>
+                                            </Box>
                                         </Box>
                                     }
                                     {editing && editing.actionType == "add" && !editing.addElementPosition &&

@@ -429,9 +429,111 @@ Status: completed.
 - Add Flex Box inside BD1.
 - Confirm Flex Box stays inside BD1 after save.
 
+### Phase 5 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added a separate `Add Flex Box` action to the first Action Center screen.
+- Kept the existing `Add Element` flow unchanged for text, image, button, custom HTML, form, and spacer.
+- Added a basic Flex Box configuration panel with:
+  - Position: `Top` or `Bottom`
+  - Columns: `1` through `6`
+- Generated stable Flex Box markup using:
+  - `lp-flex-box-wrapper`
+  - `lp-flex-box`
+  - `data-lp-flex-id`
+  - `data-lp-flex-columns`
+  - `lp-flex-column`
+  - `data-lp-flex-column`
+- Added basic empty-column editor placeholders using:
+  - `lp-flex-column-add-button`
+  - `data-lp-editor-only="true"`
+- Inserted Flex Box through the existing `addNewContentHandler(...)` path so structured BD placement remains safe.
+- When added inside a structured BD slot, the Flex Box is saved inside that BD content instead of being placed outside the slot.
+- Normalized Flex Box position handling so changing the column count cannot reset a selected `Bottom` position back to `Top`.
+- For structured BD content, Flex Box insertion uses the clicked visible element as the placement anchor, while the existing BD-aware save path keeps the new Flex Box attached to the correct BD slot.
+- BD slots that contain Flex Box content receive `lp-structured-bd-slot-has-flexbox` so the slot becomes a real visual container only when needed; normal BD slots remain unaffected.
+
+#### Files Updated
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+
+#### Expected Behavior
+
+- The Action Center now shows `Add Flex Box` separately from `Add Element`.
+- Users can add a basic 1-6 column Flex Box above or below the clicked target.
+- In structured BD pages, Flex Box content remains attached to the correct BD slot.
+- Advanced desktop/mobile style controls are intentionally left for Phase 6 and Phase 7.
+
+---
+
+## Phase 5.1: Delete Flex Box And Delete Column
+
+### Tasks
+
+- Add an outer wrapper around every Flex Box.
+- Add a visible editor-only cross icon on the outer Flex Box wrapper.
+- Add a visible editor-only cross icon on each column's `Add content` placeholder box.
+- Confirm before deleting the full Flex Box.
+- Confirm before deleting a single Flex Box column.
+- Delete the full `.lp-flex-box-wrapper` from the main Flex Box cross icon.
+- Delete only the selected `.lp-flex-column` from the column cross icon.
+- Prevent deleting the last remaining column from a Flex Box.
+- After deleting a column, update `data-lp-flex-columns` and renumber `data-lp-flex-column` values.
+- Keep all delete operations inside the existing HTML history/save flow.
+- Ensure structured BD content remains attached to the correct BD after deletion.
+- Keep delete icons editor-only and do not store them as permanent landing page content.
+
+### Output
+
+- Users can remove a full Flex Box.
+- Users can remove a single Flex Box column.
+- Deleted Flex Box/column changes are preserved after save, duplicate, export, and theme switching through the existing HTML/BD content flow.
+
+### Phase 5.1 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added an outer `.lp-flex-box-wrapper` around each Flex Box.
+- Added a visible wrapper boundary and editor-only cross icon on each `.lp-flex-box-wrapper` to delete the complete Flex Box.
+- The full Flex Box delete icon is visually different from column delete icons so users can distinguish wrapper-level delete from column-level delete.
+- The full Flex Box delete icon is placed on the outer wrapper boundary.
+- Column delete icons are anchored to each `Add content` placeholder box when available, so they appear on the top-right corner of the actual Add Content box.
+- If a column does not have an Add Content placeholder, the column delete icon falls back to the column container.
+- Added click handling for `data-lp-flex-delete="box"` and `data-lp-flex-delete="column"`.
+- Added confirmation before deleting a full Flex Box or a column.
+- Column deletion keeps at least one column in the Flex Box.
+- Remaining columns are renumbered after a column is deleted.
+- Existing page history is updated after deletion so undo/save behavior remains consistent.
+- Flex delete icons are stripped from stored page HTML so they do not become permanent landing page content.
+- Existing Flex Boxes are wrapped and receive delete controls dynamically in the editor, so older test Flex Boxes do not need to be recreated.
+
+#### Final Expected Behavior
+
+- The outer wrapper cross deletes the complete Flex Box after confirmation.
+- The column-level cross deletes only that specific column after confirmation.
+- When a column is deleted, the remaining columns automatically realign through the existing Flex layout.
+- Users cannot delete the last remaining column; they must delete the full Flex Box instead.
+- Delete controls are visible only in the editor and are removed from saved/exported HTML.
+
+#### Files Updated
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+- `flexbox-landing-page.md`
+
 ---
 
 ## Phase 6: Desktop Flex Box Properties
+
+### Breakdown
+
+- `Phase 6.1`: Desktop size and spacing controls.
+- `Phase 6.2`: Desktop flex layout controls.
+- `Phase 6.3`: Desktop visual style controls.
 
 ### Tasks
 
@@ -465,6 +567,67 @@ Status: completed.
 - Test margin/padding.
 - Test background/border/radius/shadow.
 - Save and refresh preview.
+
+### Phase 6.1 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added Desktop Size fields to the Add Flex Box configuration panel:
+  - Width
+  - Width unit: `%` or `px`
+  - Max Width in `px`
+  - Min Height
+  - Min Height unit: `px` or `vh`
+- Added Desktop Spacing fields:
+  - Margin
+  - Padding
+- Applied these values to newly created `.lp-flex-box` containers.
+
+### Phase 6.2 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added Desktop Layout controls:
+  - Flex Direction: Row, Row Reverse, Column, Column Reverse
+  - Justify Content: Start, Center, End, Space Between, Space Around, Space Evenly
+  - Align Items: Start, Center, End, Stretch
+  - Wrap: No Wrap, Wrap, Wrap Reverse
+  - Gap
+  - Gap unit: `px` or `%`
+- Applied these controls to newly created `.lp-flex-box` containers.
+
+### Phase 6.3 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added Desktop Style controls:
+  - Background
+  - Border style
+  - Border width
+  - Border color
+  - Border radius
+  - Box shadow
+- Background and Border Color use the same color palette picker style used elsewhere in the editor.
+- Background and Border Color are placed together at the end of the Desktop Style section so normal input/select fields remain aligned.
+- Added helper logic to safely convert form values and units into CSS values.
+- Applied these style controls to newly created `.lp-flex-box` containers.
+
+#### Current Scope
+
+- Phase 6 applies desktop properties when creating a new Flex Box.
+- Editing an existing Flex Box's desktop properties will be handled in a later editing phase.
+- Mobile/responsive properties remain planned for Phase 7.
+
+#### Files Updated
+
+- `resources/js/Pages/AngleTemplates/PreviewAngleTemplate.jsx`
+- `flexbox-landing-page.md`
 
 ---
 
