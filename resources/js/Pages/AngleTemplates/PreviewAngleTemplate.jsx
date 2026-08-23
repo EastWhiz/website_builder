@@ -814,6 +814,22 @@ ${semanticContentDefaultCss}
         mobileGapUnit: "px",
     };
 
+    const INITIAL_FLEX_COLUMN_MANAGEMENT = {
+        selectedColumn: "1",
+        width: "",
+        widthUnit: "%",
+        margin: "",
+        padding: "12px",
+        backgroundColor: "",
+        border: "dashed",
+        borderWidth: "1",
+        borderColor: "#b8c2cc",
+        borderRadius: "",
+        boxShadow: "",
+        textAlign: "",
+        verticalAlign: "",
+    };
+
     const [imageManagement, setImageManagement] = useState(INITIAL_IMAGE_MANAGEMENT);
     const [translator, setTranslator] = useState(INITIAL_TRANSLATOR);
     const [chatGPT, setChatGPT] = useState(INITIAL_CHATGPT);
@@ -826,6 +842,7 @@ ${semanticContentDefaultCss}
     const [selectedFormLanguage, setSelectedFormLanguage] = useState(false);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
     const [flexBoxManagement, setFlexBoxManagement] = useState(INITIAL_FLEX_BOX_MANAGEMENT);
+    const [flexColumnManagement, setFlexColumnManagement] = useState(INITIAL_FLEX_COLUMN_MANAGEMENT);
     const [flexBoxResponsiveMode, setFlexBoxResponsiveMode] = useState('desktop');
     const [userOtpServices, setUserOtpServices] = useState([]);
     // API platforms from api_categories (active categories)
@@ -1072,7 +1089,9 @@ ${semanticContentDefaultCss}
         // console.log(editing);
         if (editing && editing.actionType == "delete") {
             let elementInside = document.querySelector(`.${editing.editID}`);
+            const parentFlexColumn = closestParentWithClass(elementInside, 'lp-flex-column');
             elementInside.remove();
+            syncFlexColumnPlaceholder(parentFlexColumn);
             setMainHTML(prev => [
                 ...prev.map(item => ({ ...item, status: false })), // Set previous statuses to false
                 { html: serializablePreviewHtml(), status: true } // Add new entry
@@ -1887,6 +1906,40 @@ ${semanticContentDefaultCss}
         return true;
     }
 
+    const insertFlexColumnContent = (position, existingElement, newElement) => {
+        const flexColumnElement = existingElement?.classList?.contains('lp-flex-column')
+            ? existingElement
+            : closestParentWithClass(existingElement, 'lp-flex-column');
+
+        if (!flexColumnElement) {
+            return false;
+        }
+
+        const bdSlotElement = closestParentWithClass(flexColumnElement, 'lp-structured-bd-slot');
+        if (structuredModeRef.current) {
+            markStructuredPageAddition(newElement, editing?.bdSlotKey || structuredBdSlotKeyFromElement(bdSlotElement));
+        }
+
+        const isColumnOrPlaceholderTarget = existingElement === flexColumnElement
+            || existingElement?.classList?.contains('lp-flex-column-add-button');
+
+        if (isColumnOrPlaceholderTarget) {
+            flexColumnElement.querySelector(':scope > .lp-flex-column-add-button')?.remove();
+            if (position == "top" || position == "left") {
+                flexColumnElement.insertAdjacentElement('afterbegin', newElement);
+            } else {
+                flexColumnElement.insertAdjacentElement('beforeend', newElement);
+            }
+        } else if (position == "top" || position == "left") {
+            existingElement.insertAdjacentElement('beforebegin', newElement);
+        } else {
+            existingElement.insertAdjacentElement('afterend', newElement);
+        }
+
+        syncFlexColumnPlaceholder(flexColumnElement);
+        return true;
+    }
+
     const applyDefaultSemanticStylesToCustomHtml = (container) => {
         if (!container?.querySelectorAll) {
             return;
@@ -1919,15 +1972,21 @@ ${semanticContentDefaultCss}
     }
 
     const handleClick = (event) => {
+        const isFlexColumnAddButtonClick = Boolean(closestParentWithClass(event.target, 'lp-flex-column-add-button'));
         if (structuredModeRef.current) {
-            if (event.target.outerHTML.includes("MuiModal-backdrop") || hasParentWithClass(event.target, 'popoverPlate') || hasParentWithClass(event.target, 'swal2-container') || event.target.outerHTML.includes("doNotAct")) {
+            if (event.target.outerHTML.includes("MuiModal-backdrop") || hasParentWithClass(event.target, 'popoverPlate') || hasParentWithClass(event.target, 'swal2-container') || (event.target.outerHTML.includes("doNotAct") && !isFlexColumnAddButtonClick)) {
                 return;
             }
 
             const bdSlotElement = closestParentWithClass(event.target, 'lp-structured-bd-slot');
             const angleSourceElement = closestParentWithClass(event.target, 'lp-source-angle-content');
             const bdSourceElement = closestParentWithClass(event.target, 'lp-source-bd-content');
-            const structuredAdditionElement = closestParentWithClass(event.target, 'lp-structured-page-addition')
+            const flexColumnElement = closestParentWithClass(event.target, 'lp-flex-column');
+            const flexColumnSelectionElement = (isFlexColumnAddButtonClick || event.target.classList?.contains('lp-flex-column'))
+                ? flexColumnElement
+                : null;
+            const structuredAdditionElement = flexColumnSelectionElement
+                || closestParentWithClass(event.target, 'lp-structured-page-addition')
                 || closestParentWithClass(event.target, 'editableDiv')
                 || (isStructuredPageAsset(event.target) ? event.target : null);
             const themeElement = !bdSlotElement && isEditablePreviewElement(event.target)
@@ -1972,22 +2031,25 @@ ${semanticContentDefaultCss}
         }
 
         // console.log(event.target.outerHTML);
-        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && (!event.target.outerHTML.includes("doNotAct") || event.target.localName == "form")) {
+        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && (!event.target.outerHTML.includes("doNotAct") || event.target.localName == "form" || isFlexColumnAddButtonClick)) {
             let randString = generateRandomString();
-            if (isEditablePreviewElement(event.target)) {
+            const selectedTarget = isFlexColumnAddButtonClick
+                ? closestParentWithClass(event.target, 'lp-flex-column')
+                : event.target;
+            if (isEditablePreviewElement(selectedTarget)) {
                 setAnchorHelpProperties(getClickedWordFromElement());
-                event.target.classList.add(randString);
+                selectedTarget.classList.add(randString);
                 setOpen(true);
                 resetModalHandler();
                 setEditing({
                     editID: randString,
-                    currentElement: event.target,
-                    elementName: event.target.localName,
-                    innerHTML: event.target.innerHTML,
-                    imageSrc: event.target.src,
+                    currentElement: selectedTarget,
+                    elementName: selectedTarget.localName,
+                    innerHTML: selectedTarget.innerHTML,
+                    imageSrc: selectedTarget.src,
                     actionType: false,
                     addElementPosition: false,
-                    addStyleSource: defaultAddStyleSourceForElement(event.target),
+                    addStyleSource: defaultAddStyleSourceForElement(selectedTarget),
                     structuredEditContext: false,
                     bdSlotKey: false,
                     bdSlotElement: false,
@@ -1997,6 +2059,10 @@ ${semanticContentDefaultCss}
     };
 
     const addNewContentHandler = async (position, existingElement, newElement) => {
+        if (insertFlexColumnContent(position, existingElement, newElement)) {
+            return;
+        }
+
         if (structuredModeRef.current && editing?.structuredEditContext === 'bd') {
             if (insertStructuredBdAddition(position, existingElement, newElement)) {
                 return;
@@ -2070,6 +2136,8 @@ ${semanticContentDefaultCss}
         if (editing.actionType === "flex_box") {
             const newElement = createFlexBoxElement();
             await addNewContentHandler(normalizeFlexBoxPosition(flexBoxManagement.position), element, newElement);
+        } else if (editing.actionType === "edit_flex_columns") {
+            applyFlexColumnManagement();
         } else if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
             //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
             const styles = {
@@ -2530,6 +2598,7 @@ ${semanticContentDefaultCss}
         setFormManagement(INITIAL_FORM_MANAGEMENT);
         setButtonManagement(INITIAL_BUTTON_MANAGEMENT);
         setFlexBoxManagement(INITIAL_FLEX_BOX_MANAGEMENT);
+        setFlexColumnManagement(INITIAL_FLEX_COLUMN_MANAGEMENT);
     }
 
     // Replace functionality handlers
@@ -2608,6 +2677,7 @@ ${semanticContentDefaultCss}
 
         const clone = mainHtmlElement.cloneNode(true);
         clone.querySelectorAll('.lp-flex-delete-control').forEach((control) => control.remove());
+        clone.querySelectorAll('[data-lp-editor-only="true"]').forEach((control) => control.remove());
         return clone.innerHTML;
     }
 
@@ -2648,6 +2718,20 @@ ${semanticContentDefaultCss}
         } else {
             element.style.removeProperty(property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`));
         }
+    }
+
+    const colorForPicker = (color, fallback = '#ffffff') => {
+        const normalizedColor = `${color || ''}`.trim();
+        if (!normalizedColor || normalizedColor === 'transparent' || normalizedColor === 'rgba(0, 0, 0, 0)') {
+            return fallback;
+        }
+        if (normalizedColor.startsWith('#')) {
+            return normalizedColor;
+        }
+        if (normalizedColor.startsWith('rgb')) {
+            return `#${convert.rgb.hex(rgbToArray(normalizedColor))}`;
+        }
+        return fallback;
     }
 
     const applyFlexBoxDesktopStyles = (flexBox) => {
@@ -2713,6 +2797,185 @@ ${semanticContentDefaultCss}
         return style;
     }
 
+    const isFlexBoxEditableElement = (element) => Boolean(
+        element
+        && (
+            element.classList?.contains('lp-flex-box-wrapper')
+            || element.classList?.contains('lp-flex-box')
+            || element.classList?.contains('lp-flex-column')
+            || closestParentWithClass(element, 'lp-flex-box-wrapper')
+            || closestParentWithClass(element, 'lp-flex-box')
+            || closestParentWithClass(element, 'lp-flex-column')
+        )
+    );
+
+    const flexBoxElementFromElement = (element) => {
+        if (!element) return null;
+        if (element.classList?.contains('lp-flex-box')) return element;
+        return closestParentWithClass(element, 'lp-flex-box')
+            || element.querySelector?.('.lp-flex-box')
+            || closestParentWithClass(element, 'lp-flex-box-wrapper')?.querySelector?.('.lp-flex-box')
+            || null;
+    }
+
+    const flexColumnElementFromSelection = (flexBoxElement, selectedColumn = flexColumnManagement.selectedColumn) => {
+        if (!flexBoxElement) return null;
+        return Array.from(flexBoxElement.children)
+            .find((child) => child.classList?.contains('lp-flex-column') && child.getAttribute('data-lp-flex-column') === String(selectedColumn))
+            || Array.from(flexBoxElement.children).find((child) => child.classList?.contains('lp-flex-column'))
+            || null;
+    }
+
+    const flexColumnWidthPartsFromElement = (columnElement) => {
+        const explicitWidth = columnElement?.style?.maxWidth || columnElement?.style?.width || '';
+        const widthMatch = explicitWidth.match(/^([\d.]+)(px|%)$/);
+
+        if (!widthMatch || Number(widthMatch[1]) === 0) {
+            return { width: '', widthUnit: '%' };
+        }
+
+        return { width: widthMatch[1], widthUnit: widthMatch[2] };
+    }
+
+    const repairCollapsedAutoFlexColumn = (columnElement) => {
+        const maxWidth = columnElement?.style?.maxWidth || '';
+        const flexValue = columnElement?.style?.flex || '';
+        if (maxWidth === '0px' || flexValue === '0 0 0px') {
+            columnElement.style.flex = '1 1 0';
+            columnElement.style.removeProperty('max-width');
+        }
+    }
+
+    const applyFlexColumnContentAlignment = (columnElement, alignment, verticalAlignment = '') => {
+        applyOptionalStyle(columnElement, 'textAlign', alignment);
+
+        if ((!alignment || alignment === 'justify') && !verticalAlignment) {
+            columnElement.style.removeProperty('display');
+            columnElement.style.removeProperty('flex-direction');
+            columnElement.style.removeProperty('align-items');
+            columnElement.style.removeProperty('justify-content');
+        } else {
+            const alignItemsMap = {
+                left: 'flex-start',
+                center: 'center',
+                right: 'flex-end',
+            };
+            const justifyContentMap = {
+                top: 'flex-start',
+                middle: 'center',
+                bottom: 'flex-end',
+                stretch: 'space-between',
+            };
+            columnElement.style.display = 'flex';
+            columnElement.style.flexDirection = 'column';
+            columnElement.style.alignItems = alignItemsMap[alignment] || 'stretch';
+            if (verticalAlignment) {
+                columnElement.style.justifyContent = justifyContentMap[verticalAlignment] || 'flex-start';
+            } else {
+                columnElement.style.removeProperty('justify-content');
+            }
+        }
+
+        Array.from(columnElement.children || []).forEach((child) => {
+            if (isFlexColumnEditorOnlyElement(child)) {
+                return;
+            }
+
+            child.style.removeProperty('align-self');
+            if (alignment === 'center') {
+                child.style.marginLeft = child.style.marginLeft || 'auto';
+                child.style.marginRight = child.style.marginRight || 'auto';
+            } else if (alignment === 'right') {
+                child.style.marginLeft = child.style.marginLeft || 'auto';
+                child.style.marginRight = child.style.marginRight === 'auto' ? '' : child.style.marginRight;
+            } else if (alignment === 'left') {
+                child.style.marginLeft = child.style.marginLeft === 'auto' ? '' : child.style.marginLeft;
+                child.style.marginRight = child.style.marginRight === 'auto' ? '' : child.style.marginRight;
+            }
+        });
+    }
+
+    const readFlexColumnManagementFromElement = (columnElement) => {
+        if (!columnElement) return INITIAL_FLEX_COLUMN_MANAGEMENT;
+        const widthParts = flexColumnWidthPartsFromElement(columnElement);
+        const borderParts = (columnElement.style.border || '').split(' ').filter(Boolean);
+
+        return {
+            selectedColumn: columnElement.getAttribute('data-lp-flex-column') || "1",
+            width: widthParts.width,
+            widthUnit: widthParts.widthUnit,
+            margin: columnElement.style.margin || '',
+            padding: columnElement.style.padding || '12px',
+            backgroundColor: colorForPicker(columnElement.style.backgroundColor, ''),
+            border: borderParts[1] || columnElement.style.borderStyle || '',
+            borderWidth: parseInt(borderParts[0] || columnElement.style.borderWidth || '', 10) || '',
+            borderColor: colorForPicker(columnElement.style.borderColor, '#b8c2cc'),
+            borderRadius: parseInt(columnElement.style.borderRadius || '', 10) || '',
+            boxShadow: columnElement.style.boxShadow || '',
+            textAlign: columnElement.style.textAlign || '',
+            verticalAlign: ({
+                'flex-start': 'top',
+                center: 'middle',
+                'flex-end': 'bottom',
+                'space-between': 'stretch',
+            })[columnElement.style.justifyContent] || '',
+        };
+    }
+
+    const selectedFlexBoxElement = () => {
+        if (!editing?.editID) return null;
+        const element = document.querySelector(`.${editing.editID}`);
+        return flexBoxElementFromElement(element);
+    }
+
+    const startFlexColumnEdit = () => {
+        const flexBoxElement = selectedFlexBoxElement();
+        const clickedElement = document.querySelector(`.${editing.editID}`);
+        const clickedColumn = closestParentWithClass(clickedElement, 'lp-flex-column')
+            || (clickedElement?.classList?.contains('lp-flex-column') ? clickedElement : null);
+        const firstColumn = flexColumnElementFromSelection(flexBoxElement, clickedColumn?.getAttribute('data-lp-flex-column') || "1");
+
+        setFlexColumnManagement(readFlexColumnManagementFromElement(clickedColumn || firstColumn));
+        setEditing(prev => ({ ...prev, actionType: 'edit_flex_columns' }));
+    }
+
+    const handleFlexColumnSelectionChange = (columnNumber) => {
+        const flexBoxElement = selectedFlexBoxElement();
+        const columnElement = flexColumnElementFromSelection(flexBoxElement, columnNumber);
+        setFlexColumnManagement({
+            ...readFlexColumnManagementFromElement(columnElement),
+            selectedColumn: String(columnNumber),
+        });
+    }
+
+    const applyFlexColumnManagement = () => {
+        const flexBoxElement = selectedFlexBoxElement();
+        const columnElement = flexColumnElementFromSelection(flexBoxElement);
+        if (!columnElement) return;
+
+        const width = cssValueWithUnit(flexColumnManagement.width, flexColumnManagement.widthUnit);
+        const border = flexColumnManagement.border
+            ? `${flexColumnManagement.borderWidth || 1}px ${flexColumnManagement.border} ${flexColumnManagement.borderColor || '#b8c2cc'}`
+            : '';
+        const borderRadius = cssValueWithUnit(flexColumnManagement.borderRadius, 'px');
+
+        if (width) {
+            columnElement.style.flex = `0 0 ${width}`;
+            columnElement.style.maxWidth = width;
+        } else {
+            columnElement.style.flex = '1 1 0';
+            columnElement.style.removeProperty('max-width');
+        }
+
+        applyOptionalStyle(columnElement, 'margin', flexColumnManagement.margin);
+        applyOptionalStyle(columnElement, 'padding', flexColumnManagement.padding);
+        applyOptionalStyle(columnElement, 'backgroundColor', flexColumnManagement.backgroundColor);
+        applyOptionalStyle(columnElement, 'border', border);
+        applyOptionalStyle(columnElement, 'borderRadius', borderRadius);
+        applyOptionalStyle(columnElement, 'boxShadow', flexColumnManagement.boxShadow);
+        applyFlexColumnContentAlignment(columnElement, flexColumnManagement.textAlign, flexColumnManagement.verticalAlign);
+    }
+
     const createFlexDeleteButton = (action) => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -2742,6 +3005,51 @@ ${semanticContentDefaultCss}
         });
 
         return button;
+    }
+
+    const createFlexColumnAddButton = (flexId, columnNumber) => {
+        const placeholder = document.createElement('button');
+        placeholder.type = 'button';
+        placeholder.classList.add('doNotAct', 'lp-flex-column-add-button');
+        placeholder.setAttribute('data-lp-editor-only', 'true');
+        placeholder.setAttribute('data-lp-flex-id', flexId);
+        placeholder.setAttribute('data-lp-flex-column', String(columnNumber));
+        placeholder.innerHTML = '+ Add content';
+        placeholder.style.width = '100%';
+        placeholder.style.border = '1px dashed #8cb4ff';
+        placeholder.style.background = 'rgba(140, 180, 255, 0.08)';
+        placeholder.style.color = '#1f6feb';
+        placeholder.style.padding = '10px';
+        placeholder.style.cursor = 'pointer';
+        placeholder.style.position = 'relative';
+        return placeholder;
+    }
+
+    const isFlexColumnEditorOnlyElement = (element) => Boolean(
+        element?.getAttribute?.('data-lp-editor-only') === 'true'
+        || element?.classList?.contains('lp-flex-delete-control')
+    );
+
+    const flexColumnHasUserContent = (column) => Array.from(column?.children || [])
+        .some((child) => !isFlexColumnEditorOnlyElement(child));
+
+    const syncFlexColumnPlaceholder = (column) => {
+        if (!column?.classList?.contains('lp-flex-column')) {
+            return;
+        }
+
+        const existingPlaceholder = column.querySelector(':scope > .lp-flex-column-add-button');
+        if (flexColumnHasUserContent(column)) {
+            existingPlaceholder?.remove();
+            return;
+        }
+
+        const flexId = column.getAttribute('data-lp-flex-id') || closestParentWithClass(column, 'lp-flex-box')?.getAttribute('data-lp-flex-id') || '';
+        const columnNumber = column.getAttribute('data-lp-flex-column') || '1';
+        const placeholder = existingPlaceholder || createFlexColumnAddButton(flexId, columnNumber);
+        if (!existingPlaceholder) {
+            column.appendChild(placeholder);
+        }
     }
 
     const createFlexBoxWrapper = (flexId = '') => {
@@ -2803,6 +3111,8 @@ ${semanticContentDefaultCss}
         });
 
         rootElement.querySelectorAll('.lp-flex-column').forEach((column) => {
+            repairCollapsedAutoFlexColumn(column);
+            syncFlexColumnPlaceholder(column);
             const columnDeleteHost = column.querySelector('.lp-flex-column-add-button') || column;
             const hasDirectDeleteButton = Array.from(columnDeleteHost.children).some((child) => child.classList?.contains('lp-flex-delete-column'));
             if (!hasDirectDeleteButton) {
@@ -2913,22 +3223,7 @@ ${semanticContentDefaultCss}
             column.style.border = '1px dashed #b8c2cc';
             column.style.position = 'relative';
 
-            const placeholder = document.createElement('button');
-            placeholder.type = 'button';
-            placeholder.classList.add('doNotAct', 'lp-flex-column-add-button');
-            placeholder.setAttribute('data-lp-editor-only', 'true');
-            placeholder.setAttribute('data-lp-flex-id', flexId);
-            placeholder.setAttribute('data-lp-flex-column', String(index));
-            placeholder.innerHTML = '+ Add content';
-            placeholder.style.width = '100%';
-            placeholder.style.border = '1px dashed #8cb4ff';
-            placeholder.style.background = 'rgba(140, 180, 255, 0.08)';
-            placeholder.style.color = '#1f6feb';
-            placeholder.style.padding = '10px';
-            placeholder.style.cursor = 'pointer';
-            placeholder.style.position = 'relative';
-
-            column.appendChild(placeholder);
+            column.appendChild(createFlexColumnAddButton(flexId, index));
             flexBox.appendChild(column);
         }
 
@@ -3282,6 +3577,12 @@ ${semanticContentDefaultCss}
 
     const mainHTMLActive = mainHTML.find(html => html.status == true)
     const selectedElementHasInlineStyle = Boolean(editing?.currentElement?.getAttribute?.('style')?.trim());
+    const selectedElementIsFlexBox = isFlexBoxEditableElement(editing?.currentElement);
+    const selectedFlexBoxColumns = selectedElementIsFlexBox
+        ? Array.from(selectedFlexBoxElement()?.children || [])
+            .filter((child) => child.classList?.contains('lp-flex-column'))
+            .map((column, index) => column.getAttribute('data-lp-flex-column') || String(index + 1))
+        : [];
     const isStructuredBdPage = data?.content_mode === 'structured_bd';
     const structuredSlotKeys = useMemo(() => {
         const baseSlots = ['BD1', 'BD2', 'BD3', 'BD4', 'BD5'];
@@ -3370,6 +3671,9 @@ ${semanticContentDefaultCss}
                                             )}
                                             <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
                                             <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "flex_box")}>Add Flex Box</Button>
+                                            {selectedElementIsFlexBox && (
+                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="info" variant='outlined' onClick={startFlexColumnEdit}>Edit Columns</Button>
+                                            )}
                                         </Box>
                                     }
                                     {editing && editing.actionType == "flex_box" &&
@@ -3738,6 +4042,164 @@ ${semanticContentDefaultCss}
                                                 </FormControl>
                                             </Box>
                                             </>}
+                                        </Box>
+                                    }
+                                    {editing && editing.actionType == "edit_flex_columns" &&
+                                        <Box mt={2} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Select a Flex Box column and update its individual desktop styling.
+                                            </Typography>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Column</Typography>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-column-select-label">Column</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-column-select-label"
+                                                        value={flexColumnManagement.selectedColumn}
+                                                        label="Column"
+                                                        onChange={(e) => handleFlexColumnSelectionChange(e.target.value)}
+                                                    >
+                                                        {selectedFlexBoxColumns.map((columnNumber) => (
+                                                            <MenuItem className="doNotAct" key={columnNumber} value={columnNumber}>Column {columnNumber}</MenuItem>
+                                                        ))}
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 1 }}>
+                                                    <TextField
+                                                        className="doNotAct"
+                                                        fullWidth
+                                                        size="small"
+                                                        label="Width"
+                                                        placeholder="Leave empty for auto"
+                                                        value={flexColumnManagement.width}
+                                                        onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, width: e.target.value }))}
+                                                    />
+                                                    <FormControl fullWidth size="small">
+                                                        <InputLabel id="flex-column-width-unit-label">Unit</InputLabel>
+                                                        <MuiSelect
+                                                            labelId="flex-column-width-unit-label"
+                                                            value={flexColumnManagement.widthUnit}
+                                                            label="Unit"
+                                                            onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, widthUnit: e.target.value }))}
+                                                        >
+                                                            <MenuItem className="doNotAct" value="%">%</MenuItem>
+                                                            <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                        </MuiSelect>
+                                                    </FormControl>
+                                                </Box>
+                                            </Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Column Style</Typography>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Margin"
+                                                    placeholder="0px 0px 0px 0px"
+                                                    value={flexColumnManagement.margin}
+                                                    onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, margin: e.target.value }))}
+                                                />
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Padding"
+                                                    placeholder="12px"
+                                                    value={flexColumnManagement.padding}
+                                                    onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, padding: e.target.value }))}
+                                                />
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-column-border-label">Border</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-column-border-label"
+                                                        value={flexColumnManagement.border}
+                                                        label="Border"
+                                                        onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, border: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="">None</MenuItem>
+                                                        <MenuItem className="doNotAct" value="solid">Solid</MenuItem>
+                                                        <MenuItem className="doNotAct" value="dashed">Dashed</MenuItem>
+                                                        <MenuItem className="doNotAct" value="dotted">Dotted</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Border Width (px)"
+                                                    value={flexColumnManagement.borderWidth}
+                                                    onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, borderWidth: e.target.value }))}
+                                                />
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Border Radius (px)"
+                                                    value={flexColumnManagement.borderRadius}
+                                                    onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, borderRadius: e.target.value }))}
+                                                />
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Box Shadow"
+                                                    placeholder="0 8px 20px rgba(0,0,0,0.12)"
+                                                    value={flexColumnManagement.boxShadow}
+                                                    onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, boxShadow: e.target.value }))}
+                                                />
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-column-text-align-label">Content Alignment</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-column-text-align-label"
+                                                        value={flexColumnManagement.textAlign}
+                                                        label="Content Alignment"
+                                                        onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, textAlign: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="">Default</MenuItem>
+                                                        <MenuItem className="doNotAct" value="left">Left</MenuItem>
+                                                        <MenuItem className="doNotAct" value="center">Center</MenuItem>
+                                                        <MenuItem className="doNotAct" value="right">Right</MenuItem>
+                                                        <MenuItem className="doNotAct" value="justify">Justify</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-column-vertical-align-label">Vertical Alignment</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-column-vertical-align-label"
+                                                        value={flexColumnManagement.verticalAlign}
+                                                        label="Vertical Alignment"
+                                                        onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, verticalAlign: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="">Default</MenuItem>
+                                                        <MenuItem className="doNotAct" value="top">Top</MenuItem>
+                                                        <MenuItem className="doNotAct" value="middle">Middle</MenuItem>
+                                                        <MenuItem className="doNotAct" value="bottom">Bottom</MenuItem>
+                                                        <MenuItem className="doNotAct" value="stretch">Stretch</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                            </Box>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
+                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                        Background
+                                                    </Typography>
+                                                    <HexColorPicker
+                                                        color={flexColumnManagement.backgroundColor || '#ffffff'}
+                                                        style={{ marginTop: "7px", width: "100%" }}
+                                                        onChange={(color) => setFlexColumnManagement(prev => ({ ...prev, backgroundColor: color }))}
+                                                    />
+                                                </Box>
+                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
+                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                                                        Border Color
+                                                    </Typography>
+                                                    <HexColorPicker
+                                                        color={flexColumnManagement.borderColor || '#b8c2cc'}
+                                                        style={{ marginTop: "7px", width: "100%" }}
+                                                        onChange={(color) => setFlexColumnManagement(prev => ({ ...prev, borderColor: color }))}
+                                                    />
+                                                </Box>
+                                            </Box>
                                         </Box>
                                     }
                                     {editing && editing.actionType == "add" && !editing.addElementPosition &&
@@ -5523,7 +5985,9 @@ ${semanticContentDefaultCss}
                                     setOpen(false);
                                 }}>Cancel</Button>
                                 <Box component="span" sx={{ marginLeft: "20px" }} />
-                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={updateHTMLHandler}>Add</Button>
+                                <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={updateHTMLHandler}>
+                                    {editing?.actionType === 'edit_flex_columns' ? 'Apply' : 'Add'}
+                                </Button>
                             </Box>
                         </Box>
                     </Box>

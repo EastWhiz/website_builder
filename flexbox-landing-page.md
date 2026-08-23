@@ -717,18 +717,72 @@ Status: completed.
 
 ### Tasks
 
-- Add `Edit Columns` option for Flex Box containers.
-- Match the Edit Columns UI with the provided design reference.
-- Show list of generated columns.
-- Allow editing each column width.
-- Allow editing column margin.
-- Allow editing column padding.
-- Allow editing column background.
-- Allow editing column border.
-- Allow editing column border-radius.
-- Allow editing column box-shadow.
-- Apply column settings safely.
-- Preserve column settings after save/reload.
+- `Phase 8.1`: Detect selected Flex Box/Flex Column context.
+- `Phase 8.2`: Add `Edit Columns` option for Flex Box containers.
+- `Phase 8.3`: Add column selector and style controls.
+- `Phase 8.4`: Apply selected column styles safely.
+- `Phase 8.5`: Preserve column settings through the existing HTML save flow.
+
+### Phase 8.1 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added Flex Box context detection for:
+  - `.lp-flex-box-wrapper`
+  - `.lp-flex-box`
+  - `.lp-flex-column`
+- The editor can now identify when the selected/clicked element belongs to a Flex Box.
+
+### Phase 8.2 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added `Edit Columns` action in the Action Center.
+- This action is shown only when the selected element belongs to a Flex Box.
+- Normal landing page elements still show the existing edit/add/delete actions without extra Flex Box-specific controls.
+
+### Phase 8.3 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added an `Edit Columns` panel with:
+  - Column selector
+  - Width and unit
+  - Margin
+  - Padding
+  - Background color palette
+  - Border style
+  - Border width
+  - Border color palette
+  - Border radius
+  - Box shadow
+  - Content alignment for text, images, buttons, and other column elements
+  - Vertical alignment for top, middle, bottom, and stretch positioning
+
+### Phase 8.4 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added safe style application for the selected column only.
+- If a width is provided, the column receives fixed flex-basis/max-width behavior.
+- If width is left empty, the column returns to auto equal-width flex behavior.
+
+### Phase 8.5 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Column styles are stored as normal inline styles on the `.lp-flex-column`.
+- This means existing save, duplicate, export, and theme-switching flows preserve the column settings without a database structure change.
 
 ### Output
 
@@ -749,14 +803,69 @@ Status: completed.
 
 ### Tasks
 
-- Match the empty-column Add Element/Add Flex Box behavior with the provided design reference.
-- Show editor-only Add option inside empty columns.
-- Add Element inside selected column.
-- Add Flex Box inside selected column if nested layout is required.
-- Hide empty-column Add icon once content exists.
-- Ensure added content is inserted into the correct column.
-- Ensure added content inside a BD Flex Box still belongs to the parent BD.
-- Ensure click/edit/delete behavior works for content inside columns.
+- `Phase 9.1`: Make empty Flex columns clickable through the `+ Add content` placeholder.
+- `Phase 9.2`: Insert new elements inside the selected Flex column.
+- `Phase 9.3`: Support nested Flex Box insertion inside a selected Flex column.
+- `Phase 9.4`: Hide editor-only placeholders when a column contains real content.
+- `Phase 9.5`: Keep editor-only placeholders/delete controls out of saved/exported HTML.
+- `Phase 9.6`: Preserve BD ownership when Flex column content is inside a structured BD slot.
+
+### Phase 9.1 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Allowed `.lp-flex-column-add-button` clicks through the editor click guard.
+- Clicking the `+ Add content` placeholder now selects the parent `.lp-flex-column`.
+- This works for structured BD pages and legacy/non-structured preview pages.
+
+### Phase 9.2 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added a Flex-column-first insertion path before the structured BD fallback.
+- When the selected target is a Flex column or its placeholder, new content is inserted inside that exact column.
+- If the selected target is content inside a Flex column, Top/Bottom insertion happens relative to that selected content but remains inside the same column.
+
+### Phase 9.3 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- `Add Flex Box` uses the same column-aware insertion path.
+- This allows nested Flex Boxes inside a selected Flex column when needed.
+
+### Phase 9.4 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Empty Flex columns show an editor-only `+ Add content` placeholder.
+- Once real content exists in the column, the placeholder is removed/hidden.
+- If a column becomes empty again, the editor can recreate the placeholder dynamically.
+
+### Phase 9.5 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Editor-only Flex controls are removed from serialized page HTML.
+- This prevents `+ Add content` placeholders and delete icons from appearing in saved, duplicated, exported, or public landing page output.
+
+### Phase 9.6 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Content added inside a Flex Box that belongs to a structured BD slot is still marked as BD-owned content.
+- Theme switching can continue carrying the Flex column content with the correct BD slot.
 
 ### Output
 
