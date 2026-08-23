@@ -635,17 +635,69 @@ Status: completed.
 
 ### Tasks
 
-- Match the mobile/responsive configuration UI with the provided design reference.
-- Add Mobile settings section.
-- Add mobile breakpoint setting, default `750px`.
-- Support mobile number of columns/layout behavior.
-- Support mobile flex direction.
-- Support mobile justify-content.
-- Support mobile align-items.
-- Support mobile wrap.
-- Support mobile gap.
-- Generate scoped internal CSS for mobile behavior.
-- Ensure CSS is scoped to the specific Flex Box instance.
+- `Phase 7.1`: Add mobile responsive state/defaults.
+- `Phase 7.2`: Add Mobile Settings UI to the Add Flex Box configuration panel.
+- `Phase 7.3`: Generate scoped internal CSS for each Flex Box instance.
+- `Phase 7.4`: Preserve mobile metadata on the generated Flex Box markup.
+
+### Phase 7.1 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added mobile defaults to the Flex Box configuration:
+  - Breakpoint: `750px`
+  - Mobile columns: `1`
+  - Mobile flex direction: `column`
+  - Mobile justify-content: `flex-start`
+  - Mobile align-items: `stretch`
+  - Mobile wrap: `wrap`
+  - Mobile gap: `12px`
+
+### Phase 7.2 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added a `Mobile Settings` section to the Add Flex Box modal.
+- Desktop and Mobile settings are now separated with top toggle tabs inside the Flex Box modal, matching the provided design reference more closely.
+- Added controls for:
+  - Breakpoint
+  - Mobile columns
+  - Mobile flex direction
+  - Mobile wrap
+  - Mobile justify-content
+  - Mobile align-items
+  - Mobile gap and gap unit
+
+### Phase 7.3 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added scoped responsive CSS generation for each new Flex Box.
+- The CSS uses the generated `data-lp-flex-id`, so mobile rules apply only to that specific Flex Box.
+- The responsive CSS is stored inside the Flex Box wrapper as an internal `<style>` tag, which allows save, duplicate, export, and theme switching flows to carry the responsive behavior with the Flex Box HTML.
+
+### Phase 7.4 Implementation Notes
+
+Status: completed.
+
+#### What Changed
+
+- Added mobile metadata attributes to generated `.lp-flex-box` elements:
+  - `data-lp-mobile-breakpoint`
+  - `data-lp-mobile-columns`
+  - `data-lp-mobile-flex-direction`
+  - `data-lp-mobile-justify-content`
+  - `data-lp-mobile-align-items`
+  - `data-lp-mobile-flex-wrap`
+  - `data-lp-mobile-gap`
+  - `data-lp-mobile-gap-unit`
+- These attributes make future editing/debugging safer without needing a database structure change.
 
 ### Output
 

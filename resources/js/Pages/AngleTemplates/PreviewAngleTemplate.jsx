@@ -804,6 +804,14 @@ ${semanticContentDefaultCss}
         borderColor: "#b8c2cc",
         borderRadius: "",
         boxShadow: "",
+        mobileBreakpoint: "750",
+        mobileColumns: 1,
+        mobileFlexDirection: "column",
+        mobileJustifyContent: "flex-start",
+        mobileAlignItems: "stretch",
+        mobileFlexWrap: "wrap",
+        mobileGap: "12",
+        mobileGapUnit: "px",
     };
 
     const [imageManagement, setImageManagement] = useState(INITIAL_IMAGE_MANAGEMENT);
@@ -818,6 +826,7 @@ ${semanticContentDefaultCss}
     const [selectedFormLanguage, setSelectedFormLanguage] = useState(false);
     const [buttonManagement, setButtonManagement] = useState(INITIAL_BUTTON_MANAGEMENT);
     const [flexBoxManagement, setFlexBoxManagement] = useState(INITIAL_FLEX_BOX_MANAGEMENT);
+    const [flexBoxResponsiveMode, setFlexBoxResponsiveMode] = useState('desktop');
     const [userOtpServices, setUserOtpServices] = useState([]);
     // API platforms from api_categories (active categories)
     const [apiPlatforms, setApiPlatforms] = useState([]);
@@ -2668,6 +2677,42 @@ ${semanticContentDefaultCss}
         applyOptionalStyle(flexBox, 'boxShadow', flexBoxManagement.boxShadow);
     }
 
+    const buildFlexBoxMobileCss = (flexId) => {
+        const breakpoint = cssValueWithUnit(flexBoxManagement.mobileBreakpoint || '750', 'px');
+        const mobileColumns = normalizeFlexColumnCount(flexBoxManagement.mobileColumns || 1);
+        const mobileGap = cssValueWithUnit(flexBoxManagement.mobileGap, flexBoxManagement.mobileGapUnit) || '12px';
+        const mobileFlexDirection = flexBoxManagement.mobileFlexDirection || 'column';
+        const mobileJustifyContent = flexBoxManagement.mobileJustifyContent || 'flex-start';
+        const mobileAlignItems = flexBoxManagement.mobileAlignItems || 'stretch';
+        const mobileFlexWrap = flexBoxManagement.mobileFlexWrap || 'wrap';
+        const mobileColumnSize = mobileFlexDirection.includes('column')
+            ? '100%'
+            : `calc((100% - (${mobileColumns - 1} * ${mobileGap})) / ${mobileColumns})`;
+
+        return `
+@media (max-width: ${breakpoint}) {
+  .lp-flex-box[data-lp-flex-id="${flexId}"] {
+    flex-direction: ${mobileFlexDirection} !important;
+    justify-content: ${mobileJustifyContent} !important;
+    align-items: ${mobileAlignItems} !important;
+    flex-wrap: ${mobileFlexWrap} !important;
+    gap: ${mobileGap} !important;
+  }
+  .lp-flex-box[data-lp-flex-id="${flexId}"] > .lp-flex-column {
+    flex: 0 0 ${mobileColumnSize} !important;
+    max-width: ${mobileColumnSize} !important;
+  }
+}
+`.trim();
+    }
+
+    const createFlexBoxResponsiveStyle = (flexId) => {
+        const style = document.createElement('style');
+        style.setAttribute('data-lp-flex-responsive-style', flexId);
+        style.innerHTML = buildFlexBoxMobileCss(flexId);
+        return style;
+    }
+
     const createFlexDeleteButton = (action) => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -2847,6 +2892,14 @@ ${semanticContentDefaultCss}
         flexBox.classList.add('editableDiv', 'lp-flex-box');
         flexBox.setAttribute('data-lp-flex-id', flexId);
         flexBox.setAttribute('data-lp-flex-columns', String(columnCount));
+        flexBox.setAttribute('data-lp-mobile-breakpoint', flexBoxManagement.mobileBreakpoint || '750');
+        flexBox.setAttribute('data-lp-mobile-columns', String(normalizeFlexColumnCount(flexBoxManagement.mobileColumns || 1)));
+        flexBox.setAttribute('data-lp-mobile-flex-direction', flexBoxManagement.mobileFlexDirection || 'column');
+        flexBox.setAttribute('data-lp-mobile-justify-content', flexBoxManagement.mobileJustifyContent || 'flex-start');
+        flexBox.setAttribute('data-lp-mobile-align-items', flexBoxManagement.mobileAlignItems || 'stretch');
+        flexBox.setAttribute('data-lp-mobile-flex-wrap', flexBoxManagement.mobileFlexWrap || 'wrap');
+        flexBox.setAttribute('data-lp-mobile-gap', flexBoxManagement.mobileGap || '12');
+        flexBox.setAttribute('data-lp-mobile-gap-unit', flexBoxManagement.mobileGapUnit || 'px');
         applyFlexBoxDesktopStyles(flexBox);
 
         for (let index = 1; index <= columnCount; index++) {
@@ -2879,6 +2932,7 @@ ${semanticContentDefaultCss}
             flexBox.appendChild(column);
         }
 
+        wrapper.appendChild(createFlexBoxResponsiveStyle(flexId));
         wrapper.appendChild(flexBox);
         ensureFlexBoxEditorControls(wrapper);
         return wrapper;
@@ -3310,18 +3364,18 @@ ${semanticContentDefaultCss}
                                         <Box mt={2} sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.5 }}>
                                             {!editing.structuredBdAddOnly && (
                                                 <>
-                                                    <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
-                                                    <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="error" variant='outlined' onClick={() => handleChange("actionType", "delete")}>Delete Element</Button>
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="primary" variant='outlined' onClick={() => handleChange("actionType", "edit")}>Edit Element</Button>
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="error" variant='outlined' onClick={() => handleChange("actionType", "delete")}>Delete Element</Button>
                                                 </>
                                             )}
-                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
-                                            <Button className="doNotAct cptlz megaButtonSquare" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "flex_box")}>Add Flex Box</Button>
+                                            <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
+                                            <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "flex_box")}>Add Flex Box</Button>
                                         </Box>
                                     }
                                     {editing && editing.actionType == "flex_box" &&
                                         <Box mt={2} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                             <Typography variant="body2" color="text.secondary">
-                                                Create a Flex Box layout and configure desktop properties. Mobile settings will be handled in the next phase.
+                                                Create a Flex Box layout and configure desktop and mobile responsive properties.
                                             </Typography>
                                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Basic</Typography>
                                             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
@@ -3351,6 +3405,20 @@ ${semanticContentDefaultCss}
                                                     </MuiSelect>
                                                 </FormControl>
                                             </Box>
+                                            <Box sx={{ display: "flex", justifyContent: "center", mt: 0.5 }}>
+                                                <ToggleButtonGroup
+                                                    className="doNotAct"
+                                                    color="primary"
+                                                    exclusive
+                                                    size="small"
+                                                    value={flexBoxResponsiveMode}
+                                                    onChange={(_, value) => value && setFlexBoxResponsiveMode(value)}
+                                                >
+                                                    <ToggleButton className="doNotAct" value="desktop">Desktop</ToggleButton>
+                                                    <ToggleButton className="doNotAct" value="mobile">Mobile</ToggleButton>
+                                                </ToggleButtonGroup>
+                                            </Box>
+                                            {flexBoxResponsiveMode === 'desktop' && <>
                                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Desktop Size</Typography>
                                             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
                                                 <TextField
@@ -3566,6 +3634,110 @@ ${semanticContentDefaultCss}
                                                     />
                                                 </Box>
                                             </Box>
+                                            </>}
+                                            {flexBoxResponsiveMode === 'mobile' && <>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Mobile Settings</Typography>
+                                            <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Breakpoint (px)"
+                                                    value={flexBoxManagement.mobileBreakpoint}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileBreakpoint: e.target.value }))}
+                                                />
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-mobile-columns-label">Mobile Columns</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-mobile-columns-label"
+                                                        value={normalizeFlexColumnCount(flexBoxManagement.mobileColumns)}
+                                                        label="Mobile Columns"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileColumns: normalizeFlexColumnCount(e.target.value) }))}
+                                                    >
+                                                        {[1, 2, 3, 4, 5, 6].map((columnCount) => (
+                                                            <MenuItem className="doNotAct" key={columnCount} value={columnCount}>{columnCount} Column{columnCount > 1 ? 's' : ''}</MenuItem>
+                                                        ))}
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-mobile-direction-label">Mobile Flex Direction</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-mobile-direction-label"
+                                                        value={flexBoxManagement.mobileFlexDirection}
+                                                        label="Mobile Flex Direction"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileFlexDirection: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="row">Row</MenuItem>
+                                                        <MenuItem className="doNotAct" value="row-reverse">Row Reverse</MenuItem>
+                                                        <MenuItem className="doNotAct" value="column">Column</MenuItem>
+                                                        <MenuItem className="doNotAct" value="column-reverse">Column Reverse</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-mobile-wrap-label">Mobile Wrap</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-mobile-wrap-label"
+                                                        value={flexBoxManagement.mobileFlexWrap}
+                                                        label="Mobile Wrap"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileFlexWrap: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="nowrap">No Wrap</MenuItem>
+                                                        <MenuItem className="doNotAct" value="wrap">Wrap</MenuItem>
+                                                        <MenuItem className="doNotAct" value="wrap-reverse">Wrap Reverse</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-mobile-justify-label">Mobile Justify Content</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-mobile-justify-label"
+                                                        value={flexBoxManagement.mobileJustifyContent}
+                                                        label="Mobile Justify Content"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileJustifyContent: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="flex-start">Start</MenuItem>
+                                                        <MenuItem className="doNotAct" value="center">Center</MenuItem>
+                                                        <MenuItem className="doNotAct" value="flex-end">End</MenuItem>
+                                                        <MenuItem className="doNotAct" value="space-between">Space Between</MenuItem>
+                                                        <MenuItem className="doNotAct" value="space-around">Space Around</MenuItem>
+                                                        <MenuItem className="doNotAct" value="space-evenly">Space Evenly</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-mobile-align-label">Mobile Align Items</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-mobile-align-label"
+                                                        value={flexBoxManagement.mobileAlignItems}
+                                                        label="Mobile Align Items"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileAlignItems: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="flex-start">Start</MenuItem>
+                                                        <MenuItem className="doNotAct" value="center">Center</MenuItem>
+                                                        <MenuItem className="doNotAct" value="flex-end">End</MenuItem>
+                                                        <MenuItem className="doNotAct" value="stretch">Stretch</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                                <TextField
+                                                    className="doNotAct"
+                                                    fullWidth
+                                                    size="small"
+                                                    label="Mobile Gap"
+                                                    value={flexBoxManagement.mobileGap}
+                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileGap: e.target.value }))}
+                                                />
+                                                <FormControl fullWidth size="small">
+                                                    <InputLabel id="flex-box-mobile-gap-unit-label">Mobile Gap Unit</InputLabel>
+                                                    <MuiSelect
+                                                        labelId="flex-box-mobile-gap-unit-label"
+                                                        value={flexBoxManagement.mobileGapUnit}
+                                                        label="Mobile Gap Unit"
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, mobileGapUnit: e.target.value }))}
+                                                    >
+                                                        <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                        <MenuItem className="doNotAct" value="%">%</MenuItem>
+                                                    </MuiSelect>
+                                                </FormControl>
+                                            </Box>
+                                            </>}
                                         </Box>
                                     }
                                     {editing && editing.actionType == "add" && !editing.addElementPosition &&
