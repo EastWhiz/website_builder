@@ -1871,10 +1871,44 @@ ${semanticContentDefaultCss}
         wrapper.querySelectorAll('.lp-structured-bd-slot').forEach((slotElement) => {
             const slotKey = structuredBdSlotKeyFromElement(slotElement);
             if (slotKey) {
-                contents[slotKey] = slotElement.innerHTML;
+                sanitizeEditorOnlyPreviewMarkup(slotElement);
+                contents[slotKey] = preferredStructuredBdContent(contents[slotKey], slotElement.innerHTML);
             }
         });
         return contents;
+    }
+
+    const structuredBdContentScore = (content = '') => {
+        const normalized = String(content || '').trim();
+        if (!normalized) return 0;
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = normalized;
+
+        let score = normalized.replace(/<[^>]+>/g, '').trim().length;
+        if (wrapper.querySelector('.lp-flex-box, .lp-flex-box-wrapper')) score += 10000;
+        if (wrapper.querySelector('.lp-structured-page-addition')) score += 5000;
+        if (wrapper.querySelector('img, picture, video, source, iframe')) score += 2500;
+        if (wrapper.querySelector('form, input, select, textarea, button')) score += 1500;
+        score += wrapper.querySelectorAll('*').length;
+
+        return score;
+    }
+
+    const preferredStructuredBdContent = (existingContent, newContent) => {
+        if (existingContent === undefined) {
+            return newContent;
+        }
+
+        const existing = String(existingContent || '').trim();
+        const incoming = String(newContent || '').trim();
+        if (existing === incoming) {
+            return existingContent;
+        }
+
+        return structuredBdContentScore(incoming) > structuredBdContentScore(existing)
+            ? newContent
+            : existingContent;
     }
 
     const insertStructuredBdAddition = (position, existingElement, newElement) => {
@@ -2067,7 +2101,7 @@ ${semanticContentDefaultCss}
             if (insertStructuredBdAddition(position, existingElement, newElement)) {
                 return;
             }
-        } else if (structuredModeRef.current && editing?.actionType === 'add') {
+        } else if (structuredModeRef.current && ['add', 'flex_box'].includes(editing?.actionType)) {
             markStructuredPageAddition(newElement);
         }
 
@@ -2670,14 +2704,18 @@ ${semanticContentDefaultCss}
         ]);
     }
 
+    const sanitizeEditorOnlyPreviewMarkup = (rootElement) => {
+        rootElement?.querySelectorAll?.('.lp-flex-delete-control').forEach((control) => control.remove());
+        rootElement?.querySelectorAll?.('[data-lp-editor-only="true"]').forEach((control) => control.remove());
+    }
+
     const serializablePreviewHtml = (mainHtmlElement = document.querySelector(".mainHTML")) => {
         if (!mainHtmlElement) {
             return '';
         }
 
         const clone = mainHtmlElement.cloneNode(true);
-        clone.querySelectorAll('.lp-flex-delete-control').forEach((control) => control.remove());
-        clone.querySelectorAll('[data-lp-editor-only="true"]').forEach((control) => control.remove());
+        sanitizeEditorOnlyPreviewMarkup(clone);
         return clone.innerHTML;
     }
 

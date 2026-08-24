@@ -182,7 +182,9 @@ class AngleTemplateMergeService
      */
     public function renderStructuredBodies(Template $template, array $bodies, ?Angle $angle = null): array
     {
-        $bodies = array_map(fn ($body) => $this->normalizeStructuredBodyHtml((string) $body), $bodies);
+        $bodies = array_map(fn ($body) => $this->normalizeStructuredBodyHtml(
+            $this->removeEditorOnlyMarkup((string) $body)
+        ), $bodies);
         $bodies = $this->wrapStructuredBodiesForScopedStyling($bodies);
         $mainHtml = $this->injectBodySegmentsIntoShell((string) $template->index, $bodies);
         $mainHtml = $this->rewriteTemplateImagePaths($mainHtml, $template);
@@ -242,7 +244,9 @@ class AngleTemplateMergeService
                 continue;
             }
 
-            $body = $this->normalizeStructuredBodyHtml((string) $bodies[$slotKey]);
+            $body = $this->normalizeStructuredBodyHtml(
+                $this->removeEditorOnlyMarkup((string) $bodies[$slotKey])
+            );
             if ($angle) {
                 $body = $this->rewriteAngleImagePaths($body, $angle);
             }
@@ -270,7 +274,10 @@ class AngleTemplateMergeService
      */
     public function extractStructuredPageLevelAdditions(string $html): array
     {
-        if (! str_contains($html, 'lp-structured-page-addition')) {
+        if (
+            ! str_contains($html, 'lp-structured-page-addition')
+            && ! str_contains($html, 'lp-flex-box')
+        ) {
             return [];
         }
 
@@ -290,7 +297,15 @@ class AngleTemplateMergeService
         $xpath = new \DOMXPath($dom);
         $nodes = $xpath->query(
             '//*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-page-addition ")'
-            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-bd-slot ")])]'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-bd-slot ")])'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-page-addition ")])]'
+            .' | //*[contains(concat(" ", normalize-space(@class), " "), " lp-flex-box-wrapper ")'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-bd-slot ")])'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-page-addition ")])]'
+            .' | //*[contains(concat(" ", normalize-space(@class), " "), " lp-flex-box ")'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-flex-box-wrapper ")])'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-bd-slot ")])'
+            .' and not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lp-structured-page-addition ")])]'
         );
         if (! $nodes) {
             return [];
@@ -298,6 +313,10 @@ class AngleTemplateMergeService
 
         $additions = [];
         foreach ($nodes as $node) {
+            if ($node instanceof \DOMElement) {
+                $this->removeEditorOnlyNodes($dom, $node);
+            }
+
             $additions[] = $dom->saveHTML($node);
         }
 
@@ -371,6 +390,66 @@ class AngleTemplateMergeService
 
         foreach (iterator_to_array($fragmentRoot->childNodes) as $child) {
             $element->appendChild($dom->importNode($child, true));
+        }
+    }
+
+    /**
+     * Remove controls that are only useful inside the editor preview.
+     */
+    public function removeEditorOnlyMarkup(string $html): string
+    {
+        if ($html === '' || (
+            ! str_contains($html, 'data-lp-editor-only')
+            && ! str_contains($html, 'lp-flex-delete-control')
+        )) {
+            return $html;
+        }
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML(
+            '<?xml encoding="UTF-8"><!DOCTYPE html><html><body><div id="fragment-root">'.$html.'</div></body></html>',
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (! $loaded) {
+            return $html;
+        }
+
+        $root = $dom->getElementById('fragment-root');
+        if (! $root) {
+            return $html;
+        }
+
+        $this->removeEditorOnlyNodes($dom, $root);
+
+        $result = '';
+        foreach ($root->childNodes as $child) {
+            $result .= $dom->saveHTML($child);
+        }
+
+        return $result;
+    }
+
+    private function removeEditorOnlyNodes(\DOMDocument $dom, \DOMElement $root): void
+    {
+        $xpath = new \DOMXPath($dom);
+        $nodes = $xpath->query(
+            './/*[@data-lp-editor-only="true"'
+            .' or contains(concat(" ", normalize-space(@class), " "), " lp-flex-delete-control ")]',
+            $root
+        );
+
+        if (! $nodes) {
+            return;
+        }
+
+        foreach (iterator_to_array($nodes) as $node) {
+            if ($node->parentNode) {
+                $node->parentNode->removeChild($node);
+            }
         }
     }
 
@@ -679,8 +758,7 @@ CSS;
             return null;
         }
 
-        $placeholderIds = [];
-        $segments = [];
+        $bodies = [];
         foreach ($nodes as $node) {
             if (! $node instanceof \DOMElement) {
                 continue;
@@ -691,15 +769,62 @@ CSS;
                 continue;
             }
 
-            $placeholderIds[] = $slotKey;
-            $segments[] = $this->elementInnerHtml($dom, $node);
+            $segment = $this->elementInnerHtml($dom, $node);
+            $bodies[$slotKey] = $this->preferredStructuredBodyContent($bodies[$slotKey] ?? null, $segment);
         }
 
-        if ($placeholderIds === []) {
+        if ($bodies === []) {
             return null;
         }
 
-        return $this->mapSegmentsToBdIds($placeholderIds, $segments);
+        return $bodies;
+    }
+
+    private function preferredStructuredBodyContent(?string $existingContent, string $newContent): string
+    {
+        if ($existingContent === null) {
+            return $newContent;
+        }
+
+        if (trim($existingContent) === trim($newContent)) {
+            return $existingContent;
+        }
+
+        return $this->structuredBodyContentScore($newContent) > $this->structuredBodyContentScore($existingContent)
+            ? $newContent
+            : $existingContent;
+    }
+
+    private function structuredBodyContentScore(string $content): int
+    {
+        $content = trim($content);
+        if ($content === '') {
+            return 0;
+        }
+
+        $score = strlen(trim(strip_tags($content)));
+        foreach ([
+            'lp-flex-box' => 10000,
+            'lp-flex-box-wrapper' => 10000,
+            'lp-structured-page-addition' => 5000,
+            '<img' => 2500,
+            '<picture' => 2500,
+            '<video' => 2500,
+            '<iframe' => 2500,
+            '<form' => 1500,
+            '<input' => 1500,
+            '<select' => 1500,
+            '<textarea' => 1500,
+            '<button' => 1500,
+        ] as $needle => $weight) {
+            if (stripos($content, $needle) !== false) {
+                $score += $weight;
+            }
+        }
+
+        $score += substr_count($content, '<');
+
+        return $score;
     }
 
     /**

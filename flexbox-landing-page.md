@@ -885,6 +885,10 @@ Status: completed.
 
 ## Phase 10: Save, Theme Switching, And BD Compatibility
 
+### Status
+
+- Completed.
+
 ### Tasks
 
 - Confirm generated Flex Box markup follows the approved design and data-attribute structure.
@@ -899,6 +903,15 @@ Status: completed.
 - Confirm Flex Box editor metadata needed for future edits is preserved through duplication.
 - Confirm editor-only controls/icons are hidden or removed from duplicated/exported public output as required.
 - Ensure editor-only controls are not visible in final/exported landing page if required.
+
+### Implemented Notes
+
+- Added frontend serialization cleanup so Flex Box delete icons and empty-column editor placeholders are removed before saving `main_html`.
+- Added the same cleanup before extracting structured BD content from the rendered preview, so BD records store only real user content and Flex Box structure.
+- Added backend cleanup in the structured BD render/refresh path so theme switching does not carry editor-only controls forward.
+- Added backend cleanup to full preview save, direct BD save, duplication, and export paths as a defensive protection for older saved pages.
+- Preserved real Flex Box markup, column structure, desktop inline settings, scoped mobile CSS, and user-added column content.
+- Fixed structured theme switching so page-level Flex Boxes are preserved even when older saved pages did not have the page-addition marker.
 
 ### Output
 
@@ -930,20 +943,60 @@ Status: completed.
 
 ## Phase 11: QA And Regression Testing
 
+### Status
+
+- In progress.
+
+### Automated QA Completed
+
+- PHP syntax checks passed for changed backend files.
+- Focused `AngleTemplateMergeServiceTest` regression suite passed.
+- Added service-level coverage for BD-owned Flex Boxes, page-level Flex Boxes, older unmarked Flex Boxes, editor-only control cleanup, and structured theme-switch rebuild behavior.
+- Added regression coverage for repeated BD slots where one occurrence has a Flex Box and another occurrence is plain.
+- Frontend production build passed.
+- No destructive database command was used.
+
 ### Tasks
 
-- Test legacy landing page editing.
+- 11.1 Baseline Safety
+- Confirm no destructive database commands are used.
+- Confirm changed PHP files pass syntax checks.
+- Confirm frontend production build passes.
+- 11.2 Legacy Editor Regression
+- Test legacy landing page Add/Edit/Delete old element types.
+- Test Button URL behavior.
+- Test Image width behavior.
+- Test Text paragraph/heading behavior.
+- Confirm legacy save/reopen still works.
+- 11.3 Structured BD Editor Regression
 - Test structured BD landing page editing.
-- Test Add/Edit/Delete old element types.
-- Test Button URL.
-- Test Image width.
-- Test Text paragraph/heading.
-- Test Flex Box creation.
-- Test Flex Box column editing.
-- Test nested Flex Box.
-- Test theme switching after Flex Box edits.
-- Test mobile responsiveness.
-- Test save/reload behavior.
+- Test BD-owned Add/Edit/Delete behavior.
+- Confirm BD modal save updates the correct BD slot.
+- Confirm structured save/reopen still works.
+- 11.4 Flex Box Creation Regression
+- Test Flex Box creation above and below selected content.
+- Test repeated BD sections such as BD2/BD3 repeated in the layout.
+- Test Flex Box column editing and alignment settings.
+- Test nested Flex Box creation where supported.
+- 11.5 Flex Box Content Regression
+- Test adding text, heading, image, button, and custom HTML inside Flex Box columns.
+- Test deleting content inside a Flex Box column without deleting the column.
+- Test deleting a Flex Box column.
+- Test deleting the full Flex Box wrapper.
+- 11.6 Theme Switching Regression
+- Confirm BD-owned Flex Boxes remain inside the correct BD after theme switch.
+- Confirm page-level Flex Boxes outside BD slots remain after theme switch.
+- Confirm older unmarked page-level Flex Boxes remain after theme switch.
+- Confirm repeated BD slots preserve the edited/Flex Box version instead of being overwritten by a plain repeated occurrence.
+- Confirm editor-only Add buttons/delete controls are not saved into BD records or exported HTML.
+- 11.7 Duplication And Export Regression
+- Confirm duplicated landing pages keep Flex Box wrappers, columns, content, and scoped CSS.
+- Confirm exported landing pages keep Flex Box wrappers, columns, content, and scoped CSS.
+- Confirm duplicated/exported public output does not show editor-only controls.
+- 11.8 Mobile Regression
+- Test mobile breakpoint behavior.
+- Test mobile columns/direction/wrap/gap settings.
+- Test mobile layout after save/reopen and theme switch.
 
 ### Output
 

@@ -693,6 +693,162 @@ it('extracts only outside-bd structured page additions', function () {
         ->and($additions[0])->not->toContain('Inside BD');
 });
 
+it('extracts unmarked page-level flex boxes for structured theme switching', function () {
+    $html = '<main>'
+        .'<div class="lp-structured-bd-slot lp-structured-bd-slot-BD1" data-bd-slot="BD1">'
+        .'<h1>BD1 Content</h1>'
+        .'</div>'
+        .'<div class="editableDiv lp-flex-box-wrapper lp-structured-page-addition" data-lp-flex-id="marked-flex">'
+        .'<style data-lp-flex-responsive-style="marked-flex">.marked{display:block}</style>'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="marked-flex">'
+        .'<div class="editableDiv lp-flex-column"><p>Marked Flex Content</p></div>'
+        .'</div>'
+        .'</div>'
+        .'<div class="editableDiv lp-flex-box-wrapper" data-lp-flex-id="old-flex">'
+        .'<style data-lp-flex-responsive-style="old-flex">.old{display:block}</style>'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="old-flex">'
+        .'<div class="editableDiv lp-flex-column"><p>Old Unmarked Flex Content</p></div>'
+        .'<button class="lp-flex-delete-control" data-lp-editor-only="true">x</button>'
+        .'</div>'
+        .'</div>'
+        .'</main>';
+
+    $additions = $this->service->extractStructuredPageLevelAdditions($html);
+
+    expect($additions)->toHaveCount(2)
+        ->and(implode('', $additions))->toContain('Marked Flex Content')
+        ->and(implode('', $additions))->toContain('Old Unmarked Flex Content')
+        ->and(implode('', $additions))->toContain('data-lp-flex-responsive-style="old-flex"')
+        ->and(implode('', $additions))->not->toContain('lp-flex-delete-control')
+        ->and(implode('', $additions))->not->toContain('BD1 Content');
+});
+
+it('does not duplicate flex boxes already inside a page-level addition wrapper', function () {
+    $html = '<main>'
+        .'<section class="lp-structured-page-addition" data-lp-edit-context="page_addition">'
+        .'<div class="editableDiv lp-flex-box-wrapper" data-lp-flex-id="nested-flex">'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="nested-flex">'
+        .'<div class="editableDiv lp-flex-column"><p>Nested Flex Content</p></div>'
+        .'</div>'
+        .'</div>'
+        .'</section>'
+        .'</main>';
+
+    $additions = $this->service->extractStructuredPageLevelAdditions($html);
+
+    expect($additions)->toHaveCount(1)
+        ->and(substr_count(implode('', $additions), 'Nested Flex Content'))->toBe(1);
+});
+
+it('does not extract flex column children separately from a page-level flex wrapper', function () {
+    $html = '<main>'
+        .'<div class="editableDiv lp-flex-box-wrapper lp-structured-page-addition" data-lp-edit-context="page_addition" data-lp-flex-id="outside-flex">'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="outside-flex">'
+        .'<div class="editableDiv lp-flex-column">'
+        .'<p class="editableDiv lp-structured-page-addition" data-lp-edit-context="page_addition">Left column content</p>'
+        .'</div>'
+        .'<div class="editableDiv lp-flex-column">'
+        .'<p class="editableDiv lp-structured-page-addition" data-lp-edit-context="page_addition">Right column content</p>'
+        .'</div>'
+        .'</div>'
+        .'</div>'
+        .'</main>';
+
+    $additions = $this->service->extractStructuredPageLevelAdditions($html);
+    $combined = implode('', $additions);
+
+    expect($additions)->toHaveCount(1)
+        ->and(substr_count($combined, 'Left column content'))->toBe(1)
+        ->and(substr_count($combined, 'Right column content'))->toBe(1)
+        ->and($combined)->toContain('outside-flex');
+});
+
+it('keeps bd-owned flex boxes inside the bd body during structured rendering', function () {
+    $template = new class(['uuid' => 'target-theme', 'index' => '<main class="target"><!--INTERNAL--BD1--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $bdFlex = '<h1>BD1 Content</h1>'
+        .'<div class="editableDiv lp-flex-box-wrapper" data-lp-flex-id="bd-flex">'
+        .'<style data-lp-flex-responsive-style="bd-flex">.bd-flex{display:flex}</style>'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="bd-flex">'
+        .'<div class="editableDiv lp-flex-column"><p>BD Flex Column</p></div>'
+        .'<button data-lp-editor-only="true">+ Add content</button>'
+        .'</div>'
+        .'</div>';
+
+    $result = $this->service->renderStructuredBodies($template, [
+        'BD1' => $bdFlex,
+    ]);
+
+    expect($result['main_html'])->toContain('lp-structured-bd-slot-has-flexbox')
+        ->and($result['main_html'])->toContain('BD Flex Column')
+        ->and($result['main_html'])->toContain('data-lp-flex-responsive-style="bd-flex"')
+        ->and($result['main_html'])->not->toContain('data-lp-editor-only="true"');
+});
+
+it('preserves bd-owned and page-level flex boxes together during a structured theme switch rebuild', function () {
+    $targetTheme = new class(['uuid' => 'target-theme', 'index' => '<article class="target"><!--INTERNAL--BD1--EXTERNAL--><!--INTERNAL--BD3--EXTERNAL--></article>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $sourceHtml = '<main class="source">'
+        .'<div class="lp-structured-bd-slot lp-structured-bd-slot-BD1" data-bd-slot="BD1"><h1>Old BD1</h1></div>'
+        .'<div class="editableDiv lp-flex-box-wrapper" data-lp-flex-id="page-flex">'
+        .'<style data-lp-flex-responsive-style="page-flex">.page-flex{display:flex}</style>'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="page-flex">'
+        .'<div class="editableDiv lp-flex-column"><p>Page Flex Column</p></div>'
+        .'</div>'
+        .'</div>'
+        .'</main>';
+
+    $rendered = $this->service->renderStructuredBodies($targetTheme, [
+        'BD1' => '<h1>New BD1</h1><div class="editableDiv lp-flex-box-wrapper" data-lp-flex-id="bd-flex"><div class="editableDiv lp-flex-box"><div class="editableDiv lp-flex-column"><p>BD Flex Column</p></div></div></div>',
+        'BD3' => '<p>New BD3</p>',
+    ]);
+    $result = $this->service->appendStructuredPageLevelAdditions(
+        $rendered['main_html'],
+        $this->service->extractStructuredPageLevelAdditions($sourceHtml)
+    );
+
+    expect($result)->toContain('New BD1')
+        ->and($result)->toContain('New BD3')
+        ->and($result)->toContain('BD Flex Column')
+        ->and($result)->toContain('Page Flex Column')
+        ->and($result)->toContain('data-lp-flex-responsive-style="page-flex"');
+    expect(strpos($result, 'BD Flex Column'))->toBeLessThan(strpos($result, 'Page Flex Column'));
+});
+
 it('appends outside-bd page additions after a target theme layout', function () {
     $result = $this->service->appendStructuredPageLevelAdditions(
         '<main class="new-theme"><article>BD layout</article></main>',
@@ -716,6 +872,29 @@ it('extracts bd content from rendered structured wrappers for legacy conversion'
         'BD1' => '<h1>Wrapper BD1</h1>',
         'BD3' => '<p>Wrapper BD3</p>',
     ]);
+});
+
+it('prefers the edited repeated structured bd wrapper when another occurrence is plain', function () {
+    $html = '<main>'
+        .'<section class="lp-structured-bd-slot lp-structured-bd-slot-BD2" data-bd-slot="BD2">'
+        .'<h1>Body 2-2</h1>'
+        .'<div class="editableDiv lp-flex-box-wrapper" data-lp-flex-id="bd2-flex">'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="bd2-flex">'
+        .'<div class="editableDiv lp-flex-column"><img src="../../storage/angleTemplates/page/images/ship.png"></div>'
+        .'<div class="editableDiv lp-flex-column"><h2>Here it is</h2></div>'
+        .'</div>'
+        .'</div>'
+        .'</section>'
+        .'<section class="lp-structured-bd-slot lp-structured-bd-slot-BD3" data-bd-slot="BD3"><h1>Body 3-3</h1></section>'
+        .'<section class="lp-structured-bd-slot lp-structured-bd-slot-BD2" data-bd-slot="BD2"><h1>Body 2-2</h1></section>'
+        .'</main>';
+
+    $bodies = $this->service->extractBodySegmentsFromStructuredWrappers($html);
+
+    expect($bodies)->not->toBeNull()
+        ->and($bodies['BD2'])->toContain('bd2-flex')
+        ->and($bodies['BD2'])->toContain('Here it is')
+        ->and($bodies['BD3'])->toContain('Body 3-3');
 });
 
 it('extracts bd content for legacy conversion from the safest available source', function () {

@@ -631,7 +631,10 @@ class AngleTemplateController extends Controller
                     'parent_bd' => $content->parent_bd,
                     'slot_key' => $content->slot_key,
                     'slot_type' => $content->slot_type,
-                    'content' => $this->landingPageAssetService->rewriteStorageReferences((string) $content->content, $replacements),
+                    'content' => $this->landingPageAssetService->rewriteStorageReferences(
+                        $this->angleTemplateMergeService->removeEditorOnlyMarkup((string) $content->content),
+                        $replacements
+                    ),
                     'sort' => $content->sort,
                     'metadata' => $content->metadata,
                 ]);
@@ -808,7 +811,12 @@ class AngleTemplateController extends Controller
             return sendResponse(false, 'This landing page is using the legacy editor flow.', null, null, null, 422);
         }
 
-        $normalizedContents = $this->normalizeStructuredBdPayload($validated['bd_contents']);
+        $normalizedContents = array_map(
+            fn (array $item) => array_merge($item, [
+                'content' => $this->angleTemplateMergeService->removeEditorOnlyMarkup($item['content']),
+            ]),
+            $this->normalizeStructuredBdPayload($validated['bd_contents'])
+        );
         if ($normalizedContents === []) {
             return sendResponse(false, 'Please provide at least one valid BD field.', null, null, null, 422);
         }
@@ -1017,7 +1025,7 @@ class AngleTemplateController extends Controller
 
                 $editedAngleTemplate = $targetAngleTemplate ?: AngleTemplate::where('uuid', $request->angle_template_uuid)->first();
                 $structuredBdContents = $this->structuredBdContentsFromRenderedSaveRequest($request);
-                $editedAngleTemplate->main_html = (string) $request->main_html;
+                $editedAngleTemplate->main_html = $this->angleTemplateMergeService->removeEditorOnlyMarkup((string) $request->main_html);
                 $editedAngleTemplate->save();
 
                 $old_contents = ExtraContent::where('can_be_deleted', false)->where('angle_template_uuid', $request->angle_template_uuid)->whereIn('type', ['image'])->get();
@@ -1099,7 +1107,9 @@ class AngleTemplateController extends Controller
         }
 
         return collect($this->normalizeStructuredBdPayload($contents))
-            ->mapWithKeys(fn (array $item) => [$item['slot_key'] => $item['content']])
+            ->mapWithKeys(fn (array $item) => [
+                $item['slot_key'] => $this->angleTemplateMergeService->removeEditorOnlyMarkup($item['content']),
+            ])
             ->all();
     }
 
@@ -1476,7 +1486,7 @@ class AngleTemplateController extends Controller
 
         $angleImages = $angle->contents()->where('type', 'image')->get();
 
-        $updatingIndex = $angleTemplate->main_html;
+        $updatingIndex = $this->angleTemplateMergeService->removeEditorOnlyMarkup((string) $angleTemplate->main_html);
         $updatingCss = $angleTemplate->main_css;
         $updatingJs = $angleTemplate->main_js;
 
@@ -3710,7 +3720,7 @@ class AngleTemplateController extends Controller
                 'user_id' => Auth::id(), // Set current user as owner
                 'organization_id' => $request->user()?->currentOrganization()?->id,
                 'name' => $angleTemplate->name . ' (Copy)',
-                'main_html' => $angleTemplate->main_html,
+                'main_html' => $this->angleTemplateMergeService->removeEditorOnlyMarkup((string) $angleTemplate->main_html),
                 'main_css' => $angleTemplate->main_css,
                 'main_js' => $angleTemplate->main_js,
                 'content_mode' => $angleTemplate->content_mode ?: AngleTemplate::CONTENT_MODE_LEGACY,
@@ -3747,7 +3757,10 @@ class AngleTemplateController extends Controller
                     'parent_bd' => $content->parent_bd,
                     'slot_key' => $content->slot_key,
                     'slot_type' => $content->slot_type,
-                    'content' => $this->landingPageAssetService->rewriteStorageReferences((string) $content->content, $replacements),
+                    'content' => $this->landingPageAssetService->rewriteStorageReferences(
+                        $this->angleTemplateMergeService->removeEditorOnlyMarkup((string) $content->content),
+                        $replacements
+                    ),
                     'sort' => $content->sort,
                     'metadata' => $content->metadata,
                 ]);
