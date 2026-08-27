@@ -38,6 +38,8 @@ Validation:
 
 Goal: Fix existing style fields that are not applying correctly.
 
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-1-style-application.md`.
+
 Tasks:
 
 - Fix margin application for newly added elements.
@@ -58,6 +60,8 @@ Validation:
 
 Goal: Make image width stable in editor, preview, duplicate, and export.
 
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-2-image-width.md`.
+
 Tasks:
 
 - Ensure image width defaults to `100%` when the user does not enter a width.
@@ -74,6 +78,8 @@ Validation:
 ## Phase 3: Fix Text Styling Inside Flexbox
 
 Goal: Ensure text added inside Flexbox respects selected style options.
+
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-3-flexbox-text-styling.md`.
 
 Tasks:
 
@@ -94,6 +100,8 @@ Validation:
 
 Goal: Respect margin/padding values for Flexbox wrappers and columns.
 
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-4-flexbox-spacing.md`.
+
 Tasks:
 
 - Fix Flexbox wrapper margin handling.
@@ -112,6 +120,8 @@ Validation:
 ## Phase 5: Fix Editor-Only Borders and Controls in Preview/Export
 
 Goal: Keep editing helpers visible only in editor mode.
+
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-5-editor-only-cleanup.md`.
 
 Tasks:
 

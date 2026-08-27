@@ -569,6 +569,7 @@ export default function Dashboard({ id }) {
     const [mainJS, setMainJS] = useState('');
     const [isRtl, setIsRtl] = useState(false);
     const semanticContentStyleSelector = 'style[data-lp-semantic-content-style="true"]';
+    const editorOnlyStylePropsAttribute = 'data-lp-editor-style-props';
 const semanticContentDefaultCss = `
 /* lp semantic content defaults */
 .lp-structured-bd-slot.lp-structured-bd-slot-has-flexbox {
@@ -665,7 +666,7 @@ ${semanticContentDefaultCss}
         imageLink: "",          // <-- Add link property
         margin: "0px 0px 0px 0px",
         padding: "0px 0px 0px 0px",
-        width: "",
+        width: "100%",
     };
 
     const INITIAL_TRANSLATOR = {
@@ -1209,7 +1210,7 @@ ${semanticContentDefaultCss}
                 imageLink: editing.currentElement.parentElement.getAttribute("href"),
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
-                width: editing.currentElement.style.width || computedStyles.width,
+                width: editing.currentElement.style.width || imageWidthCssValue(computedStyles.width),
             }));
         } else if (editing && editing.actionType == "edit" && ['button'].includes(editing.elementName)) {
             let computedStyles = window.getComputedStyle(editing.currentElement);
@@ -1953,6 +1954,7 @@ ${semanticContentDefaultCss}
         if (structuredModeRef.current) {
             markStructuredPageAddition(newElement, editing?.bdSlotKey || structuredBdSlotKeyFromElement(bdSlotElement));
         }
+        normalizeFlexColumnAddedTextElement(newElement);
 
         const isColumnOrPlaceholderTarget = existingElement === flexColumnElement
             || existingElement?.classList?.contains('lp-flex-column-add-button');
@@ -1972,6 +1974,23 @@ ${semanticContentDefaultCss}
 
         syncFlexColumnPlaceholder(flexColumnElement);
         return true;
+    }
+
+    const normalizeFlexColumnAddedTextElement = (element) => {
+        const targetElement = element?.matches?.('a.app-anchor')
+            ? element.querySelector('p, h1, h2, h3, h4, h5, h6')
+            : element;
+        const tagName = targetElement?.localName?.toLowerCase();
+
+        if (!['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+            return;
+        }
+
+        targetElement.classList?.add('lp-flex-column-text-content');
+
+        if (!targetElement.style.margin) {
+            targetElement.style.margin = '0px';
+        }
     }
 
     const applyDefaultSemanticStylesToCustomHtml = (container) => {
@@ -2177,11 +2196,9 @@ ${semanticContentDefaultCss}
             const styles = {
                 color: textManagement.color,
                 backgroundColor: textManagement.backgroundColor,
-                fontSize: `${textManagement.fontSize}px`,
+                fontSize: cssPixelValue(textManagement.fontSize),
                 fontWeight: textManagement.fontWeight,
-                border: textManagement.border,
-                borderWidth: `${textManagement.borderWidth}px`,
-                borderColor: textManagement.borderColor,
+                border: borderCssValue(textManagement),
                 textAlign: textManagement.textAlign,
                 fontFamily: textManagement.fontFamily,
                 margin: textManagement.margin,
@@ -2196,18 +2213,18 @@ ${semanticContentDefaultCss}
                         newElement.innerHTML = wrapWithAnchor(editing.innerHTML, textManagement.link, styles);
                         element.innerHTML = newElement.innerHTML;
                     } else {
-                        Object.assign(newElement.style, styles);
+                        applyElementStyleMap(newElement, styles);
                         newElement.innerHTML = textManagement.textInput;
                         newElement.setAttribute('href', textManagement.link);
                         newElement.classList.add('app-anchor');
                         element.parentNode.replaceChild(newElement, element);
                     }
                 } else if (textManagement.link && textManagement.link != "#" && element.localName == "a") {
-                    Object.assign(element.style, styles);
+                    applyElementStyleMap(element, styles);
                     element.innerHTML = textManagement.textInput;
                     element.href = textManagement.link;
                 } else {
-                    Object.assign(element.style, styles);
+                    applyElementStyleMap(element, styles);
                     element.innerHTML = textManagement.textInput;
                     element.href = "#";
                 }
@@ -2224,6 +2241,7 @@ ${semanticContentDefaultCss}
                     newElement.classList.add('lp-semantic-heading');
                 }
                 newElement.innerHTML = textManagement.textInput;
+                applyElementStyleMap(newElement, styles);
 
                 if (textManagement.link && textManagement.link != "#") {
                     const anchor = document.createElement('a');
@@ -2248,20 +2266,13 @@ ${semanticContentDefaultCss}
             }
         } else if ((editing.actionType == "edit" && ['img'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "img")) {
             const styles = {
-                border: imageManagement.border,
-                borderWidth: `${imageManagement.borderWidth}px`,
-                borderColor: imageManagement.borderColor,
+                border: borderCssValue(imageManagement),
                 margin: imageManagement.margin,
                 padding: imageManagement.padding,
-                width: imageManagement.width,
+                width: imageWidthCssValue(imageManagement.width),
             };
             if (editing.actionType == "edit") {
-                Object.assign(element.style, styles);
-                if (imageManagement.width?.trim()) {
-                    element.style.width = imageManagement.width.trim();
-                } else {
-                    element.style.removeProperty('width');
-                }
+                applyElementStyleMap(element, styles);
                 if (imageManagement.via == "src") {
                     element.src = imageManagement.imageSrc;
                 } else {
@@ -2289,9 +2300,7 @@ ${semanticContentDefaultCss}
                 let newElement = document.createElement('img');
                 applyInheritedClassesToNewElement(newElement, element);
                 applyGeneratedInlineStyleClass(newElement, element);
-                if (imageManagement.width?.trim()) {
-                    newElement.style.width = imageManagement.width.trim();
-                }
+                applyElementStyleMap(newElement, styles);
                 if (imageManagement.via == "src") {
                     newElement.src = imageManagement.imageSrc;
                 } else {
@@ -2317,13 +2326,11 @@ ${semanticContentDefaultCss}
                 fontSize: `${buttonManagement.fontSize}px`,
                 margin: buttonManagement.margin,
                 padding: buttonManagement.padding,
-                border: buttonManagement.border,
-                borderWidth: `${buttonManagement.borderWidth}px`,
-                borderColor: buttonManagement.borderColor,
+                border: borderCssValue(buttonManagement),
             };
 
             if (editing.actionType == "edit") {
-                Object.assign(element.style, styles);
+                applyElementStyleMap(element, styles);
                 element.innerHTML = buttonManagement.buttonText;
                 const buttonLink = buttonManagement.buttonLink?.trim();
                 const parentAnchor = element.parentElement?.tagName === 'A' ? element.parentElement : null;
@@ -2344,6 +2351,7 @@ ${semanticContentDefaultCss}
                 let newElement = document.createElement('button');
                 applyInheritedClassesToNewElement(newElement, element);
                 applyGeneratedInlineStyleClass(newElement, element);
+                applyElementStyleMap(newElement, styles);
                 newElement.innerHTML = buttonManagement.buttonText;
                 if (buttonManagement.buttonLink?.trim()) {
                     const anchor = document.createElement('a');
@@ -2542,12 +2550,14 @@ ${semanticContentDefaultCss}
                 if (contentInput) contentInput.value = formManagement.otp_modal_content || '';
                 syncFormTrackingParamsFromUrl(element);
 
-                element.style.margin = formManagement.margin;
-                element.style.padding = formManagement.padding;
-                element.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;
-                element.style.borderRadius = '8px';
-                element.style.backgroundColor = '#f9f9f9';
-                element.style.width = '100%';
+                applyElementStyleMap(element, {
+                    margin: formManagement.margin,
+                    padding: formManagement.padding,
+                    border: borderCssValue(formManagement),
+                    borderRadius: '8px',
+                    backgroundColor: '#f9f9f9',
+                    width: '100%',
+                });
             } else {
                 // Create new form element
                 let newElement = document.createElement('form');
@@ -2568,11 +2578,13 @@ ${semanticContentDefaultCss}
                 if (contentInput) contentInput.value = formManagement.otp_modal_content || '';
                 syncFormTrackingParamsFromUrl(newElement);
 
-                newElement.style.margin = formManagement.margin;
-                newElement.style.padding = formManagement.padding;
-                newElement.style.border = `${formManagement.borderWidth}px ${formManagement.border} ${formManagement.borderColor}`;
-                newElement.style.borderRadius = '8px';
-                newElement.style.backgroundColor = '#f9f9f9';
+                applyElementStyleMap(newElement, {
+                    margin: formManagement.margin,
+                    padding: formManagement.padding,
+                    border: borderCssValue(formManagement),
+                    borderRadius: '8px',
+                    backgroundColor: '#f9f9f9',
+                });
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if (editing.actionType == "add" && editing.addElementType == "br") {
@@ -2705,6 +2717,7 @@ ${semanticContentDefaultCss}
     }
 
     const sanitizeEditorOnlyPreviewMarkup = (rootElement) => {
+        removeEditorOnlyStyleProperties(rootElement);
         rootElement?.querySelectorAll?.('.lp-flex-delete-control').forEach((control) => control.remove());
         rootElement?.querySelectorAll?.('[data-lp-editor-only="true"]').forEach((control) => control.remove());
     }
@@ -2756,6 +2769,87 @@ ${semanticContentDefaultCss}
         } else {
             element.style.removeProperty(property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`));
         }
+    }
+
+    const cssPropertyName = (property) => property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`);
+
+    const editorOnlyStyleProps = (element) => (
+        (element?.getAttribute?.(editorOnlyStylePropsAttribute) || '')
+            .split(',')
+            .map((property) => property.trim())
+            .filter(Boolean)
+    );
+
+    const markEditorOnlyStyle = (element, property, value) => {
+        if (!element) {
+            return;
+        }
+
+        applyOptionalStyle(element, property, value);
+        const cssProperty = cssPropertyName(property);
+        const props = new Set(editorOnlyStyleProps(element));
+        props.add(cssProperty);
+        element.setAttribute(editorOnlyStylePropsAttribute, Array.from(props).join(','));
+    }
+
+    const clearEditorOnlyStyleMark = (element, property) => {
+        if (!element) {
+            return;
+        }
+
+        const cssProperty = cssPropertyName(property);
+        const props = editorOnlyStyleProps(element).filter((prop) => prop !== cssProperty);
+        if (props.length) {
+            element.setAttribute(editorOnlyStylePropsAttribute, props.join(','));
+        } else {
+            element.removeAttribute(editorOnlyStylePropsAttribute);
+        }
+    }
+
+    const removeEditorOnlyStyleProperties = (rootElement) => {
+        rootElement?.querySelectorAll?.(`[${editorOnlyStylePropsAttribute}]`).forEach((element) => {
+            editorOnlyStyleProps(element).forEach((property) => {
+                element.style.removeProperty(property);
+            });
+
+            element.removeAttribute(editorOnlyStylePropsAttribute);
+            if (!element.getAttribute('style')?.trim()) {
+                element.removeAttribute('style');
+            }
+        });
+    }
+
+    const cssPixelValue = (value) => {
+        const normalizedValue = `${value ?? ''}`.trim();
+        if (!normalizedValue) {
+            return '';
+        }
+
+        return /[a-z%]+$/i.test(normalizedValue) ? normalizedValue : `${normalizedValue}px`;
+    }
+
+    const imageWidthCssValue = (value) => {
+        const normalizedValue = `${value ?? ''}`.trim();
+        return normalizedValue ? cssPixelValue(normalizedValue) : '100%';
+    }
+
+    const borderCssValue = ({ border, borderWidth, borderColor }) => {
+        const borderStyle = `${border || ''}`.trim();
+        if (!borderStyle) {
+            return '';
+        }
+
+        return `${cssPixelValue(borderWidth) || '1px'} ${borderStyle} ${borderColor || '#000000'}`;
+    }
+
+    const applyElementStyleMap = (element, styles) => {
+        if (!element || !styles) {
+            return;
+        }
+
+        Object.entries(styles).forEach(([property, value]) => {
+            applyOptionalStyle(element, property, value);
+        });
     }
 
     const colorForPicker = (color, fallback = '#ffffff') => {
@@ -2943,7 +3037,7 @@ ${semanticContentDefaultCss}
             width: widthParts.width,
             widthUnit: widthParts.widthUnit,
             margin: columnElement.style.margin || '',
-            padding: columnElement.style.padding || '12px',
+            padding: columnElement.style.padding || '0px',
             backgroundColor: colorForPicker(columnElement.style.backgroundColor, ''),
             border: borderParts[1] || columnElement.style.borderStyle || '',
             borderWidth: parseInt(borderParts[0] || columnElement.style.borderWidth || '', 10) || '',
@@ -3008,6 +3102,7 @@ ${semanticContentDefaultCss}
         applyOptionalStyle(columnElement, 'margin', flexColumnManagement.margin);
         applyOptionalStyle(columnElement, 'padding', flexColumnManagement.padding);
         applyOptionalStyle(columnElement, 'backgroundColor', flexColumnManagement.backgroundColor);
+        clearEditorOnlyStyleMark(columnElement, 'border');
         applyOptionalStyle(columnElement, 'border', border);
         applyOptionalStyle(columnElement, 'borderRadius', borderRadius);
         applyOptionalStyle(columnElement, 'boxShadow', flexColumnManagement.boxShadow);
@@ -3098,12 +3193,25 @@ ${semanticContentDefaultCss}
         }
         wrapper.style.position = 'relative';
         wrapper.style.width = '100%';
-        wrapper.style.margin = '18px 0 14px';
-        wrapper.style.padding = '6px';
-        wrapper.style.border = '1px dashed #f59e0b';
+        wrapper.style.margin = flexBoxManagement.margin || '0px';
+        wrapper.style.padding = flexBoxManagement.padding || '0px';
+        markEditorOnlyStyle(wrapper, 'border', '1px dashed #f59e0b');
         wrapper.style.overflow = 'visible';
 
         return wrapper;
+    }
+
+    const markKnownFlexEditorBorder = (element, expectedColor) => {
+        if (!element || element.getAttribute(editorOnlyStylePropsAttribute)) {
+            return;
+        }
+
+        const borderStyle = element.style.borderStyle;
+        const borderWidth = element.style.borderWidth;
+        const borderColor = colorForPicker(element.style.borderColor, '').toLowerCase();
+        if (borderStyle === 'dashed' && borderWidth === '1px' && borderColor === expectedColor) {
+            markEditorOnlyStyle(element, 'border', element.style.border || `1px dashed ${expectedColor}`);
+        }
     }
 
     const renumberFlexColumns = (flexBoxElement) => {
@@ -3135,11 +3243,12 @@ ${semanticContentDefaultCss}
                 Object.assign(wrapper.style, {
                     position: 'relative',
                     width: '100%',
-                    margin: '18px 0 14px',
-                    padding: '6px',
-                    border: '1px dashed #f59e0b',
+                    margin: wrapper.style.margin || '0px',
+                    padding: wrapper.style.padding || '0px',
                     overflow: 'visible',
                 });
+                markKnownFlexEditorBorder(wrapper, '#f59e0b');
+                markEditorOnlyStyle(wrapper, 'border', '1px dashed #f59e0b');
             }
 
             const hasDirectDeleteButton = Array.from(wrapper.children).some((child) => child.classList?.contains('lp-flex-delete-box'));
@@ -3150,6 +3259,7 @@ ${semanticContentDefaultCss}
 
         rootElement.querySelectorAll('.lp-flex-column').forEach((column) => {
             repairCollapsedAutoFlexColumn(column);
+            markKnownFlexEditorBorder(column, '#b8c2cc');
             syncFlexColumnPlaceholder(column);
             const columnDeleteHost = column.querySelector('.lp-flex-column-add-button') || column;
             const hasDirectDeleteButton = Array.from(columnDeleteHost.children).some((child) => child.classList?.contains('lp-flex-delete-column'));
@@ -3257,8 +3367,8 @@ ${semanticContentDefaultCss}
             column.setAttribute('data-lp-flex-column', String(index));
             column.style.flex = '1 1 0';
             column.style.minHeight = '80px';
-            column.style.padding = '12px';
-            column.style.border = '1px dashed #b8c2cc';
+            column.style.padding = '0px';
+            markEditorOnlyStyle(column, 'border', '1px dashed #b8c2cc');
             column.style.position = 'relative';
 
             column.appendChild(createFlexColumnAddButton(flexId, index));
@@ -4600,7 +4710,7 @@ ${semanticContentDefaultCss}
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                 View
                                                             </Typography>
-                                                            <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", border: `${imageManagement.borderWidth}px ${imageManagement.border} ${imageManagement.borderColor}`, width: imageManagement.width || '100%' }} />
+                                                            <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", border: `${imageManagement.borderWidth}px ${imageManagement.border} ${imageManagement.borderColor}`, width: imageWidthCssValue(imageManagement.width) }} />
                                                         </Box>
                                                     </Box>
                                                 </Box>

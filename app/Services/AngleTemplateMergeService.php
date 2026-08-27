@@ -315,6 +315,7 @@ class AngleTemplateMergeService
         foreach ($nodes as $node) {
             if ($node instanceof \DOMElement) {
                 $this->removeEditorOnlyNodes($dom, $node);
+                $this->removeEditorOnlyStyleProperties($dom, $node);
             }
 
             $additions[] = $dom->saveHTML($node);
@@ -400,6 +401,7 @@ class AngleTemplateMergeService
     {
         if ($html === '' || (
             ! str_contains($html, 'data-lp-editor-only')
+            && ! str_contains($html, 'data-lp-editor-style-props')
             && ! str_contains($html, 'lp-flex-delete-control')
         )) {
             return $html;
@@ -424,6 +426,7 @@ class AngleTemplateMergeService
         }
 
         $this->removeEditorOnlyNodes($dom, $root);
+        $this->removeEditorOnlyStyleProperties($dom, $root);
 
         $result = '';
         foreach ($root->childNodes as $child) {
@@ -449,6 +452,56 @@ class AngleTemplateMergeService
         foreach (iterator_to_array($nodes) as $node) {
             if ($node->parentNode) {
                 $node->parentNode->removeChild($node);
+            }
+        }
+    }
+
+    private function removeEditorOnlyStyleProperties(\DOMDocument $dom, \DOMElement $root): void
+    {
+        $xpath = new \DOMXPath($dom);
+        $nodes = $xpath->query('.//*[@data-lp-editor-style-props]', $root);
+        $elements = [];
+
+        if ($root->hasAttribute('data-lp-editor-style-props')) {
+            $elements[] = $root;
+        }
+
+        if ($nodes) {
+            foreach ($nodes as $node) {
+                if ($node instanceof \DOMElement) {
+                    $elements[] = $node;
+                }
+            }
+        }
+
+        foreach ($elements as $node) {
+            $properties = collect(explode(',', (string) $node->getAttribute('data-lp-editor-style-props')))
+                ->map(fn (string $property) => trim(strtolower($property)))
+                ->filter()
+                ->values()
+                ->all();
+
+            $node->removeAttribute('data-lp-editor-style-props');
+
+            if ($properties === []) {
+                continue;
+            }
+
+            $styles = collect(explode(';', (string) $node->getAttribute('style')))
+                ->map(fn (string $declaration) => trim($declaration))
+                ->filter()
+                ->reject(function (string $declaration) use ($properties) {
+                    [$property] = array_pad(explode(':', $declaration, 2), 2, '');
+
+                    return in_array(trim(strtolower($property)), $properties, true);
+                })
+                ->values()
+                ->all();
+
+            if ($styles === []) {
+                $node->removeAttribute('style');
+            } else {
+                $node->setAttribute('style', implode('; ', $styles).';');
             }
         }
     }

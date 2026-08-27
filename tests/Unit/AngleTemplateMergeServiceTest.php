@@ -763,6 +763,32 @@ it('does not extract flex column children separately from a page-level flex wrap
         ->and($combined)->toContain('outside-flex');
 });
 
+it('removes editor-only flexbox borders while preserving real flexbox content styles', function () {
+    $html = '<main>'
+        .'<div class="editableDiv lp-flex-box-wrapper lp-structured-page-addition" data-lp-edit-context="page_addition" data-lp-flex-id="outside-flex" data-lp-editor-style-props="border" style="position: relative; width: 100%; margin: 0px; border: 1px dashed #f59e0b;">'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="outside-flex">'
+        .'<div class="editableDiv lp-flex-column" data-lp-editor-style-props="border" style="padding: 0px; background-color: #ffffff; border: 1px dashed #b8c2cc;">'
+        .'<p style="color: red;">Column content</p>'
+        .'<button class="lp-flex-delete-control" data-lp-editor-only="true">x</button>'
+        .'</div>'
+        .'</div>'
+        .'</div>'
+        .'</main>';
+
+    $additions = $this->service->extractStructuredPageLevelAdditions($html);
+    $combined = implode('', $additions);
+
+    expect($combined)
+        ->toContain('Column content')
+        ->toContain('style="position: relative; width: 100%; margin: 0px;"')
+        ->toContain('style="padding: 0px; background-color: #ffffff;"')
+        ->toContain('style="color: red;"')
+        ->not->toContain('data-lp-editor-style-props')
+        ->not->toContain('lp-flex-delete-control')
+        ->not->toContain('border: 1px dashed #f59e0b')
+        ->not->toContain('border: 1px dashed #b8c2cc');
+});
+
 it('keeps bd-owned flex boxes inside the bd body during structured rendering', function () {
     $template = new class(['uuid' => 'target-theme', 'index' => '<main class="target"><!--INTERNAL--BD1--EXTERNAL--></main>']) extends Template
     {
