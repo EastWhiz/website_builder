@@ -42,7 +42,8 @@ export default function Dashboard() {
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 
-    const previewUrlForLandingPage = (angleTemplateId) => route('previewAngleTemplate', { id: angleTemplateId });
+    const previewUrlForLandingPage = (angleTemplateId) => route('landingPage.preview', { id: angleTemplateId });
+    const editorUrlForLandingPage = (angleTemplateId) => route('previewAngleTemplate', { id: angleTemplateId });
 
     const reservePreviewTab = () => {
         const previewTab = window.open('about:blank', '_blank');
@@ -689,10 +690,11 @@ export default function Dashboard() {
     const appliedFilters = [];
 
     const openLandingPreview = (templateId) => {
-        const baseUrl = (window.appURL && !window.appURL.includes('localhost') && !window.appURL.includes('127.0.0.1'))
-            ? window.appURL
-            : window.location.origin;
-        window.open(`${baseUrl}/angle-templates/preview/${templateId}/`, '_blank');
+        window.open(previewUrlForLandingPage(templateId), '_blank');
+    };
+
+    const openLandingEditor = (templateId) => {
+        window.open(editorUrlForLandingPage(templateId), '_blank');
     };
 
     const rowMarkup = tableRows.map((value, index) => {
@@ -771,7 +773,7 @@ export default function Dashboard() {
                     </Tooltip>
                     <span style={{ margin: "10px" }}></span>
                     <Tooltip title="Open editor" arrow>
-                        <span><Button variant='plain' icon={EditIcon} onClick={() => openLandingPreview(value.id)} accessibilityLabel="Open landing page editor"></Button></span>
+                        <span><Button variant='plain' icon={EditIcon} onClick={() => openLandingEditor(value.id)} accessibilityLabel="Open landing page editor"></Button></span>
                     </Tooltip>
                     <span style={{ margin: "10px" }}></span>
                     <Tooltip title="Preview landing page" arrow>

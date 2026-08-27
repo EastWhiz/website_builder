@@ -3205,6 +3205,40 @@ class AngleTemplateController extends Controller
         return response()->download($zipPath)->deleteFileAfterSend(true);
     }
 
+    public function previewLandingPage(Request $request, int $id)
+    {
+        $angleTemplate = AngleTemplate::query()->where('id', $id)->firstOrFail();
+        if (!$this->canManageAngleTemplate($request, $angleTemplate)) {
+            abort(403);
+        }
+
+        if ($angleTemplate->isStructuredBd()) {
+            $angleTemplate = $this->renderAndPersistStructuredBd($angleTemplate);
+        }
+
+        $html = $this->angleTemplateMergeService->removeEditorOnlyMarkup((string) $angleTemplate->main_html);
+        $css = (string) $angleTemplate->main_css;
+        $js = (string) $angleTemplate->main_js;
+
+        return response()->make(
+            '<!doctype html>'
+            .'<html lang="en">'
+            .'<head>'
+            .'<meta charset="utf-8">'
+            .'<meta name="viewport" content="width=device-width, initial-scale=1">'
+            .'<title>'.e((string) ($angleTemplate->name ?: 'Landing Page Preview')).'</title>'
+            .'<style>'.$css.'</style>'
+            .'</head>'
+            .'<body>'
+            .$html
+            .'<script>'.$js.'</script>'
+            .'</body>'
+            .'</html>',
+            200,
+            ['Content-Type' => 'text/html; charset=UTF-8']
+        );
+    }
+
     public function deleteAngleTemplate(Request $request)
     {
         // return $request;

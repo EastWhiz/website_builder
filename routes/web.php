@@ -268,6 +268,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/angle-templates/preview/{id}', function ($id) {
             return Inertia::render('AngleTemplates/PreviewAngleTemplate', compact('id'));
         })->name('previewAngleTemplate');
+        Route::get('/angle-templates/live-preview/{id}', [AngleTemplateController::class, 'previewLandingPage'])
+            ->name('landingPage.preview');
 
         Route::get('/angles/preview/{id}', function ($id) {
             return Inertia::render('Angles/PreviewAngle', compact('id'));

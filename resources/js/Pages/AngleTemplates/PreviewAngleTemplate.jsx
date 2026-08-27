@@ -1090,6 +1090,15 @@ ${semanticContentDefaultCss}
         // console.log(editing);
         if (editing && editing.actionType == "delete") {
             let elementInside = document.querySelector(`.${editing.editID}`);
+            if (isProtectedStructuredElement(elementInside)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Protected element',
+                    text: 'This BD/theme/Flex Box container is protected. Please select and delete the content inside it instead.',
+                });
+                setEditing(prev => ({ ...prev, actionType: false }));
+                return;
+            }
             const parentFlexColumn = closestParentWithClass(elementInside, 'lp-flex-column');
             elementInside.remove();
             syncFlexColumnPlaceholder(parentFlexColumn);
@@ -1681,6 +1690,34 @@ ${semanticContentDefaultCss}
         && (editableElements.includes(element.localName) || element.classList?.contains('editableDiv'))
     );
 
+    const isProtectedStructuredElement = (element) => (
+        Boolean(element)
+        && structuredModeRef.current
+        && (
+            element.classList?.contains('lp-structured-bd-slot')
+            || element.classList?.contains('lp-source-angle-content')
+            || element.classList?.contains('lp-source-bd-content')
+            || element.classList?.contains('lp-flex-box-wrapper')
+            || element.classList?.contains('lp-flex-box')
+            || element.classList?.contains('lp-flex-column')
+            || element.classList?.contains('lp-flex-column-add-button')
+        )
+    );
+
+    const canEditOrDeleteSelectedElement = (element) => (
+        Boolean(element)
+        && isEditablePreviewElement(element)
+        && !isProtectedStructuredElement(element)
+    );
+
+    const selectedStructuredContentElement = (clickedElement, bdSlotElement) => {
+        if (!bdSlotElement || !isEditablePreviewElement(clickedElement) || isProtectedStructuredElement(clickedElement)) {
+            return null;
+        }
+
+        return clickedElement;
+    }
+
     const markStructuredPageAddition = (element, bdSlotKey = false) => {
         if (element?.classList) {
             element.classList.add('lp-structured-page-addition');
@@ -2038,6 +2075,7 @@ ${semanticContentDefaultCss}
             const flexColumnSelectionElement = (isFlexColumnAddButtonClick || event.target.classList?.contains('lp-flex-column'))
                 ? flexColumnElement
                 : null;
+            const directBdContentElement = selectedStructuredContentElement(event.target, bdSlotElement);
             const structuredAdditionElement = flexColumnSelectionElement
                 || closestParentWithClass(event.target, 'lp-structured-page-addition')
                 || closestParentWithClass(event.target, 'editableDiv')
@@ -2046,6 +2084,7 @@ ${semanticContentDefaultCss}
                 ? event.target
                 : null;
             const selectedElement = structuredAdditionElement
+                || directBdContentElement
                 || angleSourceElement
                 || bdSourceElement
                 || bdSlotElement
@@ -2059,7 +2098,7 @@ ${semanticContentDefaultCss}
                 structuredAdditionElement,
                 themeElement,
             });
-            const bdAddOnly = Boolean(bdSourceElement || (bdSlotElement && !angleSourceElement && !structuredAdditionElement));
+            const bdAddOnly = !canEditOrDeleteSelectedElement(selectedElement);
 
             let randString = generateRandomString();
             setAnchorHelpProperties(bdAddOnly ? null : getClickedWordFromElement());

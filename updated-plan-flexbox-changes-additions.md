@@ -138,28 +138,34 @@ Validation:
 - Export page and confirm exported HTML is clean.
 - Confirm Flexbox content still appears correctly after cleanup.
 
-## Phase 6: Change Popup Actions After Save
+## Phase 6: Safe Popup Actions After Save
 
-Goal: Adjust the action popup behavior after the landing page is saved.
+Goal: Keep the action popup flexible after save while preventing users from deleting protected BD/theme/Flexbox structure.
+
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-6-safe-popup-actions.md`.
 
 Tasks:
 
-- Identify saved structured BD/editor mode state.
-- After save, show only:
-  - Add Element
-  - Add Flex Box
-- Hide Edit/Delete options where they should no longer be available after save.
+- Identify whether the selected element is safe editable content or protected structure.
+- Show Edit Element, Delete Element, Add Element, and Add Flex Box when the selected target is safe content.
+- Hide Edit/Delete for protected BD/source/Flexbox containers.
+- Block delete at execution time as a fallback safety guard if a protected element is selected.
 - Ensure legacy pages keep their expected behavior if they are not using the structured BD flow.
 
 Validation:
 
 - Save a structured landing page.
-- Click an element and verify only Add Element/Add Flex Box are shown.
+- Click content inside a BD and verify Edit/Delete/Add/Add Flex Box are available.
+- Click a protected BD/source/Flexbox container and verify Edit/Delete are not available.
+- Try to delete content inside a BD and verify only that content is removed.
+- Try to delete a protected container and verify it is blocked.
 - Test legacy page behavior to ensure it is not accidentally broken.
 
 ## Phase 7: Change Preview Landing Page Button Behavior
 
 Goal: Make Preview Landing Page open the actual preview instead of the editor.
+
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-7-preview-button.md`.
 
 Tasks:
 
