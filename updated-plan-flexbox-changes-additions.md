@@ -184,6 +184,8 @@ Validation:
 
 Goal: Add requested border styling controls.
 
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-8-border-controls.md`.
+
 Tasks:
 
 - Add Border Radius input/dropdown/control to Add/Edit Element styling options.
@@ -207,6 +209,8 @@ Validation:
 ## Phase 9: Add Font Family Support
 
 Goal: Let user select font family instead of relying only on inherited/default font.
+
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-9-font-family.md`.
 
 Tasks:
 
@@ -238,6 +242,8 @@ Validation:
 ## Phase 10: Add Edit Flex Box Option
 
 Goal: Allow users to edit an existing Flexbox after creation.
+
+Status: Completed. Notes are available in `docs/updated-plan-flexbox-phase-10-edit-flex-box.md`.
 
 Tasks:
 

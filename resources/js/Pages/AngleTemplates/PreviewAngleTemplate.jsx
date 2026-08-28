@@ -130,6 +130,28 @@ export default function Dashboard({ id }) {
         'outset',
     ];
 
+    const borderSideValues = ['top', 'right', 'bottom', 'left'];
+    const borderSides = [
+        { value: 'top', label: 'Top' },
+        { value: 'right', label: 'Right' },
+        { value: 'bottom', label: 'Bottom' },
+        { value: 'left', label: 'Left' },
+    ];
+
+    const fontFamilyChoices = [
+        { value: '', label: 'Inherit theme font' },
+        { value: "'Inter', sans-serif", label: 'Inter', googleFamily: 'Inter' },
+        { value: "'Roboto', sans-serif", label: 'Roboto', googleFamily: 'Roboto' },
+        { value: "'Poppins', sans-serif", label: 'Poppins', googleFamily: 'Poppins' },
+        { value: "'Montserrat', sans-serif", label: 'Montserrat', googleFamily: 'Montserrat' },
+        { value: "'DM Sans', sans-serif", label: 'DM Sans', googleFamily: 'DM Sans' },
+        { value: "'Source Sans 3', sans-serif", label: 'Source Sans 3', googleFamily: 'Source Sans 3' },
+        { value: "'Playfair Display', serif", label: 'Playfair Display', googleFamily: 'Playfair Display' },
+        { value: "'Lora', serif", label: 'Lora', googleFamily: 'Lora' },
+        { value: "'Merriweather', serif", label: 'Merriweather', googleFamily: 'Merriweather' },
+        { value: "'Oswald', sans-serif", label: 'Oswald', googleFamily: 'Oswald' },
+    ];
+
     const textAlignProperties = [
         'left',       // Aligns text to the left
         'right',      // Aligns text to the right
@@ -663,6 +685,8 @@ ${semanticContentDefaultCss}
         border: false,
         borderWidth: "",
         borderColor: "",
+        borderSide: "all",
+        borderRadius: "",
         imageLink: "",          // <-- Add link property
         margin: "0px 0px 0px 0px",
         padding: "0px 0px 0px 0px",
@@ -690,12 +714,15 @@ ${semanticContentDefaultCss}
         color: "",
         backgroundColor: "",
         fontSize: "12",
+        fontFamily: "",
         fontWeight: "normal",
         link: "",
         linkEffect: "Selected Element", // false, true
         border: false,
         borderWidth: "",
         borderColor: "",
+        borderSide: "all",
+        borderRadius: "",
         margin: "0px 0px 0px 0px",
         padding: "0px 0px 0px 0px",
         textAlign: false,
@@ -735,6 +762,8 @@ ${semanticContentDefaultCss}
         border: "solid",
         borderWidth: "2",
         borderColor: "#0186ff",
+        borderSide: "all",
+        borderRadius: "8",
         h3Text: "Form",
         h3FontSize: "24",
         h3HeadingColor: "#333333",
@@ -781,6 +810,8 @@ ${semanticContentDefaultCss}
         border: false,
         borderWidth: "",
         borderColor: "",
+        borderSide: "all",
+        borderRadius: "",
     };
 
     const INITIAL_FLEX_BOX_MANAGEMENT = {
@@ -851,6 +882,28 @@ ${semanticContentDefaultCss}
     /** Active User API instances for the selected platform (for multi-instance picker) */
     const [platformInstances, setPlatformInstances] = useState([]);
     const [aweberInstances, setAweberInstances] = useState([]);
+
+    const fontFamilyOptions = useMemo(() => {
+        const selectedFontFamily = `${textManagement.fontFamily || ''}`.trim();
+        const hasSelectedFont = fontFamilyChoices.some((item) => item.value === selectedFontFamily);
+
+        if (!selectedFontFamily || hasSelectedFont) {
+            return fontFamilyChoices;
+        }
+
+        const currentFontLabel = selectedFontFamily.split(',')[0].replace(/['"]/g, '').trim();
+        return [
+            ...fontFamilyChoices,
+            {
+                value: selectedFontFamily,
+                label: currentFontLabel ? `Current theme font: ${currentFontLabel}` : 'Current theme font',
+            },
+        ];
+    }, [textManagement.fontFamily]);
+
+    useEffect(() => {
+        ensureGoogleFontLink(textManagement.fontFamily);
+    }, [textManagement.fontFamily]);
 
     // Replace functionality state
     const [replaceModalOpen, setReplaceModalOpen] = useState(false);
@@ -1194,9 +1247,11 @@ ${semanticContentDefaultCss}
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                     ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
                     textAlign: computedStyles.textAlign,
-                    border: computedStyles.borderStyle,
-                    borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
-                    borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                    border: borderPartFromComputedStyle(computedStyles, 'Style'),
+                    borderWidth: removePxAndConvertToFloat(borderPartFromComputedStyle(computedStyles, 'Width')),
+                    borderColor: colorForPicker(borderPartFromComputedStyle(computedStyles, 'Color'), ''),
+                    borderSide: borderSideFromComputedStyle(computedStyles),
+                    borderRadius: removePxAndConvertToFloat(computedStyles.borderRadius),
                     link: InsideLink,
                     fontFamily: computedStyles.fontFamily,
                     padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
@@ -1213,9 +1268,11 @@ ${semanticContentDefaultCss}
             setImageManagement(prev => ({
                 ...prev, // keep all previous values
                 imageSrc: editing.imageSrc, // only update the value you want
-                border: computedStyles.borderStyle,
-                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
-                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                border: borderPartFromComputedStyle(computedStyles, 'Style'),
+                borderWidth: removePxAndConvertToFloat(borderPartFromComputedStyle(computedStyles, 'Width')),
+                borderColor: colorForPicker(borderPartFromComputedStyle(computedStyles, 'Color'), ''),
+                borderSide: borderSideFromComputedStyle(computedStyles),
+                borderRadius: removePxAndConvertToFloat(computedStyles.borderRadius),
                 imageLink: editing.currentElement.parentElement.getAttribute("href"),
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
@@ -1234,9 +1291,11 @@ ${semanticContentDefaultCss}
                 fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
-                border: computedStyles.borderStyle,
-                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
-                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                border: borderPartFromComputedStyle(computedStyles, 'Style'),
+                borderWidth: removePxAndConvertToFloat(borderPartFromComputedStyle(computedStyles, 'Width')),
+                borderColor: colorForPicker(borderPartFromComputedStyle(computedStyles, 'Color'), ''),
+                borderSide: borderSideFromComputedStyle(computedStyles),
+                borderRadius: removePxAndConvertToFloat(computedStyles.borderRadius),
             }));
         } else if (editing && editing.actionType == "edit" && ['form'].includes(editing.elementName)) {
             const formEl = editing.currentElement; // Assuming this is your form element
@@ -1313,9 +1372,11 @@ ${semanticContentDefaultCss}
                 inputs: inputs,
                 padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                 margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`,
-                border: computedStyles.borderStyle,
-                borderWidth: removePxAndConvertToFloat(computedStyles.borderWidth),
-                borderColor: `#${convert.rgb.hex(rgbToArray(computedStyles.borderColor))}`,
+                border: borderPartFromComputedStyle(computedStyles, 'Style'),
+                borderWidth: removePxAndConvertToFloat(borderPartFromComputedStyle(computedStyles, 'Width')),
+                borderColor: colorForPicker(borderPartFromComputedStyle(computedStyles, 'Color'), ''),
+                borderSide: borderSideFromComputedStyle(computedStyles),
+                borderRadius: removePxAndConvertToFloat(computedStyles.borderRadius),
                 h3Text: h3Element?.textContent.trim() || "",
                 h3FontSize: h3Element ? removePxAndConvertToFloat(window.getComputedStyle(h3Element).fontSize) : "24",
                 h3HeadingColor: h3Element ? `#${convert.rgb.hex(rgbToArray(window.getComputedStyle(h3Element).color))}` : "#333333",
@@ -1651,6 +1712,10 @@ ${semanticContentDefaultCss}
         }
         return null;
     }
+
+    const isDoNotActClickTarget = (element) => Boolean(
+        element?.classList?.contains('doNotAct') || hasParentWithClass(element, 'doNotAct')
+    );
 
     const structuredBdSlotKeyFromElement = (element) => {
         if (!element) return false;
@@ -2064,7 +2129,7 @@ ${semanticContentDefaultCss}
     const handleClick = (event) => {
         const isFlexColumnAddButtonClick = Boolean(closestParentWithClass(event.target, 'lp-flex-column-add-button'));
         if (structuredModeRef.current) {
-            if (event.target.outerHTML.includes("MuiModal-backdrop") || hasParentWithClass(event.target, 'popoverPlate') || hasParentWithClass(event.target, 'swal2-container') || (event.target.outerHTML.includes("doNotAct") && !isFlexColumnAddButtonClick)) {
+            if (event.target.outerHTML.includes("MuiModal-backdrop") || hasParentWithClass(event.target, 'popoverPlate') || hasParentWithClass(event.target, 'swal2-container') || (isDoNotActClickTarget(event.target) && !isFlexColumnAddButtonClick)) {
                 return;
             }
 
@@ -2123,7 +2188,7 @@ ${semanticContentDefaultCss}
         }
 
         // console.log(event.target.outerHTML);
-        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && (!event.target.outerHTML.includes("doNotAct") || event.target.localName == "form" || isFlexColumnAddButtonClick)) {
+        if (!event.target.outerHTML.includes("MuiModal-backdrop") && !hasParentWithClass(event.target, 'popoverPlate') && !hasParentWithClass(event.target, 'swal2-container') && (!isDoNotActClickTarget(event.target) || event.target.localName == "form" || isFlexColumnAddButtonClick)) {
             let randString = generateRandomString();
             const selectedTarget = isFlexColumnAddButtonClick
                 ? closestParentWithClass(event.target, 'lp-flex-column')
@@ -2223,21 +2288,25 @@ ${semanticContentDefaultCss}
         }
 
         let element = document.querySelector(`.${editing.editID}`);
+        let shouldPersistSelectedTextFont = false;
 
         //FURTHER EDITING REMAINING
         if (editing.actionType === "flex_box") {
             const newElement = createFlexBoxElement();
             await addNewContentHandler(normalizeFlexBoxPosition(flexBoxManagement.position), element, newElement);
+        } else if (editing.actionType === "edit_flex_box") {
+            applyFlexBoxManagement();
         } else if (editing.actionType === "edit_flex_columns") {
             applyFlexColumnManagement();
         } else if ((editing.actionType == "edit" && ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'i', 'p', 'span', 'text', 'rect', 'tspan', 'svg'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "p")) {
+            shouldPersistSelectedTextFont = Boolean(`${textManagement.fontFamily || ''}`.trim());
             //IF LINK IS NOT NULL THEN CONVERT ANY ELEMENT TO a
             const styles = {
                 color: textManagement.color,
                 backgroundColor: textManagement.backgroundColor,
                 fontSize: cssPixelValue(textManagement.fontSize),
                 fontWeight: textManagement.fontWeight,
-                border: borderCssValue(textManagement),
+                ...managedBorderPreviewStyle(textManagement),
                 textAlign: textManagement.textAlign,
                 fontFamily: textManagement.fontFamily,
                 margin: textManagement.margin,
@@ -2253,6 +2322,7 @@ ${semanticContentDefaultCss}
                         element.innerHTML = newElement.innerHTML;
                     } else {
                         applyElementStyleMap(newElement, styles);
+                        applyManagedBorderStyles(newElement, textManagement);
                         newElement.innerHTML = textManagement.textInput;
                         newElement.setAttribute('href', textManagement.link);
                         newElement.classList.add('app-anchor');
@@ -2260,10 +2330,12 @@ ${semanticContentDefaultCss}
                     }
                 } else if (textManagement.link && textManagement.link != "#" && element.localName == "a") {
                     applyElementStyleMap(element, styles);
+                    applyManagedBorderStyles(element, textManagement);
                     element.innerHTML = textManagement.textInput;
                     element.href = textManagement.link;
                 } else {
                     applyElementStyleMap(element, styles);
+                    applyManagedBorderStyles(element, textManagement);
                     element.innerHTML = textManagement.textInput;
                     element.href = "#";
                 }
@@ -2281,6 +2353,7 @@ ${semanticContentDefaultCss}
                 }
                 newElement.innerHTML = textManagement.textInput;
                 applyElementStyleMap(newElement, styles);
+                applyManagedBorderStyles(newElement, textManagement);
 
                 if (textManagement.link && textManagement.link != "#") {
                     const anchor = document.createElement('a');
@@ -2305,13 +2378,14 @@ ${semanticContentDefaultCss}
             }
         } else if ((editing.actionType == "edit" && ['img'].includes(editing.elementName)) || (editing.actionType === "add" && editing.addElementType == "img")) {
             const styles = {
-                border: borderCssValue(imageManagement),
                 margin: imageManagement.margin,
                 padding: imageManagement.padding,
                 width: imageWidthCssValue(imageManagement.width),
+                ...managedBorderPreviewStyle(imageManagement),
             };
             if (editing.actionType == "edit") {
                 applyElementStyleMap(element, styles);
+                applyManagedBorderStyles(element, imageManagement);
                 if (imageManagement.via == "src") {
                     element.src = imageManagement.imageSrc;
                 } else {
@@ -2340,6 +2414,7 @@ ${semanticContentDefaultCss}
                 applyInheritedClassesToNewElement(newElement, element);
                 applyGeneratedInlineStyleClass(newElement, element);
                 applyElementStyleMap(newElement, styles);
+                applyManagedBorderStyles(newElement, imageManagement);
                 if (imageManagement.via == "src") {
                     newElement.src = imageManagement.imageSrc;
                 } else {
@@ -2365,11 +2440,12 @@ ${semanticContentDefaultCss}
                 fontSize: `${buttonManagement.fontSize}px`,
                 margin: buttonManagement.margin,
                 padding: buttonManagement.padding,
-                border: borderCssValue(buttonManagement),
+                ...managedBorderPreviewStyle(buttonManagement),
             };
 
             if (editing.actionType == "edit") {
                 applyElementStyleMap(element, styles);
+                applyManagedBorderStyles(element, buttonManagement);
                 element.innerHTML = buttonManagement.buttonText;
                 const buttonLink = buttonManagement.buttonLink?.trim();
                 const parentAnchor = element.parentElement?.tagName === 'A' ? element.parentElement : null;
@@ -2391,6 +2467,7 @@ ${semanticContentDefaultCss}
                 applyInheritedClassesToNewElement(newElement, element);
                 applyGeneratedInlineStyleClass(newElement, element);
                 applyElementStyleMap(newElement, styles);
+                applyManagedBorderStyles(newElement, buttonManagement);
                 newElement.innerHTML = buttonManagement.buttonText;
                 if (buttonManagement.buttonLink?.trim()) {
                     const anchor = document.createElement('a');
@@ -2592,11 +2669,11 @@ ${semanticContentDefaultCss}
                 applyElementStyleMap(element, {
                     margin: formManagement.margin,
                     padding: formManagement.padding,
-                    border: borderCssValue(formManagement),
-                    borderRadius: '8px',
                     backgroundColor: '#f9f9f9',
                     width: '100%',
+                    ...managedBorderPreviewStyle(formManagement),
                 });
+                applyManagedBorderStyles(element, formManagement);
             } else {
                 // Create new form element
                 let newElement = document.createElement('form');
@@ -2620,10 +2697,10 @@ ${semanticContentDefaultCss}
                 applyElementStyleMap(newElement, {
                     margin: formManagement.margin,
                     padding: formManagement.padding,
-                    border: borderCssValue(formManagement),
-                    borderRadius: '8px',
                     backgroundColor: '#f9f9f9',
+                    ...managedBorderPreviewStyle(formManagement),
                 });
+                applyManagedBorderStyles(newElement, formManagement);
                 await addNewContentHandler(editing.addElementPosition, element, newElement);
             }
         } else if (editing.actionType == "add" && editing.addElementType == "br") {
@@ -2636,6 +2713,9 @@ ${semanticContentDefaultCss}
         let elementInside = document.querySelector(`.${editing.editID}`)
         elementInside.classList.remove(editing.editID);
         const mainHtmlElement = document.querySelector(".mainHTML");
+        if (shouldPersistSelectedTextFont) {
+            ensureGoogleFontStyleElement(mainHtmlElement, textManagement.fontFamily);
+        }
         if (mainHtmlElement?.querySelector('.lp-semantic-heading')) {
             ensureSemanticContentStyleElement(mainHtmlElement);
         }
@@ -2801,6 +2881,19 @@ ${semanticContentDefaultCss}
         return `${normalizedValue}${unit || ''}`;
     }
 
+    const cssLengthParts = (value, fallbackUnit = 'px') => {
+        const normalizedValue = `${value || ''}`.trim();
+        const match = normalizedValue.match(/^([\d.]+)\s*(px|%|vh|vw|em|rem)?$/i);
+        if (!match) {
+            return { value: '', unit: fallbackUnit };
+        }
+
+        return {
+            value: match[1],
+            unit: match[2] || fallbackUnit,
+        };
+    }
+
     const applyOptionalStyle = (element, property, value) => {
         const normalizedValue = `${value ?? ''}`.trim();
         if (normalizedValue) {
@@ -2881,6 +2974,191 @@ ${semanticContentDefaultCss}
         return `${cssPixelValue(borderWidth) || '1px'} ${borderStyle} ${borderColor || '#000000'}`;
     }
 
+    const normalizeBorderSides = (borderSide) => {
+        if (Array.isArray(borderSide)) {
+            return borderSide.filter((side) => borderSideValues.includes(side));
+        }
+
+        const normalizedSide = `${borderSide || 'all'}`.trim().toLowerCase();
+        if (!normalizedSide || normalizedSide === 'all') {
+            return borderSideValues;
+        }
+
+        return normalizedSide
+            .split(',')
+            .map((side) => side.trim())
+            .filter((side) => borderSideValues.includes(side));
+    }
+
+    const borderSideCssProperty = (borderSide) => {
+        return {
+            top: 'borderTop',
+            right: 'borderRight',
+            bottom: 'borderBottom',
+            left: 'borderLeft',
+        }[borderSide];
+    }
+
+    const areAllBorderSidesSelected = (borderSide) => {
+        return normalizeBorderSides(borderSide).length === borderSideValues.length;
+    }
+
+    const clearBorderStyles = (element) => {
+        if (!element?.style) {
+            return;
+        }
+
+        [
+            'border',
+            'borderTop',
+            'borderRight',
+            'borderBottom',
+            'borderLeft',
+            'borderWidth',
+            'borderStyle',
+            'borderColor',
+            'borderTopWidth',
+            'borderTopStyle',
+            'borderTopColor',
+            'borderRightWidth',
+            'borderRightStyle',
+            'borderRightColor',
+            'borderBottomWidth',
+            'borderBottomStyle',
+            'borderBottomColor',
+            'borderLeftWidth',
+            'borderLeftStyle',
+            'borderLeftColor',
+        ].forEach((property) => element.style.removeProperty(cssPropertyName(property)));
+    }
+
+    const applyManagedBorderStyles = (element, management) => {
+        if (!element || !management) {
+            return;
+        }
+
+        clearBorderStyles(element);
+        const borderValue = borderCssValue(management);
+        const selectedSides = normalizeBorderSides(management.borderSide);
+        if (borderValue && selectedSides.length) {
+            if (selectedSides.length === borderSideValues.length) {
+                applyOptionalStyle(element, 'border', borderValue);
+            } else {
+                selectedSides.forEach((side) => {
+                    applyOptionalStyle(element, borderSideCssProperty(side), borderValue);
+                });
+            }
+        }
+        applyOptionalStyle(element, 'borderRadius', cssPixelValue(management.borderRadius));
+    }
+
+    const managedBorderPreviewStyle = (management) => {
+        const styles = {};
+        const borderValue = borderCssValue(management);
+        const selectedSides = normalizeBorderSides(management.borderSide);
+        if (borderValue && selectedSides.length) {
+            if (selectedSides.length === borderSideValues.length) {
+                styles.border = borderValue;
+            } else {
+                selectedSides.forEach((side) => {
+                    styles[borderSideCssProperty(side)] = borderValue;
+                });
+            }
+        }
+        if (`${management?.borderRadius ?? ''}`.trim()) {
+            styles.borderRadius = cssPixelValue(management.borderRadius);
+        }
+
+        return styles;
+    }
+
+    const borderSideFromComputedStyle = (computedStyles) => {
+        if (!computedStyles) {
+            return 'all';
+        }
+
+        const activeSides = borderSideValues.filter((side) => {
+            const sideName = side.charAt(0).toUpperCase() + side.slice(1);
+            const style = computedStyles[`border${sideName}Style`];
+            const width = parseFloat(computedStyles[`border${sideName}Width`]);
+            return style && style !== 'none' && width > 0;
+        });
+
+        if (activeSides.length === borderSideValues.length) {
+            return 'all';
+        }
+
+        return activeSides;
+    }
+
+    const borderPartFromComputedStyle = (computedStyles, part) => {
+        if (!computedStyles) {
+            return '';
+        }
+
+        const selectedSides = normalizeBorderSides(borderSideFromComputedStyle(computedStyles));
+        if (selectedSides.length === borderSideValues.length) {
+            return computedStyles[`border${part}`] || '';
+        }
+
+        const firstSide = selectedSides[0] || 'top';
+        const sideName = firstSide.charAt(0).toUpperCase() + firstSide.slice(1);
+        return computedStyles[`border${sideName}${part}`] || '';
+    }
+
+    const updateBorderSideSelection = (setter, management, side, checked) => {
+        const selectedSides = normalizeBorderSides(management.borderSide);
+        const nextSides = checked
+            ? [...new Set([...selectedSides, side])]
+            : selectedSides.filter((item) => item !== side);
+
+        setter({
+            ...management,
+            borderSide: nextSides.length === borderSideValues.length ? 'all' : nextSides,
+        });
+    }
+
+    const updateAllBorderSideSelection = (setter, management, checked) => {
+        setter({
+            ...management,
+            borderSide: checked ? 'all' : [],
+        });
+    }
+
+    const renderBorderSideCheckboxes = (label, management, setter) => {
+        const selectedSides = normalizeBorderSides(management.borderSide);
+
+        return (
+            <Box sx={{ mt: 2.1 }}>
+                <Typography variant="body" component="div" sx={{ fontSize: "14px", mb: 0.7 }}>
+                    {label}
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+                    <Box component="label" className="doNotAct" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '14px' }}>
+                        <Checkbox
+                            className="doNotAct"
+                            size="small"
+                            checked={areAllBorderSidesSelected(management.borderSide)}
+                            onChange={(e) => updateAllBorderSideSelection(setter, management, e.target.checked)}
+                        />
+                        All
+                    </Box>
+                    {borderSides.map((item) => (
+                        <Box component="label" className="doNotAct" key={item.value} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '14px' }}>
+                            <Checkbox
+                                className="doNotAct"
+                                size="small"
+                                checked={selectedSides.includes(item.value)}
+                                onChange={(e) => updateBorderSideSelection(setter, management, item.value, e.target.checked)}
+                            />
+                            {item.label}
+                        </Box>
+                    ))}
+                </Box>
+            </Box>
+        );
+    }
+
     const applyElementStyleMap = (element, styles) => {
         if (!element || !styles) {
             return;
@@ -2903,6 +3181,53 @@ ${semanticContentDefaultCss}
             return `#${convert.rgb.hex(rgbToArray(normalizedColor))}`;
         }
         return fallback;
+    }
+
+    const googleFontHrefForFamily = (fontFamily) => {
+        const selected = fontFamilyChoices.find((item) => item.value === `${fontFamily || ''}`.trim());
+        if (!selected?.googleFamily) {
+            return '';
+        }
+
+        const family = selected.googleFamily.replace(/\s+/g, '+');
+        return `https://fonts.googleapis.com/css2?family=${family}:wght@400;500;600;700;800&display=swap`;
+    }
+
+    const ensureGoogleFontLink = (fontFamily) => {
+        const href = googleFontHrefForFamily(fontFamily);
+        if (!href || typeof document === 'undefined') {
+            return;
+        }
+
+        const existing = document.head.querySelector(`link[data-lp-google-font="${href}"]`);
+        if (existing) {
+            return;
+        }
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-lp-google-font', href);
+        document.head.appendChild(link);
+    }
+
+    const ensureGoogleFontStyleElement = (rootElement, fontFamily) => {
+        const href = googleFontHrefForFamily(fontFamily);
+        if (!rootElement || !href) {
+            return;
+        }
+
+        let styleElement = rootElement.querySelector?.('style[data-lp-google-fonts="true"]');
+        if (!styleElement) {
+            styleElement = document.createElement('style');
+            styleElement.setAttribute('data-lp-google-fonts', 'true');
+            rootElement.insertAdjacentElement('afterbegin', styleElement);
+        }
+
+        const importRule = `@import url('${href}');`;
+        if (!styleElement.textContent.includes(importRule)) {
+            styleElement.textContent = `${styleElement.textContent || ''}\n${importRule}\n`;
+        }
     }
 
     const applyFlexBoxDesktopStyles = (flexBox) => {
@@ -2966,6 +3291,69 @@ ${semanticContentDefaultCss}
         style.setAttribute('data-lp-flex-responsive-style', flexId);
         style.innerHTML = buildFlexBoxMobileCss(flexId);
         return style;
+    }
+
+    const upsertFlexBoxResponsiveStyle = (flexBoxElement) => {
+        const flexId = flexBoxElement?.getAttribute?.('data-lp-flex-id');
+        if (!flexId) {
+            return;
+        }
+
+        const wrapper = closestParentWithClass(flexBoxElement, 'lp-flex-box-wrapper') || flexBoxElement.parentElement;
+        let styleElement = wrapper?.querySelector?.(`style[data-lp-flex-responsive-style="${flexId}"]`)
+            || flexBoxElement.parentElement?.querySelector?.(`style[data-lp-flex-responsive-style="${flexId}"]`);
+
+        if (!styleElement) {
+            styleElement = createFlexBoxResponsiveStyle(flexId);
+            flexBoxElement.insertAdjacentElement('beforebegin', styleElement);
+            return;
+        }
+
+        styleElement.innerHTML = buildFlexBoxMobileCss(flexId);
+    }
+
+    const readFlexBoxManagementFromElement = (flexBoxElement) => {
+        if (!flexBoxElement) {
+            return INITIAL_FLEX_BOX_MANAGEMENT;
+        }
+
+        const widthParts = cssLengthParts(flexBoxElement.style.width || '100%', '%');
+        const minHeightParts = cssLengthParts(flexBoxElement.style.minHeight || '', 'px');
+        const gapParts = cssLengthParts(flexBoxElement.style.gap || '16px', 'px');
+        const borderParts = (flexBoxElement.style.border || '').split(' ').filter(Boolean);
+
+        return {
+            ...INITIAL_FLEX_BOX_MANAGEMENT,
+            position: "bottom",
+            columns: normalizeFlexColumnCount(flexBoxElement.getAttribute('data-lp-flex-columns') || flexBoxElement.querySelectorAll(':scope > .lp-flex-column').length || 1),
+            width: widthParts.value || '100',
+            widthUnit: widthParts.unit || '%',
+            maxWidth: removePxAndConvertToFloat(flexBoxElement.style.maxWidth || ''),
+            minHeight: minHeightParts.value || '',
+            minHeightUnit: minHeightParts.unit || 'px',
+            flexDirection: flexBoxElement.style.flexDirection || 'row',
+            justifyContent: flexBoxElement.style.justifyContent || 'flex-start',
+            alignItems: flexBoxElement.style.alignItems || 'stretch',
+            flexWrap: flexBoxElement.style.flexWrap || 'nowrap',
+            gap: gapParts.value || '16',
+            gapUnit: gapParts.unit || 'px',
+            margin: flexBoxElement.style.margin || '0px',
+            padding: flexBoxElement.style.padding || '0px',
+            backgroundColor: colorForPicker(flexBoxElement.style.backgroundColor, ''),
+            border: borderParts[1] || flexBoxElement.style.borderStyle || '',
+            borderWidth: parseInt(borderParts[0] || flexBoxElement.style.borderWidth || '', 10) || '',
+            borderColor: colorForPicker(flexBoxElement.style.borderColor, '#b8c2cc'),
+            borderRadius: parseInt(flexBoxElement.style.borderRadius || '', 10) || '',
+            boxShadow: flexBoxElement.style.boxShadow || '',
+            mobileBreakpoint: flexBoxElement.getAttribute('data-lp-mobile-breakpoint') || '750',
+            mobileColumns: normalizeFlexColumnCount(flexBoxElement.getAttribute('data-lp-mobile-columns') || 1),
+            mobileFlexDirection: flexBoxElement.getAttribute('data-lp-mobile-flex-direction') || 'column',
+            mobileJustifyContent: flexBoxElement.getAttribute('data-lp-mobile-justify-content') || 'flex-start',
+            mobileAlignItems: flexBoxElement.getAttribute('data-lp-mobile-align-items') || 'stretch',
+            mobileFlexWrap: flexBoxElement.getAttribute('data-lp-mobile-flex-wrap') || 'wrap',
+            mobileGap: flexBoxElement.getAttribute('data-lp-mobile-gap') || '12',
+            mobileGapUnit: flexBoxElement.getAttribute('data-lp-mobile-gap-unit') || 'px',
+        };
     }
 
     const isFlexBoxEditableElement = (element) => Boolean(
@@ -3110,6 +3498,13 @@ ${semanticContentDefaultCss}
         setEditing(prev => ({ ...prev, actionType: 'edit_flex_columns' }));
     }
 
+    const startFlexBoxEdit = () => {
+        const flexBoxElement = selectedFlexBoxElement();
+        setFlexBoxManagement(readFlexBoxManagementFromElement(flexBoxElement));
+        setFlexBoxResponsiveMode('desktop');
+        setEditing(prev => ({ ...prev, actionType: 'edit_flex_box' }));
+    }
+
     const handleFlexColumnSelectionChange = (columnNumber) => {
         const flexBoxElement = selectedFlexBoxElement();
         const columnElement = flexColumnElementFromSelection(flexBoxElement, columnNumber);
@@ -3146,6 +3541,105 @@ ${semanticContentDefaultCss}
         applyOptionalStyle(columnElement, 'borderRadius', borderRadius);
         applyOptionalStyle(columnElement, 'boxShadow', flexColumnManagement.boxShadow);
         applyFlexColumnContentAlignment(columnElement, flexColumnManagement.textAlign, flexColumnManagement.verticalAlign);
+    }
+
+    const createBlankFlexColumn = (flexId, columnNumber) => {
+        const column = document.createElement('div');
+        column.classList.add('editableDiv', 'lp-flex-column');
+        column.setAttribute('data-lp-flex-id', flexId);
+        column.setAttribute('data-lp-flex-column', String(columnNumber));
+        column.style.flex = '1 1 0';
+        column.style.minHeight = '80px';
+        column.style.padding = '0px';
+        markEditorOnlyStyle(column, 'border', '1px dashed #b8c2cc');
+        column.style.position = 'relative';
+        column.appendChild(createFlexColumnAddButton(flexId, columnNumber));
+        return column;
+    }
+
+    const moveUserContentBeforePlaceholder = (targetColumn, sourceColumn) => {
+        if (!targetColumn || !sourceColumn) {
+            return;
+        }
+
+        const targetPlaceholder = targetColumn.querySelector(':scope > .lp-flex-column-add-button');
+        Array.from(sourceColumn.children || []).forEach((child) => {
+            if (isFlexColumnEditorOnlyElement(child)) {
+                return;
+            }
+
+            if (targetPlaceholder) {
+                targetColumn.insertBefore(child, targetPlaceholder);
+            } else {
+                targetColumn.appendChild(child);
+            }
+        });
+        syncFlexColumnPlaceholder(targetColumn);
+    }
+
+    const syncFlexBoxColumnCount = (flexBoxElement, desiredCount) => {
+        const flexId = flexBoxElement.getAttribute('data-lp-flex-id') || `lp-flex-${generateUUID()}`;
+        flexBoxElement.setAttribute('data-lp-flex-id', flexId);
+        let columns = Array.from(flexBoxElement.children).filter((child) => child.classList?.contains('lp-flex-column'));
+
+        while (columns.length < desiredCount) {
+            const nextColumn = createBlankFlexColumn(flexId, columns.length + 1);
+            flexBoxElement.appendChild(nextColumn);
+            columns.push(nextColumn);
+        }
+
+        while (columns.length > desiredCount) {
+            const removedColumn = columns.pop();
+            const targetColumn = columns[columns.length - 1];
+            moveUserContentBeforePlaceholder(targetColumn, removedColumn);
+            removedColumn.remove();
+        }
+
+        renumberFlexColumns(flexBoxElement);
+        Array.from(flexBoxElement.children)
+            .filter((child) => child.classList?.contains('lp-flex-column'))
+            .forEach((column) => {
+                column.setAttribute('data-lp-flex-id', flexId);
+                repairCollapsedAutoFlexColumn(column);
+                syncFlexColumnPlaceholder(column);
+            });
+    }
+
+    const applyFlexBoxManagement = () => {
+        const flexBoxElement = selectedFlexBoxElement();
+        if (!flexBoxElement) {
+            return;
+        }
+
+        const flexId = flexBoxElement.getAttribute('data-lp-flex-id') || `lp-flex-${generateUUID()}`;
+        const wrapper = closestParentWithClass(flexBoxElement, 'lp-flex-box-wrapper');
+        const columnCount = normalizeFlexColumnCount(flexBoxManagement.columns);
+
+        flexBoxElement.setAttribute('data-lp-flex-id', flexId);
+        flexBoxElement.setAttribute('data-lp-flex-columns', String(columnCount));
+        flexBoxElement.setAttribute('data-lp-mobile-breakpoint', flexBoxManagement.mobileBreakpoint || '750');
+        flexBoxElement.setAttribute('data-lp-mobile-columns', String(normalizeFlexColumnCount(flexBoxManagement.mobileColumns || 1)));
+        flexBoxElement.setAttribute('data-lp-mobile-flex-direction', flexBoxManagement.mobileFlexDirection || 'column');
+        flexBoxElement.setAttribute('data-lp-mobile-justify-content', flexBoxManagement.mobileJustifyContent || 'flex-start');
+        flexBoxElement.setAttribute('data-lp-mobile-align-items', flexBoxManagement.mobileAlignItems || 'stretch');
+        flexBoxElement.setAttribute('data-lp-mobile-flex-wrap', flexBoxManagement.mobileFlexWrap || 'wrap');
+        flexBoxElement.setAttribute('data-lp-mobile-gap', flexBoxManagement.mobileGap || '12');
+        flexBoxElement.setAttribute('data-lp-mobile-gap-unit', flexBoxManagement.mobileGapUnit || 'px');
+
+        if (wrapper) {
+            wrapper.setAttribute('data-lp-flex-id', flexId);
+            wrapper.style.position = 'relative';
+            wrapper.style.width = '100%';
+            wrapper.style.margin = flexBoxManagement.margin || '0px';
+            wrapper.style.padding = flexBoxManagement.padding || '0px';
+            wrapper.style.overflow = 'visible';
+            markEditorOnlyStyle(wrapper, 'border', '1px dashed #f59e0b');
+        }
+
+        applyFlexBoxDesktopStyles(flexBoxElement);
+        syncFlexBoxColumnCount(flexBoxElement, columnCount);
+        upsertFlexBoxResponsiveStyle(flexBoxElement);
+        ensureFlexBoxEditorControls(wrapper || flexBoxElement);
     }
 
     const createFlexDeleteButton = (action) => {
@@ -3859,29 +4353,36 @@ ${semanticContentDefaultCss}
                                             <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "add")}>Add Element</Button>
                                             <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="success" variant='outlined' onClick={() => handleChange("actionType", "flex_box")}>Add Flex Box</Button>
                                             {selectedElementIsFlexBox && (
-                                                <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="info" variant='outlined' onClick={startFlexColumnEdit}>Edit Columns</Button>
+                                                <>
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="info" variant='outlined' onClick={startFlexBoxEdit}>Edit Flex Box</Button>
+                                                    <Button className="doNotAct cptlz megaButton" size='large' fullWidth color="info" variant='outlined' onClick={startFlexColumnEdit}>Edit Columns</Button>
+                                                </>
                                             )}
                                         </Box>
                                     }
-                                    {editing && editing.actionType == "flex_box" &&
+                                    {editing && ['flex_box', 'edit_flex_box'].includes(editing.actionType) &&
                                         <Box mt={2} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                             <Typography variant="body2" color="text.secondary">
-                                                Create a Flex Box layout and configure desktop and mobile responsive properties.
+                                                {editing.actionType === 'edit_flex_box'
+                                                    ? 'Update this Flex Box layout. Existing column content will be preserved.'
+                                                    : 'Create a Flex Box layout and configure desktop and mobile responsive properties.'}
                                             </Typography>
                                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Basic</Typography>
                                             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
-                                                <FormControl fullWidth size="small">
-                                                    <InputLabel id="flex-box-position-label">Position</InputLabel>
-                                                    <MuiSelect
-                                                        labelId="flex-box-position-label"
-                                                        value={normalizeFlexBoxPosition(flexBoxManagement.position)}
-                                                        label="Position"
-                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, position: normalizeFlexBoxPosition(e.target.value) }))}
-                                                    >
-                                                        <MenuItem className="doNotAct" value="top">Top</MenuItem>
-                                                        <MenuItem className="doNotAct" value="bottom">Bottom</MenuItem>
-                                                    </MuiSelect>
-                                                </FormControl>
+                                                {editing.actionType === 'flex_box' && (
+                                                    <FormControl fullWidth size="small">
+                                                        <InputLabel id="flex-box-position-label">Position</InputLabel>
+                                                        <MuiSelect
+                                                            labelId="flex-box-position-label"
+                                                            value={normalizeFlexBoxPosition(flexBoxManagement.position)}
+                                                            label="Position"
+                                                            onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, position: normalizeFlexBoxPosition(e.target.value) }))}
+                                                        >
+                                                            <MenuItem className="doNotAct" value="top">Top</MenuItem>
+                                                            <MenuItem className="doNotAct" value="bottom">Bottom</MenuItem>
+                                                        </MuiSelect>
+                                                    </FormControl>
+                                                )}
                                                 <FormControl fullWidth size="small">
                                                     <InputLabel id="flex-box-columns-label">Columns</InputLabel>
                                                     <MuiSelect
@@ -4667,6 +5168,7 @@ ${semanticContentDefaultCss}
                                                             ))}
                                                         </MuiSelect>
                                                     </FormControl>
+                                                    {renderBorderSideCheckboxes('Border Sides', imageManagement, setImageManagement)}
                                                     <TextField
                                                         sx={{ mt: 2 }}
                                                         type='number'
@@ -4680,6 +5182,21 @@ ${semanticContentDefaultCss}
                                                         value={imageManagement.borderWidth}
                                                         onChange={(e) => {
                                                             setImageManagement({ ...imageManagement, borderWidth: e.target.value })
+                                                        }}
+                                                    />
+                                                    <TextField
+                                                        sx={{ mt: 2 }}
+                                                        type='number'
+                                                        fullWidth
+                                                        size='small'
+                                                        label="Border Radius"
+                                                        slotProps={{
+                                                            inputLabel: { shrink: true }
+                                                        }}
+                                                        placeholder='Enter Border Radius'
+                                                        value={imageManagement.borderRadius}
+                                                        onChange={(e) => {
+                                                            setImageManagement({ ...imageManagement, borderRadius: e.target.value })
                                                         }}
                                                     />
                                                     <TextField
@@ -4749,7 +5266,7 @@ ${semanticContentDefaultCss}
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                 View
                                                             </Typography>
-                                                            <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", border: `${imageManagement.borderWidth}px ${imageManagement.border} ${imageManagement.borderColor}`, width: imageWidthCssValue(imageManagement.width) }} />
+                                                            <Box component="img" src={imageManagement.via == 'src' ? (imageManagement.imageSrc != '' ? imageManagement.imageSrc : 'https://placehold.co/600x390/dedede/000000/png') : (imageManagement.imageFile.blobUrl != '' ? imageManagement.imageFile.blobUrl : 'https://placehold.co/600x390/dedede/000000/png')} sx={{ objectFit: "cover", width: imageWidthCssValue(imageManagement.width), ...managedBorderPreviewStyle(imageManagement) }} />
                                                         </Box>
                                                     </Box>
                                                 </Box>
@@ -4912,6 +5429,22 @@ ${semanticContentDefaultCss}
                                                                     setTextManagement({ ...textManagement, fontWeight: e.target.value })
                                                                 }}
                                                             />
+                                                            <FormControl fullWidth sx={{ mt: 2.1 }}>
+                                                                <InputLabel id="text-font-family-label">Font Family</InputLabel>
+                                                                <MuiSelect
+                                                                    labelId="text-font-family-label"
+                                                                    value={textManagement.fontFamily || ""}
+                                                                    label="Font Family"
+                                                                    size='small'
+                                                                    onChange={(e) => {
+                                                                        setTextManagement({ ...textManagement, fontFamily: e.target.value })
+                                                                    }}
+                                                                >
+                                                                    {fontFamilyOptions.map((item) => (
+                                                                        <MenuItem className="doNotAct" key={item.value || 'inherit'} value={item.value}>{item.label}</MenuItem>
+                                                                    ))}
+                                                                </MuiSelect>
+                                                            </FormControl>
                                                         </Box>
                                                         <Box sx={{ width: "50%" }}>
                                                             <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
@@ -4985,6 +5518,7 @@ ${semanticContentDefaultCss}
                                                                     ))}
                                                                 </MuiSelect>
                                                             </FormControl>
+                                                            {renderBorderSideCheckboxes('Border Sides', textManagement, setTextManagement)}
                                                             <TextField
                                                                 sx={{ mt: 2 }}
                                                                 type='number'
@@ -5000,6 +5534,21 @@ ${semanticContentDefaultCss}
                                                                     setTextManagement({ ...textManagement, borderWidth: e.target.value })
                                                                 }}
                                                             />
+                                                            <TextField
+                                                                sx={{ mt: 2 }}
+                                                                type='number'
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Border Radius"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Border Radius'
+                                                                value={textManagement.borderRadius}
+                                                                onChange={(e) => {
+                                                                    setTextManagement({ ...textManagement, borderRadius: e.target.value })
+                                                                }}
+                                                            />
                                                         </Box>
                                                     </Box>
                                                     <Box mt={1} sx={{ display: "flex" }}>
@@ -5013,8 +5562,13 @@ ${semanticContentDefaultCss}
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                 View
                                                             </Typography>
-                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, borderRadius: "3px", border: `${textManagement.borderWidth}px ${textManagement.border} ${textManagement.borderColor}`, color: textManagement.color, backgroundColor: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: `${textManagement.fontSize}px`, fontWeight: textManagement.fontWeight }}>
-                                                                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{textManagement.textInput == "" ? "No Text" : textManagement.textInput}</pre>
+                                                            <Box sx={{ textAlign: textManagement.textAlign, minHeight: "102px", mt: 0.7, p: 1, color: textManagement.color, backgroundColor: textManagement.backgroundColor == "" ? "#dedede" : textManagement.backgroundColor, fontSize: cssPixelValue(textManagement.fontSize), fontFamily: textManagement.fontFamily || 'inherit', fontWeight: textManagement.fontWeight, ...managedBorderPreviewStyle(textManagement) }}>
+                                                                <Box
+                                                                    component={textManagement.textType === "heading" ? textManagement.headingLevel : "p"}
+                                                                    sx={{ m: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', font: 'inherit', color: 'inherit' }}
+                                                                >
+                                                                    {textManagement.textInput == "" ? "No Text" : textManagement.textInput}
+                                                                </Box>
                                                             </Box>
                                                         </Box>
                                                     </Box>
@@ -5164,6 +5718,7 @@ ${semanticContentDefaultCss}
                                                                 ))}
                                                             </MuiSelect>
                                                         </FormControl>
+                                                        {renderBorderSideCheckboxes('Border Sides', buttonManagement, setButtonManagement)}
                                                         <TextField
                                                             sx={{ mt: 2 }}
                                                             type='number'
@@ -5179,6 +5734,21 @@ ${semanticContentDefaultCss}
                                                                 setButtonManagement({ ...buttonManagement, borderWidth: e.target.value })
                                                             }}
                                                         />
+                                                        <TextField
+                                                            sx={{ mt: 2 }}
+                                                            type='number'
+                                                            fullWidth
+                                                            size='small'
+                                                            label="Border Radius"
+                                                            slotProps={{
+                                                                inputLabel: { shrink: true }
+                                                            }}
+                                                            placeholder='Enter Border Radius'
+                                                            value={buttonManagement.borderRadius}
+                                                            onChange={(e) => {
+                                                                setButtonManagement({ ...buttonManagement, borderRadius: e.target.value })
+                                                            }}
+                                                        />
                                                         <Box mt={1} sx={{ display: "flex" }} className="customPicker">
                                                             <Box sx={{ width: "50%" }}>
                                                                 <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
@@ -5190,7 +5760,7 @@ ${semanticContentDefaultCss}
                                                                 <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
                                                                     View
                                                                 </Typography>
-                                                                <Box component={"button"} sx={{ color: `${buttonManagement.color}`, backgroundColor: `${buttonManagement.backgroundColor}`, padding: `${buttonManagement.padding}px`, fontSize: `${buttonManagement.fontSize}px`, margin: `${buttonManagement.margin}px`, textAlign: "center", border: `${buttonManagement.borderWidth}px ${buttonManagement.border} ${buttonManagement.borderColor}` }}>{buttonManagement.buttonText}</Box>
+                                                                <Box component={"button"} sx={{ color: `${buttonManagement.color}`, backgroundColor: `${buttonManagement.backgroundColor}`, padding: buttonManagement.padding, fontSize: cssPixelValue(buttonManagement.fontSize), margin: buttonManagement.margin, textAlign: "center", ...managedBorderPreviewStyle(buttonManagement) }}>{buttonManagement.buttonText}</Box>
                                                             </Box>
                                                         </Box>
                                                     </Box>
@@ -5332,6 +5902,7 @@ ${semanticContentDefaultCss}
                                                                     ))}
                                                                 </MuiSelect>
                                                             </FormControl>
+                                                            {renderBorderSideCheckboxes('Border Sides', formManagement, setFormManagement)}
                                                             <TextField
                                                                 sx={{ mt: 2 }}
                                                                 type='number'
@@ -5345,6 +5916,21 @@ ${semanticContentDefaultCss}
                                                                 value={formManagement.borderWidth}
                                                                 onChange={(e) => {
                                                                     setFormManagement({ ...formManagement, borderWidth: e.target.value })
+                                                                }}
+                                                            />
+                                                            <TextField
+                                                                sx={{ mt: 2 }}
+                                                                type='number'
+                                                                fullWidth
+                                                                size='small'
+                                                                label="Border Radius"
+                                                                slotProps={{
+                                                                    inputLabel: { shrink: true }
+                                                                }}
+                                                                placeholder='Enter Border Radius'
+                                                                value={formManagement.borderRadius}
+                                                                onChange={(e) => {
+                                                                    setFormManagement({ ...formManagement, borderRadius: e.target.value })
                                                                 }}
                                                             />
                                                         </Box>
@@ -6173,7 +6759,7 @@ ${semanticContentDefaultCss}
                                 }}>Cancel</Button>
                                 <Box component="span" sx={{ marginLeft: "20px" }} />
                                 <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={updateHTMLHandler}>
-                                    {editing?.actionType === 'edit_flex_columns' ? 'Apply' : 'Add'}
+                                    {['edit_flex_columns', 'edit_flex_box'].includes(editing?.actionType) ? 'Apply' : 'Add'}
                                 </Button>
                             </Box>
                         </Box>
