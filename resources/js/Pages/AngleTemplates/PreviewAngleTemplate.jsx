@@ -728,6 +728,35 @@ ${semanticContentDefaultCss}
         textAlign: false,
     };
 
+    const headingDefaultFontSizes = {
+        h1: "32",
+        h2: "24",
+        h3: "18.72",
+        h4: "16",
+        h5: "13.28",
+        h6: "10.72",
+    };
+
+    const textManagementForTypeChange = (currentTextManagement, textType) => {
+        if (textType !== "heading") {
+            return { ...currentTextManagement, textType };
+        }
+
+        const headingLevel = currentTextManagement.headingLevel || "h1";
+        return {
+            ...currentTextManagement,
+            textType,
+            headingLevel,
+            fontSize: headingDefaultFontSizes[headingLevel] || headingDefaultFontSizes.h1,
+        };
+    };
+
+    const textManagementForHeadingLevelChange = (currentTextManagement, headingLevel) => ({
+        ...currentTextManagement,
+        headingLevel,
+        fontSize: headingDefaultFontSizes[headingLevel] || headingDefaultFontSizes.h1,
+    });
+
     const INITIAL_SPACER_MANAGEMENT = {
         height: "",
     };
@@ -820,7 +849,7 @@ ${semanticContentDefaultCss}
         width: "100",
         widthUnit: "%",
         maxWidth: "",
-        minHeight: "80",
+        minHeight: "",
         minHeightUnit: "px",
         flexDirection: "row",
         justifyContent: "flex-start",
@@ -828,7 +857,7 @@ ${semanticContentDefaultCss}
         flexWrap: "nowrap",
         gap: "16",
         gapUnit: "px",
-        margin: "16px 0px 16px 0px",
+        margin: "0px 0px 0px 0px",
         padding: "0px 0px 0px 0px",
         backgroundColor: "",
         border: "",
@@ -2711,7 +2740,7 @@ ${semanticContentDefaultCss}
         }
 
         let elementInside = document.querySelector(`.${editing.editID}`)
-        elementInside.classList.remove(editing.editID);
+        elementInside?.classList?.remove(editing.editID);
         const mainHtmlElement = document.querySelector(".mainHTML");
         if (shouldPersistSelectedTextFont) {
             ensureGoogleFontStyleElement(mainHtmlElement, textManagement.fontFamily);
@@ -2725,6 +2754,7 @@ ${semanticContentDefaultCss}
         ]);
         setOpen(false);
         setAnchorHelpProperties(null);
+        setEditing(false);
 
         setTimeout(() => {
             // First fetch the country once
@@ -3249,7 +3279,7 @@ ${semanticContentDefaultCss}
         applyOptionalStyle(flexBox, 'width', width || '100%');
         applyOptionalStyle(flexBox, 'maxWidth', maxWidth);
         applyOptionalStyle(flexBox, 'minHeight', minHeight);
-        applyOptionalStyle(flexBox, 'margin', flexBoxManagement.margin);
+        applyOptionalStyle(flexBox, 'margin', '0px');
         applyOptionalStyle(flexBox, 'padding', flexBoxManagement.padding);
         applyOptionalStyle(flexBox, 'backgroundColor', flexBoxManagement.backgroundColor);
         applyOptionalStyle(flexBox, 'border', border);
@@ -3322,6 +3352,8 @@ ${semanticContentDefaultCss}
         const gapParts = cssLengthParts(flexBoxElement.style.gap || '16px', 'px');
         const borderParts = (flexBoxElement.style.border || '').split(' ').filter(Boolean);
 
+        const wrapper = closestParentWithClass(flexBoxElement, 'lp-flex-box-wrapper');
+
         return {
             ...INITIAL_FLEX_BOX_MANAGEMENT,
             position: "bottom",
@@ -3337,7 +3369,7 @@ ${semanticContentDefaultCss}
             flexWrap: flexBoxElement.style.flexWrap || 'nowrap',
             gap: gapParts.value || '16',
             gapUnit: gapParts.unit || 'px',
-            margin: flexBoxElement.style.margin || '0px',
+            margin: wrapper?.style.margin || flexBoxElement.style.margin || '0px',
             padding: flexBoxElement.style.padding || '0px',
             backgroundColor: colorForPicker(flexBoxElement.style.backgroundColor, ''),
             border: borderParts[1] || flexBoxElement.style.borderStyle || '',
@@ -3549,7 +3581,6 @@ ${semanticContentDefaultCss}
         column.setAttribute('data-lp-flex-id', flexId);
         column.setAttribute('data-lp-flex-column', String(columnNumber));
         column.style.flex = '1 1 0';
-        column.style.minHeight = '80px';
         column.style.padding = '0px';
         markEditorOnlyStyle(column, 'border', '1px dashed #b8c2cc');
         column.style.position = 'relative';
@@ -3685,7 +3716,10 @@ ${semanticContentDefaultCss}
         placeholder.style.border = '1px dashed #8cb4ff';
         placeholder.style.background = 'rgba(140, 180, 255, 0.08)';
         placeholder.style.color = '#1f6feb';
-        placeholder.style.padding = '10px';
+        placeholder.style.height = 'auto';
+        placeholder.style.minHeight = '0';
+        placeholder.style.lineHeight = '1.2';
+        placeholder.style.padding = '4px 0';
         placeholder.style.cursor = 'pointer';
         placeholder.style.position = 'relative';
         return placeholder;
@@ -3899,7 +3933,6 @@ ${semanticContentDefaultCss}
             column.setAttribute('data-lp-flex-id', flexId);
             column.setAttribute('data-lp-flex-column', String(index));
             column.style.flex = '1 1 0';
-            column.style.minHeight = '80px';
             column.style.padding = '0px';
             markEditorOnlyStyle(column, 'border', '1px dashed #b8c2cc');
             column.style.position = 'relative';
@@ -4256,6 +4289,17 @@ ${semanticContentDefaultCss}
         });
     }
 
+    const closeActionCenter = () => {
+        const elementInside = editing?.editID
+            ? document.querySelector(`.${editing.editID}`)
+            : null;
+        elementInside?.classList?.remove(editing.editID);
+        setOpen(false);
+        setAnchorHelpProperties(null);
+        resetModalHandler();
+        setEditing(false);
+    }
+
     const mainHTMLActive = mainHTML.find(html => html.status == true)
     const selectedElementHasInlineStyle = Boolean(editing?.currentElement?.getAttribute?.('style')?.trim());
     const selectedElementIsFlexBox = isFlexBoxEditableElement(editing?.currentElement);
@@ -4330,11 +4374,7 @@ ${semanticContentDefaultCss}
                                         Action Center
                                     </Typography>
                                 </Box>
-                                <div style={{ marginTop: "3px", cursor: "pointer", width: "18px", height: "18px", }} className='doNotAct' onClick={() => {
-                                    let elementInside = document.querySelector(`.${editing.editID}`);
-                                    elementInside.classList.remove(editing.editID);
-                                    setOpen(false);
-                                }}>
+                                <div style={{ marginTop: "3px", cursor: "pointer", width: "18px", height: "18px", }} className='doNotAct' onClick={closeActionCenter}>
                                     <svg className='doNotAct' xmlns="http://www.w3.org/2000/svg" viewBox="50 50 412 412">
                                         <polygon fill="var(--ci-primary-color, currentColor)" points="427.314 107.313 404.686 84.687 256 233.373 107.314 84.687 84.686 107.313 233.373 256 84.686 404.687 107.314 427.313 256 278.627 404.686 427.313 427.314 404.687 278.627 256 427.314 107.313" className="doNotAct" />
                                     </svg>
@@ -5294,7 +5334,7 @@ ${semanticContentDefaultCss}
                                                                             label="Text Type"
                                                                             size='small'
                                                                             onChange={(e) => {
-                                                                                setTextManagement({ ...textManagement, textType: e.target.value })
+                                                                                setTextManagement(textManagementForTypeChange(textManagement, e.target.value))
                                                                             }}
                                                                         >
                                                                             <MenuItem className="doNotAct" value="paragraph">Paragraph</MenuItem>
@@ -5310,7 +5350,7 @@ ${semanticContentDefaultCss}
                                                                                 label="Heading Level"
                                                                                 size='small'
                                                                                 onChange={(e) => {
-                                                                                    setTextManagement({ ...textManagement, headingLevel: e.target.value })
+                                                                                    setTextManagement(textManagementForHeadingLevelChange(textManagement, e.target.value))
                                                                                 }}
                                                                             >
                                                                                 {['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map((heading) => (
@@ -6752,11 +6792,7 @@ ${semanticContentDefaultCss}
                                 }
                             </Box>
                             <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
-                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={() => {
-                                    let elementInside = document.querySelector(`.${editing.editID}`)
-                                    elementInside.classList.remove(editing.editID);
-                                    setOpen(false);
-                                }}>Cancel</Button>
+                                <Button variant='outlined' color="info" sx={{ textTransform: "capitalize" }} onClick={closeActionCenter}>Cancel</Button>
                                 <Box component="span" sx={{ marginLeft: "20px" }} />
                                 <Button variant='contained' color="success" sx={{ textTransform: "capitalize" }} onClick={updateHTMLHandler}>
                                     {['edit_flex_columns', 'edit_flex_box'].includes(editing?.actionType) ? 'Apply' : 'Add'}
