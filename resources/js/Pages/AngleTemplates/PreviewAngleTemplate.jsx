@@ -912,6 +912,50 @@ ${semanticContentDefaultCss}
     const [platformInstances, setPlatformInstances] = useState([]);
     const [aweberInstances, setAweberInstances] = useState([]);
 
+    const normalizedFontFamilyName = (fontFamily) => `${fontFamily || ''}`.trim().replace(/^['"]|['"]$/g, '');
+    const genericFontFamilies = [
+        'ui-sans-serif',
+        'system-ui',
+        'sans-serif',
+        'serif',
+        'monospace',
+        'apple color emoji',
+        'segoe ui emoji',
+        'segoe ui symbol',
+        'noto color emoji',
+    ];
+
+    const actualFontFamilyName = (fontFamily) => {
+        const fontNames = `${fontFamily || ''}`
+            .split(',')
+            .map(normalizedFontFamilyName)
+            .filter(Boolean);
+
+        return fontNames.find((fontName) => !genericFontFamilies.includes(fontName.toLowerCase()))
+            || fontNames[0]
+            || '';
+    };
+
+    const cssFontFamilyValue = (fontName) => {
+        const normalizedName = normalizedFontFamilyName(fontName);
+        if (!normalizedName) {
+            return '';
+        }
+
+        const matchedChoice = fontFamilyChoices.find((item) => (
+            item.googleFamily?.toLowerCase() === normalizedName.toLowerCase()
+            || normalizedFontFamilyName(item.value?.split(',')?.[0]).toLowerCase() === normalizedName.toLowerCase()
+        ));
+
+        if (matchedChoice) {
+            return matchedChoice.value;
+        }
+
+        return /\s/.test(normalizedName) ? `'${normalizedName}'` : normalizedName;
+    };
+
+    const cleanComputedFontFamily = (fontFamily) => cssFontFamilyValue(actualFontFamilyName(fontFamily));
+
     const fontFamilyOptions = useMemo(() => {
         const selectedFontFamily = `${textManagement.fontFamily || ''}`.trim();
         const hasSelectedFont = fontFamilyChoices.some((item) => item.value === selectedFontFamily);
@@ -1243,7 +1287,7 @@ ${semanticContentDefaultCss}
                 setTextManagement(prev => ({
                     ...prev,
                     fontSize: removePxAndConvertToFloat(computedStyles.fontSize),
-                    fontFamily: computedStyles.fontFamily,
+                    fontFamily: cleanComputedFontFamily(computedStyles.fontFamily),
                     fontWeight: computedStyles.fontWeight,
                     color: `#${convert.rgb.hex(rgbToArray(computedStyles.color))}`,
                     ...(computedStyles.backgroundColor !== "rgba(0, 0, 0, 0)" && { backgroundColor: `#${convert.rgb.hex(rgbToArray(computedStyles.backgroundColor))}` }),
@@ -1282,7 +1326,7 @@ ${semanticContentDefaultCss}
                     borderSide: borderSideFromComputedStyle(computedStyles),
                     borderRadius: removePxAndConvertToFloat(computedStyles.borderRadius),
                     link: InsideLink,
-                    fontFamily: computedStyles.fontFamily,
+                    fontFamily: cleanComputedFontFamily(computedStyles.fontFamily),
                     padding: `${computedStyles.paddingTop} ${computedStyles.paddingRight} ${computedStyles.paddingBottom} ${computedStyles.paddingLeft}`,
                     margin: `${computedStyles.marginTop} ${computedStyles.marginRight} ${computedStyles.marginBottom} ${computedStyles.marginLeft}`
                 }));

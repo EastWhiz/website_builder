@@ -10,9 +10,19 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/css/intlTelInput.css">
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    @php
+        $landingEditorComponents = [
+            'AngleTemplates/PreviewAngleTemplate',
+            'Angles/PreviewAngle',
+        ];
+        $isLandingEditor = in_array($page['component'] ?? '', $landingEditorComponents, true);
+    @endphp
+
+    @unless ($isLandingEditor)
+        <!-- Fonts -->
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    @endunless
 
     <!-- Scripts -->
     @routes
@@ -21,7 +31,7 @@
     @inertiaHead
 </head>
 
-<body class="font-sans antialiased">
+<body class="{{ $isLandingEditor ? 'antialiased' : 'font-sans antialiased' }}">
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/intlTelInput.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/utils.js"></script>
     @inertia
