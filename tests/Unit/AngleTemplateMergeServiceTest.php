@@ -875,6 +875,77 @@ it('preserves bd-owned and page-level flex boxes together during a structured th
     expect(strpos($result, 'BD Flex Column'))->toBeLessThan(strpos($result, 'Page Flex Column'));
 });
 
+it('preserves flexbox responsive css fonts and semantic headings during structured rendering', function () {
+    $targetTheme = new class(['uuid' => 'target-theme', 'index' => '<main class="target"><!--INTERNAL--BD1--EXTERNAL--><!--INTERNAL--BD1--EXTERNAL--></main>']) extends Template
+    {
+        public function contents()
+        {
+            return new class
+            {
+                public function where()
+                {
+                    return $this;
+                }
+
+                public function get()
+                {
+                    return collect();
+                }
+            };
+        }
+    };
+
+    $bdContent = '<h1 class="editableDiv lp-semantic-heading" style="font-family: Merriweather; font-size: 32px;">Typography Heading</h1>'
+        .'<div class="editableDiv lp-flex-box-wrapper" data-lp-flex-id="font-flex">'
+        .'<style data-lp-flex-responsive-style="font-flex">@media (max-width: 750px) {.lp-flex-box[data-lp-flex-id="font-flex"] { flex-direction: column !important; }}</style>'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="font-flex" style="display: flex; gap: 12px;">'
+        .'<div class="editableDiv lp-flex-column"><p style="font-family: Lora; font-size: 18px;">Column Text</p></div>'
+        .'</div>'
+        .'</div>';
+
+    $result = $this->service->renderStructuredBodies($targetTheme, [
+        'BD1' => $bdContent,
+    ]);
+
+    expect(substr_count($result['main_html'], 'Typography Heading'))->toBe(2)
+        ->and($result['main_html'])->toContain('font-family: Merriweather')
+        ->and($result['main_html'])->toContain('lp-semantic-heading')
+        ->and($result['main_html'])->toContain('data-lp-flex-responsive-style="font-flex"')
+        ->and($result['main_html'])->toContain('flex-direction: column')
+        ->and($result['main_html'])->toContain('font-family: Lora')
+        ->and($result['main_css'])->toContain('.lp-semantic-heading:is(h1):not([style])');
+});
+
+it('preserves page-level flexbox typography while removing editor-only controls during theme switch append', function () {
+    $sourceHtml = '<main class="source">'
+        .'<div class="editableDiv lp-flex-box-wrapper lp-structured-page-addition" data-lp-edit-context="page_addition" data-lp-flex-id="page-font-flex" data-lp-editor-style-props="border" style="position: relative; width: 100%; margin: 0px; border: 1px dashed #f59e0b;">'
+        .'<style data-lp-flex-responsive-style="page-font-flex">@media (max-width: 750px) {.lp-flex-box[data-lp-flex-id="page-font-flex"] { gap: 8px !important; }}</style>'
+        .'<div class="editableDiv lp-flex-box" data-lp-flex-id="page-font-flex" style="display: flex; margin: 0px;">'
+        .'<div class="editableDiv lp-flex-column" data-lp-editor-style-props="border" style="padding: 0px; border: 1px dashed #b8c2cc;">'
+        .'<h2 class="editableDiv lp-semantic-heading" style="font-family: Playfair Display; font-size: 24px;">Page Flex Heading</h2>'
+        .'<button class="lp-flex-delete-control" data-lp-editor-only="true">x</button>'
+        .'</div>'
+        .'</div>'
+        .'</div>'
+        .'</main>';
+
+    $result = $this->service->appendStructuredPageLevelAdditions(
+        '<main class="new-theme"><article>New Theme Body</article></main>',
+        $this->service->extractStructuredPageLevelAdditions($sourceHtml)
+    );
+
+    expect($result)
+        ->toContain('New Theme Body')
+        ->toContain('Page Flex Heading')
+        ->toContain('font-family: Playfair Display')
+        ->toContain('data-lp-flex-responsive-style="page-font-flex"')
+        ->toContain('gap: 8px')
+        ->not->toContain('lp-flex-delete-control')
+        ->not->toContain('data-lp-editor-style-props')
+        ->not->toContain('border: 1px dashed #f59e0b')
+        ->not->toContain('border: 1px dashed #b8c2cc');
+});
+
 it('appends outside-bd page additions after a target theme layout', function () {
     $result = $this->service->appendStructuredPageLevelAdditions(
         '<main class="new-theme"><article>BD layout</article></main>',
