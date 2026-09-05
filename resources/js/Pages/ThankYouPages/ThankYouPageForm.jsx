@@ -7,6 +7,11 @@ import { useState } from 'react';
 
 const DEFAULT_HERO_COLOR = '#3B27A8';
 
+function colorForNativePicker(color, fallback = DEFAULT_HERO_COLOR) {
+    const normalizedColor = `${color || ''}`.trim();
+    return /^#[0-9a-f]{6}$/i.test(normalizedColor) ? normalizedColor : fallback;
+}
+
 function SectionCard({ title, description, children }) {
     return (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -288,7 +293,7 @@ export default function ThankYouPageForm({
 
             {isLegacy && <SectionCard
                 title="Appearance"
-                description="Hero section background color (hex)."
+                description="Hero section background color. Use the picker or enter an exact color code."
             >
                 <div>
                     <InputLabel htmlFor="hero_background_color" value="Hero background color *" />
@@ -297,18 +302,21 @@ export default function ThankYouPageForm({
                             id="hero_color_swatch"
                             type="color"
                             className="h-11 w-16 cursor-pointer rounded-lg border border-gray-300"
-                            value={data.hero_background_color}
+                            value={colorForNativePicker(data.hero_background_color)}
                             onChange={(e) => setData('hero_background_color', e.target.value)}
                         />
                         <TextInput
                             id="hero_background_color"
                             type="text"
-                            className="block w-36 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            className="block w-80 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             value={data.hero_background_color}
                             onChange={(e) => setData('hero_background_color', e.target.value)}
-                            placeholder="#3B27A8"
+                            placeholder="#3B27A8 or rgb(59, 39, 168)"
                         />
                     </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                        Use HEX (#3B27A8), RGB rgb(59, 39, 168), or RGBA rgba(59, 39, 168, 0.5).
+                    </p>
                     <InputError className="mt-1" message={errors.hero_background_color} />
                 </div>
             </SectionCard>}

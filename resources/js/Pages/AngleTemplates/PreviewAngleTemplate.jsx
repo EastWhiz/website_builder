@@ -849,6 +849,7 @@ ${semanticContentDefaultCss}
         width: "100",
         widthUnit: "%",
         maxWidth: "",
+        maxWidthUnit: "px",
         minHeight: "",
         minHeightUnit: "px",
         flexDirection: "row",
@@ -2947,6 +2948,10 @@ ${semanticContentDefaultCss}
     }
 
     const cssValueWithUnit = (value, unit) => {
+        if (unit === 'fit-content') {
+            return 'fit-content';
+        }
+
         const normalizedValue = `${value ?? ''}`.trim();
         if (!normalizedValue) {
             return '';
@@ -2957,6 +2962,10 @@ ${semanticContentDefaultCss}
 
     const cssLengthParts = (value, fallbackUnit = 'px') => {
         const normalizedValue = `${value || ''}`.trim();
+        if (normalizedValue.toLowerCase() === 'fit-content') {
+            return { value: '', unit: 'fit-content' };
+        }
+
         const match = normalizedValue.match(/^([\d.]+)\s*(px|%|vh|vw|em|rem)?$/i);
         if (!match) {
             return { value: '', unit: fallbackUnit };
@@ -3257,6 +3266,53 @@ ${semanticContentDefaultCss}
         return fallback;
     }
 
+    const isValidCssColorCode = (color) => {
+        const normalizedColor = `${color || ''}`.trim();
+        if (!normalizedColor) {
+            return true;
+        }
+
+        if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(normalizedColor)) {
+            return true;
+        }
+
+        if (/^rgba?\(\s*(?:\d{1,3}\s*,\s*){2}\d{1,3}(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/i.test(normalizedColor)) {
+            return rgbToArray(normalizedColor).slice(0, 3).every((value) => value >= 0 && value <= 255);
+        }
+
+        return false;
+    }
+
+    const colorCodePicker = ({ label, value, fallback = '#ffffff', onChange }) => {
+        const normalizedValue = `${value || ''}`.trim();
+        const hasInvalidColor = normalizedValue !== '' && !isValidCssColorCode(normalizedValue);
+
+        return (
+            <Box className="customPickerTwo" sx={{ width: "100%" }}>
+                <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                    {label}
+                </Typography>
+                <HexColorPicker
+                    color={colorForPicker(normalizedValue, fallback)}
+                    style={{ marginTop: "7px", width: "100%" }}
+                    onChange={onChange}
+                />
+                <TextField
+                    className="doNotAct"
+                    fullWidth
+                    size="small"
+                    label="Color Code"
+                    placeholder="#0186ff or rgb(1, 134, 255)"
+                    value={value || ''}
+                    error={hasInvalidColor}
+                    helperText={hasInvalidColor ? 'Invalid color. Use HEX, RGB, or RGBA.' : 'Use HEX (#0186ff), RGB rgb(1, 134, 255), or RGBA rgba(1, 134, 255, 0.5).'}
+                    onChange={(e) => onChange(e.target.value)}
+                    sx={{ mt: 1 }}
+                />
+            </Box>
+        );
+    }
+
     const googleFontHrefForFamily = (fontFamily) => {
         const selected = fontFamilyChoices.find((item) => item.value === `${fontFamily || ''}`.trim());
         if (!selected?.googleFamily) {
@@ -3306,7 +3362,7 @@ ${semanticContentDefaultCss}
 
     const applyFlexBoxDesktopStyles = (flexBox) => {
         const width = cssValueWithUnit(flexBoxManagement.width, flexBoxManagement.widthUnit);
-        const maxWidth = cssValueWithUnit(flexBoxManagement.maxWidth, 'px');
+        const maxWidth = cssValueWithUnit(flexBoxManagement.maxWidth, flexBoxManagement.maxWidthUnit || 'px');
         const minHeight = cssValueWithUnit(flexBoxManagement.minHeight, flexBoxManagement.minHeightUnit);
         const gap = cssValueWithUnit(flexBoxManagement.gap, flexBoxManagement.gapUnit);
         const border = flexBoxManagement.border
@@ -3329,6 +3385,32 @@ ${semanticContentDefaultCss}
         applyOptionalStyle(flexBox, 'border', border);
         applyOptionalStyle(flexBox, 'borderRadius', borderRadius);
         applyOptionalStyle(flexBox, 'boxShadow', flexBoxManagement.boxShadow);
+    }
+
+    const applyFlexBoxWrapperStyles = (wrapper, flexBox = null, preserveExisting = false) => {
+        if (!wrapper) {
+            return;
+        }
+
+        const selectedWidth = cssValueWithUnit(flexBoxManagement.width, flexBoxManagement.widthUnit);
+        const resolvedWidth = preserveExisting
+            ? (wrapper.style.width || flexBox?.style?.width || selectedWidth || '100%')
+            : (selectedWidth || flexBox?.style?.width || '100%');
+        const selectedMaxWidth = cssValueWithUnit(flexBoxManagement.maxWidth, flexBoxManagement.maxWidthUnit || 'px');
+        const resolvedMaxWidth = preserveExisting
+            ? (wrapper.style.maxWidth || flexBox?.style?.maxWidth || selectedMaxWidth || '')
+            : (selectedMaxWidth || flexBox?.style?.maxWidth || '');
+
+        wrapper.style.position = 'relative';
+        applyOptionalStyle(wrapper, 'width', resolvedWidth);
+        applyOptionalStyle(wrapper, 'maxWidth', resolvedMaxWidth);
+        wrapper.style.margin = preserveExisting
+            ? (wrapper.style.margin || flexBoxManagement.margin || '0px')
+            : (flexBoxManagement.margin || wrapper.style.margin || '0px');
+        wrapper.style.padding = preserveExisting
+            ? (wrapper.style.padding || flexBoxManagement.padding || '0px')
+            : (flexBoxManagement.padding || wrapper.style.padding || '0px');
+        wrapper.style.overflow = 'visible';
     }
 
     const buildFlexBoxMobileCss = (flexId) => {
@@ -3392,6 +3474,7 @@ ${semanticContentDefaultCss}
         }
 
         const widthParts = cssLengthParts(flexBoxElement.style.width || '100%', '%');
+        const maxWidthParts = cssLengthParts(flexBoxElement.style.maxWidth || '', 'px');
         const minHeightParts = cssLengthParts(flexBoxElement.style.minHeight || '', 'px');
         const gapParts = cssLengthParts(flexBoxElement.style.gap || '16px', 'px');
         const borderParts = (flexBoxElement.style.border || '').split(' ').filter(Boolean);
@@ -3404,7 +3487,8 @@ ${semanticContentDefaultCss}
             columns: normalizeFlexColumnCount(flexBoxElement.getAttribute('data-lp-flex-columns') || flexBoxElement.querySelectorAll(':scope > .lp-flex-column').length || 1),
             width: widthParts.value || '100',
             widthUnit: widthParts.unit || '%',
-            maxWidth: removePxAndConvertToFloat(flexBoxElement.style.maxWidth || ''),
+            maxWidth: maxWidthParts.value || '',
+            maxWidthUnit: maxWidthParts.unit || 'px',
             minHeight: minHeightParts.value || '',
             minHeightUnit: minHeightParts.unit || 'px',
             flexDirection: flexBoxElement.style.flexDirection || 'row',
@@ -3703,11 +3787,7 @@ ${semanticContentDefaultCss}
 
         if (wrapper) {
             wrapper.setAttribute('data-lp-flex-id', flexId);
-            wrapper.style.position = 'relative';
-            wrapper.style.width = '100%';
-            wrapper.style.margin = flexBoxManagement.margin || '0px';
-            wrapper.style.padding = flexBoxManagement.padding || '0px';
-            wrapper.style.overflow = 'visible';
+            applyFlexBoxWrapperStyles(wrapper, flexBoxElement);
             markEditorOnlyStyle(wrapper, 'border', '1px dashed #f59e0b');
         }
 
@@ -3802,12 +3882,8 @@ ${semanticContentDefaultCss}
         if (flexId) {
             wrapper.setAttribute('data-lp-flex-id', flexId);
         }
-        wrapper.style.position = 'relative';
-        wrapper.style.width = '100%';
-        wrapper.style.margin = flexBoxManagement.margin || '0px';
-        wrapper.style.padding = flexBoxManagement.padding || '0px';
+        applyFlexBoxWrapperStyles(wrapper);
         markEditorOnlyStyle(wrapper, 'border', '1px dashed #f59e0b');
-        wrapper.style.overflow = 'visible';
 
         return wrapper;
     }
@@ -3851,13 +3927,7 @@ ${semanticContentDefaultCss}
                 flexBox.insertAdjacentElement('beforebegin', wrapper);
                 wrapper.appendChild(flexBox);
             } else {
-                Object.assign(wrapper.style, {
-                    position: 'relative',
-                    width: '100%',
-                    margin: wrapper.style.margin || '0px',
-                    padding: wrapper.style.padding || '0px',
-                    overflow: 'visible',
-                });
+                applyFlexBoxWrapperStyles(wrapper, flexBox, true);
                 markKnownFlexEditorBorder(wrapper, '#f59e0b');
                 markEditorOnlyStyle(wrapper, 'border', '1px dashed #f59e0b');
             }
@@ -4503,6 +4573,7 @@ ${semanticContentDefaultCss}
                                                     size="small"
                                                     label="Width"
                                                     value={flexBoxManagement.width}
+                                                    disabled={flexBoxManagement.widthUnit === 'fit-content'}
                                                     onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, width: e.target.value }))}
                                                 />
                                                 <FormControl fullWidth size="small">
@@ -4511,20 +4582,37 @@ ${semanticContentDefaultCss}
                                                         labelId="flex-box-width-unit-label"
                                                         value={flexBoxManagement.widthUnit}
                                                         label="Width Unit"
-                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, widthUnit: e.target.value }))}
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, widthUnit: e.target.value, width: e.target.value === 'fit-content' ? '' : prev.width }))}
                                                     >
                                                         <MenuItem className="doNotAct" value="%">%</MenuItem>
                                                         <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                        <MenuItem className="doNotAct" value="fit-content">fit-content</MenuItem>
                                                     </MuiSelect>
                                                 </FormControl>
-                                                <TextField
-                                                    className="doNotAct"
-                                                    fullWidth
-                                                    size="small"
-                                                    label="Max Width (px)"
-                                                    value={flexBoxManagement.maxWidth}
-                                                    onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, maxWidth: e.target.value }))}
-                                                />
+                                                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 1 }}>
+                                                    <TextField
+                                                        className="doNotAct"
+                                                        fullWidth
+                                                        size="small"
+                                                        label="Max Width"
+                                                        value={flexBoxManagement.maxWidth}
+                                                        disabled={flexBoxManagement.maxWidthUnit === 'fit-content'}
+                                                        onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, maxWidth: e.target.value }))}
+                                                    />
+                                                    <FormControl fullWidth size="small">
+                                                        <InputLabel id="flex-box-max-width-unit-label">Unit</InputLabel>
+                                                        <MuiSelect
+                                                            labelId="flex-box-max-width-unit-label"
+                                                            value={flexBoxManagement.maxWidthUnit || 'px'}
+                                                            label="Unit"
+                                                            onChange={(e) => setFlexBoxManagement(prev => ({ ...prev, maxWidthUnit: e.target.value, maxWidth: e.target.value === 'fit-content' ? '' : prev.maxWidth }))}
+                                                        >
+                                                            <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                            <MenuItem className="doNotAct" value="%">%</MenuItem>
+                                                            <MenuItem className="doNotAct" value="fit-content">fit-content</MenuItem>
+                                                        </MuiSelect>
+                                                    </FormControl>
+                                                </Box>
                                                 <Box sx={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 1 }}>
                                                     <TextField
                                                         className="doNotAct"
@@ -4689,26 +4777,18 @@ ${semanticContentDefaultCss}
                                                 />
                                             </Box>
                                             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2, mt: 2 }}>
-                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
-                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
-                                                        Background
-                                                    </Typography>
-                                                    <HexColorPicker
-                                                        color={flexBoxManagement.backgroundColor || '#ffffff'}
-                                                        style={{ marginTop: "7px", width: "100%" }}
-                                                        onChange={(color) => setFlexBoxManagement(prev => ({ ...prev, backgroundColor: color }))}
-                                                    />
-                                                </Box>
-                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
-                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
-                                                        Border Color
-                                                    </Typography>
-                                                    <HexColorPicker
-                                                        color={flexBoxManagement.borderColor || '#b8c2cc'}
-                                                        style={{ marginTop: "7px", width: "100%" }}
-                                                        onChange={(color) => setFlexBoxManagement(prev => ({ ...prev, borderColor: color }))}
-                                                    />
-                                                </Box>
+                                                {colorCodePicker({
+                                                    label: 'Background',
+                                                    value: flexBoxManagement.backgroundColor,
+                                                    fallback: '#ffffff',
+                                                    onChange: (color) => setFlexBoxManagement(prev => ({ ...prev, backgroundColor: color })),
+                                                })}
+                                                {colorCodePicker({
+                                                    label: 'Border Color',
+                                                    value: flexBoxManagement.borderColor,
+                                                    fallback: '#b8c2cc',
+                                                    onChange: (color) => setFlexBoxManagement(prev => ({ ...prev, borderColor: color })),
+                                                })}
                                             </Box>
                                             </>}
                                             {flexBoxResponsiveMode === 'mobile' && <>
@@ -4844,6 +4924,7 @@ ${semanticContentDefaultCss}
                                                         label="Width"
                                                         placeholder="Leave empty for auto"
                                                         value={flexColumnManagement.width}
+                                                        disabled={flexColumnManagement.widthUnit === 'fit-content'}
                                                         onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, width: e.target.value }))}
                                                     />
                                                     <FormControl fullWidth size="small">
@@ -4852,10 +4933,11 @@ ${semanticContentDefaultCss}
                                                             labelId="flex-column-width-unit-label"
                                                             value={flexColumnManagement.widthUnit}
                                                             label="Unit"
-                                                            onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, widthUnit: e.target.value }))}
+                                                            onChange={(e) => setFlexColumnManagement(prev => ({ ...prev, widthUnit: e.target.value, width: e.target.value === 'fit-content' ? '' : prev.width }))}
                                                         >
                                                             <MenuItem className="doNotAct" value="%">%</MenuItem>
                                                             <MenuItem className="doNotAct" value="px">px</MenuItem>
+                                                            <MenuItem className="doNotAct" value="fit-content">fit-content</MenuItem>
                                                         </MuiSelect>
                                                     </FormControl>
                                                 </Box>
@@ -4951,26 +5033,18 @@ ${semanticContentDefaultCss}
                                                 </FormControl>
                                             </Box>
                                             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
-                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
-                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
-                                                        Background
-                                                    </Typography>
-                                                    <HexColorPicker
-                                                        color={flexColumnManagement.backgroundColor || '#ffffff'}
-                                                        style={{ marginTop: "7px", width: "100%" }}
-                                                        onChange={(color) => setFlexColumnManagement(prev => ({ ...prev, backgroundColor: color }))}
-                                                    />
-                                                </Box>
-                                                <Box className="customPickerTwo" sx={{ width: "100%" }}>
-                                                    <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
-                                                        Border Color
-                                                    </Typography>
-                                                    <HexColorPicker
-                                                        color={flexColumnManagement.borderColor || '#b8c2cc'}
-                                                        style={{ marginTop: "7px", width: "100%" }}
-                                                        onChange={(color) => setFlexColumnManagement(prev => ({ ...prev, borderColor: color }))}
-                                                    />
-                                                </Box>
+                                                {colorCodePicker({
+                                                    label: 'Background',
+                                                    value: flexColumnManagement.backgroundColor,
+                                                    fallback: '#ffffff',
+                                                    onChange: (color) => setFlexColumnManagement(prev => ({ ...prev, backgroundColor: color })),
+                                                })}
+                                                {colorCodePicker({
+                                                    label: 'Border Color',
+                                                    value: flexColumnManagement.borderColor,
+                                                    fallback: '#b8c2cc',
+                                                    onChange: (color) => setFlexColumnManagement(prev => ({ ...prev, borderColor: color })),
+                                                })}
                                             </Box>
                                         </Box>
                                     }
@@ -5341,10 +5415,12 @@ ${semanticContentDefaultCss}
                                                     />
                                                     <Box mt={1} sx={{ display: "flex" }}>
                                                         <Box sx={{ width: "50%" }}>
-                                                            <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                Border Color
-                                                            </Typography>
-                                                            <HexColorPicker color={imageManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setImageManagement({ ...imageManagement, borderColor: e })} />
+                                                            {colorCodePicker({
+                                                                label: 'Border Color',
+                                                                value: imageManagement.borderColor,
+                                                                fallback: '#b8c2cc',
+                                                                onChange: (color) => setImageManagement({ ...imageManagement, borderColor: color }),
+                                                            })}
                                                         </Box>
                                                         <Box sx={{ width: "50%" }}>
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
@@ -5533,16 +5609,20 @@ ${semanticContentDefaultCss}
                                                         <Box sx={{ width: "50%" }}>
                                                             <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
                                                                 <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                        Color
-                                                                    </Typography>
-                                                                    <HexColorPicker class color={textManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, color: e })} />
+                                                                    {colorCodePicker({
+                                                                        label: 'Color',
+                                                                        value: textManagement.color,
+                                                                        fallback: '#000000',
+                                                                        onChange: (color) => setTextManagement({ ...textManagement, color }),
+                                                                    })}
                                                                 </Box>
                                                                 <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                        Background
-                                                                    </Typography>
-                                                                    <HexColorPicker color={textManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, backgroundColor: e })} />
+                                                                    {colorCodePicker({
+                                                                        label: 'Background',
+                                                                        value: textManagement.backgroundColor,
+                                                                        fallback: '#ffffff',
+                                                                        onChange: (color) => setTextManagement({ ...textManagement, backgroundColor: color }),
+                                                                    })}
                                                                 </Box>
                                                             </Box>
                                                             <FormControl fullWidth sx={{ mt: 2.1 }}>
@@ -5637,10 +5717,12 @@ ${semanticContentDefaultCss}
                                                     </Box>
                                                     <Box mt={1} sx={{ display: "flex" }}>
                                                         <Box sx={{ width: "28%" }} className="customPicker">
-                                                            <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                Border Color
-                                                            </Typography>
-                                                            <HexColorPicker color={textManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setTextManagement({ ...textManagement, borderColor: e })} />
+                                                            {colorCodePicker({
+                                                                label: 'Border Color',
+                                                                value: textManagement.borderColor,
+                                                                fallback: '#000000',
+                                                                onChange: (color) => setTextManagement({ ...textManagement, borderColor: color }),
+                                                            })}
                                                         </Box>
                                                         <Box sx={{ width: "72%" }}>
                                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
@@ -5724,16 +5806,20 @@ ${semanticContentDefaultCss}
                                                         <Box mt={-1.6} sx={{ width: "50%" }}>
                                                             <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
                                                                 <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                        Color
-                                                                    </Typography>
-                                                                    <HexColorPicker class color={buttonManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, color: e })} />
+                                                                    {colorCodePicker({
+                                                                        label: 'Color',
+                                                                        value: buttonManagement.color,
+                                                                        fallback: '#000000',
+                                                                        onChange: (color) => setButtonManagement({ ...buttonManagement, color }),
+                                                                    })}
                                                                 </Box>
                                                                 <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                        Background
-                                                                    </Typography>
-                                                                    <HexColorPicker color={buttonManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, backgroundColor: e })} />
+                                                                    {colorCodePicker({
+                                                                        label: 'Background',
+                                                                        value: buttonManagement.backgroundColor,
+                                                                        fallback: '#ffffff',
+                                                                        onChange: (color) => setButtonManagement({ ...buttonManagement, backgroundColor: color }),
+                                                                    })}
                                                                 </Box>
                                                             </Box>
                                                         </Box>
@@ -5835,10 +5921,12 @@ ${semanticContentDefaultCss}
                                                         />
                                                         <Box mt={1} sx={{ display: "flex" }} className="customPicker">
                                                             <Box sx={{ width: "50%" }}>
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                    Border Color
-                                                                </Typography>
-                                                                <HexColorPicker color={buttonManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setButtonManagement({ ...buttonManagement, borderColor: e })} />
+                                                                {colorCodePicker({
+                                                                    label: 'Border Color',
+                                                                    value: buttonManagement.borderColor,
+                                                                    fallback: '#000000',
+                                                                    onChange: (color) => setButtonManagement({ ...buttonManagement, borderColor: color }),
+                                                                })}
                                                             </Box>
                                                             <Box sx={{ width: "50%" }}>
                                                                 <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
@@ -5877,16 +5965,20 @@ ${semanticContentDefaultCss}
                                                         <Box mt={-1.6} sx={{ width: "50%" }}>
                                                             <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
                                                                 <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                        Color
-                                                                    </Typography>
-                                                                    <HexColorPicker class color={formManagement.submitTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitTextColor: e })} />
+                                                                    {colorCodePicker({
+                                                                        label: 'Color',
+                                                                        value: formManagement.submitTextColor,
+                                                                        fallback: '#000000',
+                                                                        onChange: (color) => setFormManagement({ ...formManagement, submitTextColor: color }),
+                                                                    })}
                                                                 </Box>
                                                                 <Box sx={{ width: "50%" }}>
-                                                                    <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                        Background
-                                                                    </Typography>
-                                                                    <HexColorPicker color={formManagement.submitBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitBackgroundColor: e })} />
+                                                                    {colorCodePicker({
+                                                                        label: 'Background',
+                                                                        value: formManagement.submitBackgroundColor,
+                                                                        fallback: '#ffffff',
+                                                                        onChange: (color) => setFormManagement({ ...formManagement, submitBackgroundColor: color }),
+                                                                    })}
                                                                 </Box>
                                                             </Box>
                                                         </Box>
@@ -5951,16 +6043,20 @@ ${semanticContentDefaultCss}
                                                     <Box sx={{ display: 'flex', gap: "15px", mt: 1 }}>
                                                         <Box sx={{ width: "50%", display: "flex", gap: 2 }}>
                                                             <Box sx={{ width: "50%" }} className="customPickerTwo">
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px", mb: 1 }}>
-                                                                    Title Color
-                                                                </Typography>
-                                                                <HexColorPicker color={formManagement.h3HeadingColor} style={{ width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, h3HeadingColor: e })} />
+                                                                {colorCodePicker({
+                                                                    label: 'Title Color',
+                                                                    value: formManagement.h3HeadingColor,
+                                                                    fallback: '#333333',
+                                                                    onChange: (color) => setFormManagement({ ...formManagement, h3HeadingColor: color }),
+                                                                })}
                                                             </Box>
                                                             <Box sx={{ width: "50%" }} className="customPickerTwo">
-                                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                                    Border Color
-                                                                </Typography>
-                                                                <HexColorPicker color={formManagement.borderColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, borderColor: e })} />
+                                                                {colorCodePicker({
+                                                                    label: 'Border Color',
+                                                                    value: formManagement.borderColor,
+                                                                    fallback: '#0186ff',
+                                                                    onChange: (color) => setFormManagement({ ...formManagement, borderColor: color }),
+                                                                })}
                                                             </Box>
                                                         </Box>
                                                         <Box sx={{ width: "50%" }}>

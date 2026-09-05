@@ -42,6 +42,70 @@ export default function Dashboard() {
         'not-required',
     ];
 
+
+    const rgbToHexForPicker = (color, fallback = '#ffffff') => {
+        const normalizedColor = `${color || ''}`.trim();
+        if (!normalizedColor || normalizedColor === 'transparent' || normalizedColor === 'rgba(0, 0, 0, 0)') {
+            return fallback;
+        }
+        if (normalizedColor.startsWith('#')) {
+            return normalizedColor;
+        }
+
+        const match = normalizedColor.match(/^rgba?(s*(d{1,3})s*,s*(d{1,3})s*,s*(d{1,3})(?:s*,s*(?:0|1|0?.d+))?s*)$/i);
+        if (!match) {
+            return fallback;
+        }
+
+        return '#' + [match[1], match[2], match[3]]
+            .map((value) => Math.max(0, Math.min(255, Number(value))).toString(16).padStart(2, '0'))
+            .join('');
+    }
+
+    const isValidCssColorCode = (color) => {
+        const normalizedColor = `${color || ''}`.trim();
+        if (!normalizedColor) {
+            return true;
+        }
+
+        if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(normalizedColor)) {
+            return true;
+        }
+
+        const match = normalizedColor.match(/^rgba?(s*(d{1,3})s*,s*(d{1,3})s*,s*(d{1,3})(?:s*,s*(0|1|0?.d+))?s*)$/i);
+        return Boolean(match) && [match[1], match[2], match[3]].every((value) => Number(value) >= 0 && Number(value) <= 255);
+    }
+
+    const colorCodePicker = ({ label, value, fallback = '#ffffff', onChange }) => {
+        const normalizedValue = `${value || ''}`.trim();
+        const hasInvalidColor = normalizedValue !== '' && !isValidCssColorCode(normalizedValue);
+
+        return (
+            <Box className="customPickerTwo" sx={{ width: "100%" }}>
+                <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
+                    {label}
+                </Typography>
+                <HexColorPicker
+                    color={rgbToHexForPicker(normalizedValue, fallback)}
+                    style={{ marginTop: "7px", width: "100%" }}
+                    onChange={onChange}
+                />
+                <TextField
+                    className="doNotAct"
+                    fullWidth
+                    size="small"
+                    label="Color Code"
+                    placeholder="#0186ff or rgb(1, 134, 255)"
+                    value={value || ''}
+                    error={hasInvalidColor}
+                    helperText={hasInvalidColor ? 'Invalid color. Use HEX, RGB, or RGBA.' : 'Use HEX (#0186ff), RGB rgb(1, 134, 255), or RGBA rgba(1, 134, 255, 0.5).'}
+                    onChange={(e) => onChange(e.target.value)}
+                    sx={{ mt: 1 }}
+                />
+            </Box>
+        );
+    }
+
     const commonInputTypes = [
         "text",
         "email",
@@ -320,10 +384,12 @@ export default function Dashboard() {
                                 />
                                 <Box mt={1} sx={{ display: "flex" }}>
                                     <Box sx={{ width: "50%" }}>
-                                        <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                            Border Color
-                                        </Typography>
-                                        <HexColorPicker color={imageManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setImageManagement({ ...imageManagement, borderColor: e })} />
+                                        {colorCodePicker({
+                                            label: 'Border Color',
+                                            value: imageManagement.borderColor,
+                                            fallback: '#b8c2cc',
+                                            onChange: (color) => setImageManagement({ ...imageManagement, borderColor: color }),
+                                        })}
                                     </Box>
                                     <Box sx={{ width: "50%" }}>
                                         <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
@@ -582,16 +648,20 @@ export default function Dashboard() {
                                     <Box sx={{ width: "50%" }}>
                                         <Box sx={{ display: "flex", gap: "15px" }} className="customPicker">
                                             <Box sx={{ width: "50%" }}>
-                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                    Color
-                                                </Typography>
-                                                <HexColorPicker class color={textManagement.color} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, color: e })} />
+                                                {colorCodePicker({
+                                                    label: 'Color',
+                                                    value: textManagement.color,
+                                                    fallback: '#000000',
+                                                    onChange: (color) => setTextManagement({ ...textManagement, color }),
+                                                })}
                                             </Box>
                                             <Box sx={{ width: "50%" }}>
-                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                    Background
-                                                </Typography>
-                                                <HexColorPicker color={textManagement.backgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setTextManagement({ ...textManagement, backgroundColor: e })} />
+                                                {colorCodePicker({
+                                                    label: 'Background',
+                                                    value: textManagement.backgroundColor,
+                                                    fallback: '#ffffff',
+                                                    onChange: (color) => setTextManagement({ ...textManagement, backgroundColor: color }),
+                                                })}
                                             </Box>
                                         </Box>
                                         <FormControl fullWidth sx={{ mt: 2.1 }}>
@@ -661,10 +731,12 @@ export default function Dashboard() {
                                 </Box>
                                 <Box mt={1} sx={{ display: "flex" }}>
                                     <Box sx={{ width: "28%" }} className="customPicker">
-                                        <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                            Border Color
-                                        </Typography>
-                                        <HexColorPicker color={textManagement.borderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setTextManagement({ ...textManagement, borderColor: e })} />
+                                        {colorCodePicker({
+                                            label: 'Border Color',
+                                            value: textManagement.borderColor,
+                                            fallback: '#000000',
+                                            onChange: (color) => setTextManagement({ ...textManagement, borderColor: color }),
+                                        })}
                                     </Box>
                                     <Box sx={{ width: "72%" }}>
                                         <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
@@ -829,16 +901,20 @@ export default function Dashboard() {
                                     <Box mt={-1.6} sx={{ width: "50%" }}>
                                         <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
                                             <Box sx={{ width: "50%" }}>
-                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                    Color
-                                                </Typography>
-                                                <HexColorPicker class color={formManagement.submitTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitTextColor: e })} />
+                                                {colorCodePicker({
+                                                    label: 'Color',
+                                                    value: formManagement.submitTextColor,
+                                                    fallback: '#000000',
+                                                    onChange: (color) => setFormManagement({ ...formManagement, submitTextColor: color }),
+                                                })}
                                             </Box>
                                             <Box sx={{ width: "50%" }}>
-                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                    Background
-                                                </Typography>
-                                                <HexColorPicker color={formManagement.submitBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setFormManagement({ ...formManagement, submitBackgroundColor: e })} />
+                                                {colorCodePicker({
+                                                    label: 'Background',
+                                                    value: formManagement.submitBackgroundColor,
+                                                    fallback: '#ffffff',
+                                                    onChange: (color) => setFormManagement({ ...formManagement, submitBackgroundColor: color }),
+                                                })}
                                             </Box>
                                         </Box>
                                     </Box>
@@ -1004,16 +1080,20 @@ export default function Dashboard() {
                                     <Box mt={-1.6} sx={{ width: "50%" }}>
                                         <Box sx={{ display: "flex", gap: "15px" }} className="customPickerTwo" >
                                             <Box sx={{ width: "50%" }}>
-                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                    Color
-                                                </Typography>
-                                                <HexColorPicker class color={buttonManagement.buttonTextColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonTextColor: e })} />
+                                                {colorCodePicker({
+                                                    label: 'Color',
+                                                    value: buttonManagement.buttonTextColor,
+                                                    fallback: '#000000',
+                                                    onChange: (color) => setButtonManagement({ ...buttonManagement, buttonTextColor: color }),
+                                                })}
                                             </Box>
                                             <Box sx={{ width: "50%" }}>
-                                                <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                    Background
-                                                </Typography>
-                                                <HexColorPicker color={buttonManagement.buttonBackgroundColor} style={{ marginTop: "7px", width: "100%" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonBackgroundColor: e })} />
+                                                {colorCodePicker({
+                                                    label: 'Background',
+                                                    value: buttonManagement.buttonBackgroundColor,
+                                                    fallback: '#ffffff',
+                                                    onChange: (color) => setButtonManagement({ ...buttonManagement, buttonBackgroundColor: color }),
+                                                })}
                                             </Box>
                                         </Box>
                                     </Box>
@@ -1119,10 +1199,12 @@ export default function Dashboard() {
                                     />
                                     <Box mt={1} sx={{ display: "flex" }}>
                                         <Box sx={{ width: "50%" }}>
-                                            <Typography variant="body" component="div" sx={{ fontSize: "14px" }}>
-                                                Border Color
-                                            </Typography>
-                                            <HexColorPicker color={buttonManagement.buttonBorderColor} style={{ marginTop: "7px", width: "100%", paddingRight: "20px" }} onChange={(e) => setButtonManagement({ ...buttonManagement, buttonBorderColor: e })} />
+                                            {colorCodePicker({
+                                                label: 'Border Color',
+                                                value: buttonManagement.buttonBorderColor,
+                                                fallback: '#000000',
+                                                onChange: (color) => setButtonManagement({ ...buttonManagement, buttonBorderColor: color }),
+                                            })}
                                         </Box>
                                         <Box sx={{ width: "50%" }}>
                                             <Typography variant="body" component="div" sx={{ mb: 1, fontSize: "14px" }}>
