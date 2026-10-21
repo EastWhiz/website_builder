@@ -50,6 +50,13 @@ try {
 
     <title>Thank You</title>
 
+<?php
+/*
+ * DISABLED: thank-you page no longer fires the Facebook pixel / Voluum postback.
+ * Conversions are meant to be reported by the CRM based on lead status, not by
+ * the visitor's browser on every page load. Kept commented for reference.
+ * Remove this wrapper only if the page-side pixel is intentionally restored.
+ *
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -107,6 +114,8 @@ try {
             }
         });
     </script>
+*/
+?>
 </head>
 
 <body>

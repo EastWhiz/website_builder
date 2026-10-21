@@ -110,6 +110,11 @@ class ThankYouPage extends Model
         ?self $page,
         ?UserApiCredential $credentials
     ): string {
+        // DISABLED: exported thank-you pages must not fire pixels/postbacks.
+        // The pixel scripts are commented out in the templates; returning early also
+        // keeps user-supplied URLs from being written into the exported file.
+        return $content;
+
         $facebook = trim((string) ($page?->facebook_pixel_url ?? ''));
         if ($facebook === '') {
             $facebook = trim((string) ($credentials?->facebook_pixel_url ?? ''));
