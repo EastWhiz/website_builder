@@ -1,0 +1,46 @@
+{
+  "_comment": "Shared by lead-validation.js (browser) and api_files/lead_validation.php (server). Keep lowercase. Edit here only.",
+  "reservedDomains": [
+    "example.com", "example.org", "example.net", "test.com", "localhost", "invalid.com", "domain.com", "email.com.test"
+  ],
+  "reservedSuffixes": [
+    ".test", ".invalid", ".localhost", ".example", ".local", ".localdomain", ".internal"
+  ],
+  "disposableDomains": [
+    "mailinator.com", "guerrillamail.com", "guerrillamail.net", "guerrillamail.org", "guerrillamail.biz",
+    "guerrillamail.de", "guerrillamail.info", "guerrillamailblock.com", "sharklasers.com", "grr.la", "spam4.me",
+    "10minutemail.com", "10minutemail.net", "10minutemail.org", "temp-mail.org", "temp-mail.io", "tempmail.com",
+    "tempmail.net", "tempmailo.com", "tempmailaddress.com", "tempail.com", "tempinbox.com", "tempr.email",
+    "temporary-mail.net", "throwawaymail.com", "yopmail.com", "yopmail.fr", "yopmail.net", "trashmail.com",
+    "trashmail.net", "trashmail.de", "getnada.com", "nada.email", "maildrop.cc", "dispostable.com",
+    "fakeinbox.com", "fakemail.net", "mailnesia.com", "mintemail.com", "moakt.com", "emailondeck.com",
+    "mohmal.com", "burnermail.io", "discard.email", "spamgourmet.com", "mytemp.email", "tmpmail.org",
+    "tmpmail.net", "mail.tm", "1secmail.com", "1secmail.org", "1secmail.net", "harakirimail.com",
+    "mailcatch.com", "mailforspam.com", "getairmail.com", "inboxkitten.com", "mailtemp.net", "spambox.us",
+    "spamex.com", "trbvm.com", "dropmail.me", "emailfake.com", "luxusmail.org", "jetable.org", "anonbox.net",
+    "bccto.me", "fakemailgenerator.com", "mailpoof.com", "mail-temp.com", "tempmailer.com", "tempmail.dev"
+  ],
+  "hardTldTypos": [
+    "con", "coom", "comm", "cmo", "ocm", "vom", "xom", "cim", "cpm", "clm", "cok", "comn"
+  ],
+  "tldTypoSuggestion": "com",
+  "typoDomains": {
+    "gmal.com": "gmail.com", "gmial.com": "gmail.com", "gamil.com": "gmail.com", "gmail.co": "gmail.com",
+    "gmai.com": "gmail.com", "gml.com": "gmail.com", "gmil.com": "gmail.com", "gnail.com": "gmail.com",
+    "gmaill.com": "gmail.com", "hotmial.com": "hotmail.com", "hotmai.com": "hotmail.com",
+    "hotmal.com": "hotmail.com", "hotmil.com": "hotmail.com", "yaho.com": "yahoo.com", "yahooo.com": "yahoo.com",
+    "yhoo.com": "yahoo.com", "yahou.com": "yahoo.com", "outlok.com": "outlook.com", "outloook.com": "outlook.com",
+    "iclod.com": "icloud.com", "icloud.co": "icloud.com", "iclould.com": "icloud.com"
+  },
+  "commonDomains": [
+    "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "yahoo.de", "yahoo.fr", "yahoo.es", "yahoo.it",
+    "yahoo.co.jp", "ymail.com", "hotmail.com", "hotmail.co.uk", "hotmail.de", "hotmail.fr", "hotmail.es",
+    "hotmail.it", "outlook.com", "outlook.de", "outlook.fr", "outlook.es", "live.com", "live.co.uk", "msn.com",
+    "icloud.com", "me.com", "mac.com", "aol.com", "protonmail.com", "proton.me", "gmx.com", "gmx.de", "gmx.net",
+    "web.de", "mail.com", "t-online.de", "freenet.de", "orange.fr", "wanadoo.fr", "free.fr", "sfr.fr",
+    "libero.it", "virgilio.it", "tiscali.it", "o2.pl", "wp.pl", "onet.pl", "interia.pl", "uol.com.br",
+    "bol.com.br", "terra.com.br", "ig.com.br", "naver.com", "daum.net", "hanmail.net", "nate.com",
+    "docomo.ne.jp", "ezweb.ne.jp", "softbank.ne.jp", "comcast.net", "att.net", "verizon.net", "sbcglobal.net",
+    "bellsouth.net", "cox.net", "btinternet.com", "sky.com", "zoho.com", "yandex.com", "qq.com", "163.com"
+  ]
+}

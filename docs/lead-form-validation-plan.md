@@ -1,6 +1,32 @@
 # Exported Lead Form Validation — Implementation Plan
 
-Status: plan only, no code written yet.
+Status: BUILT (builder side), 2026-10-21. CRM-side enforcement is still to do. Remaining follow-ups: native-speaker review of the
+non-English messages; `npm run build` to pick up the editor preview changes.
+
+### Build notes (what changed vs the plan)
+- Files: `public/export_assets/{lead-validation.js, lead-form-gate.js, lead-validation-data.json, lead-validation-messages.json,
+  intl-tel-input/}`, `public/api_files/lead_validation.php` + guard in `save_lead_handler.php` and all 18 provider scripts,
+  `AngleTemplateController` (export wiring, old handlers removed), both editor previews (no US fallback).
+- Tests: `node tests/js/lead-validation.test.cjs` (310 checks), `tests/Unit/LeadValidationPhpTest.php` and
+  `LeadValidationGuardCoverageTest.php` (shared vectors in `tests/fixtures/`). After editing the message table in
+  `lead-validation.js`, run `node scripts/generate-lead-validation-messages.cjs`.
+- Verified in a real browser against a real export (all scenarios in section 8) and by POSTing bad data straight to a provider script.
+- Finding 1: in intl-tel-input 19.5.2 the instance method `iti.isValidNumber()` is a lenient length check (it accepted
+  `+1 111 555 2671`). The validator calls `intlTelInputUtils.isValidNumber(number, iso2)` (strict libphonenumber) instead.
+- Finding 2: the library's `defaultToFirstCountry` defaults to true and would silently preselect the first country in its list.
+  It is set to false in the export and in the previews.
+- Language: the editor does not store the form language, so the page detects it from the field placeholders (falls back to English).
+- Heads-up: a visitor with no IP-detected country must pick one (or type `+code`); local digits alone are rejected on purpose.
+- Finding 3 (found by testing an OTP page): after OTP verification the page calls `form.requestSubmit()`, which fires a normal
+  submit event. The first version of the gate swallowed it, so verified leads were never posted, and closing the OTP modal left the
+  form stuck. Fixed: the gate marks the form validated before the OTP hand-off, clears the busy state afterwards, and any edit to
+  name/email/phone after validation or OTP forces validation (and OTP) again. Regression test in `LeadValidationGuardCoverageTest`.
+- Tested in a real browser on real exports: Trackbox (elps), GetLinked (koi, self-hosted, Italian), LeadGreed (electra, German),
+  Trackbox (magicads, typo soft-block), LeadGreed + OTP (riceleads), and a UK page with OTP. Server guard checked through
+  `backend.php` for the Trackbox, GetLinked and LeadGreed platform files. Editor previews (angle 144, landing page 1287) checked in the
+  Builder after `npm run build`: phone box has no forced country and keeps its own label. IP lookup success/garbage/failure/slow
+  paths and "visitor choice wins" checked on an export. Not tested: iRev (nauta/irev) - no page exists in the database.
+- Not changed: OTP endpoints (`otp_generate.php` etc.) are still callable directly; worth rate limiting separately.
 Scope: the exported landing-page form (email, phone, name), the editor previews that mirror it, and a
 server-side copy in the exported PHP. CRM-side validation is a separate follow-up (section 11).
 

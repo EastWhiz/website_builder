@@ -16,6 +16,17 @@ import { HexColorPicker } from "react-colorful";
 import Swal from "sweetalert2";
 import Select from 'react-select';
 
+// Editor preview phone widget options. No silent US fallback: the country comes from the IP lookup only when it
+// returns a valid ISO-2 code, otherwise the field starts with no country (same as the exported page).
+const previewTelInputOptions = (country) => {
+    const code = String(country || '').trim().toLowerCase();
+    const options = { nationalMode: false, defaultToFirstCountry: false };
+    if (/^[a-z]{2}$/.test(code)) {
+        options.initialCountry = code;
+    }
+    return options;
+};
+
 /** Sync tracking hidden fields from page URL (exported static pages + preview after innerHTML). */
 function syncFormTrackingParamsFromUrl(formEl) {
     if (!formEl) return;
@@ -780,24 +791,20 @@ export default function Dashboard({ id }) {
                     fetch("https://ipapi.co/json/")
                         .then(res => res.json())
                         .then(data => {
-                            const userCountry = data.country_code || "us"; // fallback if undefined
+                            const userCountry = data.country_code;
 
                             // Now loop through all telInputs and init with that country
                             document.querySelectorAll(".telInputs").forEach(input => {
-                                window.intlTelInput(input, {
-                                    initialCountry: userCountry,
-                                });
+                                window.intlTelInput(input, previewTelInputOptions(userCountry));
 
                                 // Keep full width
                                 input.style.width = "100%";
                             });
                         })
                         .catch(() => {
-                            // If API fails, just fallback to US
+                            // If the lookup fails, start with no country selected
                             document.querySelectorAll(".telInputs").forEach(input => {
-                                window.intlTelInput(input, {
-                                    initialCountry: "us",
-                                });
+                                window.intlTelInput(input, previewTelInputOptions(""));
                                 input.style.width = "100%";
                             });
                         });
@@ -1831,24 +1838,20 @@ export default function Dashboard({ id }) {
             fetch("https://ipapi.co/json/")
                 .then(res => res.json())
                 .then(data => {
-                    const userCountry = data.country_code || "us"; // fallback if undefined
+                    const userCountry = data.country_code;
 
                     // Now loop through all telInputs and init with that country
                     document.querySelectorAll(".telInputs").forEach(input => {
-                        window.intlTelInput(input, {
-                            initialCountry: userCountry,
-                        });
+                        window.intlTelInput(input, previewTelInputOptions(userCountry));
 
                         // Keep full width
                         input.style.width = "100%";
                     });
                 })
                 .catch(() => {
-                    // If API fails, just fallback to US
+                    // If the lookup fails, start with no country selected
                     document.querySelectorAll(".telInputs").forEach(input => {
-                        window.intlTelInput(input, {
-                            initialCountry: "us",
-                        });
+                        window.intlTelInput(input, previewTelInputOptions(""));
                         input.style.width = "100%";
                     });
                 });

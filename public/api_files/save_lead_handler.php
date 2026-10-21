@@ -5,6 +5,8 @@
  * This should be included in all API files after getting the main API response
  */
 
+include_once __DIR__ . '/lead_validation.php';
+
 function getValInside($arr, $key)
 {
     return isset($arr[$key]) ? $arr[$key] : '';
@@ -75,6 +77,29 @@ function resolveCanonicalCid(array $postData, array $getData, array $apiPayload 
 
     foreach ($candidates as $candidate) {
         $normalized = normalizeTrackingValue($candidate);
+        if ($normalized !== '') {
+            return $normalized;
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Resolve a plain tracking parameter (pid, so) the same way the CID is resolved: query string, posted form field,
+ * provider payload, then the page URL in the Referer header. First non-empty value wins.
+ */
+function resolveTrackingParam(string $key, array $postData, array $getData, array $apiPayload = []): string
+{
+    $candidates = [
+        $getData[$key] ?? null,
+        $postData[$key] ?? null,
+        $apiPayload[$key] ?? null,
+        getTrackingValueFromReferer($key),
+    ];
+
+    foreach ($candidates as $candidate) {
+        $normalized = normalizeTrackingValue(is_scalar($candidate) ? $candidate : '');
         if ($normalized !== '') {
             return $normalized;
         }
@@ -234,6 +259,49 @@ function checkDuplicateLeadInCrm(array $postData, string $apiName): array
     ];
 }
 
+/**
+ * Server-side input validation (email, names, phone shape). Browser checks are for the visitor; this is the
+ * enforcement, because a direct POST to a provider script skips the page entirely.
+ * Records the attempt as a failed lead in the CRM (same path as duplicates), never calls a broker, and sends
+ * the visitor back with a message in their form language. Runs after the honeypot guard, before duplicates.
+ */
+function maybeBlockInvalidLeadAndExit(array $postData, array $getData, string $apiName): void
+{
+    if (!function_exists('lv_validate_lead_post')) {
+        return;
+    }
+
+    $problem = lv_validate_lead_post($postData);
+    if ($problem === null) {
+        return;
+    }
+
+    // Log field and code only (no personal data).
+    error_log('[lead-validation] rejected api=' . $apiName . ' field=' . $problem['field'] . ' code=' . $problem['code']);
+
+    saveLead(
+        $postData,
+        $getData,
+        ['status' => false, 'message' => $problem['message']],
+        $apiName,
+        'failure',
+        ['invalid_input' => ['field' => $problem['field'], 'code' => $problem['code']]],
+        ['failure_reason' => 'Invalid input: ' . $problem['field'] . ' (' . $problem['code'] . ')']
+    );
+
+    $cid = trim((string) ($getData['cid'] ?? $postData['cid'] ?? ''));
+    $pid = trim((string) ($getData['pid'] ?? $postData['pid'] ?? ''));
+    $so = trim((string) ($getData['so'] ?? $postData['so'] ?? ''));
+
+    header('Location: ' . BASE_URL . '?' . http_build_query([
+        'cid' => $cid,
+        'pid' => $pid,
+        'so' => $so,
+        'api_error' => $problem['message'],
+    ]));
+    exit();
+}
+
 function maybeBlockDuplicateLeadAndExit(array $postData, array $getData, string $apiName): void
 {
     $email = normalizeLeadEmail($postData['email'] ?? '');
@@ -381,6 +449,15 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
     if ($canonicalCid !== '') {
         $apiPayload['cid'] = $canonicalCid;
     }
+    // PID and SO travel with the CID: the CRM needs them to fill pixel/postback parameters later.
+    $canonicalPid = resolveTrackingParam('pid', $postData, $getData, $apiPayload);
+    $canonicalSo = resolveTrackingParam('so', $postData, $getData, $apiPayload);
+    if ($canonicalPid !== '') {
+        $apiPayload['pid'] = $canonicalPid;
+    }
+    if ($canonicalSo !== '') {
+        $apiPayload['so'] = $canonicalSo;
+    }
     $apiPayload['aweber_form'] = [
         'use_aweber' => $postData['use_aweber'] ?? 'no',
         'aweber_user_api_instance_id' => $postData['aweber_user_api_instance_id'] ?? '',
@@ -402,8 +479,9 @@ function saveLead($postData, $getData, $apiResponse, $apiName, $apiResponseStatu
         'api_response' => $apiResponse,
         'api_response_status' => $apiResponseStatus,
         'is_self_hosted' => (isset($postData['is_self_hosted']) && $postData['is_self_hosted'] == "true") ? true : false,
-        'so' => getValInside($getData, 'so') ?? '',
+        'so' => $canonicalSo,
         'cid' => $canonicalCid,
+        'pid' => $canonicalPid,
         'ip_address' => $leadIp,
         'country' => $leadCountry,
         'is_fake_lead' => (bool) ($options['is_fake_lead'] ?? false),

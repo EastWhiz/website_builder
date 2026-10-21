@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $honeypotApiName = $saveLeadSlug !== '' ? $saveLeadSlug : ($formTypeForSpam !== '' ? $formTypeForSpam : 'unknown');
     
     maybeBlockFakeLeadAndExit($postData, $getData, $honeypotApiName);
+    maybeBlockInvalidLeadAndExit($postData, $getData, $honeypotApiName);
     maybeBlockDuplicateLeadAndExit($postData, $getData, $honeypotApiName);
 
     // Helper function to get value or empty string

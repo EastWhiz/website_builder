@@ -1541,6 +1541,16 @@ class AngleTemplateController extends Controller
             $updatingCss
         );
 
+        // Shared lead-form validation assets. The export fails loudly if any is missing: shipping a page
+        // without validation (or silently falling back to a CDN) is worse than a clear error.
+        $leadAssets = $this->loadLeadValidationAssets();
+        if (isset($leadAssets['error'])) {
+            $zip->close();
+            return response()->json(['error' => $leadAssets['error']], 500);
+        }
+        $leadValidationJs = $leadAssets['validation_js'];
+        $leadFormGateJs = $leadAssets['gate_js'];
+        $leadValidationDataJson = $leadAssets['data_json'];
         $fullHtml = <<<HTMLDOC
         <!DOCTYPE html>
         <html lang="en">
@@ -1550,7 +1560,7 @@ class AngleTemplateController extends Controller
             <title>{$angleTemplate->name}</title>
             <script src=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.all.min.js "></script>
             <link href=" https://cdn.jsdelivr.net/npm/sweetalert2@11.22.4/dist/sweetalert2.min.css " rel="stylesheet">
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/css/intlTelInput.css">
+            <link rel="stylesheet" href="assets/intl-tel-input/css/intlTelInput.css">
             <script src="https://cdn.jsdelivr.net/npm/blueimp-md5@2.19.0/js/md5.min.js"></script>
             {$template->head}
             <style>
@@ -2025,8 +2035,11 @@ class AngleTemplateController extends Controller
         </head>
         <body>
             {$updatingIndex}
-            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/intlTelInput.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/utils.js"></script>
+            <script src="assets/intl-tel-input/js/intlTelInput.min.js"></script>
+            <script src="assets/intl-tel-input/js/utils.js"></script>
+            <script>{$leadValidationJs}</script>
+            <script>LeadValidation.configure({$leadValidationDataJson});</script>
+            <script>{$leadFormGateJs}</script>
             <script>
                 function upsertHiddenInput(form, name, value) {
                     if (!form || !name) return;
@@ -2113,154 +2126,9 @@ class AngleTemplateController extends Controller
                     upsertHiddenInput(form, 'submission_duration_ms', String(durationMs));
                 }
 
-                function initTelInputs(country) {
-                    document.querySelectorAll("form").forEach((form) => {
-                        syncTrackingParamsFromUrl(form);
-                        ensureUseAweberFlag(form);
-                        ensureHoneypotInputs(form);
-                    });
-                    document.querySelectorAll(".telInputs").forEach(input => {
-                        const iti = intlTelInput(input, {
-                            initialCountry: country,
-                            utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.2/build/js/utils.js"
-                        });
-                        input.style.width = "100%";
-
-                        input.form?.addEventListener("submit", async e => {
-                            // Allow submission if OTP is already verified
-                            if (input.form.dataset.otpVerified === 'true') {
-                                return; // Let form submit normally
-                            }
-                            e.preventDefault(); // stop immediate submission
-
-                            const btn = input.form.querySelector('[type="submit"]');
-                            if (btn) {
-                                btn.dataset.original = btn.innerHTML; // save original
-                                btn.innerHTML = `<div class="loader"></div>`; // show CSS loader
-                                btn.style.opacity = "0.6";
-                                btn.disabled = true;
-                            }
-
-                            // SELF HOSTED - only add if not already in form (value comes from form config in builder)
-                            if (!input.form.querySelector('input[name="is_self_hosted"]')) {
-                                const selfHosted = Object.assign(document.createElement("input"), {
-                                    type: "hidden",
-                                    name: "is_self_hosted",
-                                    value: "false"
-                                });
-                                input.form.appendChild(selfHosted);
-                            }
-
-                            // Always preserve tracking params in POST so CRM receives CID even when form action/query is changed.
-                            syncTrackingParamsFromUrl(input.form);
-                            ensureUseAweberFlag(input.form);
-                            ensureHoneypotInputs(input.form);
-
-                            const raw = input.value.trim();
-                            if (!raw) {
-                                input.form.submit(); // allow submit anyway (no phone)
-                                return;
-                            }
-
-                            const countryData = iti.getSelectedCountryData();
-                            const { iso2 } = countryData;
-                            const areaCode = countryData?.dialCode ? ('+' + countryData.dialCode) : '';
-
-                            // Phone field
-                            const hiddenPhone = Object.assign(document.createElement("input"), {
-                                type: "hidden",
-                                name: "phone",
-                                value: iti.getNumber()
-                            });
-                            input.form.appendChild(hiddenPhone);
-
-                            // Country field
-                            const hiddenCountry = Object.assign(document.createElement("input"), {
-                                type: "hidden",
-                                name: "country",
-                                value: iso2
-                            });
-                            input.form.appendChild(hiddenCountry);
-
-                            // Area code in " +<dialCode>" format (used by some providers like RiceLeads)
-                            const hiddenAreaCode = Object.assign(document.createElement("input"), {
-                                type: "hidden",
-                                name: "area_code",
-                                value: areaCode
-                            });
-                            input.form.appendChild(hiddenAreaCode);
-
-                            // Language field (ISO 639-1 primary subtag, uppercase Ã¢â‚¬â€ Trackbox lg)
-                            const rawNavLang = (navigator.language || navigator.userLanguage || "en");
-                            const langPrimary = (String(rawNavLang).split(/[-_]/)[0] || "en").replace(/[^a-zA-Z]/g, "");
-                            const langCode = (langPrimary.length >= 2 ? langPrimary.substring(0, 2) : "en").toUpperCase();
-                            const hiddenLang = Object.assign(document.createElement("input"), {
-                                type: "hidden",
-                                name: "lang",
-                                value: langCode
-                            });
-                            input.form.appendChild(hiddenLang);
-
-                            // User IP (fetch before submitting)
-                            try {
-                                const res = await fetch("https://ipinfo.io/json");
-                                const data = await res.json();
-
-                                const hiddenIP = Object.assign(document.createElement("input"), {
-                                    type: "hidden",
-                                    name: "userip",
-                                    value: data.ip || ""
-                                });
-                                input.form.appendChild(hiddenIP);
-                            } catch (err) {
-                                console.error("Failed to fetch IP:", err);
-
-                                // still add empty IP field
-                                const hiddenIP = Object.assign(document.createElement("input"), {
-                                    type: "hidden",
-                                    name: "userip",
-                                    value: ""
-                                });
-                                input.form.appendChild(hiddenIP);
-                            }
-
-                            if (!iti.isValidNumber()) {
-                                Swal.fire({
-                                    icon: "error",
-                                    title: "Error!",
-                                    text: "Please enter a valid phone number.",
-                                });
-                                btn.innerHTML = btn.dataset.original;
-                                btn.style.opacity = "1";
-                                btn.disabled = false;
-                                return;
-                            }
-
-                            // Check for OTP service
-                            const otpServiceId = input.form.querySelector('[name="otp_service_id"]')?.value;
-                            
-                            if (otpServiceId && otpServiceId.trim() !== '') {
-                                // OTP flow required - keep loader active
-                                await handleOtpVerification(input.form);
-                            } else {
-                                // Ã¢Å“â€¦ No OTP required, submit form after IP is ready
-                                input.form.submit();
-                            }
-                        });
-                    });
-                }
-
-                // Try to detect user country
-                fetch("https://ipapi.co/json/")
-                    .then(res => res.json())
-                    .then(data => {
-                        const userCountry = data.country_code || "us"; // fallback if undefined
-                        initTelInputs(userCountry.toLowerCase());
-                    })
-                    .catch(() => {
-                        // If API fails, fallback to US
-                        initTelInputs("us");
-                    });
+                // Phone widget, validation and the single submit gate live in lead-form-gate.js (loaded above).
+                // It replaces the old initTelInputs()/IP-bootstrap code: no US fallback, no unvalidated submit path.
+                LeadFormGate.init();
 
                 // OTP Verification Functions
                 let otpFormData = null;
@@ -2980,39 +2848,7 @@ class AngleTemplateController extends Controller
                     }
                 }
 
-                // Handle forms without telInputs class
-                document.addEventListener('DOMContentLoaded', function() {
-                    document.querySelectorAll('form[id="myForm"]').forEach(form => {
-                        if (!form.querySelector('.telInputs')) {
-                            syncTrackingParamsFromUrl(form);
-                            form.addEventListener('submit', async function(e) {
-                                // Allow submission if OTP is already verified
-                                if (form.dataset.otpVerified === 'true') {
-                                    return; // Let form submit normally
-                                }
-                                e.preventDefault();
-                                
-                                const btn = form.querySelector('[type="submit"]');
-                                if (btn) {
-                                    btn.dataset.original = btn.innerHTML;
-                                    btn.innerHTML = `<div class="loader"></div>`;
-                                    btn.style.opacity = "0.6";
-                                    btn.disabled = true;
-                                }
-                                
-                                syncTrackingParamsFromUrl(form);
-
-                                const otpServiceId = form.querySelector('[name="otp_service_id"]')?.value;
-                                
-                                if (otpServiceId && otpServiceId.trim() !== '') {
-                                    await handleOtpVerification(form);
-                                } else {
-                                    form.submit();
-                                }
-                            });
-                        }
-                    });
-                });
+                // Forms without a phone box are validated by the same single submit gate (lead-form-gate.js).
             </script>
             <script>{$updatingJs}</script>
             <script>
@@ -3064,6 +2900,7 @@ class AngleTemplateController extends Controller
         HTMLDOC;
 
         $zip->addFromString('index.php', $fullHtml);
+        $this->addLeadValidationAssetsToZip($zip);
 
         // Add only fixed set + selected platform's integration file (platform-based export)
         $publicFilesPath = public_path('api_files');
@@ -3288,6 +3125,7 @@ class AngleTemplateController extends Controller
         'api_error_helper.php',
         'thank_you.php',
         'save_lead_handler.php',
+        'lead_validation.php',
         'aweber_send_helper.php',
         'otp_cleanup.php',
         'otp_generate.php',
@@ -4177,6 +4015,58 @@ class AngleTemplateController extends Controller
         }
 
         return $config;
+    }
+
+    /**
+     * Read the shared lead-form validation assets. Returns ['error' => ...] when anything is missing.
+     *
+     * @return array{validation_js?:string,gate_js?:string,data_json?:string,error?:string}
+     */
+    private function loadLeadValidationAssets(): array
+    {
+        $dir = public_path('export_assets');
+        $required = [
+            'validation_js' => $dir . '/lead-validation.js',
+            'gate_js' => $dir . '/lead-form-gate.js',
+            'data' => $dir . '/lead-validation-data.json',
+            'messages' => $dir . '/lead-validation-messages.json',
+            'itl_js' => $dir . '/intl-tel-input/js/intlTelInput.min.js',
+            'itl_utils' => $dir . '/intl-tel-input/js/utils.js',
+            'itl_css' => $dir . '/intl-tel-input/css/intlTelInput.css',
+            'itl_flags' => $dir . '/intl-tel-input/img/flags.png',
+            'php' => public_path('api_files/lead_validation.php'),
+        ];
+        foreach ($required as $label => $path) {
+            if (!is_file($path)) {
+                Log::error('Export aborted: lead validation asset missing', ['asset' => $label, 'path' => $path]);
+
+                return ['error' => 'Export failed: required form validation files are missing (' . $label . '). Please contact support.'];
+            }
+        }
+
+        $data = json_decode((string) file_get_contents($required['data']), true);
+        if (!is_array($data)) {
+            Log::error('Export aborted: lead validation data is not valid JSON');
+
+            return ['error' => 'Export failed: form validation data is invalid. Please contact support.'];
+        }
+        unset($data['_comment']);
+
+        return [
+            'validation_js' => (string) file_get_contents($required['validation_js']),
+            'gate_js' => (string) file_get_contents($required['gate_js']),
+            // JSON_HEX_TAG keeps "</script>" out of the inline script.
+            'data_json' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP),
+        ];
+    }
+
+    /** Ship the local intl-tel-input copy and the server-side validation data with every export. */
+    private function addLeadValidationAssetsToZip(ZipArchive $zip): void
+    {
+        $dir = public_path('export_assets');
+        $this->addDirectoryToZip($zip, $dir . '/intl-tel-input', 'assets/intl-tel-input');
+        $zip->addFile($dir . '/lead-validation-data.json', 'api_files/lead_validation_data.json');
+        $zip->addFile($dir . '/lead-validation-messages.json', 'api_files/lead_validation_messages.json');
     }
 
     private function addDirectoryToZip(ZipArchive $zip, string $srcDir, string $zipBase): void
