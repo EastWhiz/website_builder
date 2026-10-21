@@ -1,0 +1,14 @@
+intl-tel-input 19.5.2 (MIT). Bundled so exported landing pages do not depend on a CDN.
+utils.js is Google libphonenumber (Apache-2.0, see header of js/utils.js).
+Source: npm package intl-tel-input@19.5.2
+Package integrity (npm registry): sha512-i3FbWwSJ7mxl8fpXaCQ5LzCdJ/fLIbMWEE2PPWBSlafJIERMEVQS/5H2g6sUszovVJwzwoJMbbxkFQi8kvOcKQ==
+To upgrade: npm pack intl-tel-input@<ver>, verify integrity, replace these files, re-test phone validation per country.
+
+sha256 of bundled files:
+3004fc246e33fb535b584120cb67867ca878b8dd34d158e3f64a32dfeff28ff7 *js/intlTelInput.min.js
+eb4edefc2453aa6a1cd8a24047ab9e04c652512869d6b74c4037d66c562f8e9a *js/utils.js
+c2be0ace12ff57cc6745e036dfac61f8c1c93ed732544c221bd6b3878fd4f400 *css/intlTelInput.css
+54dc5bc49fbe41359681fa0af8add039fa1383a4f4eade34f7a0a5a257dd1caa *img/flags.png
+9bd008993ca35f0698b8131efb4225cfab1af46cbd5fbae86e8ebc825819aced *img/flags@2x.png
+5e33626e5183115563f970a1c7035db97fc93eb1f9be5a1bbea77309e14c6c05 *img/globe.png
+51c4af449ac57113a8b46967fbb6184fed104e6fff2f243977328712651ab8cc *img/globe@2x.png
